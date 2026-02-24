@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Core.Caching;
 using Nethermind.Core;
 using Nethermind.Db;
 using Nethermind.JsonRpc;
@@ -19,9 +20,9 @@ public class ArbitrumDebugRpcModuleTests
 {
     private IDbProvider _dbProvider = null!;
     private IResettableBlockTree _blockTree = null!;
-    private List<ICacheAware> _cacheAwareServices = null!;
-    private ICacheAware _mockCache1 = null!;
-    private ICacheAware _mockCache2 = null!;
+    private List<IClearableCache> _cacheAwareServices = null!;
+    private IClearableCache _mockCache1 = null!;
+    private IClearableCache _mockCache2 = null!;
     private ArbitrumDebugRpcModule _module = null!;
 
     [SetUp]
@@ -29,8 +30,8 @@ public class ArbitrumDebugRpcModuleTests
     {
         _dbProvider = CreateMockDbProvider();
         _blockTree = Substitute.For<IResettableBlockTree>();
-        _mockCache1 = Substitute.For<ICacheAware>();
-        _mockCache2 = Substitute.For<ICacheAware>();
+        _mockCache1 = Substitute.For<IClearableCache>();
+        _mockCache2 = Substitute.For<IClearableCache>();
         _cacheAwareServices = [_mockCache1, _mockCache2];
 
         _module = new ArbitrumDebugRpcModule(
@@ -236,8 +237,8 @@ public class ArbitrumDebugRpcModuleTests
     {
         await _module.debug_reinitialize(51, "{}", null);
 
-        _mockCache1.Received(1).ClearCaches();
-        _mockCache2.Received(1).ClearCaches();
+        _mockCache1.Received(1).ClearCache();
+        _mockCache2.Received(1).ClearCache();
     }
 
 
@@ -313,8 +314,8 @@ public class ArbitrumDebugRpcModuleTests
         // Each call should clear databases and caches
         _dbProvider.StateDb.Received(5).Clear();
         _blockTree.Received(5).ResetForTesting();
-        _mockCache1.Received(5).ClearCaches();
-        _mockCache2.Received(5).ClearCaches();
+        _mockCache1.Received(5).ClearCache();
+        _mockCache2.Received(5).ClearCache();
     }
 
 }

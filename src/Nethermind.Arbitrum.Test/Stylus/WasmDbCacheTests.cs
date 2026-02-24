@@ -10,7 +10,7 @@ using Nethermind.Db;
 namespace Nethermind.Arbitrum.Test.Stylus;
 
 /// <summary>
-/// Tests for WasmDb cache operations including ClearCaches().
+/// Tests for WasmDb cache operations including ClearCache().
 /// Uses in-memory database to test real cache behavior.
 /// </summary>
 public class WasmDbCacheTests
@@ -33,19 +33,19 @@ public class WasmDbCacheTests
 
 
     [Test]
-    public void ClearCaches_OnEmptyCaches_DoesNotThrow()
+    public void ClearCache_OnEmptyCaches_DoesNotThrow()
     {
-        Action act = () => _wasmDb.ClearCaches();
+        Action act = () => _wasmDb.ClearCache();
 
         act.Should().NotThrow();
     }
 
     [Test]
-    public void ClearCaches_MultipleTimes_DoesNotThrow()
+    public void ClearCache_MultipleTimes_DoesNotThrow()
     {
         for (int i = 0; i < 10; i++)
         {
-            _wasmDb.ClearCaches();
+            _wasmDb.ClearCache();
         }
 
         // Should complete without error
@@ -53,7 +53,7 @@ public class WasmDbCacheTests
     }
 
     [Test]
-    public void ClearCaches_AfterWriteActivation_ClearsInMemoryCache()
+    public void ClearCache_AfterWriteActivation_ClearsInMemoryCache()
     {
         // Setup: write activation to populate cache
         Hash256 moduleHash = TestItem.KeccakA;
@@ -69,7 +69,7 @@ public class WasmDbCacheTests
         cached1.Should().BeEquivalentTo(new byte[] { 1, 2, 3, 4 });
 
         // Act: clear caches
-        _wasmDb.ClearCaches();
+        _wasmDb.ClearCache();
 
         // Verify: still retrievable from DB (cache cleared but DB intact)
         _wasmDb.TryGetActivatedAsm("amd64", moduleHash, out byte[] cached2).Should().BeTrue();
@@ -187,7 +187,7 @@ public class WasmDbCacheTests
 
 
     [Test]
-    public void ClearCaches_Clears_AllShards()
+    public void ClearCache_Clears_AllShards()
     {
         // Write to many different module hashes to hit different shards
         // (sharding is based on last nibble of hash)
@@ -206,7 +206,7 @@ public class WasmDbCacheTests
         }
 
         // Clear all caches
-        _wasmDb.ClearCaches();
+        _wasmDb.ClearCache();
 
         // Verify all still retrievable from DB (cache cleared, DB intact)
         for (int i = 0; i < 20; i++)
@@ -223,7 +223,7 @@ public class WasmDbCacheTests
 
 
     [Test]
-    public void ClearCaches_ConcurrentAccess_NoException()
+    public void ClearCache_ConcurrentAccess_NoException()
     {
         List<Task> tasks = [];
 
@@ -247,7 +247,7 @@ public class WasmDbCacheTests
             {
                 for (int j = 0; j < 10; j++)
                 {
-                    _wasmDb.ClearCaches();
+                    _wasmDb.ClearCache();
                 }
             }));
         }

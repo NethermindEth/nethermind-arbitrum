@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Core;
 using Nethermind.Blockchain;
+using Nethermind.Core.Caching;
 using Nethermind.Core;
 using Nethermind.Db;
 using Nethermind.JsonRpc;
@@ -19,7 +20,7 @@ namespace Nethermind.Arbitrum.Modules;
 public class ArbitrumDebugRpcModule(
     IDbProvider dbProvider,
     IResettableBlockTree blockTree,
-    IEnumerable<ICacheAware> cacheAwareServices,
+    IEnumerable<IClearableCache> cacheAwareServices,
     ILogManager logManager,
     IBlockhashCache? blockhashCache = null,
     PreBlockCaches? preBlockCaches = null)
@@ -27,7 +28,7 @@ public class ArbitrumDebugRpcModule(
 {
     private readonly IDbProvider _dbProvider = dbProvider ?? throw new ArgumentNullException(nameof(dbProvider));
     private readonly IResettableBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
-    private readonly IEnumerable<ICacheAware> _cacheAwareServices = cacheAwareServices ?? throw new ArgumentNullException(nameof(cacheAwareServices));
+    private readonly IEnumerable<IClearableCache> _cacheAwareServices = cacheAwareServices ?? throw new ArgumentNullException(nameof(cacheAwareServices));
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumDebugRpcModule>();
 
     public Task<ResultWrapper<bool>> debug_reinitialize(
@@ -165,10 +166,10 @@ public class ArbitrumDebugRpcModule(
         if (_logger.IsDebug)
             _logger.Debug("Clearing all static and singleton caches...");
 
-        // Auto-discovered caches via ICacheAware (L1BlockCache, TransactionExtensions, CachedL1PriceData, WasmDb)
-        foreach (ICacheAware cache in _cacheAwareServices)
+        // Auto-discovered caches via IClearableCache (L1BlockCache, TransactionExtensions, CachedL1PriceData, WasmDb)
+        foreach (IClearableCache cache in _cacheAwareServices)
         {
-            cache.ClearCaches();
+            cache.ClearCache();
             if (_logger.IsDebug)
                 _logger.Debug($"Cleared {cache.GetType().Name}");
         }
