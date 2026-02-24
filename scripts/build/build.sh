@@ -17,7 +17,7 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
 
   # Build Nethermind.Runner
   dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Runner.csproj \
-    -c $build_config -r $rid -o $output_path/$rid --no-restore --sc \
+    -c $build_config -r $rid -o $output_path/$rid --sc \
     -p:DebugType=embedded \
     -p:IncludeAllContentForSelfExtract=true \
     -p:PublishSingleFile=true \
