@@ -106,7 +106,6 @@ namespace Nethermind.Arbitrum.Execution
             : IBlockProductionTransactionsExecutor
         {
             private readonly ILogger _logger = logManager.GetClassLogger();
-            private ArbosState? _cachedArbosState;
             private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
             event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction
@@ -129,8 +128,7 @@ namespace Nethermind.Arbitrum.Execution
                 // Don't use blockToProduce.Transactions.Count() as that would fully enumerate which is expensive
                 int txCount = blockToProduce is not null ? defaultTxCount : block.Transactions.Length;
 
-                _cachedArbosState ??= ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
-                ArbosState arbosState = _cachedArbosState;
+                ArbosState arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
                 ulong blockGasLeft = arbosState.L2PricingState.PerBlockGasLimitStorage.Get();
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
@@ -171,7 +169,8 @@ namespace Nethermind.Arbitrum.Execution
 
                         if (arbTxType == ArbitrumTxType.ArbitrumInternal && blockToProduce is not null)
                         {
-                            updatedArbosVersion = arbosState.ReadVersionFromStorage();
+                            arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
+                            updatedArbosVersion = arbosState.CurrentArbosVersion;
 
                             ArbitrumBlockHeaderInfo currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
                             currentInfo.ArbOSFormatVersion = updatedArbosVersion;
@@ -228,7 +227,7 @@ namespace Nethermind.Arbitrum.Execution
                     blockToProduce.Transactions = includedTx.ToArray();
                 }
 
-                UpdateArbitrumBlockHeader(block.Header, arbosState, updatedArbosVersion);
+                UpdateArbitrumBlockHeader(block.Header, stateProvider);
 
                 // TODO: nitro's balanceDelta & expectedBalanceDelta comparison
                 // might be a different PR because it seems to be a bit big?
@@ -334,8 +333,11 @@ namespace Nethermind.Arbitrum.Execution
                 return System.Math.Max(0, blockGasLeft - (ulong)computeUsed);
             }
 
-            private void UpdateArbitrumBlockHeader(BlockHeader header, ArbosState arbosState, ulong currentArbosVersion)
+            private void UpdateArbitrumBlockHeader(BlockHeader header, IWorldState stateProvider)
             {
+                ArbosState arbosState =
+                    ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
+
                 if ((ulong)header.Number < chainSpecParams.GenesisBlockNum)
                 {
                     throw new InvalidOperationException("Cannot finalize blocks before genesis");
@@ -359,7 +361,7 @@ namespace Nethermind.Arbitrum.Execution
                     arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
                     arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
                     arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
-                    arbBlockHeaderInfo.ArbOSFormatVersion = currentArbosVersion;
+                    arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
                 }
                 ArbitrumBlockHeaderInfo.UpdateHeader(header, arbBlockHeaderInfo);
             }
