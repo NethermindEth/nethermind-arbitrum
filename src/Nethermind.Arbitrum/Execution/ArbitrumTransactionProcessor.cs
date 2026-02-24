@@ -14,6 +14,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
@@ -89,7 +90,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer) =>
-            Execute(transaction, txTracer, ExecutionOptions.SkipValidation);
+            Execute(transaction, txTracer, ExecutionOptions.Warmup | ExecutionOptions.SkipValidation);
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
@@ -112,7 +113,8 @@ namespace Nethermind.Arbitrum.Execution
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
             // Don't pass execution options as we don't want to commit / restore at this stage
-            TransactionResult evmResult = base.Execute(tx, tracer, ExecutionOptions.None);
+            ExecutionOptions filteredOpts = opts & ~(ExecutionOptions.Restore | ExecutionOptions.Commit);
+            TransactionResult evmResult = base.Execute(tx, tracer, filteredOpts);
 
             // Post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)
