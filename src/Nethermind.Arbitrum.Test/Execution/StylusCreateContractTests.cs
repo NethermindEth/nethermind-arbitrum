@@ -282,18 +282,10 @@ public class StylusCreateContractTests
         create2Receipt.StatusCode.Should().Be(StatusCode.Success);
         long create2Gas = create2Receipt.GasUsed;
 
-        // sha3 word cost = GasCostOf.Sha3Word (6) per 32-byte word of init code
-        long initCodeWords = (ProgramTestDeployCode.Length + 31) / 32;
-        long expectedSha3Cost = GasCostOf.Sha3Word * initCodeWords;
-
-        // Observed delta = sha3Cost + calldata overhead for 32-byte zero salt (128 gas) ± WASM overhead
+        // 1001 = sha3 word cost (6 * 145 words = 870) + calldata for 32-byte zero salt (32 * 4 = 128) + WASM overhead (3)
+        // EIP-3860 word cost (2 * 145 = 290) must NOT appear here — Stylus CREATE2 only charges sha3, not eip3860.
         long gasDelta = create2Gas - create1Gas;
-        gasDelta.Should().BeGreaterThan(expectedSha3Cost + 100,
-            "CREATE2 must charge sha3 word cost ({0} gas for {1} words); too-low delta indicates sha3 is missing",
-            expectedSha3Cost, initCodeWords);
-        gasDelta.Should().BeLessThan(expectedSha3Cost + 300,
-            "CREATE2 must not charge EIP-3860 word cost ({0} extra gas would be added); too-high delta indicates double-charging",
-            GasCostOf.InitCodeWord * initCodeWords);
+        gasDelta.Should().Be(1001);
     }
 
     [Test]
@@ -323,14 +315,16 @@ public class StylusCreateContractTests
         largeReceipt.StatusCode.Should().Be(StatusCode.Success);
         long largeGas = largeReceipt.GasUsed;
 
-        // Both init codes share 4 non-zero bytes in calldata (kind + 3 EVM instruction bytes).
-        // All extra bytes in the large version are zeros (STOP opcodes / endowment padding).
+        // All extra bytes in largeCallData vs smallCallData are zeros (STOP padding), so delta is zero-byte cost.
         long calldataCostDelta = (long)(largeCallData.Length - smallCallData.Length) * 4;
+        long eip3860WordCostDelta = GasCostOf.InitCodeWord * ((largeInitCode.Length + 31) / 32 - (smallInitCode.Length + 31) / 32);
         long actualDelta = largeGas - smallGas;
-        actualDelta.Should().BeGreaterThan(calldataCostDelta - 1000,
-            "gas delta must not be reduced by eip3860 word cost being subtracted from StylusCreate return value; " +
-            "expected delta ≥ {0} (calldata cost difference minus tolerance), got {1}",
-            calldataCostDelta - 1000, actualDelta);
+
+        // Gas delta must scale with calldata cost only — not with EIP-3860 word cost.
+        // Too low  → eip3860 cost was subtracted from StylusCreate return value (Fix #4 regression, ~3126 gas short).
+        // Too high → eip3860 cost was added to gasCost (Fix #3 regression, ~3124 gas excess).
+        actualDelta.Should().BeGreaterThan(calldataCostDelta - 1000);
+        actualDelta.Should().BeLessThan(calldataCostDelta + eip3860WordCostDelta);
     }
 
     [Test]

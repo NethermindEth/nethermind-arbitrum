@@ -131,8 +131,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
 
-        // CodeSource is null when Stylus code is used as initCode in CREATE/CREATE2.
-        // In that case, compute the code hash from the raw code bytes.
         Address codeSource = vmHost.VmState.Env.CodeSource ?? Address.Zero;
 
         // If it's EIP-7702 delegation code, extract the delegated address
@@ -140,13 +138,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
             codeSource = delegatedCodeSource;
 
-        Hash256? initCodeHash = codeSource == Address.Zero
-            ? new Hash256(ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan))
-            : null;
-
-        ref readonly ValueHash256 codeHash = ref codeSource != Address.Zero
-            ? ref vmHost.WorldState.GetCodeHash(codeSource)
-            : ref initCodeHash!.ValueHash256;
+        ref readonly ValueHash256 codeHash = ref ResolveCodeHash(vmHost, codeSource);
 
         StylusOperationResult<Program> program = GetActiveProgram(in codeHash, vmHost.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
@@ -858,6 +850,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
+
+    private static ref readonly ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
+    {
+        if (codeSource != Address.Zero)
+            return ref vmHost.WorldState.GetCodeHash(codeSource);
+
+        Hash256 initCodeHash = new(ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan));
+        return ref initCodeHash.ValueHash256;
+    }
 }
 
 public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHash256 codeHash, ValueHash256 moduleHash, UInt256 dataFee,
