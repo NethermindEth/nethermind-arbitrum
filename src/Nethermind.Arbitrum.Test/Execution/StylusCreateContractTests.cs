@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
-using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -11,7 +10,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
-using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -239,6 +237,8 @@ public class StylusCreateContractTests
         context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx)).ShouldAsync()
             .RequestSucceed().And
             .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
+
+        context.Chain.LatestReceipts()[1].GasUsed.Should().Be(267_147);
     }
 
     [Test]
@@ -254,6 +254,8 @@ public class StylusCreateContractTests
         context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx)).ShouldAsync()
             .RequestSucceed().And
             .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
+
+        context.Chain.LatestReceipts()[1].GasUsed.Should().Be(276_668);
     }
 
     [Test]
@@ -315,16 +317,10 @@ public class StylusCreateContractTests
         largeReceipt.StatusCode.Should().Be(StatusCode.Success);
         long largeGas = largeReceipt.GasUsed;
 
-        // All extra bytes in largeCallData vs smallCallData are zeros (STOP padding), so delta is zero-byte cost.
-        long calldataCostDelta = (long)(largeCallData.Length - smallCallData.Length) * 4;
-        long eip3860WordCostDelta = GasCostOf.InitCodeWord * ((largeInitCode.Length + 31) / 32 - (smallInitCode.Length + 31) / 32);
+        // 200574 = calldata delta (49968 zero bytes * 4 = 199872) + WASM overhead for reading larger calldata (702).
+        // EIP-3860 word cost (2 * 1563 words = 3126) must NOT appear — Stylus CREATE1 does not charge it.
         long actualDelta = largeGas - smallGas;
-
-        // Gas delta must scale with calldata cost only — not with EIP-3860 word cost.
-        // Too low  → eip3860 cost was subtracted from StylusCreate return value (Fix #4 regression, ~3126 gas short).
-        // Too high → eip3860 cost was added to gasCost (Fix #3 regression, ~3124 gas excess).
-        actualDelta.Should().BeGreaterThan(calldataCostDelta - 1000);
-        actualDelta.Should().BeLessThan(calldataCostDelta + eip3860WordCostDelta);
+        actualDelta.Should().Be(200_574);
     }
 
     [Test]
