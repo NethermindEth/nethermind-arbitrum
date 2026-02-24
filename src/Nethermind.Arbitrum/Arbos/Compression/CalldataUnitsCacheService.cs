@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Arbitrum.Core;
+using Nethermind.Core.Caching;
 
 namespace Nethermind.Arbitrum.Arbos.Compression;
 
 /// <summary>
-/// Singleton service wrapping TransactionExtensions static cache for ICacheAware auto-discovery.
+/// Singleton service wrapping TransactionExtensions static cache for IClearableCache auto-discovery.
 /// </summary>
-public sealed class CalldataUnitsCacheService : ICacheAware
+public sealed class CalldataUnitsCacheService : IClearableCache
 {
-    public void ClearCaches() => TransactionExtensions.ClearCache();
+    public void ClearCache() => TransactionExtensions.ClearCache();
 }

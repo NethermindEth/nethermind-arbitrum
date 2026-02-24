@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos.Compression;
-using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Core;
+using Nethermind.Core.Caching;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution;
@@ -12,7 +12,7 @@ namespace Nethermind.Arbitrum.Execution;
 /// <summary>
 /// Tracks L1 price data posted by nitro
 /// </summary>
-public class CachedL1PriceData(ILogManager logManager) : ICacheAware
+public class CachedL1PriceData(ILogManager logManager) : IClearableCache
 {
     public ulong StartOfL1PriceDataCache { get; private set; }
     public ulong EndOfL1PriceDataCache { get; private set; }
@@ -145,5 +145,5 @@ public class CachedL1PriceData(ILogManager logManager) : ICacheAware
     }
 
     /// <inheritdoc />
-    public void ClearCaches() => Clear();
+    public void ClearCache() => Clear();
 }

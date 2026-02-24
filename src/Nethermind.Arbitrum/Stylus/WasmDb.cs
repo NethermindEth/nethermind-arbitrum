@@ -257,7 +257,7 @@ public sealed class WasmDb : IWasmDb
     /// Called during debug_reinitialize to ensure complete state isolation between tests.
     /// Uses sequential clearing to avoid thread pool contention - ClockCache.Clear() is O(1) and fast enough.
     /// </summary>
-    public void ClearCaches()
+    public void ClearCache()
     {
         for (int i = 0; i < CacheShardCount; i++)
         {

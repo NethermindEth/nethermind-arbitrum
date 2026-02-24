@@ -25,6 +25,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Arbitrum.Processing;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
+using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
 using Nethermind.Db;
@@ -138,10 +139,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
                     $"Actual type: {_api.BlockTree?.GetType().Name ?? "null"}. " +
                     $"Ensure ArbitrumBlockTree is registered in DI.");
 
-            // Resolve all ICacheAware services for auto-discovery
-            IEnumerable<ICacheAware> cacheAwareServices = _api.Context.Resolve<IEnumerable<ICacheAware>>();
+            // Resolve all IClearableCache services for auto-discovery
+            IEnumerable<IClearableCache> cacheAwareServices = _api.Context.Resolve<IEnumerable<IClearableCache>>();
 
-            // Resolve optional caches not managed by ICacheAware
+            // Resolve optional caches not managed by IClearableCache
             IBlockhashCache? blockhashCache = _api.Context.ResolveOptional<IBlockhashCache>();
             PreBlockCaches? preBlockCaches = _api.Context.ResolveOptional<PreBlockCaches>();
 
@@ -284,9 +285,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
-            // ICacheAware wrapper services for static caches (auto-discovered by debug_reinitialize)
-            .AddSingleton<ICacheAware, L1BlockHashCacheService>()
-            .AddSingleton<ICacheAware, CalldataUnitsCacheService>()
+            // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
+            .AddSingleton<IClearableCache, L1BlockHashCacheService>()
+            .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
