@@ -5,7 +5,6 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Blockchain.Find;
-using Nethermind.Db.LogIndex;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -52,10 +51,9 @@ namespace Nethermind.Arbitrum.Modules
             IFeeHistoryOracle feeHistoryOracle,
             IProtocolsManager protocolsManager,
             IForkInfo forkInfo,
-            ILogIndexConfig? logIndexConfig,
             ulong? secondsPerSlot,
             ArbitrumChainSpecEngineParameters chainSpecParams)
-            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
+            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
         }
