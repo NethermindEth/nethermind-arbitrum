@@ -228,6 +228,106 @@ public class StylusCreateContractTests
     }
 
     [Test]
+    public void StylusCreate1_WithInitCodeExceedingEip3860SizeLimit_DeploysContractSuccessfully()
+    {
+        TestContext context = SetupTestContext();
+
+        byte[] oversizedInitCode = BuildMinimalInitCodeOfSize(size: 50_001);
+        byte[] create1CallData = CreateContractCallData.CreateCreate1CallData(oversizedInitCode);
+        Transaction createTx = BuildCreateTransaction(context, create1CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
+    }
+
+    [Test]
+    public void StylusCreate2_WithInitCodeExceedingEip3860SizeLimit_DeploysContractSuccessfully()
+    {
+        TestContext context = SetupTestContext();
+
+        Hash256 salt = new("0x0000000000000000000000000000000000000000000000000000000000000001");
+        byte[] oversizedInitCode = BuildMinimalInitCodeOfSize(size: 50_001);
+        byte[] create2CallData = CreateContractCallData.CreateCreate2CallData(oversizedInitCode, salt);
+        Transaction createTx = BuildCreateTransaction(context, create2CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, createTx)).ShouldAsync()
+            .RequestSucceed().And
+            .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
+    }
+
+    [Test]
+    public void StylusCreate2VsCreate1_WithSameInitCode_GasDeltaMatchesSha3WordCostOnly()
+    {
+        TestContext context = SetupTestContext();
+
+        byte[] create1CallData = CreateContractCallData.CreateCreate1CallData(ProgramTestDeployCode);
+        Transaction create1Tx = BuildCreateTransaction(context, create1CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, create1Tx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt create1Receipt = context.Chain.LatestReceipts()[1];
+        create1Receipt.StatusCode.Should().Be(StatusCode.Success);
+        long create1Gas = create1Receipt.GasUsed;
+
+        Hash256 salt = Hash256.Zero;
+        byte[] create2CallData = CreateContractCallData.CreateCreate2CallData(ProgramTestDeployCode, salt);
+        Transaction create2Tx = BuildCreateTransaction(context, create2CallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, create2Tx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt create2Receipt = context.Chain.LatestReceipts()[1];
+        create2Receipt.StatusCode.Should().Be(StatusCode.Success);
+        long create2Gas = create2Receipt.GasUsed;
+
+        // 1001 = sha3 word cost (6 * 145 words = 870) + calldata for 32-byte zero salt (32 * 4 = 128) + WASM overhead (3)
+        // EIP-3860 word cost (2 * 145 = 290) must NOT appear here — Stylus CREATE2 only charges sha3, not eip3860.
+        long gasDelta = create2Gas - create1Gas;
+        gasDelta.Should().Be(1001);
+    }
+
+    [Test]
+    public void StylusCreate1_WithLargerInitCode_GasDeltaAlignedWithCallDataCostNotEip3860Savings()
+    {
+        TestContext context = SetupTestContext();
+
+        byte[] smallInitCode = BuildMinimalInitCodeOfSize(size: 32);
+        byte[] smallCallData = CreateContractCallData.CreateCreate1CallData(smallInitCode);
+        Transaction smallTx = BuildCreateTransaction(context, smallCallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, smallTx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt smallReceipt = context.Chain.LatestReceipts()[1];
+        smallReceipt.StatusCode.Should().Be(StatusCode.Success);
+        long smallGas = smallReceipt.GasUsed;
+
+        byte[] largeInitCode = BuildMinimalInitCodeOfSize(size: 50_000);
+        byte[] largeCallData = CreateContractCallData.CreateCreate1CallData(largeInitCode);
+        Transaction largeTx = BuildCreateTransaction(context, largeCallData, gasLimit: 10_000_000);
+
+        context.Chain.Digest(new TestL2Transactions(context.Chain.InitialL1BaseFee, context.Sender, largeTx)).ShouldAsync()
+            .RequestSucceed();
+
+        TxReceipt largeReceipt = context.Chain.LatestReceipts()[1];
+        largeReceipt.StatusCode.Should().Be(StatusCode.Success);
+        long largeGas = largeReceipt.GasUsed;
+
+        // All extra bytes in largeCallData vs smallCallData are zeros (STOP padding), so delta is zero-byte cost.
+        long calldataCostDelta = (long)(largeCallData.Length - smallCallData.Length) * 4;
+        long eip3860WordCostDelta = GasCostOf.InitCodeWord * ((largeInitCode.Length + 31) / 32 - (smallInitCode.Length + 31) / 32);
+        long actualDelta = largeGas - smallGas;
+
+        // Gas delta must scale with calldata cost only — not with EIP-3860 word cost.
+        // Too low  → eip3860 cost was subtracted from StylusCreate return value (Fix #4 regression, ~3126 gas short).
+        // Too high → eip3860 cost was added to gasCost (Fix #3 regression, ~3124 gas excess).
+        actualDelta.Should().BeGreaterThan(calldataCostDelta - 1000);
+        actualDelta.Should().BeLessThan(calldataCostDelta + eip3860WordCostDelta);
+    }
+
+    [Test]
     public void StylusCreate1_Arbos50WithInsufficientGas_FailsTransaction()
     {
         ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
@@ -306,6 +406,23 @@ public class StylusCreateContractTests
             .WithValue(value ?? UInt256.Zero)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
+    }
+
+    /// <summary>
+    /// Builds minimal valid EVM init code of the requested byte length.
+    /// The first 5 bytes are: PUSH1 0x00, PUSH1 0x00, RETURN — which deploys an empty contract.
+    /// The remaining bytes are 0x00 (STOP opcodes), unreachable after RETURN.
+    /// This lets tests control init code size independently of execution cost or deployed code size.
+    /// </summary>
+    private static byte[] BuildMinimalInitCodeOfSize(int size)
+    {
+        byte[] code = new byte[size];
+        code[0] = 0x60; // PUSH1
+        code[1] = 0x00; // 0 (return length)
+        code[2] = 0x60; // PUSH1
+        code[3] = 0x00; // 0 (return offset)
+        code[4] = 0xF3; // RETURN → deploys 0-byte contract; bytes [5..] are STOP, never reached
+        return code;
     }
 
     /// <summary>
