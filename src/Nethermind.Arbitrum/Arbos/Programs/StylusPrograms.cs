@@ -851,7 +851,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
 
-    private static ref readonly ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
+    private ref readonly ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
     {
         if (codeSource != Address.Zero)
             return ref vmHost.WorldState.GetCodeHash(codeSource);
