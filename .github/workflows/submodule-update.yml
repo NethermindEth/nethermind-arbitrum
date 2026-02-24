@@ -59,11 +59,18 @@ jobs:
       LATEST_SHA: ${{ needs.check-for-updates.outputs.latest-sha }}
       COMMIT_COUNT: ${{ needs.check-for-updates.outputs.commit-count }}
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure Git
         run: |
@@ -73,7 +80,7 @@ jobs:
       - name: Update submodule and create branch
         id: update
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           BRANCH_NAME="auto/nethermind-update-$(date +%Y%m%d)"
           SHORT_SHA="${LATEST_SHA:0:7}"
@@ -130,7 +137,7 @@ jobs:
       - name: Create Pull Request
         if: steps.update.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           SHORT_SHA: ${{ steps.update.outputs.short-sha }}
         run: |
           # Build PR body in a file to handle special characters safely
