@@ -119,6 +119,8 @@ public partial class L1PricingState
             if (newPrice < 0)
                 newPrice = 0;
 
+            Console.WriteLine($"PricePerUnitStorage v2 set={newPrice}");
+
             PricePerUnitStorage.Set((UInt256)newPrice);
         }
         return ArbosStorageUpdateResult.Ok;

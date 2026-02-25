@@ -221,7 +221,8 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         }
 
         // Approximate the l1 fee charged for posting this tx's calldata
-        return (PricePerUnitStorage.Get() * units, units);
+        UInt256 pricePerUnit = PricePerUnitStorage.Get();
+        return (pricePerUnit * units, units);
     }
 
     private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
@@ -276,6 +277,9 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
 
         ulong unitsSinceUpdate = UnitsSinceStorage.Get();
         ulong unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
+
+        Console.WriteLine($"UpdateForBatchPosterSpending allocationNumerator={allocationNumerator} allocationDenominator={allocationDenominator} unitsSinceUpdate={unitsSinceUpdate} unitsAllocated={unitsAllocated} lastUpdateTime={lastUpdateTime} updateTime={updateTime} currentTime={currentTime}");
+
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 
@@ -347,6 +351,8 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
 
             if (newPrice < 0)
                 newPrice = 0;
+
+            Console.WriteLine($"PricePerUnitStorage set={newPrice}");
 
             PricePerUnitStorage.Set((UInt256)newPrice);
         }

@@ -27,7 +27,7 @@ public class ArbitrumSequencerEngine(
     IStateReader stateReader,
     TransactionQueue transactionQueue)
 {
-    private const long MaxBlockSpeedMs = 1000;
+    private const long MaxBlockSpeedMs = 2000;
     private const long InactiveWaitMs = 50;
 
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
