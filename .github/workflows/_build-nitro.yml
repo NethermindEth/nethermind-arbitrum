@@ -6,7 +6,7 @@ on:
       nitro_repo:
         description: 'Nitro repository (org/repo)'
         required: false
-        default: 'NethermindEth/arbitrum-nitro'
+        default: 'OffchainLabs/nitro'
         type: string
       nitro_branch:
         description: 'Nitro branch to build'
@@ -32,11 +32,8 @@ jobs:
         with:
           repository: ${{ inputs.nitro_repo }}
           ref: ${{ inputs.nitro_branch }}
-          submodules: false
+          submodules: recursive
           fetch-depth: 1
-
-      - name: Initialize required submodules
-        run: git submodule update --init --recursive --depth 1 --jobs 4
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -97,6 +94,11 @@ jobs:
 
       - name: Build node dependencies
         run: make -j"$(nproc)" build-node-deps
+
+      - name: Build Nitro binary
+        run: |
+          mkdir -p target/bin
+          go build -o target/bin/nitro ./cmd/nitro
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

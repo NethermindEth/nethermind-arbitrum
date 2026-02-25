@@ -49,6 +49,7 @@ jobs:
   build-nitro-deps:
     uses: ./.github/workflows/_build-nitro.yml
     with:
+      nitro_repo: 'NethermindEth/arbitrum-nitro'
       nitro_branch: ${{ inputs.nitro_branch || 'system-tests' }}
       artifact_name: nitro-deps
 
