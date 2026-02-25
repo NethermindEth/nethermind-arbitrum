@@ -1,0 +1,108 @@
+services:
+  # Init container - runs once to initialize EL from L1, then exits
+  nitro-el-init:
+    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.0-rc.3-26d4dc2}
+    container_name: nitro-el-init
+    entrypoint: /usr/local/bin/nitro
+    restart: 'no'
+    volumes:
+      - ./nitro-el-data:/tmp/nitro-data
+    command:
+      - --chain.id=${CHAIN_ID:-421614}
+      - --parent-chain.id=${PARENT_CHAIN_ID:-11155111}
+      - --persistent.global-config=/tmp/nitro-data
+      - --parent-chain.connection.url=${PARENT_CHAIN_RPC_URL}
+      - --parent-chain.blob-client.beacon-url=${PARENT_CHAIN_BEACON_URL}
+      - --init.then-quit=true
+      - --init.validate-genesis-assertion=false
+      - --node.sequencer=false
+      - --node.batch-poster.enable=false
+      - --node.staker.enable=false
+      - --node.feed.input.url=
+      - --log-level=${LOG_LEVEL:-INFO}
+      - ${INIT_LATEST_FLAG:---init.latest=}
+    networks:
+      - nitro-network
+
+  # EL - runs as execution-only layer (no L1 listener)
+  nitro-el:
+    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.0-rc.3-26d4dc2}
+    container_name: nitro-el
+    entrypoint: /usr/local/bin/nitro
+    depends_on:
+      nitro-el-init:
+        condition: service_completed_successfully
+    restart: 'no'
+    ports:
+      - 8547:8547      # HTTP RPC (CL connects here)
+      - 20552:20552    # WebSocket (alternative)
+      - 8551:8551      # Auth RPC
+    volumes:
+      - ./nitro-el-data:/tmp/nitro-data
+    command:
+      - --chain.id=${CHAIN_ID:-421614}
+      - --parent-chain.id=${PARENT_CHAIN_ID:-11155111}
+      - --persistent.global-config=/tmp/nitro-data
+      - --init.empty=true
+      - --init.validate-genesis-assertion=false
+      - --node.dangerous.no-l1-listener=true
+      - --node.parent-chain-reader.enable=false
+      - --node.sequencer=false
+      - --node.batch-poster.enable=false
+      - --node.staker.enable=false
+      - --node.feed.input.url=
+      - --execution.rpc-server.enable=true
+      - --execution.rpc-server.public=true
+      - --execution.rpc-server.authenticated=false
+      - --ws.addr=0.0.0.0
+      - --ws.port=20552
+      - --ws.api=net,web3,eth,arb,nitroexecution
+      - --http.addr=0.0.0.0
+      - --http.port=8547
+      - --http.vhosts=*
+      - --http.api=net,web3,eth,arb,nitroexecution
+      - --log-level=${LOG_LEVEL:-INFO}
+    networks:
+      - nitro-network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout 5 bash -c '</dev/tcp/localhost/8547' || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # CL - connects to EL via HTTP
+  nitro-cl:
+    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.0-rc.3-26d4dc2}
+    container_name: nitro-cl
+    entrypoint: /usr/local/bin/nitro
+    depends_on:
+      nitro-el:
+        condition: service_healthy
+    restart: 'no'
+    ports: []
+    volumes:
+      - ./nitro-cl-data:/tmp/nitro-data
+    command:
+      - --chain.id=${CHAIN_ID:-421614}
+      - --parent-chain.id=${PARENT_CHAIN_ID:-11155111}
+      - --persistent.global-config=/tmp/nitro-data
+      - --init.empty=true
+      - --init.validate-genesis-assertion=false
+      - --parent-chain.connection.url=${PARENT_CHAIN_RPC_URL}
+      - --parent-chain.blob-client.beacon-url=${PARENT_CHAIN_BEACON_URL}
+      - --execution.forwarding-target=null
+      - --log-level=${LOG_LEVEL:-INFO}
+      - --node.execution-rpc-client.url=http://nitro-el:8547
+      - --node.sequencer=false
+      - --node.batch-poster.enable=false
+      - --node.staker.enable=false
+      - --node.feed.input.url=
+    networks:
+      - nitro-network
+
+networks:
+  nitro-network:
+    name: nitro-network
