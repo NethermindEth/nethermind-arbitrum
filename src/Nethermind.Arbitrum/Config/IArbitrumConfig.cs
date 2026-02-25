@@ -26,4 +26,11 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    /// <summary>
+    /// BENCHMARK ONLY: Expose GasUsed in MessageResult for comparison testing.
+    /// Do not enable in production.
+    /// </summary>
+    [ConfigItem(Description = "BENCHMARK ONLY: Expose GasUsed in MessageResult for comparison testing. Do not enable in production.", DefaultValue = "false")]
+    bool ExposeGasUsedInMessageResult { get; set; }
 }

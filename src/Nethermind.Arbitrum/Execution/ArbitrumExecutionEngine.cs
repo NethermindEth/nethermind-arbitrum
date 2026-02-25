@@ -63,7 +63,8 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<MessageResult>.Success(new()
             {
                 BlockHash = existingGenesis.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
-                SendRoot = Hash256.Zero
+                SendRoot = Hash256.Zero,
+                GasUsed = arbitrumConfig.ExposeGasUsedInMessageResult ? (ulong)existingGenesis.GasUsed : null
             });
         }
 
@@ -82,7 +83,8 @@ public sealed class ArbitrumExecutionEngine(
         return ResultWrapper<MessageResult>.Success(new()
         {
             BlockHash = genesisHeader.Hash ?? throw new InvalidOperationException("Genesis block hash must not be null"),
-            SendRoot = Hash256.Zero
+            SendRoot = Hash256.Zero,
+            GasUsed = arbitrumConfig.ExposeGasUsedInMessageResult ? (ulong)genesisHeader.GasUsed : null
         });
     }
 
@@ -216,6 +218,7 @@ public sealed class ArbitrumExecutionEngine(
             {
                 BlockHash = blockHeader.Hash ?? Hash256.Zero,
                 SendRoot = headerInfo.SendRoot,
+                GasUsed = arbitrumConfig.ExposeGasUsedInMessageResult ? (ulong)blockHeader.GasUsed : null
             }));
         }
         catch (Exception ex)
@@ -454,7 +457,8 @@ public sealed class ArbitrumExecutionEngine(
                     ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
                     {
                         BlockHash = block.Hash!,
-                        SendRoot = GetSendRootFromBlock(block)
+                        SendRoot = GetSendRootFromBlock(block),
+                        GasUsed = arbitrumConfig.ExposeGasUsedInMessageResult ? (ulong)block.GasUsed : null
                     }),
                     ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.",
                         ErrorCodes.InternalError),
@@ -503,7 +507,8 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<MessageResult>.Success(new MessageResult
             {
                 BlockHash = block.Hash!,
-                SendRoot = GetSendRootFromBlock(block)
+                SendRoot = GetSendRootFromBlock(block),
+                GasUsed = arbitrumConfig.ExposeGasUsedInMessageResult ? (ulong)block.GasUsed : null
             });
         }
         catch (TimeoutException)
