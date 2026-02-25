@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Threading.Channels;
 using Autofac;
 using Autofac.Core;
 using Nethermind.Api;
@@ -16,6 +17,7 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -31,6 +33,7 @@ using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
+using Nethermind.Facade;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
@@ -47,7 +50,7 @@ using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IArbitrumConfig arbitrumConfig) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
@@ -57,7 +60,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig);
+    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig, arbitrumConfig);
     public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public Task Init(INethermindApi api)
@@ -94,19 +97,18 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
 
         IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
 
-        // Initialize sequencer if enabled
-        IArbitrumConfig arbitrumConfig = _api.Config<IArbitrumConfig>();
         if (arbitrumConfig.SequencerEnabled)
         {
             ArbitrumExecutionEngine concreteEngine = _api.Context.Resolve<ArbitrumExecutionEngine>();
-            DelayedMessageQueue delayedMessageQueue = new();
-            SequencerState sequencerState = new(_api.LogManager);
+            SequencerState sequencerState = _api.Context.Resolve<SequencerState>();
             sequencerState.Activate();
-            concreteEngine.InitializeSequencer(delayedMessageQueue, sequencerState);
 
-            ArbitrumEthModuleFactory ethModuleFactory = _api.Context.Resolve<ArbitrumEthModuleFactory>();
-            ethModuleFactory.TransactionQueue = concreteEngine.TransactionQueue;
-            ethModuleFactory.SequencerState = sequencerState;
+            concreteEngine.InitializeSequencer(
+                _api.Context.Resolve<DelayedMessageQueue>(),
+                sequencerState,
+                _api.Context.ResolveOptional<IExpressLaneService>(),
+                _api.Context.ResolveOptional<Channel<TxQueueItem>>(),
+                _api.Context.Resolve<TransactionQueue>());
         }
 
         // Wrap engine with comparison decorator if verification is enabled
@@ -202,7 +204,7 @@ public class ArbitrumGasPolicyLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : Module
+public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IArbitrumConfig arbitrumConfig) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
@@ -267,9 +269,53 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             // Rpcs
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
-            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
-            .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
+
+        if (arbitrumConfig.SequencerEnabled)
+        {
+            builder
+                .AddSingleton<DelayedMessageQueue>()
+                .AddSingleton<SequencerState>()
+                .AddSingleton<TransactionQueue>(_ => new TransactionQueue(1024, arbitrumConfig.SequencerMaxTxDataSize));
+
+            if (arbitrumConfig.TimeboostEnabled
+                && !string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctionContractAddress))
+            {
+                Address auctionContractAddress = new(arbitrumConfig.TimeboostAuctionContractAddress);
+                RoundTimingInfo roundTimingInfo = new(
+                    offset: DateTime.UnixEpoch,
+                    round: TimeSpan.FromSeconds(60),
+                    auctionClosing: TimeSpan.FromSeconds(15));
+
+                builder
+                    .AddSingleton<Channel<TxQueueItem>>(_ =>
+                        Channel.CreateBounded<TxQueueItem>(
+                            new BoundedChannelOptions(10) { FullMode = BoundedChannelFullMode.DropOldest }))
+                    .AddSingleton<IExpressLaneService>(ctx =>
+                    {
+                        IBlockchainBridgeFactory bridgeFactory = ctx.Resolve<IBlockchainBridgeFactory>();
+                        IBlockchainBridge bridge = bridgeFactory.CreateBlockchainBridge();
+                        return new ExpressLaneService(
+                            roundTimingInfo,
+                            auctionContractAddress,
+                            ctx.Resolve<TransactionQueue>(),
+                            getHead: () => ctx.Resolve<ArbitrumExecutionEngine>().BlockTree.Head?.Header,
+                            callContract: (header, tx) => bridge.Call(header, tx),
+                            TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostEarlySubmissionGraceMs),
+                            ctx.Resolve<ILogManager>());
+                    });
+            }
+        }
+
+        builder.RegisterType<ArbitrumEthModuleFactory>()
+            .AsSelf()
+            .As<IRpcModuleFactory<IEthRpcModule>>()
+            .SingleInstance()
+            .OnActivated(e =>
+            {
+                e.Instance.TransactionQueue = e.Context.ResolveOptional<TransactionQueue>();
+                e.Instance.SequencerState = e.Context.ResolveOptional<SequencerState>();
+            });
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();

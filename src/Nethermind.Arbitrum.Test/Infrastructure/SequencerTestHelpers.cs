@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Security.Cryptography;
+using System.Threading.Channels;
 using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
@@ -11,6 +12,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -171,6 +173,41 @@ public static class SequencerTestHelpers
             .WithChainId(412346)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
+    }
+
+    public static ArbitrumExecutionEngine CreateEngineWithTimeboost(
+        ArbitrumRpcTestBlockchain chain,
+        out DelayedMessageQueue delayedMessageQueue,
+        out TransactionQueue transactionQueue,
+        out ArbitrumEthRpcModule ethRpcModule,
+        out Channel<TxQueueItem> auctionResolutionQueue,
+        IExpressLaneService? expressLaneService = null)
+    {
+        delayedMessageQueue = new DelayedMessageQueue();
+        SequencerState sequencerState = new(LimboLogs.Instance);
+        sequencerState.Activate();
+
+        auctionResolutionQueue = Channel.CreateBounded<TxQueueItem>(10);
+
+        ArbitrumExecutionEngine engine = new(
+            chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
+            chain.BlockTree,
+            chain.BlockProductionTrigger,
+            chain.ChainSpec,
+            chain.SpecHelper,
+            chain.LogManager,
+            chain.CachedL1PriceData,
+            chain.BlockProcessingQueue,
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IBlocksConfig>(),
+            chain.Container.Resolve<IStateReader>());
+
+        engine.InitializeSequencer(delayedMessageQueue, sequencerState, expressLaneService, auctionResolutionQueue);
+        transactionQueue = engine.TransactionQueue!;
+
+        ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, transactionQueue, sequencerState);
+
+        return engine;
     }
 
     public static (ArbitrumRpcModule RpcModule, DelayedMessageQueue Queue) CreateRpcModuleWithSequencer(

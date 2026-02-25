@@ -35,4 +35,22 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Maximum transaction data size in bytes for sequencer mode", DefaultValue = "95000")]
     int SequencerMaxTxDataSize { get; set; }
+
+    [ConfigItem(Description = "Whether to enable Timeboost express lane auction priority", DefaultValue = "false")]
+    bool TimeboostEnabled { get; set; }
+
+    [ConfigItem(Description = "Express lane advantage over regular transactions in milliseconds", DefaultValue = "200")]
+    int TimeboostExpressLaneAdvantageMs { get; set; }
+
+    [ConfigItem(Description = "Number of blocks after which a timeboosted transaction expires from the queue", DefaultValue = "5")]
+    ulong TimeboostQueueTimeoutInBlocks { get; set; }
+
+    [ConfigItem(Description = "Address of the ExpressLaneAuction contract", DefaultValue = "")]
+    string TimeboostAuctionContractAddress { get; set; }
+
+    [ConfigItem(Description = "Address of the Timeboost autonomous auctioneer", DefaultValue = "")]
+    string TimeboostAuctioneerAddress { get; set; }
+
+    [ConfigItem(Description = "Grace period in milliseconds before the next round during which next-round express lane submissions are accepted", DefaultValue = "2000")]
+    int TimeboostEarlySubmissionGraceMs { get; set; }
 }

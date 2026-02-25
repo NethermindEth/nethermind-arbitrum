@@ -23,10 +23,15 @@ public class TransactionQueue(int capacity, int maxTxDataSize)
     /// Enqueues a transaction and returns a task that completes when the tx is included in a block
     /// or rejected. Returns null on success, an exception on failure.
     /// </summary>
-    public async Task<Exception?> EnqueueAsync(Transaction tx, CancellationToken ct)
-    {
-        TxQueueItem item = new(tx, ct);
+    public Task<Exception?> EnqueueAsync(Transaction tx, CancellationToken ct)
+        => EnqueueAsync(new TxQueueItem(tx, ct));
 
+    /// <summary>
+    /// Enqueues a pre-built item (preserving flags such as IsTimeboosted) and returns a task
+    /// that completes when the tx is included in a block or rejected.
+    /// </summary>
+    public async Task<Exception?> EnqueueAsync(TxQueueItem item)
+    {
         if (item.RlpEncoded.Length > maxTxDataSize)
             return new InvalidOperationException($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {maxTxDataSize}");
 

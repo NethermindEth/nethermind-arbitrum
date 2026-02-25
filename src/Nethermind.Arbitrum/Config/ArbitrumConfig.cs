@@ -17,6 +17,12 @@ public class ArbitrumConfig : IArbitrumConfig
     public bool SequencerEnabled { get; set; } = false;
     public int SequencerNonceCacheSize { get; set; } = 1024;
     public int SequencerMaxTxDataSize { get; set; } = 95000;
+    public bool TimeboostEnabled { get; set; } = false;
+    public int TimeboostExpressLaneAdvantageMs { get; set; } = 200;
+    public ulong TimeboostQueueTimeoutInBlocks { get; set; } = 5;
+    public string TimeboostAuctionContractAddress { get; set; } = "";
+    public string TimeboostAuctioneerAddress { get; set; } = "";
+    public int TimeboostEarlySubmissionGraceMs { get; set; } = 2000;
 }
 
 public static class ArbitrumConfigExtensions

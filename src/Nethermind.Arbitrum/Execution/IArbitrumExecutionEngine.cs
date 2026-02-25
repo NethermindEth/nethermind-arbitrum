@@ -37,4 +37,7 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<EmptyResponse> Pause();
     ResultWrapper<EmptyResponse> Activate();
     ResultWrapper<EmptyResponse> ForwardTo(string url);
+
+    Task<ResultWrapper<bool>> PublishAuctionResolutionTransactionAsync(byte[] rlpTransaction);
+    Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc submission);
 }
