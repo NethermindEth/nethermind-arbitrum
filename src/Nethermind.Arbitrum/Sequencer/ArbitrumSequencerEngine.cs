@@ -27,7 +27,7 @@ public class ArbitrumSequencerEngine(
     IStateReader stateReader,
     TransactionQueue transactionQueue)
 {
-    private const long MaxBlockSpeedMs = 2000;
+    private const long MaxBlockSpeedMs = 5000;
     private const long InactiveWaitMs = 50;
 
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
@@ -44,7 +44,7 @@ public class ArbitrumSequencerEngine(
 
     public TransactionQueue TransactionQueue { get; } = transactionQueue;
 
-    public async Task<StartSequencingResult> StartSequencingAsync()
+    public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong timestamp)
     {
         if (!sequencerState.IsActive)
         {
@@ -62,7 +62,7 @@ public class ArbitrumSequencerEngine(
         if (result is not null)
             return new StartSequencingResult(result, 0);
 
-        result = await CreateBlockWithRegularTxsAsync();
+        result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, timestamp);
         if (result is not null)
             return new StartSequencingResult(result, 0);
 
@@ -233,7 +233,7 @@ public class ArbitrumSequencerEngine(
         return (item, error);
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync()
+    private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong timestamp)
     {
         List<TxQueueItem> queueItems = TransactionQueue.DrainBatch();
 
@@ -272,7 +272,7 @@ public class ArbitrumSequencerEngine(
 
         try
         {
-            return await CreateBlockWithRegularTxsWithMutexAsync(queueItems);
+            return await CreateBlockWithRegularTxsWithMutexAsync(queueItems, l1BlockNumber, timestamp);
         }
         catch (Exception ex)
         {
@@ -290,7 +290,7 @@ public class ArbitrumSequencerEngine(
         }
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithRegularTxsWithMutexAsync(List<TxQueueItem> queueItems)
+    private async Task<SequencedMsg?> CreateBlockWithRegularTxsWithMutexAsync(List<TxQueueItem> queueItems, ulong l1BlockNumber, ulong timestamp)
     {
         BlockHeader head = blockTree.Head?.Header
             ?? throw new InvalidOperationException("BlockTree.Head is null");
@@ -304,7 +304,7 @@ public class ArbitrumSequencerEngine(
         }
 
         MessageWithMetadata messageWithMetadata =
-            L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, head, 0);
+            L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, l1BlockNumber, timestamp, head.Nonce);
 
         long blockNumber = head.Number + 1;
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);

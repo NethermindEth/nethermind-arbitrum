@@ -40,7 +40,7 @@ public record L1IncomingMessageHeader(
     [property: JsonPropertyName("blockNumber"), JsonConverter(typeof(GoCompatULongConverter))] ulong BlockNumber, // L1 block number
     [property: JsonPropertyName("timestamp"), JsonConverter(typeof(GoCompatULongConverter))] ulong Timestamp,
     [property: JsonPropertyName("requestId")] Hash256? RequestId,
-    [property: JsonPropertyName("baseFeeL1"), JsonConverter(typeof(GoCompatUInt256Converter))] UInt256 BaseFeeL1
+    [property: JsonPropertyName("baseFeeL1"), JsonConverter(typeof(GoCompatNullableUInt256Converter))] UInt256? BaseFeeL1
 );
 
 public record DigestInitMessage(
@@ -79,4 +79,9 @@ public record SequencedMsg(
 
 public record EndSequencingParams(
     [property: JsonPropertyName("error")] string? Error
+);
+
+public record StartSequencingParams(
+    [property: JsonPropertyName("l1BlockNumber"), JsonConverter(typeof(GoCompatULongConverter))] ulong L1BlockNumber,
+    [property: JsonPropertyName("timestamp"), JsonConverter(typeof(GoCompatULongConverter))] ulong Timestamp
 );

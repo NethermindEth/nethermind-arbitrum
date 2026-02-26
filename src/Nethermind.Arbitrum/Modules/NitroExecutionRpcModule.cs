@@ -77,8 +77,8 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
     public Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus()
         => engine.MaintenanceStatusAsync();
 
-    public Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing()
-        => engine.StartSequencingAsync();
+    public Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing(ulong l1BlockNumber, ulong timestamp)
+        => engine.StartSequencingAsync(l1BlockNumber, timestamp);
 
     public ResultWrapper<EmptyResponse> nitroexecution_endSequencing(string? error)
         => engine.EndSequencing(error);

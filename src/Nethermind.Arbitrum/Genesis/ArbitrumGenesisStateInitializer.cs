@@ -87,7 +87,6 @@ public class ArbitrumGenesisStateInitializer(
             {
                 worldState.CreateAccountIfNotExists(address, UInt256.Zero);
                 worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, specProvider.GenesisSpec, true);
-                Console.WriteLine($"precompile[{address}]=INVALID");
             }
         }
 
@@ -114,9 +113,6 @@ public class ArbitrumGenesisStateInitializer(
         if (initMessage.SerializedChainConfig != null)
         {
             chainConfigStorage.Set(initMessage.SerializedChainConfig);
-
-            Console.WriteLine($"SerializedChainConfig HASH: {Keccak.Compute(initMessage.SerializedChainConfig)}");
-
             if (_logger.IsDebug)
                 _logger.Debug("Stored chain config in ArbOS state");
         }

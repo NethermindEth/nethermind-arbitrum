@@ -93,8 +93,6 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
     {
-        _logger.Warn("DigestMessage");
-
         ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndexAsync(parameters.Index);
         if (resultAtMessageIndex.Result == Result.Success)
             return resultAtMessageIndex;
@@ -427,8 +425,8 @@ public sealed class ArbitrumExecutionEngine(
             transactionQueue);
     }
 
-    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync()
-        => RunSequencerOpAsync(seq => seq.StartSequencingAsync(), nameof(StartSequencingAsync));
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong timestamp)
+        => RunSequencerOpAsync(seq => seq.StartSequencingAsync(l1BlockNumber, timestamp), nameof(StartSequencingAsync));
 
     public ResultWrapper<EmptyResponse> EndSequencing(string? error)
         => RunSequencerAction(seq => seq.EndSequencing(error), nameof(EndSequencing));

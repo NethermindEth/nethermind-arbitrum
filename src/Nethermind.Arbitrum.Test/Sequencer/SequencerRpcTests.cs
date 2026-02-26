@@ -33,7 +33,7 @@ public class SequencerRpcTests
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         queue.Enqueue([depositMsg], genesisDelayedMsgRead);
 
-        ResultWrapper<StartSequencingResult> result = await rpcModule.StartSequencing();
+        ResultWrapper<StartSequencingResult> result = await rpcModule.StartSequencing(new StartSequencingParams(0, 0));
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().NotBeNull();
@@ -102,7 +102,7 @@ public class SequencerRpcTests
         pauseResult.Result.Should().Be(Result.Success);
         pauseResult.Data.Should().Be("OK");
 
-        ResultWrapper<StartSequencingResult> result = await rpcModule.StartSequencing();
+        ResultWrapper<StartSequencingResult> result = await rpcModule.StartSequencing(new StartSequencingParams(0, 0));
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().BeNull("sequencer is paused, should not produce blocks");
     }
@@ -128,7 +128,7 @@ public class SequencerRpcTests
         enqueueResult.Result.Should().Be(Result.Success);
 
         // 2. StartSequencing
-        ResultWrapper<StartSequencingResult> seqResult = await rpcModule.StartSequencing();
+        ResultWrapper<StartSequencingResult> seqResult = await rpcModule.StartSequencing(new StartSequencingParams(0, 0));
         seqResult.Result.Should().Be(Result.Success);
         seqResult.Data.SequencedMsg.Should().NotBeNull();
 
