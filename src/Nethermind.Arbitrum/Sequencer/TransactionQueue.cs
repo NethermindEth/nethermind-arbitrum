@@ -20,15 +20,8 @@ public class TransactionQueue(int capacity, int maxTxDataSize)
     private readonly ConcurrentQueue<TxQueueItem> _retryQueue = new();
 
     /// <summary>
-    /// Enqueues a transaction and returns a task that completes when the tx is included in a block
+    /// Enqueues an item and returns a task that completes when the tx is included in a block
     /// or rejected. Returns null on success, an exception on failure.
-    /// </summary>
-    public Task<Exception?> EnqueueAsync(Transaction tx, CancellationToken ct)
-        => EnqueueAsync(new TxQueueItem(tx, ct));
-
-    /// <summary>
-    /// Enqueues a pre-built item (preserving flags such as IsTimeboosted) and returns a task
-    /// that completes when the tx is included in a block or rejected.
     /// </summary>
     public async Task<Exception?> EnqueueAsync(TxQueueItem item)
     {

@@ -121,10 +121,10 @@ public class UserTxSequencingTests
             .TestObject;
 
         // First enqueue should succeed (fills capacity=1)
-        Task<Exception?> task1 = queue.EnqueueAsync(tx1, CancellationToken.None);
+        Task<Exception?> task1 = queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
 
         // Second enqueue should be rejected since capacity is 1
-        Task<Exception?> task2 = queue.EnqueueAsync(tx2, CancellationToken.None);
+        Task<Exception?> task2 = queue.EnqueueAsync(new TxQueueItem(tx2, CancellationToken.None));
 
         task2.IsCompleted.Should().BeTrue();
         task2.Result.Should().BeOfType<InvalidOperationException>();
@@ -144,7 +144,7 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        Task<Exception?> task = queue.EnqueueAsync(tx, CancellationToken.None);
+        Task<Exception?> task = queue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
         task.IsCompleted.Should().BeTrue();
         task.Result.Should().BeOfType<InvalidOperationException>();

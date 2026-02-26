@@ -85,7 +85,7 @@ public class TimeboostSequencerEngineTests
 
         // Regular tx: no timeboost bits should be set
         Transaction regularTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-        Task<Exception?> regularEnqueue = transactionQueue.EnqueueAsync(regularTx, CancellationToken.None);
+        Task<Exception?> regularEnqueue = transactionQueue.EnqueueAsync(new TxQueueItem(regularTx, CancellationToken.None));
         await Task.Delay(50);
 
         ResultWrapper<StartSequencingResult> regularResult = await engine.StartSequencingAsync();

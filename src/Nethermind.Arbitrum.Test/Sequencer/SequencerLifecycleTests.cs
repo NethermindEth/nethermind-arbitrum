@@ -34,7 +34,7 @@ public class SequencerLifecycleTests
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-        Task<Exception?> txResult = txQueue.EnqueueAsync(tx, CancellationToken.None);
+        Task<Exception?> txResult = txQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
         engine.Pause();
 
@@ -61,7 +61,7 @@ public class SequencerLifecycleTests
         engine.Activate();
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-        Task<Exception?> txResult = txQueue.EnqueueAsync(tx, CancellationToken.None);
+        Task<Exception?> txResult = txQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
         ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
 
@@ -220,7 +220,7 @@ public class SequencerLifecycleTests
             genesisResult.Result.Should().Be(Result.Success);
 
             Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-            Task<Exception?> txResultTask = txQueue.EnqueueAsync(tx, CancellationToken.None);
+            Task<Exception?> txResultTask = txQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
             ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
 

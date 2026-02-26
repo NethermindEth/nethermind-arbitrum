@@ -98,7 +98,7 @@ namespace Nethermind.Arbitrum.Modules
             switch (mode)
             {
                 case SequencerMode.Active:
-                    Exception? enqueueError = await _transactionQueue.EnqueueAsync(tx, CancellationToken.None);
+                    Exception? enqueueError = await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
                     return enqueueError is not null
                         ? ResultWrapper<Hash256>.Fail(enqueueError.Message, ErrorCodes.TransactionRejected)
                         : ResultWrapper<Hash256>.Success(tx.Hash!);
