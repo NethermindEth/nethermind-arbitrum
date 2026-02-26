@@ -36,7 +36,6 @@ using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Stateless;
-using Nethermind.Db.LogIndex;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 

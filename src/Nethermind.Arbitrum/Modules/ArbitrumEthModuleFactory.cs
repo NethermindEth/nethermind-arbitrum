@@ -14,7 +14,6 @@ using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
-using Nethermind.Db.LogIndex;
 using Nethermind.Logging;
 using Nethermind.Network;
 using Nethermind.State;
@@ -39,9 +38,8 @@ public class ArbitrumEthModuleFactory(
     IFeeHistoryOracle feeHistoryOracle,
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
-    ILogIndexConfig? logIndexConfig,
     IBlocksConfig blocksConfig,
-    ILogIndexConfig logIndexConfig,
+    ILogIndexConfig? logIndexConfig,
     ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
 {
     public override IEthRpcModule Create()

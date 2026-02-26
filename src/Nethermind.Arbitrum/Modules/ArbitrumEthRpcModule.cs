@@ -22,7 +22,6 @@ using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
-using Nethermind.Db.LogIndex;
 using Nethermind.Logging;
 using Nethermind.Network;
 using Nethermind.Specs.Forks;
