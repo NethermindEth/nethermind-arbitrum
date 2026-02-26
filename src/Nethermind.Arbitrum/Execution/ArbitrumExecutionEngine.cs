@@ -17,6 +17,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
@@ -489,6 +490,14 @@ public sealed class ArbitrumExecutionEngine(
 
         if (tx.To != _expressLaneService.AuctionContractAddress)
             return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {_expressLaneService.AuctionContractAddress}");
+
+        if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctioneerAddress))
+            return ResultWrapper<bool>.Fail("TimeboostAuctioneerAddress is not configured");
+
+        Address expectedAuctioneer = new(arbitrumConfig.TimeboostAuctioneerAddress);
+        Address? sender = new EthereumEcdsa(chainSpec.ChainId).RecoverAddress(tx);
+        if (sender != expectedAuctioneer)
+            return ResultWrapper<bool>.Fail($"Transaction sender {sender} is not the authorized auctioneer {expectedAuctioneer}");
 
         if (!_expressLaneService.IsWithinAuctionCloseWindow(DateTime.UtcNow))
             return ResultWrapper<bool>.Fail("Not within the auction close window");

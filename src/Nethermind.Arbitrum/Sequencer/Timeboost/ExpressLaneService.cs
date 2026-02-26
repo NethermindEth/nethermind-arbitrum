@@ -15,7 +15,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
     // resolvedRounds() function selector = keccak256("resolvedRounds()")[:4] = 0x0d253fbe
     private static readonly byte[] ResolvedRoundsSelector = [0x0d, 0x25, 0x3f, 0xbe];
 
-    private const uint MaxFutureSequenceDistance = 4096;
+    private const uint MaxFutureSequenceDistance = 1000;
 
     private readonly RoundTimingInfo _roundTimingInfo;
     private readonly Address _auctionContractAddress;
