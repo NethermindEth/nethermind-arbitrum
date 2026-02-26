@@ -53,4 +53,10 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Grace period in milliseconds before the next round during which next-round express lane submissions are accepted", DefaultValue = "2000")]
     int TimeboostEarlySubmissionGraceMs { get; set; }
+
+    [ConfigItem(Description = "Duration of a Timeboost express lane auction round in seconds", DefaultValue = "60")]
+    int TimeboostRoundDurationSeconds { get; set; }
+
+    [ConfigItem(Description = "Duration of the auction closing window at the end of each round in seconds", DefaultValue = "15")]
+    int TimeboostAuctionClosingWindowSeconds { get; set; }
 }

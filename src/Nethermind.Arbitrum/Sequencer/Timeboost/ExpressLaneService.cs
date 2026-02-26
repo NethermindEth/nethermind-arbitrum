@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Buffers.Binary;
+using Nethermind.Arbitrum.Config;
+using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Facade;
 using Nethermind.Logging;
@@ -18,8 +20,8 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
     private readonly RoundTimingInfo _roundTimingInfo;
     private readonly Address _auctionContractAddress;
     private readonly TransactionQueue _transactionQueue;
-    private readonly Func<BlockHeader?> _getHead;
-    private readonly Func<BlockHeader, Transaction, CallOutput> _callContract;
+    private readonly IBlockTree _blockTree;
+    private readonly IBlockchainBridge _bridge;
     private readonly TimeSpan _earlySubmissionGrace;
     private readonly ILogger _logger;
 
@@ -37,20 +39,19 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
 
     public ExpressLaneService(
         RoundTimingInfo roundTimingInfo,
-        Address auctionContractAddress,
+        IArbitrumConfig arbitrumConfig,
         TransactionQueue transactionQueue,
-        Func<BlockHeader?> getHead,
-        Func<BlockHeader, Transaction, CallOutput> callContract,
-        TimeSpan earlySubmissionGrace,
+        IBlockTree blockTree,
+        IBlockchainBridgeFactory bridgeFactory,
         ILogManager logManager,
         TimeSpan? pollInterval = null)
     {
         _roundTimingInfo = roundTimingInfo;
-        _auctionContractAddress = auctionContractAddress;
+        _auctionContractAddress = new Address(arbitrumConfig.TimeboostAuctionContractAddress);
         _transactionQueue = transactionQueue;
-        _getHead = getHead;
-        _callContract = callContract;
-        _earlySubmissionGrace = earlySubmissionGrace;
+        _blockTree = blockTree;
+        _bridge = bridgeFactory.CreateBlockchainBridge();
+        _earlySubmissionGrace = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostEarlySubmissionGraceMs);
         _logger = logManager.GetClassLogger<ExpressLaneService>();
         _pollInterval = pollInterval ?? TimeSpan.FromSeconds(1);
 
@@ -182,7 +183,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
 
     private void PollResolvedRounds()
     {
-        BlockHeader? head = _getHead();
+        BlockHeader? head = _blockTree.Head?.Header;
         if (head is null)
             return;
 
@@ -194,7 +195,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
             SenderAddress = Address.Zero,
         };
 
-        CallOutput result = _callContract(head, callTx);
+        CallOutput result = _bridge.Call(head, callTx);
         if (result.Error is not null || result.ExecutionReverted)
             return;
 

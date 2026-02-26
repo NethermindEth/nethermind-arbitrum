@@ -23,6 +23,8 @@ public class ArbitrumConfig : IArbitrumConfig
     public string TimeboostAuctionContractAddress { get; set; } = "";
     public string TimeboostAuctioneerAddress { get; set; } = "";
     public int TimeboostEarlySubmissionGraceMs { get; set; } = 2000;
+    public int TimeboostRoundDurationSeconds { get; set; } = 60;
+    public int TimeboostAuctionClosingWindowSeconds { get; set; } = 15;
 }
 
 public static class ArbitrumConfigExtensions

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Threading.Channels;
 using Autofac;
 using Autofac.Core;
 using Nethermind.Api;
@@ -33,7 +32,6 @@ using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Facade;
 using Nethermind.HealthChecks;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
@@ -107,7 +105,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 _api.Context.Resolve<DelayedMessageQueue>(),
                 sequencerState,
                 _api.Context.ResolveOptional<IExpressLaneService>(),
-                _api.Context.ResolveOptional<Channel<TxQueueItem>>(),
+                _api.Context.ResolveOptional<AuctionResolutionQueue>(),
                 _api.Context.Resolve<TransactionQueue>());
         }
 
@@ -278,32 +276,20 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 .AddSingleton<SequencerState>()
                 .AddSingleton<TransactionQueue>(_ => new TransactionQueue(1024, arbitrumConfig.SequencerMaxTxDataSize));
 
-            if (arbitrumConfig.TimeboostEnabled
-                && !string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctionContractAddress))
+            if (arbitrumConfig.TimeboostEnabled)
             {
-                Address auctionContractAddress = new(arbitrumConfig.TimeboostAuctionContractAddress);
-                RoundTimingInfo roundTimingInfo = new(
-                    offset: DateTime.UnixEpoch,
-                    round: TimeSpan.FromSeconds(60),
-                    auctionClosing: TimeSpan.FromSeconds(15));
+                if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctionContractAddress))
+                    throw new InvalidOperationException(
+                        "Timeboost is enabled but TimeboostAuctionContractAddress is not configured. " +
+                        "Please set Arbitrum.TimeboostAuctionContractAddress or disable Timeboost.");
 
                 builder
-                    .AddSingleton<Channel<TxQueueItem>>(_ =>
-                        Channel.CreateBounded<TxQueueItem>(
-                            new BoundedChannelOptions(10) { FullMode = BoundedChannelFullMode.DropOldest }))
-                    .AddSingleton<IExpressLaneService>(ctx =>
-                    {
-                        IBlockchainBridgeFactory bridgeFactory = ctx.Resolve<IBlockchainBridgeFactory>();
-                        IBlockchainBridge bridge = bridgeFactory.CreateBlockchainBridge();
-                        return new ExpressLaneService(
-                            roundTimingInfo,
-                            auctionContractAddress,
-                            ctx.Resolve<TransactionQueue>(),
-                            getHead: () => ctx.Resolve<ArbitrumExecutionEngine>().BlockTree.Head?.Header,
-                            callContract: (header, tx) => bridge.Call(header, tx),
-                            TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostEarlySubmissionGraceMs),
-                            ctx.Resolve<ILogManager>());
-                    });
+                    .AddSingleton<RoundTimingInfo>(_ => new RoundTimingInfo(
+                        offset: DateTime.UnixEpoch,
+                        round: TimeSpan.FromSeconds(arbitrumConfig.TimeboostRoundDurationSeconds),
+                        auctionClosing: TimeSpan.FromSeconds(arbitrumConfig.TimeboostAuctionClosingWindowSeconds)))
+                    .AddSingleton<AuctionResolutionQueue>()
+                    .AddSingleton<IExpressLaneService, ExpressLaneService>();
             }
         }
 

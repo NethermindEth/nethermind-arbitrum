@@ -4,7 +4,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using System.Threading.Channels;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Genesis;
@@ -53,7 +52,7 @@ public sealed class ArbitrumExecutionEngine(
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
 
     private IExpressLaneService? _expressLaneService;
-    private Channel<TxQueueItem>? _auctionResolutionQueue;
+    private AuctionResolutionQueue? _auctionResolutionQueue;
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
 
     private ArbitrumSequencerEngine? _sequencerEngine;
@@ -419,7 +418,7 @@ public sealed class ArbitrumExecutionEngine(
         DelayedMessageQueue delayedMessageQueue,
         SequencerState sequencerState,
         IExpressLaneService? expressLaneService = null,
-        Channel<TxQueueItem>? auctionResolutionQueue = null,
+        AuctionResolutionQueue? auctionResolutionQueue = null,
         TransactionQueue? transactionQueue = null)
     {
         _expressLaneService = expressLaneService;

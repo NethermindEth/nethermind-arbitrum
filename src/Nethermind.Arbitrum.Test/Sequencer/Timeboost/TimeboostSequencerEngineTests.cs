@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Threading.Channels;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -31,7 +30,7 @@ public class TimeboostSequencerEngineTests
             out DelayedMessageQueue _,
             out TransactionQueue _,
             out ArbitrumEthRpcModule ethRpcModule,
-            out Channel<TxQueueItem> auctionResolutionQueue);
+            out AuctionResolutionQueue auctionResolutionQueue);
 
         engine.DigestInitMessage(FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
@@ -79,7 +78,7 @@ public class TimeboostSequencerEngineTests
             out DelayedMessageQueue _,
             out TransactionQueue transactionQueue,
             out ArbitrumEthRpcModule _,
-            out Channel<TxQueueItem> _);
+            out AuctionResolutionQueue _);
 
         engine.DigestInitMessage(FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
@@ -130,7 +129,7 @@ public class TimeboostSequencerEngineTests
             out DelayedMessageQueue _,
             out TransactionQueue transactionQueue,
             out ArbitrumEthRpcModule _,
-            out Channel<TxQueueItem> _);
+            out AuctionResolutionQueue _);
 
         engine.DigestInitMessage(FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);

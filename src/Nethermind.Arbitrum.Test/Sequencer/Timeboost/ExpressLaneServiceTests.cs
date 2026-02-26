@@ -3,15 +3,17 @@
 
 using System.Buffers.Binary;
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Blockchain;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Facade;
 using Nethermind.Logging;
+using NSubstitute;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 
@@ -330,13 +332,18 @@ public class ExpressLaneServiceTests
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, ulong currentRound = 1)
     {
         txQueue = new TransactionQueue(1024, 95_000);
+        IBlockTree blockTree = Substitute.For<IBlockTree>();
+        blockTree.Head.Returns((Block?)null);
+        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
+        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput());
+        IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
+        bridgeFactory.CreateBlockchainBridge().Returns(bridge);
         return new ExpressLaneService(
             MakeRoundTiming(currentRound),
-            TimeboostTestHelpers.TestAuctionContract,
+            MakeArbitrumConfig(),
             txQueue,
-            getHead: () => null,
-            callContract: (_, __) => new CallOutput(),
-            TimeSpan.FromMilliseconds(2000),
+            blockTree,
+            bridgeFactory,
             LimboLogs.Instance,
             pollInterval: TimeSpan.FromHours(1));
     }
@@ -347,16 +354,30 @@ public class ExpressLaneServiceTests
         byte[] contractOutput)
     {
         txQueue = new TransactionQueue(1024, 95_000);
-        BlockHeader head = Build.A.BlockHeader.WithNumber(1).TestObject;
+        BlockHeader header = Build.A.BlockHeader.WithNumber(1).TestObject;
+        Block headBlock = new Block(header);
+        IBlockTree blockTree = Substitute.For<IBlockTree>();
+        blockTree.Head.Returns(headBlock);
+        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
+        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput { OutputData = contractOutput });
+        IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
+        bridgeFactory.CreateBlockchainBridge().Returns(bridge);
         return new ExpressLaneService(
             MakeRoundTiming(currentRound),
-            TimeboostTestHelpers.TestAuctionContract,
+            MakeArbitrumConfig(),
             txQueue,
-            getHead: () => head,
-            callContract: (_, __) => new CallOutput { OutputData = contractOutput },
-            TimeSpan.FromMilliseconds(2000),
+            blockTree,
+            bridgeFactory,
             LimboLogs.Instance,
             pollInterval: TimeSpan.FromHours(1));
+    }
+
+    private static IArbitrumConfig MakeArbitrumConfig()
+    {
+        IArbitrumConfig config = Substitute.For<IArbitrumConfig>();
+        config.TimeboostAuctionContractAddress.Returns(TimeboostTestHelpers.TestAuctionContract.ToString());
+        config.TimeboostEarlySubmissionGraceMs.Returns(2000);
+        return config;
     }
 
     private static RoundTimingInfo MakeRoundTiming(ulong currentRound)

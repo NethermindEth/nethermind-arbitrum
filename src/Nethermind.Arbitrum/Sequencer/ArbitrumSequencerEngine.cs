@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Buffers.Binary;
-using System.Threading.Channels;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
@@ -30,7 +29,7 @@ public class ArbitrumSequencerEngine(
     IStateReader stateReader,
     TransactionQueue transactionQueue,
     IExpressLaneService? expressLaneService = null,
-    Channel<TxQueueItem>? auctionResolutionQueue = null)
+    AuctionResolutionQueue? auctionResolutionQueue = null)
 {
     private const long MaxBlockSpeedMs = 1000;
     private const long InactiveWaitMs = 50;

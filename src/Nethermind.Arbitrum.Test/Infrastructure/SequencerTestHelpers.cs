@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Security.Cryptography;
-using System.Threading.Channels;
 using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
@@ -180,14 +179,14 @@ public static class SequencerTestHelpers
         out DelayedMessageQueue delayedMessageQueue,
         out TransactionQueue transactionQueue,
         out ArbitrumEthRpcModule ethRpcModule,
-        out Channel<TxQueueItem> auctionResolutionQueue,
+        out AuctionResolutionQueue auctionResolutionQueue,
         IExpressLaneService? expressLaneService = null)
     {
         delayedMessageQueue = new DelayedMessageQueue();
         SequencerState sequencerState = new(LimboLogs.Instance);
         sequencerState.Activate();
 
-        auctionResolutionQueue = Channel.CreateBounded<TxQueueItem>(10);
+        auctionResolutionQueue = new AuctionResolutionQueue();
 
         ArbitrumExecutionEngine engine = new(
             chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
