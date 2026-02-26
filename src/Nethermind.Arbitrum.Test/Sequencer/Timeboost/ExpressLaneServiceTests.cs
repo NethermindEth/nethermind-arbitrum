@@ -396,7 +396,7 @@ public class ExpressLaneServiceTests
     }
 
     [Test]
-    public async Task SequenceAsync_DontCare_DoesNotInterfereWithNormalSequence()
+    public async Task SequenceAsync_DontCareSequenceNumber_DoesNotInterfereWithNormalSequence()
     {
         // DontCare and normal seq=0 coexist in the same round without interfering.
         using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
@@ -414,7 +414,7 @@ public class ExpressLaneServiceTests
     }
 
     [Test]
-    public async Task SequenceAsync_DontCare_WithBufferedNormalSequence_DoesNotUnblockBuffer()
+    public async Task SequenceAsync_DontCareWithBufferedNormalSequence_DoesNotUnblockBuffer()
     {
         // DontCare publishes immediately and does not fill the gap for buffered normal sequences.
         using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
