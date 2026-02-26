@@ -5,9 +5,9 @@ using System.ComponentModel;
 using Nethermind.Core.Attributes;
 using Nethermind.Core.Threading;
 
-namespace Nethermind.Arbitrum.Metrics;
+namespace Nethermind.Arbitrum;
 
-public class ArbitrumMetrics
+public class Metrics
 {
     [CounterMetric]
     [Description("Number of Stylus WASM calls executed.")]

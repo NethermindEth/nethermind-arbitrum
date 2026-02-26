@@ -246,13 +246,6 @@ public struct MultiGas
     /// </summary>
     public readonly int GetRlpLength() => Rlp.LengthOfSequence(GetRlpContentLength());
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong SaturatingAdd64(ulong a, ulong b)
-    {
-        ulong sum = unchecked(a + b);
-        return sum < a ? ulong.MaxValue : sum;
-    }
-
     private readonly int GetRlpContentLength()
     {
         // total + refund + 8 gas values
