@@ -150,7 +150,7 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
 
                 if (parameters.MessageForPrefetch is not null)
                 {
-                    if (_blockProducer!.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader))
+                    if (_blockProducer!.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader?.Clone()))
                         Metrics.PrefetchCalled++;
                     else
                         Metrics.PrefetchSkipped++;

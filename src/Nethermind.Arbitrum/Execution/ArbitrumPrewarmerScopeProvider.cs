@@ -159,7 +159,7 @@ public class ArbitrumPrewarmerScopeProvider(
 
         public void HintGet(Address address, Account? account) => _baseScope.HintGet(address, account);
 
-        private Account? GetFromBaseTree(AddressAsKey address)
+        private Account? GetFromBaseTree(in AddressAsKey address)
         {
             return _baseScope.Get(address);
         }
@@ -265,7 +265,7 @@ public class ArbitrumPrewarmerScopeProvider(
 
         public void HintGet(in UInt256 index, byte[]? value) => baseStorageTree.HintGet(in index, value);
 
-        private byte[] LoadFromTreeStorage(StorageCell storageCell)
+        private byte[] LoadFromTreeStorage(in StorageCell storageCell)
         {
             Db.Metrics.IncrementStorageTreeReads();
 
@@ -301,8 +301,8 @@ public class ArbitrumPrewarmerScopeProvider(
 
         public void Dispose()
         {
-            _baseBatch.OnAccountUpdated -= _baseBatch_OnAccountUpdated;
             _baseBatch.Dispose();
+            _baseBatch.OnAccountUpdated -= _baseBatch_OnAccountUpdated;
         }
 
         public event EventHandler<IWorldStateScopeProvider.AccountUpdated>? OnAccountUpdated;

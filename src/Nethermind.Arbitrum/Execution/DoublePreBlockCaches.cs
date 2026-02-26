@@ -23,7 +23,7 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
     private readonly ulong _stageId;
 
     private readonly ConcurrentDictionary<StorageCell, byte[]> _storageCache = new(LockPartitions, InitialCapacity);
-    private readonly ConcurrentDictionary<AddressAsKey, Account> _stateCache = new(LockPartitions, InitialCapacity);
+    private readonly ConcurrentDictionary<AddressAsKey, Account?> _stateCache = new(LockPartitions, InitialCapacity);
     private readonly ConcurrentDictionary<NodeKey, byte[]?> _rlpCache = new(LockPartitions, InitialCapacity);
     private readonly ConcurrentDictionary<PreBlockCaches.PrecompileCacheKey, Result<byte[]>> _precompileCache = new(LockPartitions, InitialCapacity);
 
@@ -42,7 +42,7 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
     public ulong StageId => _stageId;
 
     public ConcurrentDictionary<StorageCell, byte[]> StorageCache => _storageCache;
-    public ConcurrentDictionary<AddressAsKey, Account> StateCache => _stateCache;
+    public ConcurrentDictionary<AddressAsKey, Account?> StateCache => _stateCache;
     public ConcurrentDictionary<NodeKey, byte[]?> RlpCache => _rlpCache;
     public ConcurrentDictionary<PreBlockCaches.PrecompileCacheKey, Result<byte[]>> PrecompileCache => _precompileCache;
 
@@ -57,17 +57,18 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
         return isDirty;
     }
 
-    public Account? GetOrAdd(AddressAsKey key, Func<AddressAsKey, Account> factory)
+
+    public Account? GetOrAdd(in AddressAsKey key, InFactory<AddressAsKey, Account> factory)
     {
         if (Volatile.Read(ref _backgroundSealed))
         {
             _logger.Debug($"{_stageId} GetOrAdd for sealed {key}");
             return _stateCache.TryGetValue(key, out Account? account) ? account : null;
         }
-        return _stateCache.GetOrAdd(key, factory);
+        return _stateCache.GetOrAdd(key, (asKey) => factory(in asKey));
     }
 
-    public Account AddOrUpdate(AddressAsKey key, Account newValue, Func<AddressAsKey, Account, Account> updateFunc)
+    public Account? AddOrUpdate(in AddressAsKey key, Account newValue, Func<AddressAsKey, Account?, Account?> updateFunc)
     {
         if (!Volatile.Read(ref _backgroundSealed))
         {
@@ -95,17 +96,17 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
         return _stateCache.TryRemove(key, out account);
     }
 
-    public byte[] GetOrAdd(StorageCell key, Func<StorageCell, byte[]> factory)
+    public byte[] GetOrAdd(in StorageCell key, InFactory<StorageCell, byte[]> factory)
     {
         if (Volatile.Read(ref _backgroundSealed))
         {
             _logger.Debug($"{_stageId} - GetOrAdd for sealed {key}");
             return !_storageCache.TryGetValue(key, out byte[]? data) ? [0] : data;
         }
-        return _storageCache.GetOrAdd(key, factory);
+        return _storageCache.GetOrAdd(key, (cell) => factory(in cell) ?? [0]);
     }
 
-    public bool TryGetValue(StorageCell key, out byte[] data)
+    public bool TryGetValue(in StorageCell key, out byte[] data)
     {
         if (!Volatile.Read(ref _backgroundSealed))
         {
@@ -114,7 +115,7 @@ public class SealablePreBlockCaches : IPreBlockCachesInner
         return _storageCache.TryGetValue(key, out data!);
     }
 
-    public byte[] AddOrUpdate(StorageCell key, byte[] newValue, Func<StorageCell, byte[], byte[]> updateFunc)
+    public byte[] AddOrUpdate(in StorageCell key, byte[] newValue, Func<StorageCell, byte[], byte[]> updateFunc)
     {
         if (!Volatile.Read(ref _backgroundSealed))
         {

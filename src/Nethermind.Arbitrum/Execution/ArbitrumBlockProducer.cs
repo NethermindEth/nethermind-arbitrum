@@ -170,7 +170,7 @@ namespace Nethermind.Arbitrum.Execution
 
             try
             {
-                parentHeader ??= BlockTree.Head?.Header;
+                parentHeader ??= BlockTree.Head?.Header.Clone();
                 if (parentHeader is null)
                 {
                     if (Logger.IsDebug)
