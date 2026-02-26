@@ -329,6 +329,136 @@ public class ExpressLaneServiceTests
         service.AuctionContractAddress.Should().Be(TimeboostTestHelpers.TestAuctionContract);
     }
 
+    [Test]
+    public async Task SequenceAsync_NullTransaction_Throws()
+    {
+        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
+        ExpressLaneSubmission submission = new()
+        {
+            Transaction = null!,
+            Round = 1,
+            SequenceNumber = 0,
+            Signature = new byte[65],
+            ChainId = TimeboostTestHelpers.TestChainId,
+            AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
+        };
+
+        Func<Task> act = () => service.SequenceAsync(submission, 100);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Malformed*");
+    }
+
+    [Test]
+    public async Task SequenceAsync_NullSignature_Throws()
+    {
+        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
+        ExpressLaneSubmission submission = new()
+        {
+            Transaction = TimeboostTestHelpers.MakeTx(),
+            Round = 1,
+            SequenceNumber = 0,
+            Signature = null!,
+            ChainId = TimeboostTestHelpers.TestChainId,
+            AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
+        };
+
+        Func<Task> act = () => service.SequenceAsync(submission, 100);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Malformed*");
+    }
+
+    [Test]
+    public async Task SequenceAsync_NextRoundOutsideGracePeriod_Throws()
+    {
+        // 30s remaining in round, 2s grace → outside grace window → immediate rejection.
+        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
+
+        ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
+            TimeboostTestHelpers.MakeTx(), round: 2, seqNum: ulong.MaxValue);
+
+        Func<Task> act = () => service.SequenceAsync(submission, 100);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not match current round*");
+    }
+
+    [Test]
+    public async Task SequenceAsync_NextRoundWithinGracePeriod_AcceptsAfterDelay()
+    {
+        // ~1s remaining in a 60s round, 2s grace → within grace window.
+        // Service waits for the round boundary then publishes the DontCare tx.
+        using ExpressLaneService service = CreateServiceNearRoundEnd(out TransactionQueue txQueue, currentRound: 1);
+        Transaction tx = TimeboostTestHelpers.MakeTx();
+        ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(tx, round: 2, seqNum: ulong.MaxValue);
+
+        await service.SequenceAsync(submission, currentBlockNumber: 100);
+
+        txQueue.DrainBatch().Should().HaveCount(1, "tx for next round should be accepted once the round boundary passes");
+    }
+
+    [Test]
+    public async Task SequenceAsync_DontCare_DoesNotInterfereWithNormalSequence()
+    {
+        // DontCare and normal seq=0 coexist in the same round without interfering.
+        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
+        service.ForceSetController(1, ControllerAddress);
+        Transaction txDontCare = TimeboostTestHelpers.MakeTx(nonce: 0);
+        Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 1);
+
+        await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(txDontCare, round: 1, seqNum: ulong.MaxValue), 100);
+        await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(tx0, round: 1, seqNum: 0), 100);
+
+        List<TxQueueItem> items = txQueue.DrainBatch();
+        items.Should().HaveCount(2);
+        items[0].Tx.Should().BeSameAs(txDontCare, "DontCare is published immediately");
+        items[1].Tx.Should().BeSameAs(tx0, "seq=0 is published without interference from DontCare");
+    }
+
+    [Test]
+    public async Task SequenceAsync_DontCare_WithBufferedNormalSequence_DoesNotUnblockBuffer()
+    {
+        // DontCare publishes immediately and does not fill the gap for buffered normal sequences.
+        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
+        service.ForceSetController(1, ControllerAddress);
+        Transaction tx1 = TimeboostTestHelpers.MakeTx(nonce: 1);
+        Transaction txDontCare = TimeboostTestHelpers.MakeTx(nonce: 2);
+        Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 0);
+
+        // seq=1 goes into buffer — waiting for seq=0
+        await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(tx1, round: 1, seqNum: 1), 100);
+        txQueue.DrainBatch().Should().BeEmpty();
+
+        // DontCare publishes immediately without unblocking seq=1
+        await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(txDontCare, round: 1, seqNum: ulong.MaxValue), 100);
+        List<TxQueueItem> afterDontCare = txQueue.DrainBatch();
+        afterDontCare.Should().HaveCount(1);
+        afterDontCare[0].Tx.Should().BeSameAs(txDontCare);
+
+        // seq=0 fills the gap → seq=0 then seq=1 drain in order
+        await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(tx0, round: 1, seqNum: 0), 100);
+        List<TxQueueItem> drained = txQueue.DrainBatch();
+        drained.Should().HaveCount(2);
+        drained[0].Tx.Should().BeSameAs(tx0);
+        drained[1].Tx.Should().BeSameAs(tx1);
+    }
+
+    [Test]
+    public void TriggerPoll_OldRoundControllers_AreCleanedUp()
+    {
+        // At round 4, controllers from rounds < (4 - 2) = 2 are evicted.
+        using ExpressLaneService service = CreateServiceWithBridge(
+            out TransactionQueue _,
+            currentRound: 4,
+            contractOutput: BuildAbiOutput(ControllerAddress, round: 4));
+
+        service.ForceSetController(1, ControllerAddress);
+        service.HasControllerForRound(1).Should().BeTrue();
+
+        service.TriggerPoll();
+
+        service.HasControllerForRound(1).Should().BeFalse("round 1 is more than 2 behind round 4 and must be evicted");
+        service.HasControllerForRound(4).Should().BeTrue("round 4 controller should be registered from the poll");
+    }
+
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, ulong currentRound = 1)
     {
         txQueue = new TransactionQueue(1024, 95_000);
@@ -364,6 +494,30 @@ public class ExpressLaneServiceTests
         bridgeFactory.CreateBlockchainBridge().Returns(bridge);
         return new ExpressLaneService(
             MakeRoundTiming(currentRound),
+            MakeArbitrumConfig(),
+            txQueue,
+            blockTree,
+            bridgeFactory,
+            LimboLogs.Instance,
+            pollInterval: TimeSpan.FromHours(1));
+    }
+
+    private static ExpressLaneService CreateServiceNearRoundEnd(out TransactionQueue txQueue, ulong currentRound)
+    {
+        txQueue = new TransactionQueue(1024, 95_000);
+        // Place UtcNow ~1s before the end of the current round so timeTilNext ≈ 1s < 2s grace.
+        DateTime offset = DateTime.UtcNow
+            - TimeSpan.FromMinutes(1) * (long)currentRound
+            - TimeSpan.FromSeconds(59);
+        RoundTimingInfo timing = new(offset, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(15));
+        IBlockTree blockTree = Substitute.For<IBlockTree>();
+        blockTree.Head.Returns((Block?)null);
+        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
+        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput());
+        IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
+        bridgeFactory.CreateBlockchainBridge().Returns(bridge);
+        return new ExpressLaneService(
+            timing,
             MakeArbitrumConfig(),
             txQueue,
             blockTree,

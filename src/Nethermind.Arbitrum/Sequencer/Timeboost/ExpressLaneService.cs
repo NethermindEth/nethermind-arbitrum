@@ -172,7 +172,10 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
                 await timer.WaitForNextTickAsync(_cts.Token);
                 PollResolvedRounds();
             }
-            catch (OperationCanceledException) { break; }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
             catch (Exception ex)
             {
                 if (_logger.IsDebug)
