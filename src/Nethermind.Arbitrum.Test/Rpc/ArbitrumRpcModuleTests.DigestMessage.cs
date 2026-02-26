@@ -611,4 +611,64 @@ public class ArbitrumRpcModuleDigestMessageTests
         // The return data should be 32 bytes of zeros (UInt256 zero)
         receipts[1].Logs.Should().BeEmpty(); // No events expected for view functions
     }
+
+    [Test]
+    public async Task DigestMessage_WithExposeGasUsedDisabled_ReturnsNullGasUsed()
+    {
+        // Default config: ExposeGasUsedInMessageResult = false
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        UInt256 value = 1.Ether();
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
+        result.Result.ResultType.Should().Be(ResultType.Success);
+
+        // GasUsed should be null when ExposeGasUsedInMessageResult is disabled (default)
+        result.Data.GasUsed.Should().BeNull();
+    }
+
+    [Test]
+    public async Task DigestMessage_WithExposeGasUsedEnabled_ReturnsGasUsed()
+    {
+        // Enable ExposeGasUsedInMessageResult for benchmark mode
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(config => config.ExposeGasUsedInMessageResult = true)
+            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"))
+            .Build();
+
+        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+        UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
+
+        // Use a contract call that consumes gas
+        AbiSignature signature = new("getBalance", AbiType.Address);
+        byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, sender);
+
+        Transaction transaction = Build.A.Transaction
+            .WithType(TxType.EIP1559)
+            .WithTo(ArbosAddresses.ArbInfoAddress)
+            .WithValue(0)
+            .WithData(calldata)
+            .WithMaxFeePerGas(10.GWei())
+            .WithGasLimit(GasCostOf.Transaction * 2)
+            .WithNonce(nonce)
+            .SignedAndResolved(FullChainSimulationAccounts.Owner)
+            .TestObject;
+
+        ResultWrapper<MessageResult> result = await chain.Digest(new TestL2Transactions(requestId, L1BaseFee, sender, transaction));
+        result.Result.ResultType.Should().Be(ResultType.Success);
+
+        // GasUsed should be populated when ExposeGasUsedInMessageResult is enabled
+        result.Data.GasUsed.Should().NotBeNull();
+        result.Data.GasUsed.Should().BeGreaterThan(0);
+
+        // Verify it matches the block's actual gas used
+        long blockGasUsed = chain.BlockTree.Head!.GasUsed;
+        result.Data.GasUsed.Should().Be((ulong)blockGasUsed);
+    }
 }

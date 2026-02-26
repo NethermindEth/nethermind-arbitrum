@@ -99,6 +99,39 @@ run-sepolia-verify: ## Run Sepolia Archive with block hash verification
 clean-run-sepolia-verify: clean-sepolia-archive run-sepolia-verify ## Clean and run Sepolia with verification
 
 # =============================================================================
+# Benchmark targets (ExposeGasUsedInMessageResult enabled)
+# =============================================================================
+
+# Benchmark argument for exposing GasUsed in MessageResult (comparison testing only)
+BENCHMARK_ARGS := --Arbitrum.ExposeGasUsedInMessageResult=true
+
+run-mainnet-benchmark: ## Run Mainnet with benchmark mode (GasUsed exposed)
+	$(call restore-snapshot,arbitrum-mainnet,mainnet)
+	@echo "Starting Nethermind (Mainnet Benchmark)..."
+	$(call run-nethermind,arbitrum-mainnet) $(BENCHMARK_ARGS)
+
+run-mainnet-archive-benchmark: ## Run Mainnet Archive with benchmark mode
+	$(call restore-snapshot,arbitrum-mainnet-archive,mainnet-archive)
+	@echo "Starting Nethermind (Mainnet Archive Benchmark)..."
+	$(call run-nethermind,arbitrum-mainnet-archive) $(BENCHMARK_ARGS)
+
+run-sepolia-benchmark: ## Run Sepolia with benchmark mode (GasUsed exposed)
+	@echo "Starting Nethermind (Sepolia Benchmark)..."
+	$(call run-nethermind,arbitrum-sepolia) $(BENCHMARK_ARGS)
+
+run-sepolia-archive-benchmark: ## Run Sepolia Archive with benchmark mode
+	@echo "Starting Nethermind (Sepolia Archive Benchmark)..."
+	$(call run-nethermind,arbitrum-sepolia-archive) $(BENCHMARK_ARGS)
+
+clean-run-mainnet-benchmark: clean-mainnet run-mainnet-benchmark ## Clean and run Mainnet benchmark
+
+clean-run-mainnet-archive-benchmark: clean-mainnet-archive run-mainnet-archive-benchmark ## Clean and run Mainnet Archive benchmark
+
+clean-run-sepolia-benchmark: clean-sepolia run-sepolia-benchmark ## Clean and run Sepolia benchmark
+
+clean-run-sepolia-archive-benchmark: clean-sepolia-archive run-sepolia-archive-benchmark ## Clean and run Sepolia Archive benchmark
+
+# =============================================================================
 # Snapshot cache management
 # =============================================================================
 
