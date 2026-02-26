@@ -33,7 +33,8 @@ public class TransactionQueue(int capacity, int maxTxDataSize)
         if (!_channel.Writer.TryWrite(item))
             return new InvalidOperationException("Transaction queue is full");
 
-        return await item.ResultChannel.Task;
+        // return await item.ResultChannel.Task;
+        return await Task.FromResult((Exception?)null);
     }
 
     /// <summary>

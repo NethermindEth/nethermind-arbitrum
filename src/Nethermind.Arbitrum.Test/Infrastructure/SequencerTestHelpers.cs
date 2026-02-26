@@ -154,7 +154,7 @@ public static class SequencerTestHelpers
         ulong delayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         engine.EnqueueDelayedMessages([depositMsg], delayedMsgRead);
 
-        ResultWrapper<StartSequencingResult> depositResult = await engine.StartSequencingAsync(0, 0);
+        ResultWrapper<StartSequencingResult> depositResult = await engine.StartSequencingAsync(0, 0, 0);
         depositResult.Result.Should().Be(Result.Success);
         engine.EndSequencing(null);
         await engine.AppendLastSequencedBlockAsync();

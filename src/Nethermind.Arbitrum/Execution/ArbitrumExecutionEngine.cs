@@ -425,8 +425,8 @@ public sealed class ArbitrumExecutionEngine(
             transactionQueue);
     }
 
-    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong timestamp)
-        => RunSequencerOpAsync(seq => seq.StartSequencingAsync(l1BlockNumber, timestamp), nameof(StartSequencingAsync));
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+        => RunSequencerOpAsync(seq => seq.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp), nameof(StartSequencingAsync));
 
     public ResultWrapper<EmptyResponse> EndSequencing(string? error)
         => RunSequencerAction(seq => seq.EndSequencing(error), nameof(EndSequencing));

@@ -83,5 +83,6 @@ public record EndSequencingParams(
 
 public record StartSequencingParams(
     [property: JsonPropertyName("l1BlockNumber"), JsonConverter(typeof(GoCompatULongConverter))] ulong L1BlockNumber,
+    [property: JsonPropertyName("l1Timestamp"), JsonConverter(typeof(GoCompatULongConverter))] ulong L1Timestamp,
     [property: JsonPropertyName("timestamp"), JsonConverter(typeof(GoCompatULongConverter))] ulong Timestamp
 );

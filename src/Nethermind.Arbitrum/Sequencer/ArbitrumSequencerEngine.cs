@@ -44,7 +44,7 @@ public class ArbitrumSequencerEngine(
 
     public TransactionQueue TransactionQueue { get; } = transactionQueue;
 
-    public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong timestamp)
+    public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         if (!sequencerState.IsActive)
         {
@@ -62,7 +62,7 @@ public class ArbitrumSequencerEngine(
         if (result is not null)
             return new StartSequencingResult(result, 0);
 
-        result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, timestamp);
+        result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, l1Timestamp, timestamp);
         if (result is not null)
             return new StartSequencingResult(result, 0);
 
@@ -233,7 +233,7 @@ public class ArbitrumSequencerEngine(
         return (item, error);
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong timestamp)
+    private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         List<TxQueueItem> queueItems = TransactionQueue.DrainBatch();
 
@@ -252,6 +252,18 @@ public class ArbitrumSequencerEngine(
 
         if (queueItems.Count == 0)
             return null;
+
+        ulong timestampDelta = l1Timestamp > timestamp ? l1Timestamp - timestamp : timestamp - l1Timestamp;
+        if (l1BlockNumber == 0 || timestampDelta > (ulong)arbitrumConfig.SequencerMaxAcceptableTimestampDelta)
+        {
+            foreach (TxQueueItem item in queueItems)
+                TransactionQueue.PushRetry(item);
+
+            if (_logger.IsError)
+                _logger.Error($"Cannot sequence: unknown L1 block or L1 timestamp too far from local clock time, " +
+                    $"l1Block={l1BlockNumber}, l1Timestamp={l1Timestamp}, localTimestamp={timestamp}");
+            return null;
+        }
 
         _nonceCache.BeginNewBlock();
         _nonceFailureCache.EvictExpired();

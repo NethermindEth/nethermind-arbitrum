@@ -35,4 +35,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Maximum transaction data size in bytes for sequencer mode", DefaultValue = "95000")]
     int SequencerMaxTxDataSize { get; set; }
+
+    [ConfigItem(Description = "Maximum acceptable time difference between local time and L1 block timestamp in seconds", DefaultValue = "3600")]
+    int SequencerMaxAcceptableTimestampDelta { get; set; }
 }

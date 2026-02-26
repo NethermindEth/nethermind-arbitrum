@@ -38,7 +38,7 @@ public class SequencerLifecycleTests
 
         engine.Pause();
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0);
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().BeNull();
@@ -63,7 +63,7 @@ public class SequencerLifecycleTests
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
         Task<Exception?> txResult = txQueue.EnqueueAsync(tx, CancellationToken.None);
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0);
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(1, 1000, 1000);
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().NotBeNull("block should be produced after reactivation");
@@ -116,7 +116,7 @@ public class SequencerLifecycleTests
 
         engine.Pause();
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0);
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().BeNull();
@@ -223,7 +223,7 @@ public class SequencerLifecycleTests
             Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
             Task<Exception?> txResultTask = txQueue.EnqueueAsync(tx, CancellationToken.None);
 
-            ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0);
+            ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
             await serverTask.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -238,7 +238,7 @@ public class SequencerLifecycleTests
 
             await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
 
-            ResultWrapper<StartSequencingResult> activeResult = await engine.StartSequencingAsync(0, 0);
+            ResultWrapper<StartSequencingResult> activeResult = await engine.StartSequencingAsync(1, 1000, 1000);
             activeResult.Result.Should().Be(Result.Success);
             activeResult.Data.SequencedMsg.Should().NotBeNull("requeued tx should be sequenced after activation");
 
