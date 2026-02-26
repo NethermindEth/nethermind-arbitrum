@@ -138,6 +138,39 @@ clean-cache: ## Remove snapshot cache
 	@echo "Snapshot cache cleared."
 
 # =============================================================================
+# Benchmark targets (GasUsed header exposed for comparison testing)
+# =============================================================================
+
+# Benchmark flags for comparison testing (no JWT auth, GasUsed header exposed)
+BENCHMARK_ARGS := --Arbitrum.ExposeMetadataHeaders=true --JsonRpc.UnsecureDevNoRpcAuthentication=true
+
+run-mainnet-benchmark: ## Run Mainnet with benchmark mode (GasUsed header exposed)
+	$(call restore-snapshot,arbitrum-mainnet,mainnet)
+	@echo "Starting Nethermind (Mainnet BENCHMARK MODE - GasUsed header enabled)..."
+	@echo "  HTTP responses will include X-Arb-Gas-Used header"
+	$(call run-nethermind,arbitrum-mainnet) $(BENCHMARK_ARGS)
+
+run-mainnet-archive-benchmark: ## Run Mainnet Archive with benchmark mode
+	$(call restore-snapshot,arbitrum-mainnet-archive,mainnet-archive)
+	@echo "Starting Nethermind (Mainnet Archive BENCHMARK MODE - GasUsed header enabled)..."
+	@echo "  HTTP responses will include X-Arb-Gas-Used header"
+	$(call run-nethermind,arbitrum-mainnet-archive) $(BENCHMARK_ARGS)
+
+run-sepolia-benchmark: ## Run Sepolia with benchmark mode (GasUsed header exposed)
+	@echo "Starting Nethermind (Sepolia BENCHMARK MODE - GasUsed header enabled)..."
+	@echo "  HTTP responses will include X-Arb-Gas-Used header"
+	$(call run-nethermind,arbitrum-sepolia) $(BENCHMARK_ARGS)
+
+run-sepolia-archive-benchmark: ## Run Sepolia Archive with benchmark mode
+	@echo "Starting Nethermind (Sepolia Archive BENCHMARK MODE - GasUsed header enabled)..."
+	@echo "  HTTP responses will include X-Arb-Gas-Used header"
+	$(call run-nethermind,arbitrum-sepolia-archive) $(BENCHMARK_ARGS)
+
+clean-run-mainnet-benchmark: clean-mainnet run-mainnet-benchmark ## Clean and run Mainnet benchmark
+
+clean-run-sepolia-benchmark: clean-sepolia run-sepolia-benchmark ## Clean and run Sepolia benchmark
+
+# =============================================================================
 # Local / System test targets
 # =============================================================================
 
@@ -163,6 +196,15 @@ clean-system-test: ## Clean system test data
 	$(call clean-config,$(CONFIG_NAME),)
 
 clean-run-system-test: clean-system-test run-system-test ## Clean and run system test
+
+run-system-test-benchmark: generate-system-test-config ## Run system test with benchmark mode
+	@echo "Starting Nethermind (System Test BENCHMARK MODE - GasUsed header enabled)..."
+	@echo "  HTTP responses will include X-Arb-Gas-Used header"
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c $(CONFIG_NAME) \
+		--data-dir $(ROOT_DIR)/.data --JsonRpc.UnsecureDevNoRpcAuthentication=true --log debug \
+		$(BENCHMARK_ARGS)
+
+clean-run-system-test-benchmark: clean-system-test run-system-test-benchmark ## Clean and run system test benchmark
 
 nethermind-help: ## Show Nethermind help
 	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -h

@@ -26,4 +26,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    [ConfigItem(Description = "Expose metadata via X-Arb-* HTTP headers", DefaultValue = "false")]
+    bool ExposeMetadataHeaders { get; set; }
 }

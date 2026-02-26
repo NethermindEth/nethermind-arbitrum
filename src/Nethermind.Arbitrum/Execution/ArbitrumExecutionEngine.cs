@@ -37,6 +37,11 @@ public sealed class ArbitrumExecutionEngine(
     IBlocksConfig blocksConfig)
     : IArbitrumExecutionEngine
 {
+    /// <summary>
+    /// HTTP header name for exposing block gas usage in benchmark comparison mode.
+    /// </summary>
+    public const string HeaderGasUsed = "X-Arb-Gas-Used";
+
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
 
     public IBlockTree BlockTree { get; } = blockTree;
@@ -46,6 +51,24 @@ public sealed class ArbitrumExecutionEngine(
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+
+    /// <summary>
+    /// Sets metadata headers (X-Arb-*) if header exposure is enabled.
+    /// Currently, exposes: X-Arb-Gas-Used. More fields will be added for benchmarking.
+    /// </summary>
+    private void SetMetadataHeaders(Block block) => SetMetadataHeaders(block.Header);
+
+    /// <summary>
+    /// Sets metadata headers from a block header.
+    /// </summary>
+    private void SetMetadataHeaders(BlockHeader header)
+    {
+        if (!arbitrumConfig.ExposeMetadataHeaders)
+            return;
+
+        // Add all benchmark metadata headers here
+        JsonRpcContext.SetResponseHeader(HeaderGasUsed, header.GasUsed.ToString());
+    }
 
     public Task<bool> TryAcquireSemaphoreAsync(int millisecondsTimeout = 0)
         => _createBlocksSemaphore.WaitAsync(millisecondsTimeout);
@@ -212,6 +235,10 @@ public sealed class ArbitrumExecutionEngine(
                 _logger.Trace($"Found block header for block {blockNumberResult.Data}: hash={blockHeader.Hash}");
 
             ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, _logger);
+
+            // Set metadata headers for benchmark comparison
+            SetMetadataHeaders(blockHeader);
+
             return Task.FromResult(ResultWrapper<MessageResult>.Success(new MessageResult
             {
                 BlockHash = blockHeader.Hash ?? Hash256.Zero,
@@ -451,11 +478,7 @@ public sealed class ArbitrumExecutionEngine(
             if (resultArgs.ProcessingResult != ProcessingResult.Exception)
                 return resultArgs.ProcessingResult switch
                 {
-                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
-                    {
-                        BlockHash = block.Hash!,
-                        SendRoot = GetSendRootFromBlock(block)
-                    }),
+                    ProcessingResult.Success => SuccessWithMetadata(block),
                     ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.",
                         ErrorCodes.InternalError),
                     _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}",
@@ -500,11 +523,7 @@ public sealed class ArbitrumExecutionEngine(
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-            return ResultWrapper<MessageResult>.Success(new MessageResult
-            {
-                BlockHash = block.Hash!,
-                SendRoot = GetSendRootFromBlock(block)
-            });
+            return SuccessWithMetadata(block);
         }
         catch (TimeoutException)
         {
@@ -521,6 +540,19 @@ public sealed class ArbitrumExecutionEngine(
             _logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
 
         return headerInfo.SendRoot;
+    }
+
+    /// <summary>
+    /// Creates a successful MessageResult for a block, setting metadata headers if enabled.
+    /// </summary>
+    private ResultWrapper<MessageResult> SuccessWithMetadata(Block block)
+    {
+        SetMetadataHeaders(block);
+        return ResultWrapper<MessageResult>.Success(new MessageResult
+        {
+            BlockHash = block.Hash!,
+            SendRoot = GetSendRootFromBlock(block)
+        });
     }
 
     private bool TryDeserializeChainConfig(ReadOnlySpan<byte> bytes, [NotNullWhen(true)] out ChainConfig? chainConfig)
