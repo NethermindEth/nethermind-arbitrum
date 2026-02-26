@@ -27,9 +27,6 @@ public class ArbitrumSequencerEngine(
     IStateReader stateReader,
     TransactionQueue transactionQueue)
 {
-    private const long MaxBlockSpeedMs = 5000;
-    private const long InactiveWaitMs = 50;
-
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -55,7 +52,7 @@ public class ArbitrumSequencerEngine(
                     await HandleInactiveAsync(pendingItems);
             }
 
-            return new StartSequencingResult(null, InactiveWaitMs);
+            return new StartSequencingResult(null, arbitrumConfig.SequencerInactiveWaitMs);
         }
 
         SequencedMsg? result = await SequenceDelayedMessageAsync();
@@ -68,7 +65,7 @@ public class ArbitrumSequencerEngine(
 
         _logger.Warn("Nothing to sequence, waiting...");
 
-        return new StartSequencingResult(null, MaxBlockSpeedMs);
+        return new StartSequencingResult(null, arbitrumConfig.SequencerMaxBlockSpeedMs);
     }
 
     public void EndSequencing(string? error)

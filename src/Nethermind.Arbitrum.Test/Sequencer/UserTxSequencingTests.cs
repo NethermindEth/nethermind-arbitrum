@@ -104,7 +104,7 @@ public class UserTxSequencingTests
     [Test]
     public void TransactionQueue_Full_RejectsNew()
     {
-        TransactionQueue queue = new(1, 95000);
+        TransactionQueue queue = new(1, 95000, false);
 
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
@@ -134,7 +134,7 @@ public class UserTxSequencingTests
     [Test]
     public void TransactionQueue_OversizedTx_RejectsImmediately()
     {
-        TransactionQueue queue = new(10, 100);
+        TransactionQueue queue = new(10, 100, false);
 
         Transaction tx = Build.A.Transaction
             .WithNonce(0)
@@ -372,7 +372,7 @@ public class UserTxSequencingTests
     public async Task SendRawTransaction_QueueFull_ReturnsError()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        TransactionQueue smallQueue = new(1, 95000);
+        TransactionQueue smallQueue = new(1, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
 
         Transaction tx1 = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
@@ -394,7 +394,7 @@ public class UserTxSequencingTests
     public async Task SendRawTransaction_OversizedTransaction_ReturnsError()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        TransactionQueue smallQueue = new(10, 100);
+        TransactionQueue smallQueue = new(10, 100, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
 
         Transaction tx = Build.A.Transaction
@@ -418,7 +418,7 @@ public class UserTxSequencingTests
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
 
-        TransactionQueue queue = new(10, 95000);
+        TransactionQueue queue = new(10, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue);
 
         byte[] invalidBytes = [0xFF, 0xFE, 0xFD];
@@ -541,7 +541,7 @@ public class UserTxSequencingTests
         sequencerState.Activate();
         sequencerState.Pause();
 
-        TransactionQueue queue = new(10, 95000);
+        TransactionQueue queue = new(10, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue, sequencerState);
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
@@ -559,7 +559,7 @@ public class UserTxSequencingTests
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
         SequencerState sequencerState = new(LimboLogs.Instance);
 
-        TransactionQueue queue = new(10, 95000);
+        TransactionQueue queue = new(10, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue, sequencerState);
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());

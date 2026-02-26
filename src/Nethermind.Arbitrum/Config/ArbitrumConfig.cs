@@ -18,6 +18,9 @@ public class ArbitrumConfig : IArbitrumConfig
     public int SequencerNonceCacheSize { get; set; } = 1024;
     public int SequencerMaxTxDataSize { get; set; } = 95000;
     public int SequencerMaxAcceptableTimestampDelta { get; set; } = 3600;
+    public int SequencerMaxBlockSpeedMs { get; set; } = 5000;
+    public int SequencerInactiveWaitMs { get; set; } = 50;
+    public bool SequencerAwaitTxResult { get; set; } = false;
 }
 
 public static class ArbitrumConfigExtensions

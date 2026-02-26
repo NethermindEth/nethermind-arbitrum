@@ -409,7 +409,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public void InitializeSequencer(DelayedMessageQueue delayedMessageQueue, SequencerState sequencerState)
     {
-        TransactionQueue transactionQueue = new(1024, arbitrumConfig.SequencerMaxTxDataSize);
+        TransactionQueue transactionQueue = new(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult);
 
         _sequencerEngine = new ArbitrumSequencerEngine(
             BlockTree,

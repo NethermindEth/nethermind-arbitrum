@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Config;
 
 namespace Nethermind.Arbitrum.Config;
@@ -15,7 +14,7 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Whether finalized blocks should wait for validator", DefaultValue = "false")]
     bool FinalizedBlockWaitForValidator { get; set; }
 
-    [ConfigItem(Description = "Timeout in seconds for block processing operations", DefaultValue = "1")]
+    [ConfigItem(Description = "Timeout in seconds for block processing operations", DefaultValue = "1000")]
     int BlockProcessingTimeout { get; set; }
 
     [ConfigItem(Description = "Rebuild local WASM store mode: 'false' to disable, 'force' to force rebuild, or other value to continue from last position", DefaultValue = "auto")]
@@ -38,4 +37,13 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Maximum acceptable time difference between local time and L1 block timestamp in seconds", DefaultValue = "3600")]
     int SequencerMaxAcceptableTimestampDelta { get; set; }
+
+    [ConfigItem(Description = "Maximum wait time in ms when there is nothing to sequence", DefaultValue = "5000")]
+    int SequencerMaxBlockSpeedMs { get; set; }
+
+    [ConfigItem(Description = "Wait time in ms returned when sequencer is inactive (paused/forwarding)", DefaultValue = "50")]
+    int SequencerInactiveWaitMs { get; set; }
+
+    [ConfigItem(Description = "Whether eth_sendRawTransaction should block until the transaction is sequenced", DefaultValue = "false")]
+    bool SequencerAwaitTxResult { get; set; }
 }
