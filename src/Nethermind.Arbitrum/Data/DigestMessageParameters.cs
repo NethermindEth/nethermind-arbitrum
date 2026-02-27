@@ -39,7 +39,7 @@ public record L1IncomingMessageHeader(
     [property: JsonPropertyName("blockNumber")] ulong BlockNumber, // L1 block number
     [property: JsonPropertyName("timestamp")] ulong Timestamp,
     [property: JsonPropertyName("requestId")] Hash256? RequestId,
-    [property: JsonPropertyName("baseFeeL1")] UInt256 BaseFeeL1
+    [property: JsonPropertyName("baseFeeL1")] UInt256? BaseFeeL1
 );
 
 public record DigestInitMessage(

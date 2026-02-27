@@ -6,7 +6,7 @@ on:
       nitro_repo:
         description: 'Nitro repository (org/repo)'
         required: false
-        default: 'NethermindEth/nitro'
+        default: 'NethermindEth/arbitrum-nitro'
         type: string
       nitro_branch:
         description: 'Nitro branch to build'
@@ -36,8 +36,7 @@ jobs:
           fetch-depth: 1
 
       - name: Initialize required submodules
-        run: |
-          git submodule update --init --depth 1 go-ethereum contracts brotli
+        run: git submodule update --init --recursive --depth 1 --jobs 4
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -50,23 +49,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: yarn
+          cache-dependency-path: '**/yarn.lock'
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@a54c7afe936fefeb4456b2dd8068152669aa8203 # stable
+        id: install-rust
+        uses: dtolnay/rust-toolchain@1.88.0
         with:
+          targets: wasm32-wasip1, wasm32-unknown-unknown
           components: rustfmt
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wabt lld-14
-          sudo ln -sf /usr/bin/wasm-ld-14 /usr/local/bin/wasm-ld
-          cargo install --force cbindgen
-
-      - name: Setup Foundry
-        uses: foundry-rs/foundry-toolchain@ce5289f0d262f1cb2f17dd23f0bdbd8dfa9e9e49 # v1.3.0
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          version: v1.0.0
+          shared-key: "nitro-build"
+          cache-on-failure: true
+          cache-directories: |
+            crates/wasm-libraries/target/
+            target/etc/initial-machine-cache/
 
       - name: Cache cbrotli
         id: cache-cbrotli
@@ -77,20 +77,23 @@ jobs:
             target/lib/libbrotli*.a
           key: ${{ runner.os }}-cbrotli-${{ hashFiles('scripts/build-brotli.sh', 'brotli/**') }}
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wabt lld-14
+          sudo ln -sf /usr/bin/wasm-ld-14 /usr/local/bin/wasm-ld
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.0.0
+
       - name: Build cbrotli-lib
         if: steps.cache-cbrotli.outputs.cache-hit != 'true'
         run: ./scripts/build-brotli.sh -l
 
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+      - name: Install cbindgen
+        run: cargo install --force cbindgen
 
       - name: Build node dependencies
         run: make -j"$(nproc)" build-node-deps
