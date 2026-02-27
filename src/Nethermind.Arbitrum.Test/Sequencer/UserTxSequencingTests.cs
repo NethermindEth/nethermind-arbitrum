@@ -289,10 +289,10 @@ public class UserTxSequencingTests
     }
 
     [Test]
-    [Ignore("Flaky test for now, needs refactor to be more deterministic")]
     public async Task SendRawTransaction_EndSequencingSuccess_NotifiesSenders()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configureArbitrum: c => c.SequencerAwaitTxResult = true);
         ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
             chain, out DelayedMessageQueue _, out TransactionQueue _, out ArbitrumEthRpcModule ethRpcModule);
 

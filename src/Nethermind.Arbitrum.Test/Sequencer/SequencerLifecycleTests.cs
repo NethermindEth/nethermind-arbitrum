@@ -188,7 +188,6 @@ public class SequencerLifecycleTests
     }
 
     [Test]
-    [Ignore("Flaky test for now, needs refactor to be more deterministic")]
     public async Task HandleInactive_ForwardsAndRequeues_OnNoSequencer()
     {
         using HttpListener listener = new();
@@ -212,7 +211,8 @@ public class SequencerLifecycleTests
 
         try
         {
-            using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(
+                configureArbitrum: c => c.SequencerAwaitTxResult = true);
             ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
                 chain, out DelayedMessageQueue _, out TransactionQueue txQueue, useForwarder: prefix);
 

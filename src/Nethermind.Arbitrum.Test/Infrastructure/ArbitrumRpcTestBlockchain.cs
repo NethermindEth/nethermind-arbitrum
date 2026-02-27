@@ -51,6 +51,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
     public ArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
+    public INitroExecutionRpcModule NitroExecutionRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
 
@@ -309,7 +310,21 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
-        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
+        IArbitrumConfig arbitrumConfig = chain.Container.Resolve<IArbitrumConfig>();
+        TransactionQueue? transactionQueue = null;
+        SequencerState? sequencerState = null;
+
+        if (arbitrumConfig.SequencerEnabled)
+        {
+            DelayedMessageQueue delayedMessageQueue = new();
+            sequencerState = new SequencerState(chain.LogManager);
+            sequencerState.Activate();
+            engine.InitializeSequencer(delayedMessageQueue, sequencerState);
+            transactionQueue = engine.TransactionQueue;
+        }
+
+        chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine);
+        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain, transactionQueue, sequencerState);
 
         return chain;
     }
