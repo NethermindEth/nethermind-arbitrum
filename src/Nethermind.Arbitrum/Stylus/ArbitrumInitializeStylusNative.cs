@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Api.Steps;
-using Nethermind.Arbitrum.Arbos.Stylus;
 
 namespace Nethermind.Arbitrum.Stylus;
 

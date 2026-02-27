@@ -7,7 +7,6 @@ using System.Diagnostics;
 using Microsoft.ClearScript;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
@@ -19,7 +18,7 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
+using Bytes32 = Nethermind.Arbitrum.Stylus.Bytes32;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 

@@ -4,11 +4,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using StylusNative = Nethermind.Arbitrum.Arbos.Stylus.StylusNative;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus;
 

@@ -3,7 +3,6 @@
 
 using System.Security.Cryptography;
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
