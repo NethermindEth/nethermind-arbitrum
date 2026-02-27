@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nethermind.Arbitrum.Stylus" Version="*-*" />
+    <PackageReference Include="Nethermind.Arbitrum.Stylus" Version="3.9.4" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj"/>
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.HealthChecks\Nethermind.HealthChecks.csproj" />
