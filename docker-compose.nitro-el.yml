@@ -36,7 +36,6 @@ services:
     ports:
       - 8547:8547      # HTTP RPC (CL connects here)
       - 20552:20552    # WebSocket (alternative)
-      - 8551:8551      # Auth RPC
     volumes:
       - ./nitro-el-data:/tmp/nitro-data
     command:
