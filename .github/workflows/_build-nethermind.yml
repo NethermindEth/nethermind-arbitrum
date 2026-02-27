@@ -3,25 +3,16 @@ name: Build Nethermind
 on:
   workflow_call:
     inputs:
-      project:
-        description: 'Project to build (csproj path)'
-        required: false
-        default: 'src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj'
-        type: string
       configuration:
-        description: 'Build configuration (Debug/Release)'
+        description: 'Build configuration (Debug or Release)'
         required: false
         default: 'Debug'
         type: string
       artifact_name:
-        description: 'Name for the build artifact (empty = no upload)'
+        description: 'Name for the build artifact'
         required: false
-        default: ''
+        default: 'nethermind-build'
         type: string
-
-permissions:
-  contents: read
-  id-token: write
 
 env:
   JFROG_URL: nethermind.jfrog.io
@@ -29,12 +20,14 @@ env:
 
 jobs:
   build:
-    name: Build Nethermind (${{ inputs.configuration }})
+    name: Build Nethermind + Arbitrum Plugin
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
-      - name: Checkout
+      - name: Checkout Nethermind-Arbitrum
         uses: actions/checkout@v4
         with:
           submodules: true
@@ -45,38 +38,21 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+      - name: Build Nethermind
+        run: dotnet build src/Nethermind/src/Nethermind/Nethermind.slnx -c ${{ inputs.configuration }}
 
-      - name: Setup JFrog CLI
-        id: jfrog
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: https://${{ env.JFROG_URL }}
-        with:
-          oidc-provider-name: github-nethermindeth
+      - name: Build Arbitrum plugin
+        run: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c ${{ inputs.configuration }}
 
-      - name: Add Artifactory NuGet source
-        run: |
-          dotnet nuget add source \
-            "https://${{ env.JFROG_URL }}/artifactory/api/nuget/v3/${{ env.NUGET_REPO }}/index.json" \
-            --name artifactory \
-            --username "${{ steps.jfrog.outputs.oidc-user }}" \
-            --password "${{ steps.jfrog.outputs.oidc-token }}" \
-            --store-password-in-clear-text
-
-      - name: Build
-        run: dotnet build ${{ inputs.project }} -c ${{ inputs.configuration }}
+      - name: Generate system test config
+        run: ./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh
 
       - name: Upload build artifact
-        if: inputs.artifact_name != ''
         uses: actions/upload-artifact@v4
+        env:
+          CONFIG_LOWER: ${{ inputs.configuration == 'Release' && 'release' || 'debug' }}
         with:
           name: ${{ inputs.artifact_name }}
-          path: src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/${{ inputs.configuration == 'Debug' && 'debug' || 'release' }}/
+          path: |
+            src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/${{ env.CONFIG_LOWER }}/
           retention-days: 1

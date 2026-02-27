@@ -251,4 +251,17 @@ public sealed class WasmDb : IWasmDb
     /// Cache key optimized for minimal allocations and fast equality comparison.
     /// </summary>
     private readonly record struct ActivatedKey(string Target, ValueHash256 ModuleHash);
+
+    /// <summary>
+    /// Clears all in-memory caches across all shards.
+    /// Called during debug_reinitialize to ensure complete state isolation between tests.
+    /// Uses sequential clearing to avoid thread pool contention - ClockCache.Clear() is O(1) and fast enough.
+    /// </summary>
+    public void ClearCache()
+    {
+        for (int i = 0; i < CacheShardCount; i++)
+        {
+            _activatedCodeCaches[i].Clear();
+        }
+    }
 }

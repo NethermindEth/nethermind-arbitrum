@@ -5,7 +5,7 @@
     "Arbitrum": {
       "initialArbOSVersion": {{ARBOS_VERSION}},
       "initialChainOwner": "0x0000000000000000000000000000000000000000",
-      "initialL1BaseFee": "1",
+      "initialL1BaseFee": "50000000000",
       "genesisBlockNum": 0,
       "enableArbOS": true,
       "allowDebugPrecompiles": true,
@@ -73,6 +73,7 @@
         "mixHash": "{{MIX_HASH}}"
       }
     },
+    "stateUnavailable": true,
     "number": "0x0",
     "difficulty": "0x1",
     "author": "0x0000000000000000000000000000000000000000",

@@ -60,5 +60,14 @@ namespace Nethermind.Arbitrum.Arbos.Compression
 
             _cachedCalldataUnits.Set(transaction.Hash ?? transaction.CalculateHash(), repr);
         }
+
+        /// <summary>
+        /// Clears the static calldata units cache.
+        /// Called during debug_reinitialize to ensure complete state isolation between tests.
+        /// </summary>
+        public static void ClearCache()
+        {
+            _cachedCalldataUnits.Clear();
+        }
     }
 }
