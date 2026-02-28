@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Config;
 
-/// <summary>
-/// Wraps an ISpecProvider to dynamically apply Arbitrum-specific overrides based on ArbOS version.
-/// Implements delegation pattern directly since upstream SpecProviderDecorator was removed.
-/// </summary>
+// Delegation pattern used because upstream SpecProviderDecorator was removed in https://github.com/NethermindEth/nethermind/commit/fc620c5e6d
 public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
 {
     private readonly ISpecProvider _baseSpecProvider;
@@ -20,11 +18,9 @@ public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
         ISpecProvider baseSpecProvider,
         IArbosVersionProvider arbosVersionProvider)
     {
-        _baseSpecProvider = baseSpecProvider;
-        _arbosVersionProvider = arbosVersionProvider;
+        _baseSpecProvider = baseSpecProvider ?? throw new ArgumentNullException(nameof(baseSpecProvider));
+        _arbosVersionProvider = arbosVersionProvider ?? throw new ArgumentNullException(nameof(arbosVersionProvider));
     }
-
-    #region ISpecProvider delegation
 
     public void UpdateMergeTransitionInfo(long? blockNumber, UInt256? terminalTotalDifficulty = null)
         => _baseSpecProvider.UpdateMergeTransitionInfo(blockNumber, terminalTotalDifficulty);
@@ -38,8 +34,8 @@ public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
     public ulong NetworkId => _baseSpecProvider.NetworkId;
     public ulong ChainId => _baseSpecProvider.ChainId;
     public ForkActivation[] TransitionActivations => _baseSpecProvider.TransitionActivations;
-
-    #endregion
+    public bool GenesisStateUnavailable => _baseSpecProvider.GenesisStateUnavailable;
+    public string SealEngine => _baseSpecProvider.SealEngine;
 
     public IReleaseSpec GetSpec(ForkActivation activation)
     {
