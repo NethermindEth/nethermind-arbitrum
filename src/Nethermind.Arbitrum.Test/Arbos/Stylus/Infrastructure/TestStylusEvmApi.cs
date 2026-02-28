@@ -4,7 +4,7 @@
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
@@ -27,9 +27,9 @@ public class TestStylusEvmApi : IStylusEvmApi
 
     public IReadOnlyList<CapturedHostIo> Traces => _traces.AsReadOnly();
 
-    public StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input)
+    public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
-        ReadOnlySpan<byte> inputSpan = input.Span;
+        ReadOnlySpan<byte> inputSpan = input;
         switch (requestType)
         {
             case StylusEvmRequestType.GetBytes32:

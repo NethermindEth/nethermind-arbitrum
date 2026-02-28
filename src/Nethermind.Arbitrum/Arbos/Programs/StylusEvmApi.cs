@@ -3,7 +3,6 @@
 
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
@@ -26,29 +25,30 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
     private readonly List<GCHandle> _handles = [];
 
-    public StylusEvmResponse Handle(StylusEvmRequestType requestType, ReadOnlyMemory<byte> input)
+    public StylusEvmResponse Handle(StylusEvmRequestType requestType, byte[] input)
     {
+        ReadOnlyMemory<byte> inputMemory = input;
         return requestType switch
         {
             // Storage operations
-            StylusEvmRequestType.GetBytes32 => HandleGetBytes32(input),
-            StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(input),
-            StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(input),
-            StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(input),
+            StylusEvmRequestType.GetBytes32 => HandleGetBytes32(inputMemory),
+            StylusEvmRequestType.SetTrieSlots => HandleSetTrieSlots(inputMemory),
+            StylusEvmRequestType.GetTransientBytes32 => HandleGetTransientBytes32(inputMemory),
+            StylusEvmRequestType.SetTransientBytes32 => HandleSetTransientBytes32(inputMemory),
 
             // Account operations
-            StylusEvmRequestType.AccountBalance => HandleAccountBalance(input),
-            StylusEvmRequestType.AccountCode => HandleAccountCode(input),
-            StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(input),
+            StylusEvmRequestType.AccountBalance => HandleAccountBalance(inputMemory),
+            StylusEvmRequestType.AccountCode => HandleAccountCode(inputMemory),
+            StylusEvmRequestType.AccountCodeHash => HandleAccountCodeHash(inputMemory),
 
             // Contract operations
-            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, input),
-            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, input),
+            StylusEvmRequestType.ContractCall or StylusEvmRequestType.DelegateCall or StylusEvmRequestType.StaticCall => HandleCall(requestType, inputMemory),
+            StylusEvmRequestType.Create1 or StylusEvmRequestType.Create2 => HandleCreate(requestType, inputMemory),
 
             // System operations
-            StylusEvmRequestType.EmitLog => HandleEmitLog(input),
-            StylusEvmRequestType.AddPages => HandleAddPages(input),
-            StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(input),
+            StylusEvmRequestType.EmitLog => HandleEmitLog(inputMemory),
+            StylusEvmRequestType.AddPages => HandleAddPages(inputMemory),
+            StylusEvmRequestType.CaptureHostIo => HandleCaptureHostIO(inputMemory),
 
             _ => throw new ArgumentOutOfRangeException(nameof(requestType), requestType, null)
         };
