@@ -20,7 +20,7 @@ public class ArbitrumReceiptStorageDecoder :
 {
     public ArbitrumTxReceipt Decode(RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
     {
-        if (rlpStream.IsNextItemNull())
+        if (rlpStream.IsNextItemEmptyList())
         {
             rlpStream.ReadByte();
             return null!;
@@ -57,7 +57,7 @@ public class ArbitrumReceiptStorageDecoder :
                 txReceipt.GasUsedForL1 = rlpStream.DecodeULong();
 
             // MultiGasUsed (optional)
-            if (remainingItems > 1 && !rlpStream.IsNextItemNull())
+            if (remainingItems > 1 && !rlpStream.IsNextItemEmptyList())
                 txReceipt.MultiGasUsed = MultiGas.Decode(rlpStream);
             else if (remainingItems > 1)
                 rlpStream.SkipItem();
@@ -74,7 +74,7 @@ public class ArbitrumReceiptStorageDecoder :
 
     public ArbitrumTxReceipt Decode(ref ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
     {
-        if (decoderContext.IsNextItemNull())
+        if (decoderContext.IsNextItemEmptyList())
         {
             decoderContext.ReadByte();
             return null!;
@@ -111,7 +111,7 @@ public class ArbitrumReceiptStorageDecoder :
                 txReceipt.GasUsedForL1 = decoderContext.DecodeULong();
 
             // MultiGasUsed (optional)
-            if (remainingItems > 1 && !decoderContext.IsNextItemNull())
+            if (remainingItems > 1 && !decoderContext.IsNextItemEmptyList())
                 txReceipt.MultiGasUsed = MultiGas.Decode(ref decoderContext);
             else if (remainingItems > 1)
                 decoderContext.SkipItem();
@@ -131,7 +131,7 @@ public class ArbitrumReceiptStorageDecoder :
     {
         item = new TxReceiptStructRef();
 
-        if (decoderContext.IsNextItemNull())
+        if (decoderContext.IsNextItemEmptyList())
         {
             decoderContext.ReadByte();
             return;
