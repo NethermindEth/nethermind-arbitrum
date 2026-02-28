@@ -21,9 +21,6 @@ public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
         _arbosVersionProvider = arbosVersionProvider ?? throw new ArgumentNullException(nameof(arbosVersionProvider));
     }
 
-    public void UpdateMergeTransitionInfo(long? blockNumber, UInt256? terminalTotalDifficulty = null)
-        => _baseSpecProvider.UpdateMergeTransitionInfo(blockNumber, terminalTotalDifficulty);
-
     public ForkActivation? MergeBlockNumber => _baseSpecProvider.MergeBlockNumber;
     public ulong TimestampFork => _baseSpecProvider.TimestampFork;
     public UInt256? TerminalTotalDifficulty => _baseSpecProvider.TerminalTotalDifficulty;
@@ -35,6 +32,9 @@ public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
     public ForkActivation[] TransitionActivations => _baseSpecProvider.TransitionActivations;
     public bool GenesisStateUnavailable => _baseSpecProvider.GenesisStateUnavailable;
     public string SealEngine => _baseSpecProvider.SealEngine;
+
+    public void UpdateMergeTransitionInfo(long? blockNumber, UInt256? terminalTotalDifficulty = null)
+        => _baseSpecProvider.UpdateMergeTransitionInfo(blockNumber, terminalTotalDifficulty);
 
     public IReleaseSpec GetSpec(ForkActivation activation)
     {
