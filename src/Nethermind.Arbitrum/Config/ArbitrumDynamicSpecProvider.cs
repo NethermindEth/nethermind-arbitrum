@@ -3,24 +3,47 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Config;
 
-public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
+/// <summary>
+/// Wraps an ISpecProvider to dynamically apply Arbitrum-specific overrides based on ArbOS version.
+/// Implements delegation pattern directly since upstream SpecProviderDecorator was removed.
+/// </summary>
+public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
 {
+    private readonly ISpecProvider _baseSpecProvider;
     private readonly IArbosVersionProvider _arbosVersionProvider;
 
     public ArbitrumDynamicSpecProvider(
         ISpecProvider baseSpecProvider,
         IArbosVersionProvider arbosVersionProvider)
-        : base(baseSpecProvider)
     {
+        _baseSpecProvider = baseSpecProvider;
         _arbosVersionProvider = arbosVersionProvider;
     }
 
-    public override IReleaseSpec GetSpec(ForkActivation activation)
+    #region ISpecProvider delegation
+
+    public void UpdateMergeTransitionInfo(long? blockNumber, UInt256? terminalTotalDifficulty = null)
+        => _baseSpecProvider.UpdateMergeTransitionInfo(blockNumber, terminalTotalDifficulty);
+
+    public ForkActivation? MergeBlockNumber => _baseSpecProvider.MergeBlockNumber;
+    public ulong TimestampFork => _baseSpecProvider.TimestampFork;
+    public UInt256? TerminalTotalDifficulty => _baseSpecProvider.TerminalTotalDifficulty;
+    public IReleaseSpec GenesisSpec => _baseSpecProvider.GenesisSpec;
+    public long? DaoBlockNumber => _baseSpecProvider.DaoBlockNumber;
+    public ulong? BeaconChainGenesisTimestamp => _baseSpecProvider.BeaconChainGenesisTimestamp;
+    public ulong NetworkId => _baseSpecProvider.NetworkId;
+    public ulong ChainId => _baseSpecProvider.ChainId;
+    public ForkActivation[] TransitionActivations => _baseSpecProvider.TransitionActivations;
+
+    #endregion
+
+    public IReleaseSpec GetSpec(ForkActivation activation)
     {
-        IReleaseSpec spec = base.GetSpec(activation);
+        IReleaseSpec spec = _baseSpecProvider.GetSpec(activation);
 
         if (spec is not ArbitrumReleaseSpec mutableSpec)
             return spec;
