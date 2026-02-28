@@ -8,7 +8,6 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Config;
 
-// Delegation pattern used because upstream SpecProviderDecorator was removed in https://github.com/NethermindEth/nethermind/commit/fc620c5e6d
 public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
 {
     private readonly ISpecProvider _baseSpecProvider;
