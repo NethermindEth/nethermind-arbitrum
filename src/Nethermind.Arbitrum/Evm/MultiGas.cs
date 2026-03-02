@@ -75,7 +75,7 @@ public struct MultiGas
     }
 
     /// <summary>
-    /// Returns total minus refund. Matches Nitro's SingleGas() method.
+    /// Returns total minus refund.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly ulong SingleGas() => _total.SaturateSub(_refund);
