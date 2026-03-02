@@ -53,7 +53,7 @@ public class ArbitrumPrewarmerScopeProvider(
             _logManager = logManager;
             _labels = populatePreBlockCache ? PrewarmerGetTimeLabels.Prewarmer : PrewarmerGetTimeLabels.NonPrewarmer;
             _logger = _logManager?.GetClassLogger<ArbitrumScopeWrapper>();
-            _logger?.Debug(_preBlockCache is null ? $"Using null cache instance for {populatePreBlockCache}" : $"Using cache instance {((SealablePreBlockCaches)_preBlockCache)?.StageId} for {populatePreBlockCache}");
+            _logger?.Debug(_preBlockCache is null ? $"Using null cache instance for {populatePreBlockCache}" : $"Using cache instance {_preBlockCache?.StageId} for {populatePreBlockCache}");
         }
 
         public void Dispose() => _baseScope.Dispose();
@@ -102,8 +102,6 @@ public class ArbitrumPrewarmerScopeProvider(
 
             if (_populatePreBlockCache && _preBlockCache is not null)
             {
-                SealablePreBlockCaches s_cache = (SealablePreBlockCaches)_preBlockCache;
-
                 long priorReads = Db.Metrics.ThreadLocalStateTreeReads;
                 Account? account = _preBlockCache.GetOrAdd(addressAsKey, GetFromBaseTree!);
 
@@ -112,21 +110,21 @@ public class ArbitrumPrewarmerScopeProvider(
                     if (_measureMetric)
                         _metricObserver.Observe(Stopwatch.GetTimestamp() - sw, _labels.AddressHit);
                     Db.Metrics.IncrementStateTreeCacheHits();
-                    _logger?.Debug($"{s_cache.StageId} - Populate for {address} -> {account} - hit");
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache.StageId} - Populate for {address} -> {account} - hit");
                 }
                 else
                 {
                     if (_measureMetric)
                         _metricObserver.Observe(Stopwatch.GetTimestamp() - sw, _labels.AddressMiss);
-                    _logger?.Debug($"{s_cache.StageId} - Populate for {address} -> {account} - miss");
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache.StageId} - Populate for {address} -> {account} - miss");
                 }
 
                 return account;
             }
             else
             {
-                SealablePreBlockCaches? s_cache = _preBlockCache is null ? null : (SealablePreBlockCaches)_preBlockCache;
-
                 if (_preBlockCache?.TryGetValue(addressAsKey, out Account? account) == true)
                 {
                     if (_measureMetric)
@@ -137,14 +135,16 @@ public class ArbitrumPrewarmerScopeProvider(
                     _baseScope.HintGet(address, account);
                     Db.Metrics.IncrementStateTreeCacheHits();
 
-                    _logger?.Debug($"{s_cache?.StageId} - Reading cache hit {address} -> {account}");
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache?.StageId} - Reading cache hit {address} -> {account}");
                 }
                 else
                 {
                     account = GetFromBaseTree(addressAsKey);
                     if (_measureMetric)
                         _metricObserver.Observe(Stopwatch.GetTimestamp() - sw, _labels.AddressMiss);
-                    _logger?.Debug($"{s_cache?.StageId} - Reading cache miss {address} -> {account}");
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache?.StageId} - Reading cache miss {address} -> {account}");
                 }
                 return account;
             }
@@ -194,8 +194,6 @@ public class ArbitrumPrewarmerScopeProvider(
 
             if (_populatePreBlockCache && _preBlockCache is not null)
             {
-                SealablePreBlockCaches s_cache = (SealablePreBlockCaches)_preBlockCache;
-
                 long priorReads = Db.Metrics.ThreadLocalStorageTreeReads;
 
                 byte[]? value = _preBlockCache.GetOrAdd(storageCell, LoadFromTreeStorage);
@@ -207,28 +205,25 @@ public class ArbitrumPrewarmerScopeProvider(
                     // Read from Concurrent Cache
                     Db.Metrics.IncrementStorageTreeCache();
 
-                    _logger?.Debug(
-                        $"{s_cache.StageId} - Populate for {storageCell} -> {value?.ToHexString()} - hit");
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache.StageId} - Populate for {storageCell} -> {value?.ToHexString()} - hit");
                 }
                 else
                 {
                     if (_measureMetric)
                         _metricObserver.Observe(Stopwatch.GetTimestamp() - sw, _labels.SlotGetMiss);
                     _logger?.Debug(
-                        $"{s_cache.StageId} - Populate for {storageCell} -> {value?.ToHexString()} - miss");
+                        $"{_preBlockCache.StageId} - Populate for {storageCell} -> {value?.ToHexString()} - miss");
                 }
 
                 return value ?? [0];
             }
             else
             {
-                SealablePreBlockCaches? s_cache = _preBlockCache is null ? null : (SealablePreBlockCaches)_preBlockCache;
-
                 if (_preBlockCache?.TryGetValue(storageCell, out byte[]? value) == true)
                 {
-                    _logger?.Debug(
-                        $"{s_cache?.StageId} - Reading cache hit for {storageCell} -> {value?.ToHexString()}");
-
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache?.StageId} - Reading cache hit for {storageCell} -> {value?.ToHexString()}");
 
                     _baseStorageTree.HintGet(index, value);
                     Db.Metrics.IncrementStorageTreeCache();
@@ -237,8 +232,8 @@ public class ArbitrumPrewarmerScopeProvider(
                 {
                     value = LoadFromTreeStorage(storageCell);
 
-                    _logger?.Debug(
-                        $"{s_cache?.StageId} - Reading cache miss for {storageCell} -> {value.ToHexString()}");
+                    if (_logger?.IsDebug == true)
+                        _logger?.Debug($"{_preBlockCache?.StageId} - Reading cache miss for {storageCell} -> {value.ToHexString()}");
 
                     if (_measureMetric)
                         _metricObserver.Observe(Stopwatch.GetTimestamp() - sw, _labels.SlotGetMiss);
@@ -295,9 +290,9 @@ public class ArbitrumPrewarmerScopeProvider(
         public void Set(Address key, Account? account)
         {
             _baseBatch.Set(key, account);
-            SealablePreBlockCaches s_cache = (SealablePreBlockCaches)_cache;
 
-            _logger?.Debug($"Update cache {s_cache.StageId} on write {key} -> {account}");
+            if (_logger?.IsDebug == true)
+                _logger?.Debug($"Update cache {_cache.StageId} on write {key} -> {account}");
             
             if (account is not null)
                 _cache.AddOrUpdate(key, account, (_, _) => account);
@@ -338,11 +333,10 @@ public class ArbitrumPrewarmerScopeProvider(
         {
             _baseBatch.Set(index, value);
 
-            var key = new StorageCell(_address, in index);
+            StorageCell key = new(_address, in index);
 
-            SealablePreBlockCaches s_cache = (SealablePreBlockCaches)_cache;
-
-            _logger?.Debug($"Update cache {s_cache.StageId} on write {key} -> {value.ToHexString()}");
+            if (_logger?.IsDebug == true)
+                _logger?.Debug($"Update cache {_cache.StageId} on write {key} -> {value.ToHexString()}");
 
             _cache.AddOrUpdate(key, value, (_, _) => value);
         }

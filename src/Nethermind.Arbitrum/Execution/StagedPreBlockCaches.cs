@@ -19,13 +19,12 @@ public interface IStagedPreBlockCaches : IPreBlockCachesInner
     byte[] AddOrUpdate(in StorageCell key, byte[] newValue, Func<StorageCell, byte[], byte[]> updateFunc);
 
     public void Seal();
+    public ulong StageId { get; }
 }
 public class SealablePreBlockCaches : IStagedPreBlockCaches
 {
     private const int InitialCapacity = 4096 * 8;
     private static int LockPartitions => CollectionExtensions.LockPartitions;
-
-    private readonly Func<CacheType>[] _clearCaches;
 
     private bool _backgroundSealed;
     private readonly ILogger _logger;
@@ -39,12 +38,6 @@ public class SealablePreBlockCaches : IStagedPreBlockCaches
 
     public SealablePreBlockCaches(ILogger logger, ulong stageId)
     {
-        _clearCaches =
-        [
-            () => _storageCache.NoResizeClear() ? CacheType.Storage : CacheType.None,
-            () => _stateCache.NoResizeClear() ? CacheType.State : CacheType.None,
-            () => _precompileCache.NoResizeClear() ? CacheType.Precompile : CacheType.None
-        ];
         _logger = logger;
         _stageId = stageId;
     }
@@ -58,13 +51,7 @@ public class SealablePreBlockCaches : IStagedPreBlockCaches
 
     public CacheType ClearCaches()
     {
-        CacheType isDirty = CacheType.None;
-        foreach (Func<CacheType> clearCache in _clearCaches)
-        {
-            isDirty |= clearCache();
-        }
-
-        return isDirty;
+        return CacheType.None;
     }
 
 
@@ -141,8 +128,8 @@ public class SealablePreBlockCaches : IStagedPreBlockCaches
 }
 public class StagedPreBlockCaches : IPreBlockCachesWrapper
 {
-    private volatile SealablePreBlockCaches _active;
-    private SealablePreBlockCaches? _next;
+    private volatile IStagedPreBlockCaches _active;
+    private IStagedPreBlockCaches? _next;
     private readonly ILogger _logger;
     private ulong _nextStageId = 0;
 
@@ -150,42 +137,26 @@ public class StagedPreBlockCaches : IPreBlockCachesWrapper
     {
         _logger = logManager.GetClassLogger();
 
-        SealablePreBlockCaches initial = new SealablePreBlockCaches(_logger, _nextStageId++);
+        SealablePreBlockCaches initial = new(_logger, _nextStageId++);
         initial.Seal();
         _active = initial;
     }
 
-    public IPreBlockCachesInner Active
-    {
-        get
-        {
-            _logger.Debug($"Getting ref to Active {_active.StageId}");
-            return _active;
-        }
-    }
+    public IPreBlockCachesInner Active => _active;
 
-    public IPreBlockCachesInner? Next
-    {
-        get
-        {
-            int stateLength = _next?.StateCache.Count ?? 0;
-            int storageLength = _next?.StorageCache.Count ?? 0;
-            _logger.Debug($"Getting ref to Next {_next?.StageId} - S:{stateLength} | ST{storageLength}");
-            return _next;
-        }
-    }
+    public IPreBlockCachesInner? Next => _next;
 
     public IPreBlockCachesInner CreateNext()
     {
-
         _next = new SealablePreBlockCaches(_logger, _nextStageId++);
-        _logger.Debug($"Next is {_next.StageId}");
+        if (_logger.IsDebug)
+            _logger.Debug($"Next is {_next.StageId}");
         return _next;
     }
 
     public void Promote()
     {
-        SealablePreBlockCaches? next = _next;
+        IStagedPreBlockCaches? next = _next;
         if (next == null)
             throw new InvalidOperationException("Next stage not created.");
         next.Seal();
