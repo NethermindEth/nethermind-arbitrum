@@ -232,8 +232,8 @@ public class MultiGasRlpTests
         original.Encode(stream);
         byte[] encoded = stream.Data.ToArray()!;
 
-        RlpStream decodeStream = new(encoded);
-        return MultiGas.Decode(decodeStream);
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        return MultiGas.Decode(ref ctx);
     }
 
     private static void AssertMultiGasEqual(MultiGas expected, MultiGas actual)
@@ -279,6 +279,7 @@ public class MultiGasRlpTests
             stream.Encode(g);
 
         byte[] encoded = stream.Data.ToArray()!;
-        return MultiGas.Decode(new RlpStream(encoded));
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        return MultiGas.Decode(ref ctx);
     }
 }
