@@ -10,14 +10,17 @@ using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 
@@ -48,6 +51,9 @@ public sealed class ArbitrumExecutionEngine(
     private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
+
+    private IExpressLaneService? _expressLaneService;
+    private AuctionResolutionQueue? _auctionResolutionQueue;
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
 
     private ArbitrumSequencerEngine? _sequencerEngine;
@@ -407,9 +413,17 @@ public sealed class ArbitrumExecutionEngine(
 
     public TransactionQueue? TransactionQueue => _sequencerEngine?.TransactionQueue;
 
-    public void InitializeSequencer(DelayedMessageQueue delayedMessageQueue, SequencerState sequencerState)
+    public void InitializeSequencer(
+        DelayedMessageQueue delayedMessageQueue,
+        SequencerState sequencerState,
+        IExpressLaneService? expressLaneService = null,
+        AuctionResolutionQueue? auctionResolutionQueue = null,
+        TransactionQueue? transactionQueue = null)
     {
-        TransactionQueue transactionQueue = new(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult);
+        _expressLaneService = expressLaneService;
+        _auctionResolutionQueue = auctionResolutionQueue;
+
+        transactionQueue ??= new(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult);
 
         _sequencerEngine = new ArbitrumSequencerEngine(
             BlockTree,
@@ -422,7 +436,9 @@ public sealed class ArbitrumExecutionEngine(
             logManager,
             arbitrumConfig,
             stateReader,
-            transactionQueue);
+            transactionQueue,
+            expressLaneService,
+            auctionResolutionQueue);
     }
 
     public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
@@ -451,6 +467,84 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<EmptyResponse> ForwardTo(string url)
         => RunSequencerAction(seq => seq.ForwardTo(url), nameof(ForwardTo));
+
+    public async Task<ResultWrapper<bool>> PublishAuctionResolutionTransactionAsync(byte[] rlpTransaction)
+    {
+        if (!arbitrumConfig.TimeboostEnabled)
+            return ResultWrapper<bool>.Fail("Timeboost is not enabled");
+
+        if (_auctionResolutionQueue is null || _expressLaneService is null)
+            return ResultWrapper<bool>.Fail("Timeboost not initialized");
+
+        Transaction tx;
+        try
+        {
+            tx = Rlp.Decode<Transaction>(rlpTransaction);
+        }
+        catch (Exception ex)
+        {
+            return ResultWrapper<bool>.Fail($"Failed to decode transaction: {ex.Message}");
+        }
+
+        if (tx.To != _expressLaneService.AuctionContractAddress)
+            return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {_expressLaneService.AuctionContractAddress}");
+
+        if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctioneerAddress))
+            return ResultWrapper<bool>.Fail("TimeboostAuctioneerAddress is not configured");
+
+        Address expectedAuctioneer = new(arbitrumConfig.TimeboostAuctioneerAddress);
+        Address? sender = new EthereumEcdsa(chainSpec.ChainId).RecoverAddress(tx);
+        if (sender != expectedAuctioneer)
+            return ResultWrapper<bool>.Fail($"Transaction sender {sender} is not the authorized auctioneer {expectedAuctioneer}");
+
+        if (!_expressLaneService.IsWithinAuctionCloseWindow(DateTime.UtcNow))
+            return ResultWrapper<bool>.Fail("Not within the auction close window");
+
+        TxQueueItem item = new(tx, CancellationToken.None);
+        await _auctionResolutionQueue.Writer.WriteAsync(item);
+        return ResultWrapper<bool>.Success(true);
+    }
+
+    public async Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc rpcSubmission)
+    {
+        if (!arbitrumConfig.TimeboostEnabled)
+            return ResultWrapper<bool>.Fail("Timeboost is not enabled");
+
+        if (_expressLaneService is null || _sequencerEngine is null)
+            return ResultWrapper<bool>.Fail("Timeboost not initialized");
+
+        Transaction tx;
+        try
+        {
+            tx = Rlp.Decode<Transaction>(rpcSubmission.Transaction);
+        }
+        catch (Exception ex)
+        {
+            return ResultWrapper<bool>.Fail($"Failed to decode transaction: {ex.Message}");
+        }
+
+        ExpressLaneSubmission submission = new()
+        {
+            Transaction = tx,
+            Round = rpcSubmission.Round,
+            SequenceNumber = rpcSubmission.SequenceNumber,
+            Signature = rpcSubmission.Signature,
+            ChainId = rpcSubmission.ChainId,
+            AuctionContractAddress = rpcSubmission.AuctionContractAddress
+        };
+
+        ulong currentBlock = (ulong)BlockTree.Head!.Header.Number;
+
+        try
+        {
+            await _expressLaneService.SequenceAsync(submission, currentBlock);
+            return ResultWrapper<bool>.Success(true);
+        }
+        catch (Exception ex)
+        {
+            return ResultWrapper<bool>.Fail(ex.Message);
+        }
+    }
 
     private ResultWrapper<T> RunSequencerOp<T>(Func<ArbitrumSequencerEngine, T> action, string opName)
     {

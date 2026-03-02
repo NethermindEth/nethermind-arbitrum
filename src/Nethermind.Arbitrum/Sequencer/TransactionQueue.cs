@@ -20,13 +20,11 @@ public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResul
     private readonly ConcurrentQueue<TxQueueItem> _retryQueue = new();
 
     /// <summary>
-    /// Enqueues a transaction and returns a task that completes when the tx is included in a block
+    /// Enqueues an item and returns a task that completes when the tx is included in a block
     /// or rejected. Returns null on success, an exception on failure.
     /// </summary>
-    public async Task<Exception?> EnqueueAsync(Transaction tx, CancellationToken ct)
+    public async Task<Exception?> EnqueueAsync(TxQueueItem item)
     {
-        TxQueueItem item = new(tx, ct);
-
         if (item.RlpEncoded.Length > maxTxDataSize)
             return new InvalidOperationException($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {maxTxDataSize}");
 

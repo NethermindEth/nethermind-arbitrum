@@ -103,4 +103,10 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
 
     public ResultWrapper<EmptyResponse> nitroexecution_forwardTo(string url)
         => engine.ForwardTo(url);
+
+    public Task<ResultWrapper<bool>> nitroexecution_publishAuctionResolutionTransaction(byte[] rlpTransaction)
+        => engine.PublishAuctionResolutionTransactionAsync(rlpTransaction);
+
+    public Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission)
+        => engine.PublishExpressLaneTransactionAsync(submission);
 }

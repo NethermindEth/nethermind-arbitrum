@@ -1,0 +1,17 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using Nethermind.Core;
+
+namespace Nethermind.Arbitrum.Sequencer.Timeboost;
+
+public interface IExpressLaneService
+{
+    Address AuctionContractAddress { get; }
+
+    bool CurrentRoundHasController();
+
+    bool IsWithinAuctionCloseWindow(DateTime t);
+
+    Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber);
+}

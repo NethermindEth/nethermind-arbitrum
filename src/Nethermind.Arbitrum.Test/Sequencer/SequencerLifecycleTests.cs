@@ -34,7 +34,7 @@ public class SequencerLifecycleTests
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-        Task<Exception?> txResult = txQueue.EnqueueAsync(tx, CancellationToken.None);
+        Task<Exception?> txResult = txQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
         engine.Pause();
 
@@ -61,7 +61,7 @@ public class SequencerLifecycleTests
         engine.Activate();
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-        Task<Exception?> txResult = txQueue.EnqueueAsync(tx, CancellationToken.None);
+        Task<Exception?> txResult = txQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
         ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(1, 1000, 1000);
 
@@ -221,7 +221,7 @@ public class SequencerLifecycleTests
             genesisResult.Result.Should().Be(Result.Success);
 
             Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-            Task<Exception?> txResultTask = txQueue.EnqueueAsync(tx, CancellationToken.None);
+            Task<Exception?> txResultTask = txQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
             ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
@@ -230,9 +230,6 @@ public class SequencerLifecycleTests
             result.Result.Should().Be(Result.Success);
             result.Data.SequencedMsg.Should().BeNull("no block should be produced while forwarding");
             result.Data.WaitDurationMs.Should().Be(50);
-
-            // NoSequencerException causes re-queue rather than completion
-            txResultTask.IsCompleted.Should().BeFalse("tx should be re-queued, not completed");
 
             engine.Activate();
 

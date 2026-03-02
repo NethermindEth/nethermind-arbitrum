@@ -6,9 +6,11 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Logging;
 using Nethermind.State;
 
@@ -25,8 +27,11 @@ public class ArbitrumSequencerEngine(
     ILogManager logManager,
     IArbitrumConfig arbitrumConfig,
     IStateReader stateReader,
-    TransactionQueue transactionQueue)
+    TransactionQueue transactionQueue,
+    IExpressLaneService? expressLaneService = null,
+    AuctionResolutionQueue? auctionResolutionQueue = null)
 {
+
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -58,6 +63,14 @@ public class ArbitrumSequencerEngine(
         SequencedMsg? result = await SequenceDelayedMessageAsync();
         if (result is not null)
             return new StartSequencingResult(result, 0);
+
+        // Timeboost: give auction resolution transactions priority over all other work
+        if (auctionResolutionQueue is not null && auctionResolutionQueue.Reader.TryRead(out TxQueueItem? auctionItem))
+        {
+            result = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, l1Timestamp, timestamp);
+            if (result is not null)
+                return new StartSequencingResult(result, 0);
+        }
 
         result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, l1Timestamp, timestamp);
         if (result is not null)
@@ -230,22 +243,74 @@ public class ArbitrumSequencerEngine(
         return (item, error);
     }
 
+    private async Task<SequencedMsg?> CreateBlockWithSingleTxAsync(TxQueueItem item, ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+    {
+        if (!await createBlocksSemaphore.WaitAsync(0))
+        {
+            // Return auction resolution tx to queue for retry
+            if (auctionResolutionQueue is not null)
+                await auctionResolutionQueue.Writer.WriteAsync(item);
+            return null;
+        }
+
+        try
+        {
+            return await CreateBlockWithRegularTxsWithMutexAsync([item], l1BlockNumber, timestamp);
+        }
+        catch (Exception ex)
+        {
+            if (_logger.IsError)
+                _logger.Error($"Error creating block with auction resolution tx: {ex.Message}", ex);
+            item.ReturnResult(ex);
+            return null;
+        }
+        finally
+        {
+            createBlocksSemaphore.Release();
+        }
+    }
+
     private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
+        // Timeboost: if a controller exists for the current round, delay regular txs
+        // to give express lane transactions time to arrive first.
+        if (arbitrumConfig.TimeboostEnabled && expressLaneService?.CurrentRoundHasController() == true)
+            await Task.Delay(arbitrumConfig.TimeboostExpressLaneAdvantageMs);
+
         List<TxQueueItem> queueItems = TransactionQueue.DrainBatch();
 
         if (queueItems.Count == 0)
             return null;
 
-        int writeIdx = 0;
+        ulong currentBlock = (ulong)blockTree.Head!.Header.Number;
+
+        // Timeboost: evict expired timeboosted txs before nonce check
+        if (arbitrumConfig.TimeboostEnabled)
+        {
+            int writeIdx = 0;
+            for (int i = 0; i < queueItems.Count; i++)
+            {
+                TxQueueItem it = queueItems[i];
+                if (it.IsTimeboosted && it.BlockStamp != 0
+                    && currentBlock >= it.BlockStamp + arbitrumConfig.TimeboostQueueTimeoutInBlocks)
+                {
+                    it.ReturnResult(new InvalidOperationException("Timeboosted tx expired (block-based timeout)"));
+                    continue;
+                }
+                queueItems[writeIdx++] = it;
+            }
+            queueItems.RemoveRange(writeIdx, queueItems.Count - writeIdx);
+        }
+
+        int cancelWriteIdx = 0;
         for (int i = 0; i < queueItems.Count; i++)
         {
             if (queueItems[i].CancellationToken.IsCancellationRequested)
                 queueItems[i].ReturnResult(new OperationCanceledException());
             else
-                queueItems[writeIdx++] = queueItems[i];
+                queueItems[cancelWriteIdx++] = queueItems[i];
         }
-        queueItems.RemoveRange(writeIdx, queueItems.Count - writeIdx);
+        queueItems.RemoveRange(cancelWriteIdx, queueItems.Count - cancelWriteIdx);
 
         if (queueItems.Count == 0)
             return null;
@@ -306,10 +371,14 @@ public class ArbitrumSequencerEngine(
 
         Transaction[] transactions = new Transaction[queueItems.Count];
         byte[][] rlpEncodedTxs = new byte[queueItems.Count][];
+        HashSet<Hash256>? timeboostedTxHashes = arbitrumConfig.TimeboostEnabled ? new() : null;
+
         for (int i = 0; i < queueItems.Count; i++)
         {
             transactions[i] = queueItems[i].Tx;
             rlpEncodedTxs[i] = queueItems[i].RlpEncoded;
+            if (timeboostedTxHashes is not null && queueItems[i].IsTimeboosted && queueItems[i].Tx.Hash is not null)
+                timeboostedTxHashes.Add(queueItems[i].Tx.Hash!);
         }
 
         MessageWithMetadata messageWithMetadata =
@@ -342,7 +411,7 @@ public class ArbitrumSequencerEngine(
         if (_logger.IsInfo)
             _logger.Info($"Created block with {queueItems.Count} user txs, msgIdx={msgIdx}, blockNumber={block.Number}");
 
-        return BuildSequencedMsg(block, msgIdx, messageWithMetadata);
+        return BuildSequencedMsg(block, msgIdx, messageWithMetadata, timeboostedTxHashes);
     }
 
     /// <summary>
@@ -430,7 +499,7 @@ public class ArbitrumSequencerEngine(
         if (_logger.IsInfo)
             _logger.Info($"Resequenced regular message, msgIdx={msgIdx}, blockNumber={block.Number}");
 
-        return BuildSequencedMsg(block, msgIdx, msg);
+        return BuildSequencedMsg(block, msgIdx, msg, null);
     }
 
     private async Task<SequencedMsg?> SequenceDelayedMessageAsync()
@@ -499,13 +568,28 @@ public class ArbitrumSequencerEngine(
         if (_logger.IsInfo)
             _logger.Info($"Added DelayedMessage, msgIdx={msgIdx}, delayedMsgIdx={delayedMsgIdx}, blockNumber={block.Number}");
 
-        return BuildSequencedMsg(block, msgIdx, messageWithMetadata);
+        return BuildSequencedMsg(block, msgIdx, messageWithMetadata, null);
     }
 
-    private SequencedMsg BuildSequencedMsg(Block block, ulong msgIdx, MessageWithMetadata messageWithMetadata)
+    private SequencedMsg BuildSequencedMsg(
+        Block block,
+        ulong msgIdx,
+        MessageWithMetadata messageWithMetadata,
+        HashSet<Hash256>? timeboostedTxHashes)
     {
         ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
         byte[] blockMetadata = new byte[1 + (block.Transactions.Length + 7) / 8];
+
+        // Populate timeboosted bitmap: byte 0 = flags, bytes 1..N = bitmap (1 bit per tx)
+        if (timeboostedTxHashes is not null)
+        {
+            for (int i = 0; i < block.Transactions.Length; i++)
+            {
+                Hash256? hash = block.Transactions[i].Hash;
+                if (hash is not null && timeboostedTxHashes.Contains(hash))
+                    blockMetadata[1 + i / 8] |= (byte)(1 << (i % 8));
+            }
+        }
 
         MessageResultForRpc msgResult = new()
         {
