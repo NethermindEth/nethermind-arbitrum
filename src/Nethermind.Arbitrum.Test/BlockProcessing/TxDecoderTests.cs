@@ -10,7 +10,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
 using Nethermind.Int256;
 using Nethermind.Serialization.Rlp;
-using NUnit.Framework;
+
 namespace Nethermind.Arbitrum.Test.BlockProcessing
 {
     [TestFixture]
@@ -502,7 +502,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             ArbitrumInternalTransaction originalTx = new ArbitrumInternalTransaction
             {
                 ChainId = 0,
-                Data = new byte[0]
+                Data = Array.Empty<byte>()
             };
 
             ArbitrumInternalTransaction decodedTx = EncodeDecode(_decoder, originalTx);
@@ -513,30 +513,43 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
         [Test]
         public void DecodeArbitrumInternalTx_WithMalformedRlp_ThrowsException()
         {
-            byte[] malformedRlp = {
+            byte[] malformedRlp =
+            [
                 (byte)ArbitrumTxType.ArbitrumInternal,
                 0xFF, 0xFF, 0xFF, 0xFF
+            ];
+
+            Action decode = () =>
+            {
+                Rlp.ValueDecoderContext ctx = new(malformedRlp);
+                _decoder.Decode(ref ctx);
             };
 
-            Action decode = () => _decoder.Decode(new RlpStream(malformedRlp));
             decode.Should().Throw<RlpException>();
         }
 
         [Test]
         public void DecodeTransaction_WithUnknownTxType_ThrowsException()
         {
-            byte[] unknownTypeTx = {
+            byte[] unknownTypeTx =
+            [
                 200,
                 0xc0
+            ];
+
+            Action decode = () =>
+            {
+                Rlp.ValueDecoderContext ctx = new(unknownTypeTx);
+                _decoder.Decode(ref ctx);
             };
 
-            Action decode = () => _decoder.Decode(new RlpStream(unknownTypeTx));
             decode.Should().Throw<Exception>("unknown transaction types should be rejected");
         }
 
         private static T EncodeDecode<T>(TxDecoder decoder, T input) where T : Transaction
         {
-            return (T)decoder.Decode(new RlpStream(decoder.Encode(input).Bytes))!;
+            Rlp.ValueDecoderContext ctx = new(decoder.Encode(input).Bytes);
+            return (T)decoder.Decode(ref ctx);
         }
     }
 }
