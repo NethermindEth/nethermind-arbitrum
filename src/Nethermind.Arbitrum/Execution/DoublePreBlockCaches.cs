@@ -10,6 +10,16 @@ using System.Collections.Concurrent;
 using CollectionExtensions = Nethermind.Core.Collections.CollectionExtensions;
 
 namespace Nethermind.Arbitrum.Execution;
+
+public interface IStagedPreBlockCaches : IPreBlockCachesInner
+{
+    Account? AddOrUpdate(in AddressAsKey key, Account newValue, Func<AddressAsKey, Account?, Account?> updateFunc);
+    bool TryRemove(AddressAsKey key, out Account? account);
+
+    byte[] AddOrUpdate(in StorageCell key, byte[] newValue, Func<StorageCell, byte[], byte[]> updateFunc);
+
+    public void Seal();
+}
 public class SealablePreBlockCaches : IStagedPreBlockCaches
 {
     private const int InitialCapacity = 4096 * 8;
