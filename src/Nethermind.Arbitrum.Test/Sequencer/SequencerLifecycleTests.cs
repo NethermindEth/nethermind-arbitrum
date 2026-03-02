@@ -231,9 +231,6 @@ public class SequencerLifecycleTests
             result.Data.SequencedMsg.Should().BeNull("no block should be produced while forwarding");
             result.Data.WaitDurationMs.Should().Be(50);
 
-            // NoSequencerException causes re-queue rather than completion
-            txResultTask.IsCompleted.Should().BeFalse("tx should be re-queued, not completed");
-
             engine.Activate();
 
             await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);

@@ -31,6 +31,7 @@ public class ArbitrumSequencerEngine(
     IExpressLaneService? expressLaneService = null,
     AuctionResolutionQueue? auctionResolutionQueue = null)
 {
+
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -66,7 +67,7 @@ public class ArbitrumSequencerEngine(
         // Timeboost: give auction resolution transactions priority over all other work
         if (auctionResolutionQueue is not null && auctionResolutionQueue.Reader.TryRead(out TxQueueItem? auctionItem))
         {
-            result = await CreateBlockWithSingleTxAsync(auctionItem);
+            result = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, l1Timestamp, timestamp);
             if (result is not null)
                 return new StartSequencingResult(result, 0);
         }
@@ -254,7 +255,7 @@ public class ArbitrumSequencerEngine(
 
         try
         {
-            return await CreateBlockWithRegularTxsWithMutexAsync([item]);
+            return await CreateBlockWithRegularTxsWithMutexAsync([item], l1BlockNumber, timestamp);
         }
         catch (Exception ex)
         {
@@ -269,7 +270,7 @@ public class ArbitrumSequencerEngine(
         }
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync()
+    private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         // Timeboost: if a controller exists for the current round, delay regular txs
         // to give express lane transactions time to arrive first.

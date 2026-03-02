@@ -274,7 +274,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             builder
                 .AddSingleton<DelayedMessageQueue>()
                 .AddSingleton<SequencerState>()
-                .AddSingleton<TransactionQueue>(_ => new TransactionQueue(1024, arbitrumConfig.SequencerMaxTxDataSize));
+                .AddSingleton<TransactionQueue>(_ => new TransactionQueue(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult));
 
             if (arbitrumConfig.TimeboostEnabled)
             {

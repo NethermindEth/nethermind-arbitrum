@@ -116,7 +116,7 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public override ResultWrapper<TransactionForRpc[]> eth_pendingTransactions()
+        public new ResultWrapper<TransactionForRpc[]> eth_pendingTransactions()
         {
             return ResultWrapper<TransactionForRpc[]>.Success([]);
         }
@@ -138,7 +138,7 @@ namespace Nethermind.Arbitrum.Modules
             return ResultWrapper<BlockForRpc?>.Success(new ArbitrumBlockForRpc(block, returnFullTransactionObjects, _specProvider, headerInfo));
         }
 
-        public override async Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
+        public new async Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
         {
             _logger.Warn($"eth_getTransactionCount [{address}, {blockParameter}]");
 

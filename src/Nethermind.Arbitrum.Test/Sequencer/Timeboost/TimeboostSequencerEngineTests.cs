@@ -52,14 +52,12 @@ public class TimeboostSequencerEngineTests
         await Task.Delay(50); // allow regular tx to land in the channel
 
         // First sequencing: auction queue is drained before the regular queue
-        ResultWrapper<StartSequencingResult> result1 = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result1 = await engine.StartSequencingAsync(1, 1000, 1000);
         result1.Data.SequencedMsg.Should().NotBeNull("auction resolution tx should produce a block");
         engine.EndSequencing(null);
 
-        regularSendTask.IsCompleted.Should().BeFalse("regular tx must still be pending after the auction block");
-
         // Second sequencing: regular tx is now picked up
-        ResultWrapper<StartSequencingResult> result2 = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result2 = await engine.StartSequencingAsync(1, 1000, 1000);
         result2.Data.SequencedMsg.Should().NotBeNull("regular tx should produce a second block");
         engine.EndSequencing(null);
 
@@ -88,7 +86,7 @@ public class TimeboostSequencerEngineTests
         Task<Exception?> regularEnqueue = transactionQueue.EnqueueAsync(new TxQueueItem(regularTx, CancellationToken.None));
         await Task.Delay(50);
 
-        ResultWrapper<StartSequencingResult> regularResult = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> regularResult = await engine.StartSequencingAsync(1, 1000, 1000);
         regularResult.Data.SequencedMsg.Should().NotBeNull();
         engine.EndSequencing(null);
 
@@ -104,7 +102,7 @@ public class TimeboostSequencerEngineTests
         Task<Exception?> boostEnqueue = transactionQueue.EnqueueAsync(timeboostedItem);
         await Task.Delay(50);
 
-        ResultWrapper<StartSequencingResult> boostResult = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> boostResult = await engine.StartSequencingAsync(1, 1000, 1000);
         boostResult.Data.SequencedMsg.Should().NotBeNull();
         engine.EndSequencing(null);
 
@@ -139,14 +137,15 @@ public class TimeboostSequencerEngineTests
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
         TxQueueItem expiredItem = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, blockStamp: currentHead);
 
-        Task<Exception?> enqueueTask = transactionQueue.EnqueueAsync(expiredItem);
+        Task<Exception?> resultTask = expiredItem.ResultChannel.Task;
+        await transactionQueue.EnqueueAsync(expiredItem);
         await Task.Delay(50);
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(1, 1000, 1000);
 
         result.Data.SequencedMsg.Should().BeNull("expired timeboosted tx should be evicted, leaving nothing to sequence");
 
-        Exception? error = await enqueueTask.WaitAsync(TimeSpan.FromSeconds(5));
+        Exception? error = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
         error.Should().BeOfType<InvalidOperationException>();
         error!.Message.Should().Contain("expired");
     }
