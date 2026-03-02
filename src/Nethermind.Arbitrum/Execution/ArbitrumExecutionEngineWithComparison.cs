@@ -102,6 +102,12 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<EmptyResponse> ForwardTo(string url)
         => innerEngine.ForwardTo(url);
 
+    public Task<ResultWrapper<bool>> PublishAuctionResolutionTransactionAsync(byte[] rlpTransaction)
+        => innerEngine.PublishAuctionResolutionTransactionAsync(rlpTransaction);
+
+    public Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc submission)
+        => innerEngine.PublishExpressLaneTransactionAsync(submission);
+
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
     {
         // Get a block number for comparison interval check

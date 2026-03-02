@@ -21,6 +21,14 @@ public class ArbitrumConfig : IArbitrumConfig
     public int SequencerMaxBlockSpeedMs { get; set; } = 5000;
     public int SequencerInactiveWaitMs { get; set; } = 50;
     public bool SequencerAwaitTxResult { get; set; } = false;
+    public bool TimeboostEnabled { get; set; } = false;
+    public int TimeboostExpressLaneAdvantageMs { get; set; } = 200;
+    public ulong TimeboostQueueTimeoutInBlocks { get; set; } = 5;
+    public string TimeboostAuctionContractAddress { get; set; } = "";
+    public string TimeboostAuctioneerAddress { get; set; } = "";
+    public int TimeboostEarlySubmissionGraceMs { get; set; } = 2000;
+    public int TimeboostRoundDurationSeconds { get; set; } = 60;
+    public int TimeboostAuctionClosingWindowSeconds { get; set; } = 15;
 }
 
 public static class ArbitrumConfigExtensions

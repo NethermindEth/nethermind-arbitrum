@@ -4,6 +4,7 @@
 using Nethermind.Arbitrum.Data;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -85,4 +86,10 @@ public interface INitroExecutionRpcModule : IRpcModule
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     ResultWrapper<EmptyResponse> nitroexecution_forwardTo(string url);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<bool>> nitroexecution_publishAuctionResolutionTransaction(byte[] rlpTransaction);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission);
 }
