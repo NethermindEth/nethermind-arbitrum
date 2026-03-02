@@ -28,7 +28,7 @@ public sealed class ArbitrumBlockCachePreWarmer(
     NodeStorageCache nodeStorageCache,
     IPreBlockCachesWrapper preBlockCaches,
     ILogManager logManager
-)
+) : IBlockCachePreWarmer
 {
     private readonly int _concurrencyLevel = concurrency == 0 ? System.Math.Min(Environment.ProcessorCount - 1, 16) : concurrency;
 
@@ -37,6 +37,7 @@ public sealed class ArbitrumBlockCachePreWarmer(
             Environment.ProcessorCount * 2);
 
     private readonly ILogger _logger = logManager.GetClassLogger<BlockCachePreWarmer>();
+    private CancellationTokenSource? _cancellationTokenSource;
 
     public ArbitrumBlockCachePreWarmer(
         IPrewarmerEnvFactory envFactory,
@@ -58,14 +59,14 @@ public sealed class ArbitrumBlockCachePreWarmer(
     {
         if (preBlockCaches is not null)
         {
-            //CacheType result = preBlockCaches.ClearCaches();
+            _cancellationTokenSource = new();
+
+            //not clearing cache as with standard pre-warmer, but creating next level of cache to populate,
+            //so that current cache can still be used for processing the previous block until we promote the new one
+            preBlockCaches?.CreateNext();
+
             nodeStorageCache.ClearCaches();
             nodeStorageCache.Enabled = true;
-            //if (result != default)
-            //{
-            //    if (_logger.IsWarn)
-            //        _logger.Warn($"Caches {result} are not empty. Clearing them.");
-            //}
 
             if (parent is not null && _concurrencyLevel > 1 && !cancellationToken.IsCancellationRequested)
             {
@@ -95,6 +96,13 @@ public sealed class ArbitrumBlockCachePreWarmer(
         if (_logger.IsDebug)
             _logger.Debug($"Cleared caches: {cachesCleared}");
         return cachesCleared;
+    }
+
+    public void SealAndPromote()
+    {
+        if (_logger.IsDebug)
+            _logger.Debug($"Sealing and promoting cache");
+        preBlockCaches?.Promote();
     }
 
     private void PreWarmCachesParallel(BlockState blockState, Block suggestedBlock, BlockHeader parent, IReleaseSpec spec, ParallelOptions parallelOptions,

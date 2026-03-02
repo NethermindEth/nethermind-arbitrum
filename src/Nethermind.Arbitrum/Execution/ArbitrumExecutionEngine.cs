@@ -6,7 +6,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
@@ -17,7 +16,6 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
@@ -145,9 +143,6 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
             //if (_blockProducer?.CanPrefetch == true && parameters.MessageForPrefetch is not null)
             if (_blockProducer?.CanPrefetch == true)
             {
-                //_blockProducer?.CancelPrefetchAndWait();
-                //_blockProducer?.SwapCaches();
-
                 if (parameters.MessageForPrefetch is not null)
                 {
                     if (_blockProducer!.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader?.Clone()))

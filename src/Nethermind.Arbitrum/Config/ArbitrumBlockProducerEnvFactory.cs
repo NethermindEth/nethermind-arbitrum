@@ -98,7 +98,6 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                     return new CachedCodeInfoRepository(precompileProvider, originalCodeInfoRepository,
                         blocksConfig.CachePrecompilesOnBlockProcessing ? preBlockCaches?.PrecompileCache : null);
                 })
-                .AddSingleton<IPrefetchManager, ArbitrumPrefetchManager>()
                 .AddDecorator<IWorldState, PrefetchAwareWorldState>();
         }
 
