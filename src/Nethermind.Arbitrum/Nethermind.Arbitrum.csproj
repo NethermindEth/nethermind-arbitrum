@@ -77,4 +77,17 @@
     <Message Text="Copied @(FilesToCopyToChainspecDir-&gt;Count()) files to $(RunnerChainspecDir)" Importance="high" />
   </Target>
 
+  <Target Name="VerifyStylusDependencies" AfterTargets="CopyFilesToRunner">
+    <PropertyGroup>
+      <StylusDllPath>$(RunnerPluginDir)/Nethermind.Arbitrum.Stylus.dll</StylusDllPath>
+    </PropertyGroup>
+
+    <Error Condition="!Exists('$(StylusDllPath)')"
+           Text="Build verification failed: Nethermind.Arbitrum.Stylus.dll is missing from $(RunnerPluginDir). Ensure CopyLocalLockFileAssemblies is set to true and the Stylus NuGet package is correctly referenced." />
+
+    <Message Condition="Exists('$(StylusDllPath)')"
+             Text="Verified: Nethermind.Arbitrum.Stylus.dll is present in plugins directory"
+             Importance="high" />
+  </Target>
+
 </Project>
