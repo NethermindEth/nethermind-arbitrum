@@ -4,7 +4,7 @@
 using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos.Compression;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Test.Arbos;
 

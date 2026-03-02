@@ -224,4 +224,133 @@ public class MultiGasTests
         gas.Add(maxGas);
         gas.Total.Should().Be(ulong.MaxValue);
     }
+
+    [Test]
+    public void Default_IsZero_ReturnsTrue()
+    {
+        MultiGas gas = default;
+
+        gas.SingleGas().Should().Be(0UL);
+        gas.IsZero().Should().BeTrue();
+    }
+
+    [Test]
+    public void IsZero_AfterIncrement_ReturnsFalse()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 100);
+
+        gas.Get(ResourceKind.Computation).Should().Be(100UL);
+        gas.SingleGas().Should().Be(100UL);
+        gas.IsZero().Should().BeFalse();
+    }
+
+    [Test]
+    public void SafeSub_Normal_ReturnsResultWithNoUnderflow()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 30);
+        gas.Increment(ResourceKind.HistoryGrowth, 40);
+        gas.Increment(ResourceKind.StorageAccess, 50);
+
+        MultiGas toSubtract = default;
+        toSubtract.Increment(ResourceKind.Computation, 10);
+        toSubtract.Increment(ResourceKind.HistoryGrowth, 20);
+
+        (MultiGas result, bool underflow) = gas.SafeSub(toSubtract);
+
+        underflow.Should().BeFalse();
+        result.Get(ResourceKind.Computation).Should().Be(20UL);
+        result.Get(ResourceKind.HistoryGrowth).Should().Be(20UL);
+        result.Get(ResourceKind.StorageAccess).Should().Be(50UL);
+        result.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
+        result.Get(ResourceKind.L1Calldata).Should().Be(0UL);
+        result.Get(ResourceKind.L2Calldata).Should().Be(0UL);
+        result.Get(ResourceKind.WasmComputation).Should().Be(0UL);
+        result.SingleGas().Should().Be(90UL);
+    }
+
+    [Test]
+    public void SafeSub_WhenTotalUnderflows_ReturnsUnderflowTrue()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 10);
+
+        MultiGas toSubtract = default;
+        toSubtract.Increment(ResourceKind.Computation, 20);
+
+        (MultiGas result, bool underflow) = gas.SafeSub(toSubtract);
+
+        underflow.Should().BeTrue();
+        result.Get(ResourceKind.Computation).Should().Be(0UL);
+        result.Total.Should().Be(0UL);
+    }
+
+    [Test]
+    public void SaturatingSub_Normal_ReturnsCorrectResult()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 30);
+        gas.Increment(ResourceKind.HistoryGrowth, 40);
+        gas.Increment(ResourceKind.StorageAccess, 50);
+
+        MultiGas toSubtract = default;
+        toSubtract.Increment(ResourceKind.Computation, 10);
+        toSubtract.Increment(ResourceKind.HistoryGrowth, 20);
+
+        MultiGas result = gas.SaturatingSub(toSubtract);
+
+        result.Get(ResourceKind.Computation).Should().Be(20UL);
+        result.Get(ResourceKind.HistoryGrowth).Should().Be(20UL);
+        result.Get(ResourceKind.StorageAccess).Should().Be(50UL);
+        result.Total.Should().Be(90UL);
+    }
+
+    [Test]
+    public void SaturatingSub_Underflow_ClampsToZero()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 10);
+
+        MultiGas toSubtract = default;
+        toSubtract.Increment(ResourceKind.Computation, 20);
+
+        MultiGas result = gas.SaturatingSub(toSubtract);
+
+        result.Get(ResourceKind.Computation).Should().Be(0UL);
+        result.Total.Should().Be(0UL);
+    }
+
+    [Test]
+    public void SingleGas_WithRefund_SubtractsRefundFromTotal()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 1000);
+
+        MultiGas withRefund = gas.WithRefund(300);
+
+        withRefund.Total.Should().Be(1000UL);
+        withRefund.Refund.Should().Be(300UL);
+        withRefund.SingleGas().Should().Be(700UL);
+    }
+
+    [Test]
+    public void SingleGas_RefundExceedsTotal_ClampsToZero()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.Computation, 100);
+
+        MultiGas withRefund = gas.WithRefund(200);
+
+        withRefund.SingleGas().Should().Be(0UL);
+    }
+
+    [Test]
+    public void IsZero_WithOnlyRefund_ReturnsFalse()
+    {
+        MultiGas gas = default;
+        gas = gas.WithRefund(100);
+
+        gas.IsZero().Should().BeFalse();
+    }
 }

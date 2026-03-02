@@ -3,7 +3,7 @@
 
 using FluentAssertions;
 using FluentAssertions.Equivalency;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 

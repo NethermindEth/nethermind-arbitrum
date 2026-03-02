@@ -240,18 +240,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         UInt256 initCodeLength = new((uint)initCode.Length);
 
-        // EIP-3860: Limit the maximum size of the initialization code.
-        if (Spec.IsEip3860Enabled)
-        {
-            if (initCodeLength > Spec.MaxInitCodeSize)
-                goto OutOfGas;
-        }
-
         bool outOfGas = false;
-        // Calculate the gas cost for the creation, including fixed cost and per-word cost for init code.
-        // Also include an extra cost for CREATE2 if applicable.
+
         long gasCost = GasCostOf.Create +
-                       (Spec.IsEip3860Enabled ? GasCostOf.InitCodeWord * EvmCalculations.Div32Ceiling(in initCodeLength, out outOfGas) : 0) +
                        (kind == ExecutionType.CREATE2
                            ? GasCostOf.Sha3Word * EvmCalculations.Div32Ceiling(in initCodeLength, out outOfGas)
                            : 0);
@@ -397,13 +388,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             }
         }
 
-        // Return gasCost - eip3860Cost + gasConsumed as total. The Stylus program passed gasLimit and needs to know
-        // the total gas spent. Note: Include base CREATE cost (32000) and CREATE2 sha3 word cost if applicable,
-        // but NOT EIP-3860 init code word cost (which is handled separately in the Stylus runtime).
-        long eip3860Cost = Spec.IsEip3860Enabled
-            ? GasCostOf.InitCodeWord * EvmCalculations.Div32Ceiling(in initCodeLength, out _)
-            : 0;
-        return new StylusEvmResult([], (ulong)(gasCost - eip3860Cost) + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
+        return new StylusEvmResult([], (ulong)gasCost + gasConsumed, txnSubstrate.EvmExceptionType, contractAddress);
     OutOfGas:
         return new StylusEvmResult([], gasLimit, EvmExceptionType.OutOfGas, Address.Zero);
     StaticCallViolation:
@@ -508,6 +493,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             CurrentRefundTo = ArbitrumTxExecutionContext.CurrentRefundTo,
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
+            SpecHelper = specHelper,
         };
 
         return precompile.IsDebug

@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -43,3 +44,43 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./coverage
           fail_ci_if_error: false
+
+  # Notify on failure for automated submodule update PRs
+  notify-submodule-failure:
+    name: Notify Submodule Update Failure
+    needs: test
+    if: needs.test.result == 'failure' && startsWith(github.head_ref, 'auto/nethermind-update')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post failure comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found, skipping notification"
+            exit 0
+          fi
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "$REPO" \
+            --body "## ⚠️ Test Failure Detected
+
+          The Nethermind submodule update introduced a test failure.
+
+          **Failed Job:** test
+          **Workflow Run:** $SERVER_URL/$REPO/actions/runs/$RUN_ID
+
+          Please review the failure and either:
+          1. Fix compatibility in a follow-up commit
+          2. Close this PR and wait for upstream fix
+          3. Pin to a specific working commit"
+
+          gh pr edit "$PR_NUMBER" \
+            --repo "$REPO" \
+            --add-label "breaking-change"

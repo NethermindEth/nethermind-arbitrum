@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Infrastructure;

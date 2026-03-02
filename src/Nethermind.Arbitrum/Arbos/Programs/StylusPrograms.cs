@@ -7,7 +7,6 @@ using System.Diagnostics;
 using Microsoft.ClearScript;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
@@ -19,7 +18,7 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
+using Bytes32 = Nethermind.Arbitrum.Stylus.Bytes32;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -131,8 +130,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
 
-        // CodeSource is null when init code is returned from CREATE/CREATE2 and executed immediately.
-        // In such case Nitro lets the execution proceed until it fails at GetActiveProgram with ProgramNotActivated() code.
         Address codeSource = vmHost.VmState.Env.CodeSource ?? Address.Zero;
 
         // If it's EIP-7702 delegation code, extract the delegated address
@@ -140,9 +137,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
             codeSource = delegatedCodeSource;
 
-        ref readonly ValueHash256 codeHash = ref codeSource != Address.Zero
-            ? ref vmHost.WorldState.GetCodeHash(codeSource)
-            : ref Hash256.Zero.ValueHash256;
+        ref readonly ValueHash256 codeHash = ref ResolveCodeHash(vmHost, codeSource);
 
         StylusOperationResult<Program> program = GetActiveProgram(in codeHash, vmHost.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
@@ -854,6 +849,15 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
+
+    private ref readonly ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
+    {
+        if (codeSource != Address.Zero)
+            return ref vmHost.WorldState.GetCodeHash(codeSource);
+
+        Hash256 initCodeHash = new(ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan));
+        return ref initCodeHash.ValueHash256;
+    }
 }
 
 public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHash256 codeHash, ValueHash256 moduleHash, UInt256 dataFee,

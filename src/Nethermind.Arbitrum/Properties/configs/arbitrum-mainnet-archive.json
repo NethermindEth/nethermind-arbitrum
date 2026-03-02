@@ -65,5 +65,8 @@
     "Enabled": true,
     "SnapshotDirectory": "snapshot/mainnet-archive",
     "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+  },
+  "VerifyBlockHash": {
+    "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }
