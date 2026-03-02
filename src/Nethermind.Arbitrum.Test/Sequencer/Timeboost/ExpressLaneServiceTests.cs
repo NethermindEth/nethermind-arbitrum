@@ -461,7 +461,7 @@ public class ExpressLaneServiceTests
 
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, ulong currentRound = 1)
     {
-        txQueue = new TransactionQueue(1024, 95_000);
+        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
         IBlockTree blockTree = Substitute.For<IBlockTree>();
         blockTree.Head.Returns((Block?)null);
         IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
@@ -483,7 +483,7 @@ public class ExpressLaneServiceTests
         ulong currentRound,
         byte[] contractOutput)
     {
-        txQueue = new TransactionQueue(1024, 95_000);
+        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
         BlockHeader header = Build.A.BlockHeader.WithNumber(1).TestObject;
         Block headBlock = new Block(header);
         IBlockTree blockTree = Substitute.For<IBlockTree>();
@@ -504,7 +504,7 @@ public class ExpressLaneServiceTests
 
     private static ExpressLaneService CreateServiceNearRoundEnd(out TransactionQueue txQueue, ulong currentRound)
     {
-        txQueue = new TransactionQueue(1024, 95_000);
+        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
         // Place UtcNow ~1s before the end of the current round so timeTilNext ≈ 1s < 2s grace.
         DateTime offset = DateTime.UtcNow
             - TimeSpan.FromMinutes(1) * (long)currentRound
