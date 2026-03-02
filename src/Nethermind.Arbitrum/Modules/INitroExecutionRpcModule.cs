@@ -61,7 +61,7 @@ public interface INitroExecutionRpcModule : IRpcModule
     Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus();
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing();
+    Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     ResultWrapper<EmptyResponse> nitroexecution_endSequencing(string? error);

@@ -17,6 +17,10 @@ public class ArbitrumConfig : IArbitrumConfig
     public bool SequencerEnabled { get; set; } = false;
     public int SequencerNonceCacheSize { get; set; } = 1024;
     public int SequencerMaxTxDataSize { get; set; } = 95000;
+    public int SequencerMaxAcceptableTimestampDelta { get; set; } = 3600;
+    public int SequencerMaxBlockSpeedMs { get; set; } = 5000;
+    public int SequencerInactiveWaitMs { get; set; } = 50;
+    public bool SequencerAwaitTxResult { get; set; } = false;
     public bool TimeboostEnabled { get; set; } = false;
     public int TimeboostExpressLaneAdvantageMs { get; set; } = 200;
     public ulong TimeboostQueueTimeoutInBlocks { get; set; } = 5;

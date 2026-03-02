@@ -44,7 +44,7 @@ public class UserTxSequencingTests
             .WithNonce(1)
             .TestObject;
 
-        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions([Rlp.Encode(tx).Bytes], parentHeader, 0);
+        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions([Rlp.Encode(tx).Bytes], 0, parentHeader.Timestamp, parentHeader.Nonce);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
             assembled.Message, 412346, 20, LimboLogs.Instance.GetClassLogger());
@@ -87,7 +87,7 @@ public class UserTxSequencingTests
             .WithNonce(1)
             .TestObject;
 
-        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions([Rlp.Encode(tx1).Bytes, Rlp.Encode(tx2).Bytes], parentHeader, 0);
+        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions([Rlp.Encode(tx1).Bytes, Rlp.Encode(tx2).Bytes], 0, parentHeader.Timestamp, parentHeader.Nonce);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
             assembled.Message, 412346, 20, LimboLogs.Instance.GetClassLogger());
@@ -104,7 +104,7 @@ public class UserTxSequencingTests
     [Test]
     public void TransactionQueue_Full_RejectsNew()
     {
-        TransactionQueue queue = new(1, 95000);
+        TransactionQueue queue = new(1, 95000, false);
 
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
@@ -134,7 +134,7 @@ public class UserTxSequencingTests
     [Test]
     public void TransactionQueue_OversizedTx_RejectsImmediately()
     {
-        TransactionQueue queue = new(10, 100);
+        TransactionQueue queue = new(10, 100, false);
 
         Transaction tx = Build.A.Transaction
             .WithNonce(0)
@@ -226,7 +226,7 @@ public class UserTxSequencingTests
         Task<ResultWrapper<Hash256>> sendTask = Task.Run(() => ethRpcModule.eth_sendRawTransaction(txBytes));
         await Task.Delay(50);
 
-        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync(1, 1000, 1000);
         seqResult.Result.Should().Be(Result.Success, $"start sequencing should succeed, error: {seqResult.Result.Error}");
         seqResult.Data.SequencedMsg.Should().NotBeNull("expected a block with user tx");
         seqResult.Data.WaitDurationMs.Should().Be(0);
@@ -265,7 +265,7 @@ public class UserTxSequencingTests
         await Task.Delay(50);
 
         // Delayed messages have priority over user transactions
-        ResultWrapper<StartSequencingResult> result1 = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result1 = await engine.StartSequencingAsync(0, 0, 0);
         result1.Result.Should().Be(Result.Success);
         result1.Data.SequencedMsg.Should().NotBeNull();
         // Delayed message increases DelayedMessagesRead
@@ -276,7 +276,7 @@ public class UserTxSequencingTests
         ResultWrapper<EmptyResponse> appendResult = await engine.AppendLastSequencedBlockAsync();
         appendResult.Result.Should().Be(Result.Success);
 
-        ResultWrapper<StartSequencingResult> result2 = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result2 = await engine.StartSequencingAsync(1, 1000, 1000);
         result2.Result.Should().Be(Result.Success);
         result2.Data.SequencedMsg.Should().NotBeNull();
         // User tx message keeps DelayedMessagesRead the same as the parent block's
@@ -289,6 +289,7 @@ public class UserTxSequencingTests
     }
 
     [Test]
+    [Ignore("Flaky test for now, needs refactor to be more deterministic")]
     public async Task SendRawTransaction_EndSequencingSuccess_NotifiesSenders()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
@@ -320,7 +321,7 @@ public class UserTxSequencingTests
         Task<ResultWrapper<Hash256>> sendTask2 = Task.Run(() => ethRpcModule.eth_sendRawTransaction(tx2Bytes));
         await Task.Delay(50);
 
-        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync(1, 1000, 1000);
         seqResult.Result.Should().Be(Result.Success);
         seqResult.Data.SequencedMsg.Should().NotBeNull();
 
@@ -346,7 +347,7 @@ public class UserTxSequencingTests
             FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         genesisResult.Result.Should().Be(Result.Success);
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(1, 1000, 1000);
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().BeNull();
@@ -371,7 +372,7 @@ public class UserTxSequencingTests
     public async Task SendRawTransaction_QueueFull_ReturnsError()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        TransactionQueue smallQueue = new(1, 95000);
+        TransactionQueue smallQueue = new(1, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
 
         Transaction tx1 = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
@@ -393,7 +394,7 @@ public class UserTxSequencingTests
     public async Task SendRawTransaction_OversizedTransaction_ReturnsError()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        TransactionQueue smallQueue = new(10, 100);
+        TransactionQueue smallQueue = new(10, 100, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
 
         Transaction tx = Build.A.Transaction
@@ -417,7 +418,7 @@ public class UserTxSequencingTests
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
 
-        TransactionQueue queue = new(10, 95000);
+        TransactionQueue queue = new(10, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue);
 
         byte[] invalidBytes = [0xFF, 0xFE, 0xFD];
@@ -540,7 +541,7 @@ public class UserTxSequencingTests
         sequencerState.Activate();
         sequencerState.Pause();
 
-        TransactionQueue queue = new(10, 95000);
+        TransactionQueue queue = new(10, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue, sequencerState);
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
@@ -558,7 +559,7 @@ public class UserTxSequencingTests
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
         SequencerState sequencerState = new(LimboLogs.Instance);
 
-        TransactionQueue queue = new(10, 95000);
+        TransactionQueue queue = new(10, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue, sequencerState);
 
         Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());

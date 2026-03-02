@@ -62,8 +62,8 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
     public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
         => engine.MaintenanceStatusAsync();
 
-    public Task<ResultWrapper<StartSequencingResult>> StartSequencing()
-        => engine.StartSequencingAsync();
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
+        => engine.StartSequencingAsync(parameters.L1BlockNumber, parameters.L1Timestamp, parameters.Timestamp);
 
     public ResultWrapper<string> EndSequencing(EndSequencingParams? parameters)
         => ToOkResult(engine.EndSequencing(parameters?.Error));

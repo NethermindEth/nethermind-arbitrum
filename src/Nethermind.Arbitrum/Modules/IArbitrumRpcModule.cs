@@ -57,7 +57,7 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus();
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        Task<ResultWrapper<StartSequencingResult>> StartSequencing();
+        Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<string> EndSequencing(EndSequencingParams? parameters);

@@ -5,7 +5,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Sequencer;
 
@@ -19,18 +18,17 @@ public static class L2MessageAssembler
     /// Assembles RLP-encoded signed transactions into a MessageWithMetadata suitable for block production.
     /// </summary>
     public static MessageWithMetadata AssembleFromSignedTransactions(
-        byte[][] rlpEncodedTxs, BlockHeader parentHeader, ulong l1BlockNumber)
+        byte[][] rlpEncodedTxs, ulong l1BlockNumber, ulong timestamp, ulong delayedMessagesRead)
     {
         L1IncomingMessageHeader header = new(
             ArbitrumL1MessageKind.L2Message,
             ArbosAddresses.BatchPosterAddress,
             l1BlockNumber,
-            parentHeader.Timestamp,
+            timestamp,
             null,
-            0);
+            null);
 
         byte[] l2Msg = SerializeL2Message(rlpEncodedTxs);
-        ulong delayedMessagesRead = parentHeader.Nonce;
 
         L1IncomingMessage message = new(header, l2Msg, null, null);
         return new MessageWithMetadata(message, delayedMessagesRead);

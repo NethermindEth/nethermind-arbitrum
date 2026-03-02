@@ -31,9 +31,6 @@ public class ArbitrumSequencerEngine(
     IExpressLaneService? expressLaneService = null,
     AuctionResolutionQueue? auctionResolutionQueue = null)
 {
-    private const long MaxBlockSpeedMs = 1000;
-    private const long InactiveWaitMs = 50;
-
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -48,7 +45,7 @@ public class ArbitrumSequencerEngine(
 
     public TransactionQueue TransactionQueue { get; } = transactionQueue;
 
-    public async Task<StartSequencingResult> StartSequencingAsync()
+    public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         if (!sequencerState.IsActive)
         {
@@ -59,7 +56,7 @@ public class ArbitrumSequencerEngine(
                     await HandleInactiveAsync(pendingItems);
             }
 
-            return new StartSequencingResult(null, InactiveWaitMs);
+            return new StartSequencingResult(null, arbitrumConfig.SequencerInactiveWaitMs);
         }
 
         SequencedMsg? result = await SequenceDelayedMessageAsync();
@@ -74,13 +71,13 @@ public class ArbitrumSequencerEngine(
                 return new StartSequencingResult(result, 0);
         }
 
-        result = await CreateBlockWithRegularTxsAsync();
+        result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, l1Timestamp, timestamp);
         if (result is not null)
             return new StartSequencingResult(result, 0);
 
         _logger.Warn("Nothing to sequence, waiting...");
 
-        return new StartSequencingResult(null, MaxBlockSpeedMs);
+        return new StartSequencingResult(null, arbitrumConfig.SequencerMaxBlockSpeedMs);
     }
 
     public void EndSequencing(string? error)
@@ -245,7 +242,7 @@ public class ArbitrumSequencerEngine(
         return (item, error);
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithSingleTxAsync(TxQueueItem item)
+    private async Task<SequencedMsg?> CreateBlockWithSingleTxAsync(TxQueueItem item, ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         if (!await createBlocksSemaphore.WaitAsync(0))
         {
@@ -317,6 +314,18 @@ public class ArbitrumSequencerEngine(
         if (queueItems.Count == 0)
             return null;
 
+        ulong timestampDelta = l1Timestamp > timestamp ? l1Timestamp - timestamp : timestamp - l1Timestamp;
+        if (l1BlockNumber == 0 || timestampDelta > (ulong)arbitrumConfig.SequencerMaxAcceptableTimestampDelta)
+        {
+            foreach (TxQueueItem item in queueItems)
+                TransactionQueue.PushRetry(item);
+
+            if (_logger.IsError)
+                _logger.Error($"Cannot sequence: unknown L1 block or L1 timestamp too far from local clock time, " +
+                    $"l1Block={l1BlockNumber}, l1Timestamp={l1Timestamp}, localTimestamp={timestamp}");
+            return null;
+        }
+
         _nonceCache.BeginNewBlock();
         _nonceFailureCache.EvictExpired();
         queueItems = PrecheckNonces(queueItems);
@@ -336,7 +345,7 @@ public class ArbitrumSequencerEngine(
 
         try
         {
-            return await CreateBlockWithRegularTxsWithMutexAsync(queueItems);
+            return await CreateBlockWithRegularTxsWithMutexAsync(queueItems, l1BlockNumber, timestamp);
         }
         catch (Exception ex)
         {
@@ -354,7 +363,7 @@ public class ArbitrumSequencerEngine(
         }
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithRegularTxsWithMutexAsync(List<TxQueueItem> queueItems)
+    private async Task<SequencedMsg?> CreateBlockWithRegularTxsWithMutexAsync(List<TxQueueItem> queueItems, ulong l1BlockNumber, ulong timestamp)
     {
         BlockHeader head = blockTree.Head?.Header
             ?? throw new InvalidOperationException("BlockTree.Head is null");
@@ -372,7 +381,7 @@ public class ArbitrumSequencerEngine(
         }
 
         MessageWithMetadata messageWithMetadata =
-            L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, head, 0);
+            L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, l1BlockNumber, timestamp, head.Nonce);
 
         long blockNumber = head.Number + 1;
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);

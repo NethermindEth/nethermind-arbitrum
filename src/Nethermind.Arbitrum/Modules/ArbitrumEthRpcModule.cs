@@ -116,7 +116,7 @@ namespace Nethermind.Arbitrum.Modules
             }
         }
 
-        public new ResultWrapper<TransactionForRpc[]> eth_pendingTransactions()
+        public override ResultWrapper<TransactionForRpc[]> eth_pendingTransactions()
         {
             return ResultWrapper<TransactionForRpc[]>.Success([]);
         }
@@ -138,13 +138,24 @@ namespace Nethermind.Arbitrum.Modules
             return ResultWrapper<BlockForRpc?>.Success(new ArbitrumBlockForRpc(block, returnFullTransactionObjects, _specProvider, headerInfo));
         }
 
-        public new Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
+        public override async Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
         {
+            _logger.Warn($"eth_getTransactionCount [{address}, {blockParameter}]");
+
             if (blockParameter != BlockParameter.Pending || _blockFinder.Head?.Header is null)
-                return base.eth_getTransactionCount(address, blockParameter);
+            {
+                ResultWrapper<UInt256> ethGetTransactionCount = await base.eth_getTransactionCount(address, blockParameter);
+
+                _logger.Warn($"eth_getTransactionCount: default implementation result={ethGetTransactionCount.Data}");
+
+                return ethGetTransactionCount;
+            }
 
             _stateReader.TryGetAccount(_blockFinder.Head?.Header, address, out AccountStruct account);
-            return Task.FromResult(ResultWrapper<UInt256>.Success(account.Nonce));
+
+            _logger.Warn($"eth_getTransactionCount: arbitrum implementation nonce={account.Nonce} balance={account.Balance} head={_blockFinder.Head?.Header.Number}");
+
+            return ResultWrapper<UInt256>.Success(account.Nonce);
         }
 
         public override ResultWrapper<string> eth_call(
@@ -152,16 +163,12 @@ namespace Nethermind.Arbitrum.Modules
             BlockParameter? blockParameter = null,
             Dictionary<Address, AccountOverride>? stateOverride = null)
         {
-            var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            if (searchResult.IsError && searchResult.Error != null)
-            {
+            SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
+            if (searchResult is { IsError: true, Error: not null })
                 return ResultWrapper<string>.Fail(searchResult.Error, searchResult.ErrorCode);
-            }
 
             if (searchResult.Object == null)
-            {
                 return ResultWrapper<string>.Fail("Block not found", 0);
-            }
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
@@ -174,21 +181,21 @@ namespace Nethermind.Arbitrum.Modules
             BlockParameter? blockParameter = null,
             Dictionary<Address, AccountOverride>? stateOverride = null)
         {
-            var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            if (searchResult.IsError && searchResult.Error != null)
-            {
+            SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
+            if (searchResult is { IsError: true, Error: not null })
                 return ResultWrapper<UInt256?>.Fail(searchResult.Error, searchResult.ErrorCode);
-            }
 
             if (searchResult.Object == null)
-            {
                 return ResultWrapper<UInt256?>.Fail("Block not found", 0);
-            }
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
-            return new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
+            ResultWrapper<UInt256?> ethEstimateGas = new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
+
+            _logger.Warn($"eth_estimateGas: estimateGas result={ethEstimateGas.Data}");
+
+            return ethEstimateGas;
         }
 
         public override ResultWrapper<AccessListResultForRpc?> eth_createAccessList(
@@ -196,16 +203,12 @@ namespace Nethermind.Arbitrum.Modules
             BlockParameter? blockParameter = null,
             bool optimize = true)
         {
-            var searchResult = _blockFinder.SearchForHeader(blockParameter);
-            if (searchResult.IsError && searchResult.Error != null)
-            {
+            SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
+            if (searchResult is { IsError: true, Error: not null })
                 return ResultWrapper<AccessListResultForRpc?>.Fail(searchResult.Error, searchResult.ErrorCode);
-            }
 
             if (searchResult.Object == null)
-            {
                 return ResultWrapper<AccessListResultForRpc?>.Fail("Block not found", 0);
-            }
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
@@ -284,9 +287,7 @@ namespace Nethermind.Arbitrum.Modules
                 {
                     searchResult ??= _blockFinder.SearchForHeader(blockParameter);
                     if (!searchResult.Value.IsError)
-                    {
                         transactionCall.Gas = searchResult.Value.Object?.GasLimit;
-                    }
                 }
 
                 transactionCall.EnsureDefaults(_rpcConfig.GasCap);
@@ -313,10 +314,8 @@ namespace Nethermind.Arbitrum.Modules
                 // Set base fee to 0 for EVM execution (like Ethereum's NoBaseFee)
                 arbitrumHeader.BaseFeePerGas = 0;
 
-                if (tx.IsContractCreation && tx.DataLength == 0)
-                {
+                if (tx is { IsContractCreation: true, DataLength: 0 })
                     return ResultWrapper<TResult>.Fail("Contract creation without any data provided.", ErrorCodes.InvalidInput);
-                }
 
                 return ExecuteTx(arbitrumHeader, tx, stateOverride, token);
             }
@@ -399,9 +398,7 @@ namespace Nethermind.Arbitrum.Modules
                 long gas = result.GasSpent;
                 long operationGas = result.OperationGas;
                 if (result.AccessList is null)
-                {
                     return (UInt256)gas;
-                }
 
                 var oldIntrinsicCost = IntrinsicGasCalculator.AccessListCost(transaction, Berlin.Instance);
                 transaction.AccessList = result.AccessList;
@@ -413,9 +410,7 @@ namespace Nethermind.Arbitrum.Modules
                         gas = operationGas + updatedAccessListCost;
                 }
                 else
-                {
                     gas += updatedAccessListCost;
-                }
 
                 return (UInt256)gas;
             }

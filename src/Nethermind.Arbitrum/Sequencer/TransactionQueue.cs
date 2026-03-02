@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Sequencer;
 /// <summary>
 /// Bounded channel-based user transaction queue with per-tx result notification.
 /// </summary>
-public class TransactionQueue(int capacity, int maxTxDataSize)
+public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResult)
 {
     private readonly Channel<TxQueueItem> _channel = Channel.CreateBounded<TxQueueItem>(new BoundedChannelOptions(capacity)
     {
@@ -31,7 +31,9 @@ public class TransactionQueue(int capacity, int maxTxDataSize)
         if (!_channel.Writer.TryWrite(item))
             return new InvalidOperationException("Transaction queue is full");
 
-        return await item.ResultChannel.Task;
+        return awaitTxResult
+            ? await item.ResultChannel.Task
+            : null;
     }
 
     /// <summary>

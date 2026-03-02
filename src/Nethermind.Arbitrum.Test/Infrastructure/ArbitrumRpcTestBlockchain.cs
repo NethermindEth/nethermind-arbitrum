@@ -477,8 +477,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.TriggerMaintenance();
         }
 
-        public Task<ResultWrapper<StartSequencingResult>> StartSequencing()
-            => rpc.StartSequencing();
+        public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
+            => rpc.StartSequencing(parameters);
 
         public ResultWrapper<string> EndSequencing(EndSequencingParams? parameters)
             => rpc.EndSequencing(parameters);

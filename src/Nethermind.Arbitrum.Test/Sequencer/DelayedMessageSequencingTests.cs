@@ -36,7 +36,7 @@ public class DelayedMessageSequencingTests
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         queue.Enqueue([depositMsg], genesisDelayedMsgRead);
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
         result.Result.Should().Be(Result.Success, $"start sequencing should succeed, error: {result.Result.Error}");
         result.Data.SequencedMsg.Should().NotBeNull($"expected sequenced msg but got WaitDurationMs={result.Data.WaitDurationMs}");
@@ -58,7 +58,7 @@ public class DelayedMessageSequencingTests
             FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         genesisResult.Result.Should().Be(Result.Success);
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().BeNull();
@@ -83,7 +83,7 @@ public class DelayedMessageSequencingTests
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         queue.Enqueue([retryableMsg], genesisDelayedMsgRead);
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(0, 0, 0);
 
         result.Result.Should().Be(Result.Success);
         result.Data.SequencedMsg.Should().NotBeNull();
@@ -151,7 +151,7 @@ public class DelayedMessageSequencingTests
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         queue.Enqueue([depositMsg], genesisDelayedMsgRead);
 
-        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync();
+        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync(0, 0, 0);
         seqResult.Result.Should().Be(Result.Success);
         seqResult.Data.SequencedMsg.Should().NotBeNull();
 
