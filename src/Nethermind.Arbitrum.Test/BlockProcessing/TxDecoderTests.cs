@@ -519,7 +519,12 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 0xFF, 0xFF, 0xFF, 0xFF
             ];
 
-            Action decode = () => { Rlp.ValueDecoderContext ctx = new(malformedRlp); _decoder.Decode(ref ctx); };
+            Action decode = () =>
+            {
+                Rlp.ValueDecoderContext ctx = new(malformedRlp);
+                _decoder.Decode(ref ctx);
+            };
+
             decode.Should().Throw<RlpException>();
         }
 
