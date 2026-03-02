@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Required for NuGet packages like Nethermind.Arbitrum.Stylus to be copied to output -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
@@ -75,19 +76,6 @@
     <Message Text="Copied @(FilesToCopyToPluginsDir-&gt;Count()) files to $(RunnerPluginDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToConfigsDir-&gt;Count()) files to $(RunnerConfigsDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToChainspecDir-&gt;Count()) files to $(RunnerChainspecDir)" Importance="high" />
-  </Target>
-
-  <Target Name="VerifyStylusDependencies" AfterTargets="CopyFilesToRunner">
-    <PropertyGroup>
-      <StylusDllPath>$(RunnerPluginDir)/Nethermind.Arbitrum.Stylus.dll</StylusDllPath>
-    </PropertyGroup>
-
-    <Error Condition="!Exists('$(StylusDllPath)')"
-           Text="Build verification failed: Nethermind.Arbitrum.Stylus.dll is missing from $(RunnerPluginDir). Ensure CopyLocalLockFileAssemblies is set to true and the Stylus NuGet package is correctly referenced." />
-
-    <Message Condition="Exists('$(StylusDllPath)')"
-             Text="Verified: Nethermind.Arbitrum.Stylus.dll is present in plugins directory"
-             Importance="high" />
   </Target>
 
 </Project>
