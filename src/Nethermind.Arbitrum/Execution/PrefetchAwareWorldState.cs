@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using Nethermind.Consensus;
+using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
@@ -13,9 +14,9 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Execution;
 
-public class PrefetchAwareWorldState(IWorldState baseWorldState, IPrefetchManager prefetchManager) : IWorldState
+public class PrefetchAwareWorldState(IWorldState baseWorldState, IBlockCachePreWarmer prefetchManager) : IWorldState
 {
-    private readonly ArbitrumPrefetchManager? _prefetchManager = prefetchManager as ArbitrumPrefetchManager;
+    private readonly ArbitrumBlockCachePreWarmer? _prefetcher = prefetchManager as ArbitrumBlockCachePreWarmer;
 
     public void Restore(Snapshot snapshot)
     {
@@ -155,7 +156,7 @@ public class PrefetchAwareWorldState(IWorldState baseWorldState, IPrefetchManage
     public void Commit(IReleaseSpec releaseSpec, IWorldStateTracer tracer, bool isGenesis = false, bool commitRoots = true)
     {
         if (commitRoots)
-            _prefetchManager?.SealAndPromote();
+            _prefetcher?.SealAndPromote();
 
         baseWorldState.Commit(releaseSpec, tracer, isGenesis, commitRoots);
     }

@@ -32,7 +32,7 @@ public class ArbitrumPrewarmerScopeProvider(
     private sealed class ArbitrumScopeWrapper : IWorldStateScopeProvider.IScope
     {
         private readonly IWorldStateScopeProvider.IScope _baseScope;
-        private readonly IPreBlockCachesInner? _preBlockCache;
+        private readonly IStagedPreBlockCaches? _preBlockCache;
         private readonly IPreBlockCachesWrapper _preBlockCacheWrapper;
         private readonly bool _populatePreBlockCache;
         private readonly ILogManager? _logManager;
@@ -47,7 +47,7 @@ public class ArbitrumPrewarmerScopeProvider(
             ILogManager? logManager = null)
         {
             _baseScope = baseScope;
-            _preBlockCache = populatePreBlockCache ? preBlockCachesWrapper.Next : preBlockCachesWrapper.Active;
+            _preBlockCache = populatePreBlockCache ? (IStagedPreBlockCaches?)preBlockCachesWrapper.Next : (IStagedPreBlockCaches)preBlockCachesWrapper.Active;
             _populatePreBlockCache = populatePreBlockCache;
             _preBlockCacheWrapper = preBlockCachesWrapper;
             _logManager = logManager;
@@ -75,7 +75,7 @@ public class ArbitrumPrewarmerScopeProvider(
             IWorldStateScopeProvider.IWorldStateWriteBatch innerWriteBatch =
                 _baseScope.StartWriteBatch(estimatedAccountNum);
 
-            return new CacheCopyWorldStateWriteBatch(_preBlockCacheWrapper.Active, innerWriteBatch, _logManager?.GetClassLogger());
+            return new CacheCopyWorldStateWriteBatch((IStagedPreBlockCaches)_preBlockCacheWrapper.Active, innerWriteBatch, _logManager?.GetClassLogger());
         }
 
         public void Commit(long blockNumber) => _baseScope.Commit(blockNumber);
@@ -132,19 +132,12 @@ public class ArbitrumPrewarmerScopeProvider(
                     if (_measureMetric)
                         _metricObserver.Observe(Stopwatch.GetTimestamp() - sw, _labels.AddressHit);
 
-                    //var dbVer = GetFromBaseTree(addressAsKey);
 
-                    //if (dbVer != account)
-                    //{
-                    //    _logger?.Debug($"{s_cache?.StageId} - Account different then in DB {address} -> {account} <-> {dbVer}");
-                    //}
 
                     _baseScope.HintGet(address, account);
                     Db.Metrics.IncrementStateTreeCacheHits();
 
                     _logger?.Debug($"{s_cache?.StageId} - Reading cache hit {address} -> {account}");
-
-                    //return dbVer;
                 }
                 else
                 {
@@ -167,10 +160,10 @@ public class ArbitrumPrewarmerScopeProvider(
 
     private sealed class StorageTreeWrapper : IWorldStateScopeProvider.IStorageTree
     {
-        private readonly IWorldStateScopeProvider.IStorageTree baseStorageTree;
-        private readonly IPreBlockCachesInner? preBlockCache;
-        private readonly Address address;
-        private readonly bool populatePreBlockCache;
+        private readonly IWorldStateScopeProvider.IStorageTree _baseStorageTree;
+        private readonly IStagedPreBlockCaches? _preBlockCache;
+        private readonly Address _address;
+        private readonly bool _populatePreBlockCache;
         private readonly ILogger? _logger;
         private readonly IMetricObserver _metricObserver = Db.Metrics.PrewarmerGetTime;
         private readonly bool _measureMetric = Db.Metrics.DetailedMetricsEnabled;
@@ -178,35 +171,34 @@ public class ArbitrumPrewarmerScopeProvider(
 
         public StorageTreeWrapper(
             IWorldStateScopeProvider.IStorageTree baseStorageTree,
-            IPreBlockCachesInner? preBlockCache,
+            IStagedPreBlockCaches? preBlockCache,
             Address address,
             bool populatePreBlockCache,
             ILogger? logger)
         {
-            this.baseStorageTree = baseStorageTree;
-            this.preBlockCache = preBlockCache;
-            this.address = address;
-            this.populatePreBlockCache = populatePreBlockCache;
+            _baseStorageTree = baseStorageTree;
+            _preBlockCache = preBlockCache;
+            _address = address;
+            _populatePreBlockCache = populatePreBlockCache;
             _logger = logger;
             _labels = populatePreBlockCache ? PrewarmerGetTimeLabels.Prewarmer : PrewarmerGetTimeLabels.NonPrewarmer;
-            //_loadFromTreeStorage = LoadFromTreeStorage;
         }
 
-        public Hash256 RootHash => baseStorageTree.RootHash;
+        public Hash256 RootHash => _baseStorageTree.RootHash;
 
         public byte[] Get(in UInt256 index)
         {
             StorageCell
-                storageCell = new StorageCell(address, in index); // TODO: Make the dictionary use UInt256 directly
+                storageCell = new StorageCell(_address, in index); // TODO: Make the dictionary use UInt256 directly
             long sw = _measureMetric ? Stopwatch.GetTimestamp() : 0;
 
-            if (populatePreBlockCache && preBlockCache is not null)
+            if (_populatePreBlockCache && _preBlockCache is not null)
             {
-                SealablePreBlockCaches s_cache = (SealablePreBlockCaches)preBlockCache;
+                SealablePreBlockCaches s_cache = (SealablePreBlockCaches)_preBlockCache;
 
                 long priorReads = Db.Metrics.ThreadLocalStorageTreeReads;
 
-                byte[]? value = preBlockCache.GetOrAdd(storageCell, LoadFromTreeStorage);
+                byte[]? value = _preBlockCache.GetOrAdd(storageCell, LoadFromTreeStorage);
 
                 if (Db.Metrics.ThreadLocalStorageTreeReads == priorReads)
                 {
@@ -230,23 +222,16 @@ public class ArbitrumPrewarmerScopeProvider(
             }
             else
             {
-                SealablePreBlockCaches? s_cache = preBlockCache is null ? null : (SealablePreBlockCaches)preBlockCache;
+                SealablePreBlockCaches? s_cache = _preBlockCache is null ? null : (SealablePreBlockCaches)_preBlockCache;
 
-                if (preBlockCache?.TryGetValue(storageCell, out byte[]? value) == true)
+                if (_preBlockCache?.TryGetValue(storageCell, out byte[]? value) == true)
                 {
                     _logger?.Debug(
                         $"{s_cache?.StageId} - Reading cache hit for {storageCell} -> {value?.ToHexString()}");
 
-                    //var dbVer = LoadFromTreeStorage(storageCell);
-                    //if (!dbVer.SequenceEqual(value))
-                    //{
-                    //    _logger?.Debug($"{s_cache?.StageId} - Storage different then in DB {storageCell} -> {value?.ToHexString()} <-> {dbVer.ToHexString()}");
-                    //}
 
-                    baseStorageTree.HintGet(index, value);
+                    _baseStorageTree.HintGet(index, value);
                     Db.Metrics.IncrementStorageTreeCache();
-
-                    //return dbVer;
                 }
                 else
                 {
@@ -263,29 +248,29 @@ public class ArbitrumPrewarmerScopeProvider(
             }
         }
 
-        public void HintGet(in UInt256 index, byte[]? value) => baseStorageTree.HintGet(in index, value);
+        public void HintGet(in UInt256 index, byte[]? value) => _baseStorageTree.HintGet(in index, value);
 
         private byte[] LoadFromTreeStorage(in StorageCell storageCell)
         {
             Db.Metrics.IncrementStorageTreeReads();
 
             return !storageCell.IsHash
-                ? baseStorageTree.Get(storageCell.Index)
-                : baseStorageTree.Get(storageCell.Hash);
+                ? _baseStorageTree.Get(storageCell.Index)
+                : _baseStorageTree.Get(storageCell.Hash);
         }
 
         public byte[] Get(in ValueHash256 hash) =>
             // Not a critical path. so we just forward for simplicity
-            baseStorageTree.Get(in hash);
+            _baseStorageTree.Get(in hash);
     }
 
     public class CacheCopyWorldStateWriteBatch : IWorldStateScopeProvider.IWorldStateWriteBatch
     {
-        private readonly IPreBlockCachesInner _cache;
+        private readonly IStagedPreBlockCaches _cache;
         private readonly IWorldStateScopeProvider.IWorldStateWriteBatch _baseBatch;
         private readonly ILogger? _logger;
 
-        public CacheCopyWorldStateWriteBatch(IPreBlockCachesInner cache, IWorldStateScopeProvider.IWorldStateWriteBatch baseBatch, ILogger? logger)
+        public CacheCopyWorldStateWriteBatch(IStagedPreBlockCaches cache, IWorldStateScopeProvider.IWorldStateWriteBatch baseBatch, ILogger? logger)
         {
             _cache = cache;
             _baseBatch = baseBatch;
@@ -331,12 +316,12 @@ public class ArbitrumPrewarmerScopeProvider(
 
     public class CacheCopyStorageWriteBatch : IWorldStateScopeProvider.IStorageWriteBatch
     {
-        private IPreBlockCachesInner _cache;
+        private IStagedPreBlockCaches _cache;
         private IWorldStateScopeProvider.IStorageWriteBatch _baseBatch;
         private readonly AddressAsKey _address;
         private readonly ILogger? _logger;
 
-        public CacheCopyStorageWriteBatch(IPreBlockCachesInner cache, IWorldStateScopeProvider.IStorageWriteBatch baseBatch, AddressAsKey address, ILogger? logger)
+        public CacheCopyStorageWriteBatch(IStagedPreBlockCaches cache, IWorldStateScopeProvider.IStorageWriteBatch baseBatch, AddressAsKey address, ILogger? logger)
         {
             _cache = cache;
             _baseBatch = baseBatch;

@@ -14,7 +14,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Evm.Tracing;
@@ -23,9 +22,7 @@ using PrecompileInfo = Nethermind.Arbitrum.Precompiles.PrecompileInfo;
 using Nethermind.Arbitrum.Arbos.Storage;
 using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
 using static Nethermind.Evm.VirtualMachineStatics;
-using System.Text.Json;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]

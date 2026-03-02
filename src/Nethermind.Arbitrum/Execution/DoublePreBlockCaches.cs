@@ -10,7 +10,7 @@ using System.Collections.Concurrent;
 using CollectionExtensions = Nethermind.Core.Collections.CollectionExtensions;
 
 namespace Nethermind.Arbitrum.Execution;
-public class SealablePreBlockCaches : IPreBlockCachesInner
+public class SealablePreBlockCaches : IStagedPreBlockCaches
 {
     private const int InitialCapacity = 4096 * 8;
     private static int LockPartitions => CollectionExtensions.LockPartitions;
@@ -167,8 +167,6 @@ public class StagedPreBlockCaches : IPreBlockCachesWrapper
 
     public IPreBlockCachesInner CreateNext()
     {
-        if (_next != null)
-            throw new InvalidOperationException("Next stage already exists");
 
         _next = new SealablePreBlockCaches(_logger, _nextStageId++);
         _logger.Debug($"Next is {_next.StageId}");
@@ -180,11 +178,8 @@ public class StagedPreBlockCaches : IPreBlockCachesWrapper
         SealablePreBlockCaches? next = _next;
         if (next == null)
             throw new InvalidOperationException("Next stage not created.");
-
-        //_logger.Info("Sealing next cache");
         next.Seal();
         _active = next;
         _next = null;
-        //_logger.Info("next cache is null");
     }
 }

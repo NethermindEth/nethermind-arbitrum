@@ -149,7 +149,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.SpecProvider,
             _api.LogManager,
             _api.Config<IBlocksConfig>(),
-            producerEnv.PrefetchManager);
+            producerEnv.BlockCachePreWarmer);
     }
 
     public IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)

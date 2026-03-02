@@ -27,11 +27,11 @@ namespace Nethermind.Arbitrum.Execution
     {
         private IWorldState _worldState;
 
-        private readonly ArbitrumPrefetchManager? _prefetchManager;
+        private readonly ArbitrumBlockCachePreWarmer? _blockCachePreWarmer;
         private readonly EthereumEcdsa _ecdsa;
         private readonly RecoverSignatures _recoverSignatures;
 
-        public bool CanPrefetch => _prefetchManager is not null;
+        public bool CanPrefetch => _blockCachePreWarmer is not null;
 
         public ArbitrumBlockProducer(
             ITxSource payloadAttrsTxSource,
@@ -44,7 +44,7 @@ namespace Nethermind.Arbitrum.Execution
             ISpecProvider specProvider,
             ILogManager logManager,
             IBlocksConfig? miningConfig,
-            IPrefetchManager? prefetchManager) : base(
+            IBlockCachePreWarmer? blockCachePreWarmer) : base(
             payloadAttrsTxSource,
             processor,
             blockTree,
@@ -57,7 +57,7 @@ namespace Nethermind.Arbitrum.Execution
             miningConfig)
         {
             _worldState = worldState;
-            _prefetchManager = prefetchManager as ArbitrumPrefetchManager;
+            _blockCachePreWarmer = blockCachePreWarmer as ArbitrumBlockCachePreWarmer;
             _ecdsa = new EthereumEcdsa(_specProvider.ChainId);
             _recoverSignatures = new RecoverSignatures(_ecdsa, _specProvider, NullLogManager.Instance);
         }
@@ -165,7 +165,7 @@ namespace Nethermind.Arbitrum.Execution
 
         public bool PreWarmNextBlock(MessageWithMetadata currentMessage, MessageWithMetadata prefetchMessage, BlockHeader? parentHeader = null, IBlockProducer.Flags flags = IBlockProducer.Flags.None)
         {
-            if (_prefetchManager is null)
+            if (_blockCachePreWarmer is null)
                 return false;
 
             try
@@ -221,7 +221,7 @@ namespace Nethermind.Arbitrum.Execution
                 Block preWarmBlock = new BlockToProduce(header, allTransactions, [], prefetchPayload?.Withdrawals);
 
                 _recoverSignatures.RecoverData(preWarmBlock);
-                _prefetchManager.PrefetchBlock(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header));
+                _blockCachePreWarmer.PreWarmCaches(preWarmBlock, parentHeader, _specProvider.GetSpec(preWarmBlock.Header));
             }
             catch (Exception e) when (e is not TaskCanceledException)
             {
@@ -231,16 +231,6 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return true;
-        }
-
-        public void SealAndPromote()
-        {
-            _prefetchManager?.SealAndPromote();
-        }
-
-        public void CancelPrefetchAndWait()
-        {
-            _prefetchManager?.CancelAndWait();
         }
 
         public static ArbitrumInternalTransaction CreateInternalTransaction(
