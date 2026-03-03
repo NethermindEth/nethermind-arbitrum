@@ -18,28 +18,6 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 public class PrecompileContextTests
 {
     [Test]
-    public void Burn_SingleResource_TracksCorrectly()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder contextBuilder = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Sixty)
-            .WithReleaseSpec();
-
-        ulong initialGas = 1_000_000;
-        ulong burnAmount = 100;
-
-        // The context should track gas remaining
-        // In a real precompile context, Burn would reduce available gas
-        ulong expectedRemaining = initialGas - burnAmount;
-
-        expectedRemaining.Should().Be(999_900);
-    }
-
-    [Test]
     public void BurnMultiGas_MultipleResources_TracksAllDimensions()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();

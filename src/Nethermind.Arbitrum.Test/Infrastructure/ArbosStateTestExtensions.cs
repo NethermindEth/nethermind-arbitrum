@@ -31,8 +31,9 @@ public static class ArbosStateTestExtensions
 
     /// <summary>
     /// Test-only: Gets the next-block base fee for the specified resource kind.
+    /// Note: This returns the fee that will be used in the NEXT block, not the current block.
     /// </summary>
-    public static UInt256 GetMultiGasBaseFeePerResource(this L2PricingState state, ResourceKind kind)
+    public static UInt256 GetNextBlockMultiGasBaseFee(this L2PricingState state, ResourceKind kind)
     {
         return state.MultiGasFees.GetNextBlockFee(kind);
     }
@@ -40,7 +41,7 @@ public static class ArbosStateTestExtensions
     /// <summary>
     /// Test-only: Sets the next-block base fee for the specified resource kind.
     /// </summary>
-    public static void SetMultiGasBaseFeeForResource(this L2PricingState state, ResourceKind kind, UInt256 value)
+    public static void SetNextBlockMultiGasBaseFee(this L2PricingState state, ResourceKind kind, UInt256 value)
     {
         state.MultiGasFees.SetNextBlockFee(kind, value);
     }

@@ -37,13 +37,13 @@ public class MultiGasFeesTests
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set next-block fees and commit to current block
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, 100);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 200);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 200);
         l2Pricing.CommitMultiGasFees();
 
         // Reading current block fees after commit
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation).Should().Be(new UInt256(100));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageAccess).Should().Be(new UInt256(200));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation).Should().Be(new UInt256(100));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess).Should().Be(new UInt256(200));
     }
 
     [Test]
@@ -68,23 +68,23 @@ public class MultiGasFeesTests
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set initial next-block fees and commit
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, 100);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 200);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.HistoryGrowth, 300);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 200);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.HistoryGrowth, 300);
         l2Pricing.CommitMultiGasFees();
 
         // Verify initial commit
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation).Should().Be(new UInt256(100));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageAccess).Should().Be(new UInt256(200));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation).Should().Be(new UInt256(100));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess).Should().Be(new UInt256(200));
 
         // Update next-block fees to different values and commit again
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, 150);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 250);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 150);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 250);
         l2Pricing.CommitMultiGasFees();
 
         // current block fees should now be the new committed values
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation).Should().Be(new UInt256(150));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageAccess).Should().Be(new UInt256(250));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation).Should().Be(new UInt256(150));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess).Should().Be(new UInt256(250));
     }
 
     [Test]
@@ -109,22 +109,22 @@ public class MultiGasFeesTests
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set different fees for each resource kind and commit
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, 100);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.HistoryGrowth, 200);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 300);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageGrowth, 400);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.HistoryGrowth, 200);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 300);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageGrowth, 400);
         // L1Calldata always returns baseFeeWei as fallback
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.L2Calldata, 600);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.WasmComputation, 700);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.L2Calldata, 600);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.WasmComputation, 700);
         l2Pricing.CommitMultiGasFees();
 
         // Each resource has its own independent fee (except L1Calldata and Unknown which use fallbacks)
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation).Should().Be(new UInt256(100));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.HistoryGrowth).Should().Be(new UInt256(200));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageAccess).Should().Be(new UInt256(300));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageGrowth).Should().Be(new UInt256(400));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.L2Calldata).Should().Be(new UInt256(600));
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.WasmComputation).Should().Be(new UInt256(700));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation).Should().Be(new UInt256(100));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.HistoryGrowth).Should().Be(new UInt256(200));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess).Should().Be(new UInt256(300));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageGrowth).Should().Be(new UInt256(400));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.L2Calldata).Should().Be(new UInt256(600));
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.WasmComputation).Should().Be(new UInt256(700));
     }
 
     [Test]
@@ -150,9 +150,9 @@ public class MultiGasFeesTests
 
         // Set large UInt256 values
         UInt256 largeValue = UInt256.MaxValue / 2;
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, largeValue);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, largeValue);
         l2Pricing.CommitMultiGasFees();
 
-        l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation).Should().Be(largeValue);
+        l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation).Should().Be(largeValue);
     }
 }

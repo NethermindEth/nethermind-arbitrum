@@ -183,8 +183,8 @@ public class PricingModelMultiGasTests
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set base fees for resources and commit
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, 100);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 200);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 200);
         l2Pricing.CommitMultiGasFees();
 
         // Create MultiGas with usage
