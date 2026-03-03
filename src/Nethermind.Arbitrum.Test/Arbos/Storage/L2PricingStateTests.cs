@@ -80,47 +80,6 @@ public class L2PricingStateTests
     }
 
     [Test]
-    public void ShouldUseGasConstraints_NoConstraints_ReturnsFalse()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
-            .WithArbosState()
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // No constraints configured
-        l2Pricing.ConstraintsLength().Should().Be(0);
-        l2Pricing.ShouldUseGasConstraints().Should().BeFalse("Should not use gas constraints when none are configured");
-    }
-
-    [Test]
-    public void ShouldUseGasConstraints_WithConstraints_ReturnsTrue()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Add a constraint (target=1M, adjustmentWindow=60, backlog=5M)
-        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
-
-        l2Pricing.ConstraintsLength().Should().Be(1);
-        l2Pricing.ShouldUseGasConstraints().Should().BeTrue("Should use gas constraints when constraints are configured");
-    }
-
-    [Test]
     public void CompareLegacyPricingModelWithMultiConstraints_EquivalentConstraint_ProducesSameBaseFee()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -161,7 +120,7 @@ public class L2PricingStateTests
             l2Pricing.ClearConstraints(); // Clear to force legacy mode
             l2Pricing.GasBacklogStorage.Set(backlog); // Reset backlog
             // Access a private method via reflection or call UpdatePricingModel, which routes based on constraints;
-            // Since ShouldUseGasConstraints returns false, it will use legacy
+            // Since GetGasModelToUse() returns Legacy when no constraints exist, it will use legacy
 
             // For this test, we manually calculate expected values instead of calling private methods
             // This verifies the formula equivalence
@@ -301,7 +260,7 @@ public class L2PricingStateTests
         l2Pricing.AddConstraint(7_000_000, 102, 100_000_000);
 
         // Verify multi-constraint mode is active
-        l2Pricing.ShouldUseGasConstraints().Should().BeTrue();
+        l2Pricing.GetGasModelToUse().Should().Be(GasModel.SingleGasConstraints);
 
         // Update pricing model (timePassed=0 so backlog doesn't get reduced)
         l2Pricing.UpdatePricingModel(0);
@@ -359,7 +318,7 @@ public class L2PricingStateTests
         l2Pricing.AddConstraint(1_000_000, 100, 5_000_000);
         l2Pricing.AddConstraint(2_000_000, 200, 10_000_000);
 
-        l2Pricing.ShouldUseGasConstraints().Should().BeTrue();
+        l2Pricing.GetGasModelToUse().Should().Be(GasModel.SingleGasConstraints);
 
         // Negative gas should increase all constraint backlogs
         l2Pricing.AddToGasPool(-1_000_000);
@@ -423,29 +382,6 @@ public class L2PricingStateTests
 
         l2Pricing.SetGasBacklog(ulong.MaxValue);
         l2Pricing.GasBacklogStorage.Get().Should().Be(ulong.MaxValue);
-    }
-
-    [Test]
-    public void ShouldUseGasConstraints_VersionBelow50_ReturnsFalseEvenWithConstraints()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.FortyNine)
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Add a constraint
-        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
-        l2Pricing.ConstraintsLength().Should().Be(1);
-
-        // Should still return false because a version < 50
-        l2Pricing.ShouldUseGasConstraints().Should().BeFalse();
     }
 
     [Test]
