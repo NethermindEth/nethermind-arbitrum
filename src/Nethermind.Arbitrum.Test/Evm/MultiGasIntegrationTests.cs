@@ -525,9 +525,9 @@ public class MultiGasIntegrationTests
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
         // CREATE charges:
-        // - Cold access for created contract: 2600 → StorageAccess
+        // - NO cold access for created contract (EIP-2929: address added to access list without charge)
         // - CodeDeposit: 200 * deployedCodeLength → StorageGrowth (per Nitro gas_table.go)
-        const ulong expectedStorageAccess = GasCostOf.ColdAccountAccess;
+        const ulong expectedStorageAccess = 0; // Created address is warm immediately
         const ulong expectedStorageGrowth = GasCostOf.CodeDeposit * deployedCodeLength;
 
         AssertMultiGasBreakdown(gas, gasSpent,

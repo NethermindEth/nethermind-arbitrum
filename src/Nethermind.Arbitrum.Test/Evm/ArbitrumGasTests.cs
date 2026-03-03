@@ -618,7 +618,7 @@ public class ArbitrumGasPolicyTests
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Refund.Should().Be(expectedRefund, "SSTORE refund should be tracked in MultiGas.Refund");
         // Verify refund doesn't affect remaining gas (refunds applied post-execution)
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - Cancun.Instance.GetSStoreResetCost());
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - Cancun.Instance.GasCosts.SStoreResetCost);
     }
 
     [Test]
