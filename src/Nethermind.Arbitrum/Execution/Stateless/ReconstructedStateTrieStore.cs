@@ -6,6 +6,40 @@ using Nethermind.Trie.Pruning;
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
 /// <summary>
+/// Wraps a ReconstructedStateTrieStore for read-only access during witness generation.
+/// BeginCommit returns a no-op committer so witness execution doesn't write to the overlay.
+/// Only PrepareForRecord should write to the overlay to reconstruct the needed state.
+/// </summary>
+internal sealed class ReadOnlyReconstructedStateTrieStore(ReconstructedStateTrieStore inner)
+    : ITrieStore, IReadOnlyTrieStore
+{
+    public INodeStorage.KeyScheme Scheme => inner.Scheme;
+
+    public bool HasRoot(Hash256 stateRoot) => inner.HasRoot(stateRoot);
+
+    public TrieNode FindCachedOrUnknown(Hash256? address, in TreePath path, Hash256 hash)
+        => inner.FindCachedOrUnknown(address, in path, hash);
+
+    public byte[]? TryLoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
+        => inner.TryLoadRlp(address, in path, hash, flags);
+
+    public byte[]? LoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
+        => inner.LoadRlp(address, in path, hash, flags);
+
+    public IScopedTrieStore GetTrieStore(Hash256? address) => new ScopedTrieStore(this, address);
+
+    public IDisposable BeginScope(BlockHeader? baseBlock) => inner.BeginScope(baseBlock);
+
+    public IBlockCommitter BeginBlockCommit(long blockNumber) => NullCommitter.Instance;
+
+    // Prevent writes from witness generation:
+    public ICommitter BeginCommit(Hash256? address, TrieNode? root, WriteFlags writeFlags)
+        => NullCommitter.Instance;
+
+    public void Dispose() { }
+}
+
+/// <summary>
 /// Overlay trie store for state reconstruction. Reconstructed trie nodes are stored in a MemDb overlay
 /// and fall back to the base store (main TrieStore dirty cache + disk) for reads.
 /// BeginScope is a no-op to avoid acquiring the main TrieStore's scope/pruning locks during

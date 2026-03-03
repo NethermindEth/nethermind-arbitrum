@@ -26,6 +26,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Config;
 using Nethermind.Evm;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -67,7 +68,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope(string[]? wasmTargets)
     {
         IReadOnlyDbProvider readOnlyDbProvider = new ReadOnlyDbProvider(dbProvider, true);
-        WitnessCapturingTrieStore trieStore = new(reconstructedStateTrieStore);
+        WitnessCapturingTrieStore trieStore = new(new ReadOnlyReconstructedStateTrieStore(reconstructedStateTrieStore));
         IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
         WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
