@@ -33,9 +33,6 @@ public class ReconstructedStateTrieStore(IKeyValueStoreWithBatching keyValueStor
     public byte[]? TryLoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
         => _nodeStorage.Get(address, in path, hash, flags) ?? baseStore.TryLoadRlp(address, in path, hash, flags);
 
-    public bool IsPersisted(Hash256? address, in TreePath path, in ValueHash256 keccak)
-        => _nodeStorage.Get(address, in path, in keccak) is not null || baseStore.IsPersisted(address, in path, in keccak);
-
     /// <summary>
     /// Checks the local overlay first, then falls back to reading from the base store's persistent
     /// node storage (disk). We intentionally avoid <see cref="IReadOnlyTrieStore.HasRoot"/> because

@@ -48,7 +48,7 @@ public class StateReconstructorTests
 
         recordResult.Result.Should().Be(Result.Success);
         recordResult.Data.BlockHash.Should().Be(new Hash256(RecordingTests.Block18Hash));
-        recordResult.Data.Witness.Should().NotBeNull();
+        recordResult.Data.Preimages.Should().NotBeEmpty();
 
         // ALL state roots from genesis to head should now be available
         // StateReconstructor reconstructed until head-1, and RecordBlockCreation should have reconstructed the head block's state as well
@@ -94,7 +94,7 @@ public class StateReconstructorTests
 
         recordResult.Result.Should().Be(Result.Success);
         recordResult.Data.BlockHash.Should().Be(new Hash256(RecordingTests.Block18Hash));
-        recordResult.Data.Witness.Should().NotBeNull();
+        recordResult.Data.Preimages.Should().NotBeEmpty();
 
         // State roots AFTER the intermediate block should now be available
         // StateReconstructor reconstructed until head-1, and RecordBlockCreation should have reconstructed the head block's state as well
@@ -130,7 +130,7 @@ public class StateReconstructorTests
 
         recordResult.Result.Should().Be(Result.Success);
         recordResult.Data.BlockHash.Should().Be(new Hash256(RecordingTests.Block18Hash));
-        recordResult.Data.Witness.Should().NotBeNull();
+        recordResult.Data.Preimages.Should().NotBeEmpty();
     }
 
     [Test]
@@ -307,9 +307,6 @@ public class StateReconstructorTests
 
             public byte[]? TryLoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
                 => inner.TryLoadRlp(address, in path, hash, flags);
-
-            public bool IsPersisted(Hash256? address, in TreePath path, in ValueHash256 keccak)
-                => inner.IsPersisted(address, in path, in keccak);
 
             public INodeStorage.KeyScheme Scheme => inner.Scheme;
 
