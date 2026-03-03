@@ -353,4 +353,48 @@ public class MultiGasTests
 
         gas.IsZero().Should().BeFalse();
     }
+
+    [Test]
+    public void CheckResourceKind_ValidKind_DoesNotThrow()
+    {
+        // All valid resource kinds should not throw
+        Action checkUnknown = () => MultiGas.CheckResourceKind(ResourceKind.Unknown);
+        Action checkComputation = () => MultiGas.CheckResourceKind(ResourceKind.Computation);
+        Action checkHistoryGrowth = () => MultiGas.CheckResourceKind(ResourceKind.HistoryGrowth);
+        Action checkStorageAccess = () => MultiGas.CheckResourceKind(ResourceKind.StorageAccess);
+        Action checkStorageGrowth = () => MultiGas.CheckResourceKind(ResourceKind.StorageGrowth);
+        Action checkL1Calldata = () => MultiGas.CheckResourceKind(ResourceKind.L1Calldata);
+        Action checkL2Calldata = () => MultiGas.CheckResourceKind(ResourceKind.L2Calldata);
+        Action checkWasmComputation = () => MultiGas.CheckResourceKind(ResourceKind.WasmComputation);
+
+        checkUnknown.Should().NotThrow();
+        checkComputation.Should().NotThrow();
+        checkHistoryGrowth.Should().NotThrow();
+        checkStorageAccess.Should().NotThrow();
+        checkStorageGrowth.Should().NotThrow();
+        checkL1Calldata.Should().NotThrow();
+        checkL2Calldata.Should().NotThrow();
+        checkWasmComputation.Should().NotThrow();
+    }
+
+    [Test]
+    public void CheckResourceKind_InvalidKind_ThrowsException()
+    {
+        // Out of range kind should throw
+        Action checkOutOfRange = () => MultiGas.CheckResourceKind((ResourceKind)99);
+        Action checkNegative = () => MultiGas.CheckResourceKind((ResourceKind)255);
+
+        checkOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
+        checkNegative.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public void Increment_InvalidResourceKind_ThrowsException()
+    {
+        MultiGas gas = default;
+
+        Action incrementOutOfRange = () => gas.Increment((ResourceKind)99, 100);
+
+        incrementOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
+    }
 }
