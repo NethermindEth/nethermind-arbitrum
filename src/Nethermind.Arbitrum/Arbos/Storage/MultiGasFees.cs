@@ -22,7 +22,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 /// before executing transactions.
 /// </para>
 /// </summary>
-public class MultiGasFees
+public sealed class MultiGasFees
 {
     private const ulong NextBlockFeesOffset = 0;
     private const ulong CurrentBlockFeesOffset = 8; // NumResourceKinds

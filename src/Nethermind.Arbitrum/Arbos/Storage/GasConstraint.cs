@@ -7,7 +7,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 /// Represents a gas constraint with target gas per second, adjustment window, and backlog.
 /// Each constraint is stored in a separate sub-storage with three ulong values at offsets 0, 1, 2.
 /// </summary>
-public class GasConstraint
+public sealed class GasConstraint
 {
     private const ulong TargetOffset = 0;
     private const ulong AdjustmentWindowOffset = 1;
