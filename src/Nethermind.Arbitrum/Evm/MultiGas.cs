@@ -165,6 +165,15 @@ public struct MultiGas
         => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
 
     /// <summary>
+    /// Throws ArgumentOutOfRangeException if the resource kind is invalid.
+    /// </summary>
+    public static void CheckResourceKind(ResourceKind kind)
+    {
+        if ((uint)kind >= NumResourceKinds)
+            ThrowArgumentOutOfRange(kind);
+    }
+
+    /// <summary>
     /// Converts MultiGas to a JSON-friendly object for RPC responses.
     /// </summary>
     public readonly MultiGasForJson ToJson() => new(in this);

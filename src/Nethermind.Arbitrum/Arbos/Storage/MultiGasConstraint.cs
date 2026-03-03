@@ -37,28 +37,22 @@ public class MultiGasConstraint
     private const ulong MaxWeightOffset = 3;
     private const ulong WeightedResourcesBaseOffset = 4;
 
-    private readonly ArbosStorage _storage;
     private readonly ArbosStorageBackedULong _target;
-    private readonly ArbosStorageBackedULong _adjustmentWindow;
+    private readonly ArbosStorageBackedUInt _adjustmentWindow;
     private readonly ArbosStorageBackedULong _backlog;
     private readonly ArbosStorageBackedULong _maxWeight;
     private readonly ArbosStorageBackedULong[] _weightedResources;
 
     public MultiGasConstraint(ArbosStorage storage)
     {
-        ArgumentNullException.ThrowIfNull(storage);
-
-        _storage = storage;
         _target = new ArbosStorageBackedULong(storage, TargetOffset);
-        _adjustmentWindow = new ArbosStorageBackedULong(storage, AdjustmentWindowOffset);
+        _adjustmentWindow = new ArbosStorageBackedUInt(storage, AdjustmentWindowOffset);
         _backlog = new ArbosStorageBackedULong(storage, BacklogOffset);
         _maxWeight = new ArbosStorageBackedULong(storage, MaxWeightOffset);
 
         _weightedResources = new ArbosStorageBackedULong[MultiGas.NumResourceKinds];
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
-        {
             _weightedResources[i] = new ArbosStorageBackedULong(storage, WeightedResourcesBaseOffset + (ulong)i);
-        }
     }
 
     /// <summary>
@@ -68,16 +62,8 @@ public class MultiGasConstraint
 
     /// <summary>
     /// Gets the adjustment window in seconds for this constraint.
-    /// Saturates to uint.MaxValue if the stored value exceeds uint range.
     /// </summary>
-    public uint AdjustmentWindow
-    {
-        get
-        {
-            ulong value = _adjustmentWindow.Get();
-            return value > uint.MaxValue ? uint.MaxValue : (uint)value;
-        }
-    }
+    public uint AdjustmentWindow => _adjustmentWindow.Get();
 
     /// <summary>
     /// Gets the weighted backlog value for this constraint.
@@ -100,6 +86,16 @@ public class MultiGasConstraint
     public void SetAdjustmentWindow(uint value) => _adjustmentWindow.Set(value);
 
     /// <summary>
+    /// Returns the list of resource kinds that have non-zero weights.
+    /// </summary>
+    public IEnumerable<ResourceKind> UsedResources()
+    {
+        for (int i = 0; i < MultiGas.NumResourceKinds; i++)
+            if (_weightedResources[i].Get() != 0)
+                yield return (ResourceKind)i;
+    }
+
+    /// <summary>
     /// Sets the backlog value for this constraint.
     /// </summary>
     public void SetBacklog(ulong value) => _backlog.Set(value);
@@ -107,32 +103,23 @@ public class MultiGasConstraint
     /// <summary>
     /// Gets the weight for the specified resource kind.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">If kind is invalid.</exception>
     public ulong GetResourceWeight(ResourceKind kind)
     {
-        int index = (int)kind;
-        if ((uint)index >= MultiGas.NumResourceKinds)
-            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
-        return _weightedResources[index].Get();
+        MultiGas.CheckResourceKind(kind);
+        return _weightedResources[(int)kind].Get();
     }
 
     /// <summary>
     /// Sets per-resource weight multipliers for this constraint.
     /// Updates maxWeight to track the maximum weight.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">If any resource kind is invalid.</exception>
     public void SetResourceWeights(Dictionary<ResourceKind, ulong> weights)
     {
-        ArgumentNullException.ThrowIfNull(weights);
-
         ulong maxWeight = 0;
 
-        // Validate all keys and find max weight
-        foreach ((ResourceKind kind, ulong weight) in weights)
+        // Find max weight
+        foreach (ulong weight in weights.Values)
         {
-            int index = (int)kind;
-            if ((uint)index >= MultiGas.NumResourceKinds)
-                throw new ArgumentOutOfRangeException(nameof(weights), kind, "Invalid resource kind in weights");
             if (weight > maxWeight)
                 maxWeight = weight;
         }
@@ -152,34 +139,16 @@ public class MultiGasConstraint
     /// </summary>
     public Dictionary<ResourceKind, ulong> GetResourcesWithWeights()
     {
-        var result = new Dictionary<ResourceKind, ulong>();
+        Dictionary<ResourceKind, ulong> result = new();
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
         {
             ulong weight = _weightedResources[i].Get();
             if (weight != 0)
-            {
                 result[(ResourceKind)i] = weight;
-            }
         }
         return result;
     }
 
-    /// <summary>
-    /// Returns the list of resource kinds that have non-zero weights.
-    /// </summary>
-    public ResourceKind[] GetUsedResources()
-    {
-        var result = new List<ResourceKind>();
-        for (int i = 0; i < MultiGas.NumResourceKinds; i++)
-        {
-            ulong weight = _weightedResources[i].Get();
-            if (weight != 0)
-            {
-                result.Add((ResourceKind)i);
-            }
-        }
-        return [.. result];
-    }
 
     /// <summary>
     /// Adds the resource usage in multiGas to this constraint's backlog,
@@ -222,18 +191,16 @@ public class MultiGasConstraint
     }
 
     /// <summary>
-    /// Clears all fields of this constraint including all resource weights.
+    /// Clears all fields of this constraint, including all resource weights.
     /// </summary>
     public void Clear()
     {
-        _storage.Clear(TargetOffset);
-        _storage.Clear(AdjustmentWindowOffset);
-        _storage.Clear(BacklogOffset);
-        _storage.Clear(MaxWeightOffset);
+        _target.Clear();
+        _adjustmentWindow.Clear();
+        _backlog.Clear();
+        _maxWeight.Clear();
 
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
-        {
-            _storage.Clear(WeightedResourcesBaseOffset + (ulong)i);
-        }
+            _weightedResources[i].Clear();
     }
 }

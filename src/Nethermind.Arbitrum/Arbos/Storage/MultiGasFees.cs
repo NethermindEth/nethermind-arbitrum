@@ -12,7 +12,7 @@ namespace Nethermind.Arbitrum.Arbos.Storage;
 /// Storage layout (16 slots total):
 /// <list type="bullet">
 ///   <item>[0..7] nextBlockFees[0..7] - base fees for future blocks</item>
-///   <item>[8..15] currentBlockFees[0..7] - base fees for current block</item>
+///   <item>[8..15] currentBlockFees[0..7] - base fees for the current block</item>
 /// </list>
 /// </para>
 /// <para>
@@ -32,8 +32,6 @@ public class MultiGasFees
 
     public MultiGasFees(ArbosStorage storage)
     {
-        ArgumentNullException.ThrowIfNull(storage);
-
         _nextBlockFees = new ArbosStorageBackedUInt256[MultiGas.NumResourceKinds];
         _currentBlockFees = new ArbosStorageBackedUInt256[MultiGas.NumResourceKinds];
 
@@ -47,49 +45,28 @@ public class MultiGasFees
     /// <summary>
     /// Gets the next-block base fee for the specified resource kind.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">If kind is invalid.</exception>
     public UInt256 GetNextBlockFee(ResourceKind kind)
     {
-        int index = (int)kind;
-        if ((uint)index >= MultiGas.NumResourceKinds)
-            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
-        return _nextBlockFees[index].Get();
+        MultiGas.CheckResourceKind(kind);
+        return _nextBlockFees[(int)kind].Get();
     }
 
     /// <summary>
     /// Gets the current-block base fee for the specified resource kind.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">If kind is invalid.</exception>
     public UInt256 GetCurrentBlockFee(ResourceKind kind)
     {
-        int index = (int)kind;
-        if ((uint)index >= MultiGas.NumResourceKinds)
-            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
-        return _currentBlockFees[index].Get();
+        MultiGas.CheckResourceKind(kind);
+        return _currentBlockFees[(int)kind].Get();
     }
 
     /// <summary>
     /// Sets the next-block base fee for the specified resource kind.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">If kind is invalid.</exception>
     public void SetNextBlockFee(ResourceKind kind, UInt256 value)
     {
-        int index = (int)kind;
-        if ((uint)index >= MultiGas.NumResourceKinds)
-            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
-        _nextBlockFees[index].Set(value);
-    }
-
-    /// <summary>
-    /// Sets the current-block base fee for the specified resource kind.
-    /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">If kind is invalid.</exception>
-    public void SetCurrentBlockFee(ResourceKind kind, UInt256 value)
-    {
-        int index = (int)kind;
-        if ((uint)index >= MultiGas.NumResourceKinds)
-            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
-        _currentBlockFees[index].Set(value);
+        MultiGas.CheckResourceKind(kind);
+        _nextBlockFees[(int)kind].Set(value);
     }
 
     /// <summary>

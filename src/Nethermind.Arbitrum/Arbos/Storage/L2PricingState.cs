@@ -21,8 +21,6 @@ public enum GasModel
 
 public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
-    // ----- Storage Offsets -----
-
     private const ulong SpeedLimitPerSecondOffset = 0;
     private const ulong PerBlockGasLimitOffset = 1;
     private const ulong BaseFeeWeiOffset = 2;
@@ -32,13 +30,9 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     private const ulong BacklogToleranceOffset = 6;
     private const ulong PerTxGasLimitOffset = 7;
 
-    // ----- Storage Keys -----
-
     private static readonly byte[] ConstraintsKey = [0];
     private static readonly byte[] MultiGasConstraintsKey = [1];
     private static readonly byte[] MultiGasFeesKey = [2];
-
-    // ----- Initial Values (Private) -----
 
     private const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
     private const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
@@ -46,24 +40,17 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     private const ulong InitialPricingInertia = 102;
     private const ulong InitialBacklogTolerance = 10;
 
-    // ----- Public Constants -----
-
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
     public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
     public const long BipsMultiplier = 10_000;
-    public static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
+
     public const ulong InitialPerTxGasLimit = 32_000_000;
     public const int GasConstraintsMaxNum = 20;
-    public const int MultiGasConstraintsMaxNum = 20;
-    public const long MaxPricingExponentBips = 85_000;
 
-    // ----- Private Fields -----
-
+    private static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
     private readonly SubStorageVector _constraints = new(storage.OpenSubStorage(ConstraintsKey));
     private readonly SubStorageVector _multiGasConstraints = new(storage.OpenSubStorage(MultiGasConstraintsKey));
-    private readonly MultiGasFees _multiGasFees = new(storage.OpenSubStorage(MultiGasFeesKey));
-
-    // ----- Public Properties -----
+    internal readonly MultiGasFees MultiGasFees = new(storage.OpenSubStorage(MultiGasFeesKey));
 
     public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
 
@@ -76,8 +63,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
     public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
 
-    // ----- Static Initialize -----
-
     public static void Initialize(ArbosStorage storage)
     {
         storage.Set(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
@@ -88,8 +73,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         storage.Set(BacklogToleranceOffset, InitialBacklogTolerance);
         storage.Set(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
     }
-
-    // ----- Public Methods: Gas Model -----
 
     public GasModel GetGasModelToUse()
     {
@@ -105,8 +88,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     }
 
     public bool ShouldUseGasConstraints() => GetGasModelToUse() != GasModel.Legacy;
-
-    // ----- Public Methods: Pricing Updates -----
 
     public void UpdatePricingModel(ulong timePassed)
     {
@@ -165,8 +146,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         return result;
     }
 
-    // ----- Public Methods: Backlog -----
-
     public void GrowBacklog(ulong usedGas, MultiGas usedMultiGas)
         => UpdateBacklogByModel(BacklogOperation.Grow, usedGas, usedMultiGas);
 
@@ -174,8 +153,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         => UpdateBacklogByModel(BacklogOperation.Shrink, usedGas, usedMultiGas);
 
     public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
-
-    // ----- Public Methods: Single-Gas Constraints -----
 
     public ulong ConstraintsLength() => _constraints.Length();
 
@@ -200,8 +177,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             constraint.Clear();
         }
     }
-
-    // ----- Public Methods: Multi-Gas Constraints -----
 
     public ulong MultiGasConstraintsLength() => _multiGasConstraints.Length();
 
@@ -247,35 +222,20 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 
             ulong divisor = ((ulong)adjustmentWindow).SaturateMul(target).SaturateMul(maxWeight);
             if (divisor == 0)
-                continue;
+                throw new InvalidOperationException($"Invalid multi-gas constraint at index {i}: divisor is zero (target={target}, window={adjustmentWindow}, maxWeight={maxWeight})");
 
-            for (int kindIndex = 0; kindIndex < MultiGas.NumResourceKinds; kindIndex++)
+            foreach (ResourceKind kind in constraint.UsedResources())
             {
-                ulong weight = constraint.GetResourceWeight((ResourceKind)kindIndex);
-                if (weight == 0)
-                    continue;
+                ulong weight = constraint.GetResourceWeight(kind);
 
                 long dividend = backlog.SaturateMul(weight).SaturateMul(Utils.BipsMultiplier).ToLongSafe();
                 long exp = dividend / divisor.ToLongSafe();
-                exponentPerKind[kindIndex] = Utils.SaturatingSignedAdd(exponentPerKind[kindIndex], exp);
+                exponentPerKind[(int)kind] = Utils.SaturatingSignedAdd(exponentPerKind[(int)kind], exp);
             }
         }
 
         return exponentPerKind;
     }
-
-    // ----- Public Methods: Multi-Gas Fees -----
-
-    public UInt256 GetMultiGasBaseFeePerResource(ResourceKind kind)
-    {
-        UInt256 baseFee = _multiGasFees.GetCurrentBlockFee(kind);
-        if (kind == ResourceKind.L1Calldata || baseFee.IsZero)
-            return BaseFeeWeiStorage.Get();
-        return baseFee;
-    }
-
-    public void SetMultiGasBaseFeeForResource(ResourceKind kind, UInt256 value)
-        => _multiGasFees.SetNextBlockFee(kind, value);
 
     public UInt256 MultiDimensionalPriceForRefund(MultiGas gasUsed)
     {
@@ -300,10 +260,8 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     {
         if (GetGasModelToUse() != GasModel.MultiGasConstraints)
             return;
-        _multiGasFees.CommitNextToCurrent();
+        MultiGasFees.CommitNextToCurrent();
     }
-
-    // ----- Public Methods: Setters -----
 
     public void SetSpeedLimitPerSecond(ulong limit) => SpeedLimitPerSecondStorage.Set(limit);
 
@@ -319,26 +277,25 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 
     public void SetMaxPerTxGasLimit(ulong limit) => PerTxGasLimitStorage.Set(limit);
 
-    // ----- Internal Methods -----
-
     internal void SetMultiGasConstraintsFromSingleGasConstraints()
     {
         ClearMultiGasConstraints();
-
-        Dictionary<ResourceKind, ulong> weights = new()
-        {
-            { ResourceKind.Computation, 1 },
-            { ResourceKind.HistoryGrowth, 1 },
-            { ResourceKind.StorageAccess, 1 },
-            { ResourceKind.StorageGrowth, 1 },
-            { ResourceKind.L2Calldata, 1 },
-            { ResourceKind.WasmComputation, 1 },
-        };
 
         ulong length = ConstraintsLength();
         for (ulong i = 0; i < length; i++)
         {
             GasConstraint c = OpenConstraintAt(i);
+
+            Dictionary<ResourceKind, ulong> weights = new()
+            {
+                { ResourceKind.Computation, 1 },
+                { ResourceKind.HistoryGrowth, 1 },
+                { ResourceKind.StorageAccess, 1 },
+                { ResourceKind.StorageGrowth, 1 },
+                { ResourceKind.L2Calldata, 1 },
+                { ResourceKind.WasmComputation, 1 },
+            };
+
             uint adjustmentWindow = c.AdjustmentWindow > uint.MaxValue ? uint.MaxValue : (uint)c.AdjustmentWindow;
             AddMultiGasConstraint(c.Target, adjustmentWindow, c.Backlog, weights);
         }
@@ -364,7 +321,7 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             ulong inertia = constraint.AdjustmentWindow;
             ulong divisor = inertia.SaturateMul(target);
             if (divisor == 0)
-                continue;
+                throw new InvalidOperationException($"Invalid gas constraint at index {i}: divisor is zero (target={target}, inertia={inertia})");
             long exponent = backlog.SaturateMul(Utils.BipsMultiplier).ToLongSafe() / divisor.ToLongSafe();
             totalExponentBips = Utils.SaturatingSignedAdd(totalExponentBips, exponent);
         }
@@ -400,7 +357,7 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         for (int kind = 0; kind < MultiGas.NumResourceKinds; kind++)
         {
             UInt256 baseFeeKind = CalcBaseFeeFromExponent(exponentPerKind[kind], minBaseFee);
-            _multiGasFees.SetNextBlockFee((ResourceKind)kind, baseFeeKind);
+            MultiGasFees.SetNextBlockFee((ResourceKind)kind, baseFeeKind);
 
             if (baseFeeKind > maxBaseFee)
                 maxBaseFee = baseFeeKind;
@@ -408,8 +365,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 
         BaseFeeWeiStorage.Set(maxBaseFee);
     }
-
-    // ----- Private Methods -----
 
     private void UpdateBacklogByModel(BacklogOperation op, ulong usedGas, MultiGas usedMultiGas)
     {
@@ -425,6 +380,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
             case GasModel.MultiGasConstraints:
                 UpdateMultiGasConstraintsBacklogs(op, usedMultiGas);
                 break;
+            case GasModel.Unknown:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
     }
 
@@ -514,7 +473,7 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
         {
             ResourceKind kind = (ResourceKind)i;
-            UInt256 baseFee = _multiGasFees.GetCurrentBlockFee(kind);
+            UInt256 baseFee = MultiGasFees.GetCurrentBlockFee(kind);
 
             if (kind == ResourceKind.L1Calldata || baseFee.IsZero)
                 baseFee = baseFeeWei;

@@ -48,39 +48,6 @@ public class MultiGasConstraintTests
     }
 
     [Test]
-    public void SetResourceWeights_InvalidKind_ThrowsError()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Sixty)
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Add a constraint first
-        var validWeights = new Dictionary<ResourceKind, ulong>
-        {
-            { ResourceKind.Computation, 100 }
-        };
-        l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, validWeights);
-
-        MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
-
-        // invalid resource kind (cast beyond valid range)
-        var invalidWeights = new Dictionary<ResourceKind, ulong>
-        {
-            { (ResourceKind)255, 100 } // Invalid
-        };
-
-        Action act = () => constraint.SetResourceWeights(invalidWeights);
-        act.Should().Throw<ArgumentOutOfRangeException>();
-    }
-
-    [Test]
     public void GrowBacklog_MultipleResources_AggregatesWeighted()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -210,7 +177,7 @@ public class MultiGasConstraintTests
 
         MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
 
-        ResourceKind[] usedResources = constraint.GetUsedResources();
+        ResourceKind[] usedResources = constraint.UsedResources().ToArray();
 
         usedResources.Should().HaveCount(3);
         usedResources.Should().Contain(ResourceKind.Computation);

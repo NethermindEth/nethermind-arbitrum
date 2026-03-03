@@ -223,6 +223,8 @@ public readonly struct ArbosStorageSlot(ArbosStorage storage, ulong offset)
     public ValueHash256 Get() => storage.Get(_slotKey);
 
     public void Set(ValueHash256 value) => storage.Set(_slotKey, value);
+
+    public void Clear() => storage.Clear(_slotKey);
 }
 
 public class ArbosStorageBackedUInt(ArbosStorage storage, ulong offset)
@@ -235,10 +237,9 @@ public class ArbosStorageBackedUInt(ArbosStorage storage, ulong offset)
         return value == default ? 0 : (uint)value.ToUInt256();
     }
 
-    public void Set(uint value)
-    {
-        _slot.Set(new UInt256(value).ToValueHash());
-    }
+    public void Set(uint value) => _slot.Set(new UInt256(value).ToValueHash());
+
+    public void Clear() => _slot.Clear();
 }
 
 public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
@@ -281,6 +282,8 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
         Set(newValue);
         return newValue;
     }
+
+    public void Clear() => _slot.Clear();
 }
 
 public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries >= 0 and < 2^256
@@ -299,6 +302,8 @@ public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Ni
         value.ToBigEndian(raw.BytesAsSpan);
         _slot.Set(raw);
     }
+
+    public void Clear() => _slot.Clear();
 }
 
 public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
