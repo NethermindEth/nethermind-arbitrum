@@ -291,7 +291,7 @@ public class StylusNativeTests
         ulong gas = 1_000_000;
         uint arbosTag = 0;
 
-            // Get number (should be 0 initially)
+        // Get number (should be 0 initially)
         byte[] getNumberCalldata = CounterContractCallData.GetNumberCalldata();
         StylusNativeResult<byte[]> getNumberResult1 = StylusNative.Call(asmResult.Value!, getNumberCalldata, config, apiApi, evmData, true, arbosTag, ref gas);
         getNumberResult1.Value.Should().BeEquivalentTo(new byte[32]);
