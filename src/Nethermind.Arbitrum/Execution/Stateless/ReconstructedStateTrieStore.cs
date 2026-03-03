@@ -33,6 +33,18 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
+    /// <summary>Approximate total byte size of trie node entries currently held in the in-memory overlay.</summary>
+    public long OverlaySizeBytes
+    {
+        get
+        {
+            long total = 0;
+            foreach (KeyValuePair<byte[], byte[]?> kvp in _memDb.GetAll())
+                total += kvp.Key.Length + (kvp.Value?.Length ?? 0);
+            return total;
+        }
+    }
+
     public void Dispose()
     {
     }

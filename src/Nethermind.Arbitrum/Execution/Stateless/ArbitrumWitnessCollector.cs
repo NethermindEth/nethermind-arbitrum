@@ -27,6 +27,8 @@ public class ArbitrumWitnessCollector(
 {
     public async Task<(Block Block, ArbitrumWitness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes)
     {
+        Console.WriteLine($"--- In Arb ArbitrumWitnessCollector.BuildBlockAndGetWitness() for block {parentHeader.Number + 1} ---");
+
         using (worldState.BeginScope(parentHeader))
         {
             ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);

@@ -34,7 +34,7 @@ public class StateReconstructor : IStateReconstructor
     private readonly int _maxStateRootsInMem;
 
     /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
-    private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
+    private readonly ConcurrentQueue<(Hash256, ulong)> _preparedQueue = new();
 
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
@@ -64,6 +64,7 @@ public class StateReconstructor : IStateReconstructor
     /// </summary>
     public void EnsureStateAvailable(BlockHeader targetParent)
     {
+        Console.WriteLine($"--- In EnsureStateAvailable with target parent: {targetParent.Number}, state root: {targetParent.StateRoot} ---");
         Hash256 stateRoot = targetParent.StateRoot!;
 
         lock (_reconstructionLock)
@@ -79,6 +80,7 @@ public class StateReconstructor : IStateReconstructor
 
                 return;
             }
+            Console.WriteLine($"--- Ensuring state available for block {targetParent.Number} (root {targetParent.StateRoot})");
 
             if (_logger.IsInfo)
                 _logger.Info($"State not available for block {targetParent.Number} (root {stateRoot}), reconstructing...");
@@ -91,6 +93,8 @@ public class StateReconstructor : IStateReconstructor
                 _logger.Info($"Found available state at block {lastAvailable.Number} (root {lastAvailable.StateRoot}), re-executing {targetParent.Number - lastAvailable.Number} blocks forward");
 
             ReExecuteBlocks(lastAvailable, targetParent);
+
+            Console.WriteLine($"--- Re-executed blocks from {lastAvailable.Number + 1} to {targetParent.Number}, overlay size: {_trieStore.OverlaySizeBytes / 1_048_576.0:F1} MB");
 
             if (!_trieStore.HasRoot(stateRoot))
                 throw new InvalidOperationException($"State reconstruction failed: root {stateRoot} not available after re-execution");
@@ -153,7 +157,16 @@ public class StateReconstructor : IStateReconstructor
 
                 Hash256 expectedBlockHash = block.Hash!;
                 IReleaseSpec spec = specProvider.GetSpec(block.Header);
-                (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
+                Block processedBlock = null!;
+                try
+                {
+                    (processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"--- Exception during processing block {blockNumber} ---");
+                    throw new InvalidOperationException($"Failed to process block {blockNumber} during state reconstruction: {ex.Message}", ex);
+                }
 
                 if (processedBlock.Hash != expectedBlockHash)
                     throw new InvalidOperationException(
@@ -189,20 +202,24 @@ public class StateReconstructor : IStateReconstructor
             _trieStore.Dereference(parentStateRoot);
     }
 
-    public void PreparedAddTrim(List<Hash256> stateRoots)
+    public void PreparedAddTrim(List<(Hash256, ulong)> stateRoots)
     {
+        Console.WriteLine("--- In PreparedAddTrim ---");
         lock (_reconstructionLock)
         {
-            foreach (Hash256 stateRoot in stateRoots)
-                _preparedQueue.Enqueue(stateRoot);
+            foreach ((Hash256 stateRoot, ulong blockNumber) in stateRoots)
+                _preparedQueue.Enqueue((stateRoot, blockNumber));
 
             if (_preparedQueue.Count > _maxStateRootsInMem)
             {
                 int toEvict = _preparedQueue.Count - _maxStateRootsInMem;
                 for (int i = 0; i < toEvict; i++)
                 {
-                    if (_preparedQueue.TryDequeue(out Hash256? oldStateRoot))
-                        _trieStore.Dereference(oldStateRoot);
+                    if (_preparedQueue.TryDequeue(out (Hash256 oldStateRoot, ulong oldBlockNumber) dequeued))
+                    {
+                        Console.WriteLine($"--- index: {i}, oldStateRoot: {dequeued.oldStateRoot}, oldBlockNumber: {dequeued.oldBlockNumber} ---");
+                        _trieStore.Dereference(dequeued.oldStateRoot);
+                    }
                 }
             }
         }

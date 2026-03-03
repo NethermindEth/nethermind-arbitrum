@@ -516,6 +516,7 @@ public sealed class ArbitrumExecutionEngine(
     public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
     {
         long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
+        Console.WriteLine($"--- In RecordBlockCreation for block number {blockNumber} ---");
         if (blockNumber == 0)
         {
             // Cannot generate witness for genesis block as the block itself does not contain any transaction
@@ -594,6 +595,8 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
     {
+        Console.WriteLine($"--- In PrepareForRecord: {parameters.Start} to {parameters.End} ---");
+
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 
@@ -605,7 +608,7 @@ public sealed class ArbitrumExecutionEngine(
             numOfBlocks--; // genesis block doesn't need preparation, so recording one less block
 
         long lastHeaderNum = headerNum + (long)numOfBlocks;
-        List<Hash256> referencedStateRoots = new List<Hash256>((int)numOfBlocks);
+        List<(Hash256, ulong)> referencedStateRoots = new List<(Hash256, ulong)>((int)numOfBlocks);
 
         for (long current = headerNum; current <= lastHeaderNum; current++)
         {
@@ -619,7 +622,7 @@ public sealed class ArbitrumExecutionEngine(
             try
             {
                 stateReconstructor.EnsureStateAvailable(header);
-                referencedStateRoots.Add(header.StateRoot!);
+                referencedStateRoots.Add((header.StateRoot!, (ulong)header.Number));
             }
             catch (Exception ex)
             {
