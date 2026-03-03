@@ -7,7 +7,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Blockchain;

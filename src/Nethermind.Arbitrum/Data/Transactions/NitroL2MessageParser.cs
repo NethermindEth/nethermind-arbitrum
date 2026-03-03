@@ -292,7 +292,7 @@ public static class NitroL2MessageParser
             ChainId = chainId,
             RequestId = header.RequestId,
             SenderAddress = header.Sender,
-            L1BaseFee = header.BaseFeeL1,
+            L1BaseFee = header.BaseFeeL1 ?? UInt256.Zero,
             DepositValue = depositValue,
             DecodedMaxFeePerGas = maxFeePerGas,
             GasFeeCap = maxFeePerGas,

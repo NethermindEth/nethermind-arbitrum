@@ -68,10 +68,8 @@ public struct MultiGas
 
         ReadOnlySpan<ulong> gas = _gas;
         for (int i = 0; i < NumResourceKinds; i++)
-        {
             if (gas[i] != 0)
                 return false;
-        }
 
         return true;
     }
@@ -188,34 +186,6 @@ public struct MultiGas
     /// <summary>
     /// Decodes MultiGas in a forward/backward-compatible way.
     /// Extra per-dimension entries are skipped; missing ones are treated as zero.
-    /// </summary>
-    public static MultiGas Decode(RlpStream stream)
-    {
-        int lastCheck = stream.ReadSequenceLength() + stream.Position;
-
-        MultiGas result = default;
-
-        ulong total = stream.DecodeULong();
-        ulong refund = stream.DecodeULong();
-
-        Span<ulong> gasSpan = result._gas;
-        int i = 0;
-        while (stream.Position < lastCheck)
-        {
-            ulong val = stream.DecodeULong();
-            if (i < NumResourceKinds)
-                gasSpan[i] = val;
-            // Extra dimensions are skipped (forward compatibility)
-            i++;
-        }
-
-        result._total = total;
-        result._refund = refund;
-        return result;
-    }
-
-    /// <summary>
-    /// Decodes MultiGas from a ValueDecoderContext.
     /// </summary>
     public static MultiGas Decode(ref Rlp.ValueDecoderContext context)
     {

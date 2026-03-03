@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
@@ -352,6 +353,88 @@ public class ArbitrumGasPolicyTests
         // 2 addresses * 2400 + 2 storage keys * 1900 = 4800 + 3800 = 8600
         const long expectedStorageAccess = 2 * GasCostOf.AccessAccountListEntry + 2 * GasCostOf.AccessStorageListEntry;
         intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+    }
+
+    [Test]
+    public void CalculateIntrinsicGas_OnlyNonZeroBytes_TracksL2Calldata()
+    {
+        // 5 non-zero bytes only
+        byte[] calldata = [0x01, 0x02, 0x03, 0x04, 0x05];
+        Transaction tx = Build.A.Transaction
+            .WithTo(TestItem.AddressA)
+            .WithData(calldata)
+            .TestObject;
+
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
+
+        // L2Calldata = nonZeroBytes * TxDataNonZeroMultiplierEip2028 * TxDataZero
+        // = 5 * 4 * 4 = 80
+        const int nonZeroBytes = 5;
+        const long expectedL2Calldata = nonZeroBytes * GasCostOf.TxDataNonZeroMultiplierEip2028 * GasCostOf.TxDataZero;
+        intrinsicGas.GetAccumulated().Get(ResourceKind.L2Calldata).Should().Be(expectedL2Calldata);
+        intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
+    }
+
+    [Test]
+    public void CalculateIntrinsicGas_WithAuthorizationList_TracksStorageGrowth()
+    {
+        // Single authorization entry - EIP-7702 requires TxType.SetCode
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.SetCode)
+            .WithTo(TestItem.AddressA)
+            .WithData([])
+            .TestObject;
+        tx.AuthorizationList =
+        [
+            new AuthorizationTuple(1, TestItem.AddressB, 0, new Signature(new byte[64], 0))
+        ];
+
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Prague.Instance).Standard;
+
+        // StorageGrowth = 1 * NewAccount = 25000
+        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.NewAccount);
+        intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
+    }
+
+    [Test]
+    public void CalculateIntrinsicGas_WithMultipleAuthorizations_TracksStorageGrowth()
+    {
+        // Multiple authorization entries - EIP-7702 requires TxType.SetCode
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.SetCode)
+            .WithTo(TestItem.AddressA)
+            .WithData([])
+            .TestObject;
+        tx.AuthorizationList =
+        [
+            new AuthorizationTuple(1, TestItem.AddressB, 0, new Signature(new byte[64], 0)),
+            new AuthorizationTuple(1, TestItem.AddressC, 0, new Signature(new byte[64], 0)),
+            new AuthorizationTuple(1, TestItem.AddressD, 0, new Signature(new byte[64], 0))
+        ];
+
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Prague.Instance).Standard;
+
+        // StorageGrowth = 3 * NewAccount = 75000
+        const long expectedStorageGrowth = 3 * GasCostOf.NewAccount;
+        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(expectedStorageGrowth);
+        intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
+    }
+
+    [Test]
+    public void CalculateIntrinsicGas_WithEmptyAuthorizationList_TracksZeroStorageGrowth()
+    {
+        // Edge case: empty authorization list - EIP-7702 requires TxType.SetCode
+        Transaction tx = Build.A.Transaction
+            .WithType(TxType.SetCode)
+            .WithTo(TestItem.AddressA)
+            .WithData([])
+            .TestObject;
+        tx.AuthorizationList = [];
+
+        ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Prague.Instance).Standard;
+
+        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(0);
+        intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
     }
 
     [Test]
