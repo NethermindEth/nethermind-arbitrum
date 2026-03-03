@@ -846,7 +846,7 @@ public class L2PricingStateTests
     #region Coverage: Migration Path
 
     [Test]
-    public void SetMultiGasConstraintsFromSingleGasConstraints_ConvertsCorrectly()
+    public void SetMultiGasConstraintsFromSingleGasConstraints_WhenCalled_ConvertsCorrectly()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -923,7 +923,7 @@ public class L2PricingStateTests
     }
 
     [Test]
-    public void SetMultiGasConstraintsFromSingleGasConstraints_ClearsExistingMultiGasConstraints()
+    public void SetMultiGasConstraintsFromSingleGasConstraints_WhenExistingConstraintsPresent_ClearsExisting()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -1200,7 +1200,7 @@ public class L2PricingStateTests
     }
 
     [Test]
-    public void MultiDimensionalPriceForRefund_L1CalldataUsesBaseFeeWei()
+    public void MultiDimensionalPriceForRefund_WhenL1Calldata_UsesBaseFeeWei()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -1236,7 +1236,7 @@ public class L2PricingStateTests
     }
 
     [Test]
-    public void MultiDimensionalPriceForRefund_ZeroFeeUsesBaseFeeWei()
+    public void MultiDimensionalPriceForRefund_WhenZeroFee_UsesBaseFeeWei()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
