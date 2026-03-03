@@ -72,8 +72,8 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         ArbitrumUserWasmsRecorder wasmsRecorder)
     {
         BlockhashProvider blockhashProvider = new(new BlockhashCache(witnessGeneratingHeaderFinder, logManager), state, logManager);
-        // We don't give any l1BlockCache to the vm so that it forces querying the world state
-        ArbitrumVirtualMachine vm = new(arbitrumSpecHelper, blockhashProvider, wasmStore, specProvider, logManager, enableWitnessGeneration: true, wasmsRecorder: wasmsRecorder);
+        // We don't give a NoOp l1BlockCache to the vm so that it forces querying the world state
+        ArbitrumVirtualMachine vm = new(arbitrumSpecHelper, blockhashProvider, wasmStore, specProvider, logManager, new NoOpL1BlockCache(), enableWitnessGeneration: true, wasmsRecorder: wasmsRecorder);
 
         return new ArbitrumTransactionProcessor(
             BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager,
