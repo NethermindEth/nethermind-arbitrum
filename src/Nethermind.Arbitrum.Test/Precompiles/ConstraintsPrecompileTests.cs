@@ -21,7 +21,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void SetMultiGasPricingConstraints_ValidInput_StoresCorrectly()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -33,7 +32,6 @@ public class ConstraintsPrecompileTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        // Act - Simulate what SetMultiGasPricingConstraints precompile does
         l2Pricing.ClearMultiGasConstraints();
 
         var weights = new Dictionary<ResourceKind, ulong>
@@ -43,7 +41,6 @@ public class ConstraintsPrecompileTests
         };
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 5_000_000, weights);
 
-        // Assert
         l2Pricing.MultiGasConstraintsLength().Should().Be(1);
 
         MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
@@ -57,7 +54,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void SetMultiGasPricingConstraints_InvalidTarget_ShouldBeRejected()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -69,7 +65,6 @@ public class ConstraintsPrecompileTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        // Act & Assert
         // Zero target should be rejected by the precompile (not at storage level)
         // The storage itself doesn't validate, but the precompile should
         // Here we verify that the precompile validation would catch this
@@ -83,7 +78,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void EnableAndDisable_MultiConstraints_SwitchesGasModel()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -117,7 +111,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void MultiGasConstraints_BacklogUpdate_WorksCorrectly()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -142,10 +135,8 @@ public class ConstraintsPrecompileTests
         gasUsed.Increment(ResourceKind.Computation, 100);
         gasUsed.Increment(ResourceKind.StorageAccess, 200);
 
-        // Act - Grow backlog
         l2Pricing.GrowBacklog(0, gasUsed);
 
-        // Assert
         // Expected: 100*2 + 200*3 = 200 + 600 = 800
         MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
         constraint.Backlog.Should().Be(800);
@@ -154,7 +145,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void MultiGasConstraints_ExponentCalculation_MatchesFormula()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -174,10 +164,8 @@ public class ConstraintsPrecompileTests
         };
         l2Pricing.AddMultiGasConstraint(1000, 10, 10000, weights);
 
-        // Act
         long[] exponents = l2Pricing.CalcMultiGasConstraintsExponents();
 
-        // Assert
         // Formula: (backlog * weight * BipsMultiplier) / (adjustmentWindow * target * maxWeight)
         // = (10000 * 1 * 10000) / (10 * 1000 * 1)
         // = 100_000_000 / 10_000
@@ -188,7 +176,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void MultiGasConstraints_TargetFees_ComputedCorrectly()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -213,11 +200,9 @@ public class ConstraintsPrecompileTests
         l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 500);
         l2Pricing.CommitMultiGasFees();
 
-        // Act
         UInt256 computationFee = l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation);
         UInt256 storageFee = l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageAccess);
 
-        // Assert
         computationFee.Should().Be(new UInt256(100));
         storageFee.Should().Be(new UInt256(500));
     }
@@ -255,7 +240,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void GetMultiGasPricingConstraints_WhenCalled_ReturnsAllConstraints()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -281,7 +265,6 @@ public class ConstraintsPrecompileTests
         };
         l2Pricing.AddMultiGasConstraint(2_000_000, 120, 200, weights2);
 
-        // Act - Simulate GetMultiGasPricingConstraints precompile
         ulong count = l2Pricing.MultiGasConstraintsLength();
         var results = new List<(ulong Target, uint Window, ulong Backlog, Dictionary<ResourceKind, ulong> Weights)>();
 
@@ -296,7 +279,6 @@ public class ConstraintsPrecompileTests
             ));
         }
 
-        // Assert
         results.Should().HaveCount(2);
 
         results[0].Target.Should().Be(1_000_000);
@@ -316,7 +298,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void MultiGasConstraints_MultipleConstraints_CombineExponents()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -345,10 +326,8 @@ public class ConstraintsPrecompileTests
         };
         l2Pricing.AddMultiGasConstraint(1000, 10, 2000, weights2);
 
-        // Act
         long[] exponents = l2Pricing.CalcMultiGasConstraintsExponents();
 
-        // Assert - Exponents should be summed
         // Total Computation exponent: 1000 + 2000 = 3000
         exponents[(int)ResourceKind.Computation].Should().Be(3000);
     }
@@ -356,7 +335,6 @@ public class ConstraintsPrecompileTests
     [Test]
     public void MultiGasConstraints_DifferentResources_IndependentExponents()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -378,10 +356,8 @@ public class ConstraintsPrecompileTests
         };
         l2Pricing.AddMultiGasConstraint(1000, 10, 5000, weights);
 
-        // Act
         long[] exponents = l2Pricing.CalcMultiGasConstraintsExponents();
 
-        // Assert
         // Computation: (5000 * 1 * 10000) / (10 * 1000 * 2) = 50_000_000 / 20_000 = 2500
         // StorageAccess: (5000 * 2 * 10000) / (10 * 1000 * 2) = 100_000_000 / 20_000 = 5000
         exponents[(int)ResourceKind.Computation].Should().Be(2500);

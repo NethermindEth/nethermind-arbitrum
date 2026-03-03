@@ -20,7 +20,6 @@ public class PrecompileContextTests
     [Test]
     public void Burn_SingleResource_TracksCorrectly()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -30,7 +29,6 @@ public class PrecompileContextTests
             .WithArbosVersion(ArbosVersion.Sixty)
             .WithReleaseSpec();
 
-        // Act - Burn some computation gas
         ulong initialGas = 1_000_000;
         ulong burnAmount = 100;
 
@@ -38,14 +36,12 @@ public class PrecompileContextTests
         // In a real precompile context, Burn would reduce available gas
         ulong expectedRemaining = initialGas - burnAmount;
 
-        // Assert - Verify the gas tracking works
         expectedRemaining.Should().Be(999_900);
     }
 
     [Test]
     public void BurnMultiGas_MultipleResources_TracksAllDimensions()
     {
-        // Arrange
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
@@ -61,7 +57,6 @@ public class PrecompileContextTests
         gas.Increment(ResourceKind.StorageAccess, 200);
         gas.Increment(ResourceKind.HistoryGrowth, 50);
 
-        // Act & Assert - Verify each resource is tracked independently
         gas.Get(ResourceKind.Computation).Should().Be(100);
         gas.Get(ResourceKind.StorageAccess).Should().Be(200);
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(50);
@@ -72,16 +67,13 @@ public class PrecompileContextTests
     [Test]
     public void MultiGas_Increment_AccumulatesCorrectly()
     {
-        // Arrange
         MultiGas gas = default;
 
-        // Act - Increment multiple times
         gas.Increment(ResourceKind.Computation, 100);
         gas.Increment(ResourceKind.Computation, 50);
         gas.Increment(ResourceKind.StorageAccess, 200);
         gas.Increment(ResourceKind.StorageAccess, 100);
 
-        // Assert
         gas.Get(ResourceKind.Computation).Should().Be(150);
         gas.Get(ResourceKind.StorageAccess).Should().Be(300);
     }
@@ -89,7 +81,6 @@ public class PrecompileContextTests
     [Test]
     public void MultiGas_Add_CombinesMultiGas()
     {
-        // Arrange
         MultiGas gas1 = default;
         gas1.Increment(ResourceKind.Computation, 100);
         gas1.Increment(ResourceKind.StorageAccess, 200);
@@ -98,10 +89,8 @@ public class PrecompileContextTests
         gas2.Increment(ResourceKind.Computation, 50);
         gas2.Increment(ResourceKind.HistoryGrowth, 75);
 
-        // Act
         gas1.Add(gas2);
 
-        // Assert
         gas1.Get(ResourceKind.Computation).Should().Be(150);
         gas1.Get(ResourceKind.StorageAccess).Should().Be(200);
         gas1.Get(ResourceKind.HistoryGrowth).Should().Be(75);
@@ -110,10 +99,8 @@ public class PrecompileContextTests
     [Test]
     public void MultiGas_AllResourceKinds_HandledCorrectly()
     {
-        // Arrange
         MultiGas gas = default;
 
-        // Act - Increment value for each resource kind
         gas.Increment(ResourceKind.Computation, 1);
         gas.Increment(ResourceKind.HistoryGrowth, 2);
         gas.Increment(ResourceKind.StorageAccess, 3);
@@ -122,7 +109,6 @@ public class PrecompileContextTests
         gas.Increment(ResourceKind.L2Calldata, 6);
         gas.Increment(ResourceKind.WasmComputation, 7);
 
-        // Assert - Each is stored independently
         gas.Get(ResourceKind.Unknown).Should().Be(0);
         gas.Get(ResourceKind.Computation).Should().Be(1);
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(2);
@@ -136,28 +122,23 @@ public class PrecompileContextTests
     [Test]
     public void MultiGas_Total_SumsAllResources()
     {
-        // Arrange
         MultiGas gas = default;
         gas.Increment(ResourceKind.Computation, 100);
         gas.Increment(ResourceKind.StorageAccess, 200);
         gas.Increment(ResourceKind.HistoryGrowth, 50);
 
-        // Act
         ulong total = gas.Total;
 
-        // Assert
         total.Should().Be(350);
     }
 
     [Test]
     public void MultiGas_IsZero_DetectsEmptyAndNonEmpty()
     {
-        // Arrange
         MultiGas empty = default;
         MultiGas nonEmpty = default;
         nonEmpty.Increment(ResourceKind.Computation, 1);
 
-        // Assert
         empty.IsZero().Should().BeTrue();
         nonEmpty.IsZero().Should().BeFalse();
     }
