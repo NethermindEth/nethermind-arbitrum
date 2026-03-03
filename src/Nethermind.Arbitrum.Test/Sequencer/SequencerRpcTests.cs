@@ -48,10 +48,10 @@ public class SequencerRpcTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
-        SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [0, 0]);
+        SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [transferTxBytes], [0, 0]);
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
 
-        result.Should().BeEquivalentTo(expectedSequencingResult, o => o.ForStartSequencingResult());
+        result.Should().BeEquivalentTo(expectedSequencingResult);
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();

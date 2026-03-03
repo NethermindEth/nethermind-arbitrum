@@ -244,10 +244,10 @@ public class SequencerLifecycleTests
             .And.Subject.Data;
 
         // Requeued tx should be sequenced after activation.
-        SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [0, 0]);
+        SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [transferTxBytes], [0, 0]);
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
 
-        activeResult.Should().BeEquivalentTo(expectedSequencingResult, o => o.ForStartSequencingResult());
+        activeResult.Should().BeEquivalentTo(expectedSequencingResult);
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();

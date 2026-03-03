@@ -3,9 +3,8 @@
 
 using System.Net;
 using System.Net.Sockets;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Core;
 using Nethermind.Logging;
 
@@ -13,18 +12,15 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class TestSequencer
 {
-    public static SequencedMsg ExpectedSequencedMessage(BlockHeader header, StartSequencingEnvironment env, byte[] timeboostBlockMetadata)
+    public static SequencedMsg ExpectedSequencedMessage(BlockHeader header, StartSequencingEnvironment env, byte[][] transactionRlps, byte[] timeboostBlockMetadata)
     {
+        MessageWithMetadata messageWithMetadata =
+            L2MessageAssembler.AssembleFromSignedTransactions(transactionRlps, env.L1BLockNumber, env.L2Timestamp, header.Nonce);
+
         ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header, NullLogger.Instance);
+        MessageResultForRpc messageResultForRpc = new() { Hash = header.Hash, SendRoot = headerInfo.SendRoot };
 
-        L1IncomingMessageHeader l1MessageHeader = new(ArbitrumL1MessageKind.L2Message, ArbosAddresses.BatchPosterAddress, env.L1BLockNumber, env.L2Timestamp, null, null);
-        L1IncomingMessage l1Message = new(l1MessageHeader, null, null, null);
-
-        return new SequencedMsg(
-            (ulong)header.Number,
-            new MessageWithMetadata(l1Message, header.Nonce),
-            new MessageResultForRpc { Hash = header.Hash, SendRoot = headerInfo.SendRoot },
-            timeboostBlockMetadata);
+        return new SequencedMsg((ulong)header.Number, messageWithMetadata, messageResultForRpc, timeboostBlockMetadata);
     }
 }
 
