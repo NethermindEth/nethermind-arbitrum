@@ -52,7 +52,8 @@ jobs:
       dockerfile_path: ${{ inputs.dockerfile }}
       platforms: ${{ matrix.platform }}
       # Skip Trivy for diagnostic image - JetBrains tools have transitive dependency CVEs we cannot fix
-      run_trivy: ${{ inputs.dockerfile == 'Dockerfile' }}
+      # Skip Trivy on ARM64 - Trivy binary installation is unreliable on ARM64 runners; AMD64 scan is sufficient
+      run_trivy: ${{ inputs.dockerfile == 'Dockerfile' && matrix.platform == 'linux/amd64' }}
       pre_build_script: |
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
