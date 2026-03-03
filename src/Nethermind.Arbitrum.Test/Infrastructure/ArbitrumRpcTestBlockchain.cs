@@ -7,7 +7,6 @@ using System.Text.Json;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
@@ -36,6 +35,7 @@ using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
