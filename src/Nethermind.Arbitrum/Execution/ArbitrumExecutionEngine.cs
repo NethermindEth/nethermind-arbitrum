@@ -535,6 +535,7 @@ public sealed class ArbitrumExecutionEngine(
             Number = blockNumber
         };
 
+        // temporary reference to parent trie
         stateReconstructor.EnsureStateAvailable(parent);
 
         string[] wasmTargets = parameters.WasmTargets;
@@ -545,6 +546,9 @@ public sealed class ArbitrumExecutionEngine(
         using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
         IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
         (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+
+        // references to parent trie are now removed
+        stateReconstructor.DereferenceRoot(parent.StateRoot!);
 
         using (witness)
         {
@@ -601,6 +605,8 @@ public sealed class ArbitrumExecutionEngine(
             numOfBlocks--; // genesis block doesn't need preparation, so recording one less block
 
         long lastHeaderNum = headerNum + (long)numOfBlocks;
+        List<Hash256> referencedStateRoots = new List<Hash256>((int)numOfBlocks);
+
         for (long current = headerNum; current <= lastHeaderNum; current++)
         {
             BlockHeader? header = BlockTree.FindHeader(current);
@@ -613,6 +619,7 @@ public sealed class ArbitrumExecutionEngine(
             try
             {
                 stateReconstructor.EnsureStateAvailable(header);
+                referencedStateRoots.Add(header.StateRoot!);
             }
             catch (Exception ex)
             {
@@ -620,6 +627,8 @@ public sealed class ArbitrumExecutionEngine(
                 break;
             }
         }
+
+        stateReconstructor.PreparedAddTrim(referencedStateRoots);
 
         return ResultWrapper<EmptyResponse>.Success(default);
     }

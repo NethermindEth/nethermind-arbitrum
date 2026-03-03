@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
@@ -35,6 +36,15 @@ public class StateReconstructor
     private readonly long _genesisBlockNumber;
     private readonly object _reconstructionLock = new();
 
+    /// <summary>
+    /// Maximum number of state roots to keep pinned in the MemDb overlay simultaneously.
+    /// When exceeded, the oldest entries are evicted (their nodes dereferenced and potentially deleted).
+    /// </summary>
+    private readonly int _maxStatesPrepared;
+
+    /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStatesPrepared"/>.</summary>
+    private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
+
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
         IBlockTree blockTree,
@@ -42,6 +52,7 @@ public class StateReconstructor
         IReceiptStorage receiptStorage,
         IEthereumEcdsa ecdsa,
         IArbitrumSpecHelper specHelper,
+        IArbitrumConfig arbitrumConfig,
         ILogManager logManager)
     {
         _trieStore = trieStore;
@@ -52,41 +63,47 @@ public class StateReconstructor
         _logManager = logManager;
         _logger = logManager.GetClassLogger();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
+        _maxStatesPrepared = arbitrumConfig.ValidatorMaxStatesPrepared;
     }
 
     /// <summary>
     /// Ensures the state for the given parent header is available in the ReconstructedStateTrieStore.
     /// If unavailable, walks backward to find the nearest available state and re-executes blocks forward.
+    /// After this call, the state root is pinned in the prepared queue (if MemDb-resident) and
+    /// will be kept alive until evicted by later calls.
     /// </summary>
     public void EnsureStateAvailable(BlockHeader targetParent)
     {
-        // Fast path: avoid lock acquisition when state is already in the overlay.
-        if (_trieStore.HasRoot(targetParent.StateRoot!))
-        {
-            if (_logger.IsDebug)
-                _logger.Debug($"State already available for block {targetParent.Number} (root {targetParent.StateRoot})");
-            return;
-        }
+        Hash256 stateRoot = targetParent.StateRoot!;
 
         lock (_reconstructionLock)
         {
             // Re-check after acquiring the lock: another thread may have reconstructed while we waited.
-            if (_trieStore.HasRoot(targetParent.StateRoot!))
-                return;
+            if (_trieStore.HasRoot(stateRoot))
+            {
+                // Pin the state root if it lives in the MemDb overlay
+                _trieStore.Reference(stateRoot);
 
+                if (_logger.IsDebug)
+                    _logger.Debug($"State already available for block {targetParent.Number} (root {stateRoot})");
+
+                return;
+            }
 
             if (_logger.IsInfo)
-                _logger.Info($"State not available for block {targetParent.Number} (root {targetParent.StateRoot}), reconstructing...");
+                _logger.Info($"State not available for block {targetParent.Number} (root {stateRoot}), reconstructing...");
 
             BlockHeader lastAvailable = FindLastAvailableState(targetParent);
+            // Pin the lastAvailable's state root if it lives in the MemDb overlay
+            _trieStore.Reference(lastAvailable.StateRoot!);
 
             if (_logger.IsInfo)
                 _logger.Info($"Found available state at block {lastAvailable.Number} (root {lastAvailable.StateRoot}), re-executing {targetParent.Number - lastAvailable.Number} blocks forward");
 
             ReExecuteBlocks(lastAvailable, targetParent);
 
-            if (!_trieStore.HasRoot(targetParent.StateRoot!))
-                throw new InvalidOperationException($"State reconstruction failed: root {targetParent.StateRoot} not available after re-execution");
+            if (!_trieStore.HasRoot(stateRoot))
+                throw new InvalidOperationException($"State reconstruction failed: root {stateRoot} not available after re-execution");
         }
     }
 
@@ -154,6 +171,7 @@ public class StateReconstructor
         using (worldState.BeginScope(lastAvailable))
         {
             Hash256 expectedParentHash = lastAvailable.Hash!;
+            Hash256 prevStateRoot = lastAvailable.StateRoot!;
 
             for (long blockNumber = startBlock; blockNumber <= endBlock; blockNumber++)
             {
@@ -178,6 +196,16 @@ public class StateReconstructor
                         $"Block hash mismatch after re-execution of block {blockNumber}: expected {expectedBlockHash}, got {processedBlock.Hash}");
 
                 worldState.CommitTree(block.Number);
+
+                Hash256 currentStateRoot = processedBlock.Header.StateRoot!;
+
+                // Pin the newly reconstructed state
+                _trieStore.Reference(currentStateRoot);
+                // Dereference the previous block's state (temporary reference only)
+                _trieStore.Dereference(prevStateRoot);
+
+                prevStateRoot = currentStateRoot;
+
                 worldState.Reset();
 
                 expectedParentHash = processedBlock.Hash!;
@@ -189,6 +217,31 @@ public class StateReconstructor
 
         if (_logger.IsInfo)
             _logger.Info($"State reconstruction complete: re-executed {endBlock - startBlock + 1} blocks ({startBlock} to {endBlock})");
+    }
+
+    public void DereferenceRoot(Hash256 parentStateRoot)
+    {
+        lock (_reconstructionLock)
+            _trieStore.Dereference(parentStateRoot);
+    }
+
+    public void PreparedAddTrim(List<Hash256> stateRoots)
+    {
+        lock (_reconstructionLock)
+        {
+            foreach (Hash256 stateRoot in stateRoots)
+                _preparedQueue.Enqueue(stateRoot);
+
+            if (_preparedQueue.Count > _maxStatesPrepared)
+            {
+                int toEvict = _preparedQueue.Count - _maxStatesPrepared;
+                for (int i = 0; i < toEvict; i++)
+                {
+                    if (_preparedQueue.TryDequeue(out Hash256? oldStateRoot))
+                        _trieStore.Dereference(oldStateRoot);
+                }
+            }
+        }
     }
 
     private void RecoverTxSenders(Block block)

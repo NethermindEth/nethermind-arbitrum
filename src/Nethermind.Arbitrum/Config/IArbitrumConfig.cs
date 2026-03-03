@@ -25,4 +25,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    [ConfigItem(Description = "Maximum number of state roots to keep pinned in the MemDb overlay simultaneously", DefaultValue = "1000")]
+    int ValidatorMaxStatesPrepared { get; set; }
 }

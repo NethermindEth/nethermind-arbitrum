@@ -1,5 +1,10 @@
+using System.Collections.Concurrent;
 using Nethermind.Core;
+using Nethermind.Core.Buffers;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
+using Nethermind.Db;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
 
@@ -45,9 +50,15 @@ internal sealed class ReadOnlyReconstructedStateTrieStore(ReconstructedStateTrie
 /// BeginScope is a no-op to avoid acquiring the main TrieStore's scope/pruning locks during
 /// potentially long-running state reconstruction.
 /// </summary>
-public class ReconstructedStateTrieStore(IKeyValueStoreWithBatching keyValueStore, IReadOnlyTrieStore baseStore) : ITrieStore, IReadOnlyTrieStore
+public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseStore) : ITrieStore, IReadOnlyTrieStore
 {
-    private readonly INodeStorage _nodeStorage = new NodeStorage(keyValueStore);
+    private readonly INodeStorage _nodeStorage = new NodeStorage(memDb);
+    private readonly MemDb _memDb = memDb;
+
+    /// <summary>Per-MemDb-key reference counts for tracking which nodes are still needed by at least one alive state root.</summary>
+    private readonly ConcurrentDictionary<byte[], int> _refCounts = new(Bytes.EqualityComparer);
+
+    private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
     public void Dispose()
     {
@@ -89,4 +100,126 @@ public class ReconstructedStateTrieStore(IKeyValueStoreWithBatching keyValueStor
 
     public ICommitter BeginCommit(Hash256? address, TrieNode? root, WriteFlags writeFlags)
         => new RawScopedTrieStore.Committer(_nodeStorage, address, writeFlags);
+
+    /// <summary>
+    /// Traverses all MemDb-resident trie nodes reachable from the given state root and increments
+    /// their reference counts. Call when adding a state root to the alive set.
+    /// </summary>
+    public void Reference(Hash256 stateRoot)
+    {
+        Traverse(null, TreePath.Empty, stateRoot, key =>
+        {
+            _refCounts[key] = _refCounts.TryGetValue(key, out int count) ? count + 1 : 1;
+        });
+    }
+
+    /// <summary>
+    /// Traverses all MemDb-resident trie nodes reachable from the given state root and decrements
+    /// their reference counts. Nodes whose count reaches zero are evicted from the MemDb.
+    /// Call when removing a state root from the alive set.
+    /// </summary>
+    public void Dereference(Hash256 stateRoot)
+    {
+        Traverse(null, TreePath.Empty, stateRoot, key =>
+        {
+            if (!_refCounts.TryGetValue(key, out int count))
+                return;
+
+            if (count <= 1)
+            {
+                _refCounts.Remove(key, out _);
+                _memDb.Remove(key);
+            }
+            else
+            {
+                _refCounts[key] = count - 1;
+            }
+        });
+    }
+
+    private void Traverse(Hash256? address, TreePath path, Hash256 hash, Action<byte[]> onKey)
+    {
+        Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
+        stack.Push((address, path, hash));
+
+        while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
+        {
+            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(item.addr, item.p, item.h);
+            byte[]? rlp = _memDb[key];
+            // If the node is not in memDB, neither are its children. Then no need to reference them.
+            if (rlp is null)
+                continue;
+
+            // Push children to stack BEFORE calling onKey (which during Dereference may delete this node).
+            // Since this is a tree traversal (no intra-trie node sharing under HalfPath scheme), each key
+            // is visited at most once.
+            PushChildren(rlp, item.addr, item.p, stack);
+            onKey(key);
+        }
+    }
+
+    private static void PushChildren(
+        byte[] rlp,
+        Hash256? address,
+        TreePath path,
+        Stack<(Hash256? address, TreePath path, Hash256 hash)> stack)
+    {
+        SpanSource span = new SpanSource(rlp);
+        ValueRlpStream stream = new ValueRlpStream(span);
+        stream.ReadSequenceLength();
+        int items = stream.PeekNumberOfItemsRemaining(null, 3);
+
+        if (items > 2)
+        {
+            // Branch node: up to 16 hash-referenced children
+            for (int i = 0; i < 16; i++)
+            {
+                (int _, int contentLength) = stream.PeekPrefixAndContentLength();
+                if (contentLength == 32)
+                    stack.Push((address, path.Append(i), stream.DecodeKeccak()!));
+                else
+                    stream.SkipItem();
+            }
+            // Branch value slot (index 16) is not a trie node; skip it.
+        }
+        else if (items == 2)
+        {
+            ReadOnlySpan<byte> encodedPath = stream.DecodeByteArraySpan();
+            (byte[] pathNibbles, bool isLeaf) = HexPrefix.FromBytes(encodedPath);
+
+            if (isLeaf)
+            {
+                // State trie account leaf: decode account to follow the storage trie if non-empty.
+                if (address is null)
+                {
+                    ReadOnlySpan<byte> accountRlp = stream.DecodeByteArraySpan();
+                    Hash256? storageRoot = DecodeAccountStorageRoot(accountRlp);
+                    if (storageRoot is not null)
+                    {
+                        // The full 64-nibble path (root → this leaf) equals Keccak(accountAddress),
+                        // which is the address key used by NodeStorage for storage trie nodes.
+                        TreePath fullPath = path.Append(pathNibbles);
+                        Hash256 addressHash = new Hash256(in fullPath.Path);
+                        stack.Push((addressHash, TreePath.Empty, storageRoot));
+                    }
+                }
+                // Storage trie leaf: value is a storage slot — no child nodes.
+            }
+            else
+            {
+                // Extension node: single hash-referenced child, path extended by pathNibbles.
+                (int _, int contentLength) = stream.PeekPrefixAndContentLength();
+                if (contentLength == 32)
+                    stack.Push((address, path.Append(pathNibbles), stream.DecodeKeccak()!));
+                // Inline child (< 32 bytes) is embedded in the parent — not a separate MemDb entry.
+            }
+        }
+    }
+
+    private static Hash256? DecodeAccountStorageRoot(ReadOnlySpan<byte> accountRlp)
+    {
+        Rlp.ValueDecoderContext ctx = new Rlp.ValueDecoderContext(accountRlp);
+        Hash256 storageRoot = _accountDecoder.DecodeStorageRootOnly(ref ctx);
+        return storageRoot == Keccak.EmptyTreeHash ? null : storageRoot;
+    }
 }
