@@ -208,21 +208,4 @@ public static class SequencerTestHelpers
 
         return engine;
     }
-
-    public static (ArbitrumRpcModule RpcModule, DelayedMessageQueue Queue) CreateRpcModuleWithSequencer(
-        ArbitrumRpcTestBlockchain chain)
-    {
-        ArbitrumExecutionEngine engine = CreateEngineWithSequencer(
-            chain, out DelayedMessageQueue delayedMessageQueue, out _);
-
-        ArbitrumRpcModule rpcModule = new(engine);
-        return (rpcModule, delayedMessageQueue);
-    }
-
-    public static void InitGenesis(ArbitrumRpcTestBlockchain chain, ArbitrumRpcModule rpcModule)
-    {
-        ResultWrapper<MessageResult> genesisResult = rpcModule.DigestInitMessage(
-            FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-        genesisResult.Result.Should().Be(Result.Success, $"genesis init should succeed, error: {genesisResult.Result.Error}");
-    }
 }

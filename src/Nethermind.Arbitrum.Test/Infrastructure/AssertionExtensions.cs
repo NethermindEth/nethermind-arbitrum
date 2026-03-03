@@ -4,6 +4,7 @@
 using FluentAssertions;
 using FluentAssertions.Equivalency;
 using FluentAssertions.Primitives;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
@@ -54,6 +55,12 @@ public static class AssertionExtensions
         return options
             .Using<string>(context => context.Subject.StartsWith(context.Expectation).Should().BeTrue())
             .WhenTypeIs<string>();
+    }
+
+    public static EquivalencyAssertionOptions<StartSequencingResult> ForStartSequencingResult(this EquivalencyAssertionOptions<StartSequencingResult> options)
+    {
+        return options
+            .Excluding(r => r.SequencedMsg!.MsgWithMeta.Message.L2Msg);
     }
 
     public static ResultWrapperAssertions<T> Should<T>(this ResultWrapper<T> instance)

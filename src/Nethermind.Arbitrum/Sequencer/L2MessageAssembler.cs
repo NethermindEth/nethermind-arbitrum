@@ -16,6 +16,7 @@ public static class L2MessageAssembler
 {
     /// <summary>
     /// Assembles RLP-encoded signed transactions into a MessageWithMetadata suitable for block production.
+    /// Analogous to FullSequencingHooks.MessageFromTxes().
     /// </summary>
     public static MessageWithMetadata AssembleFromSignedTransactions(
         byte[][] rlpEncodedTxs, ulong l1BlockNumber, ulong timestamp, ulong delayedMessagesRead)

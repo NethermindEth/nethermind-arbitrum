@@ -3,7 +3,6 @@
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
-using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Sequencer;
 
