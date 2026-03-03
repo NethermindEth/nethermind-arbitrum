@@ -28,14 +28,14 @@ RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Ru
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
-# Copy Stylus native libraries to maintain relative structure from plugin assembly
-# The /arbitrum-plugin directory only exists in build stage and won't be available at runtime.
-# Native libraries must be copied to /app/plugins/Arbos/Stylus/ so the StylusNative.Loader can
-# find them at runtime using DllImportSearchPath.AssemblyDirectory relative path resolution.
-RUN mkdir -p /app/plugins/Arbos/Stylus && \
-    cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /app/plugins/Arbos/Stylus/ && \
+# Copy Stylus native libraries from NuGet package output.
+# Since Nethermind.Arbitrum.Stylus is a NuGet package with CopyLocalLockFileAssemblies=true,
+# the runtimes are published to /arbitrum-plugin/runtimes/. They must land in
+# /app/plugins/runtimes/ to match the path the MSBuild CopyFilesToRunner target uses locally.
+RUN mkdir -p /app/plugins/runtimes && \
+    cp -r /arbitrum-plugin/runtimes/. /app/plugins/runtimes/ && \
     echo "Stylus libraries copied:" && \
-    find /app/plugins/Arbos/Stylus -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
+    find /app/plugins/runtimes -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
 
 # Copy configuration files
 COPY src/Nethermind.Arbitrum/Properties/configs /app/configs
