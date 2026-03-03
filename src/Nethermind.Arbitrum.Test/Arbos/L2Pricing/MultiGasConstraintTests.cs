@@ -120,6 +120,97 @@ public class MultiGasConstraintTests
         constraint.Backlog.Should().Be(250);
     }
 
+    /// <summary>
+    /// Mirrors Nitro's TestMultiGasConstraintBacklogGrowth test pattern:
+    /// Tests weighted backlog accumulation across multiple GrowBacklog calls with different values.
+    /// </summary>
+    [Test]
+    public void GrowBacklog_MultipleCallsWithDifferentValues_AccumulatesWeightedBacklog()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        var weights = new Dictionary<ResourceKind, ulong>
+        {
+            { ResourceKind.Computation, 1 },
+            { ResourceKind.StorageAccess, 2 }
+        };
+        l2Pricing.AddMultiGasConstraint(10, 5, 0, weights);
+
+        MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
+        constraint.Backlog.Should().Be(0);
+
+        MultiGas gas1 = default;
+        gas1.Increment(ResourceKind.Computation, 10);
+        gas1.Increment(ResourceKind.StorageAccess, 10);
+        constraint.GrowBacklog(gas1);
+
+        constraint.Backlog.Should().Be(30, "initial backlog: 1*10 + 2*10 = 30");
+
+        MultiGas gas2 = default;
+        gas2.Increment(ResourceKind.Computation, 5);
+        gas2.Increment(ResourceKind.StorageAccess, 15);
+        constraint.GrowBacklog(gas2);
+
+        constraint.Backlog.Should().Be(65, "backlog should accumulate across calls");
+    }
+
+    /// <summary>
+    /// Mirrors Nitro's TestMultiGasConstraintBacklogDecay test pattern:
+    /// Tests weighted backlog decay with underflow clamping to zero.
+    /// </summary>
+    [Test]
+    public void ShrinkBacklog_MultipleCallsWithUnderflow_ClampsToZero()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        var weights = new Dictionary<ResourceKind, ulong>
+        {
+            { ResourceKind.Computation, 1 },
+            { ResourceKind.StorageAccess, 2 }
+        };
+        l2Pricing.AddMultiGasConstraint(10, 5, 0, weights);
+
+        MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
+
+        MultiGas growGas = default;
+        growGas.Increment(ResourceKind.Computation, 10);
+        growGas.Increment(ResourceKind.StorageAccess, 10);
+        constraint.GrowBacklog(growGas);
+        constraint.Backlog.Should().Be(30);
+
+        MultiGas decayGas1 = default;
+        decayGas1.Increment(ResourceKind.Computation, 3);
+        decayGas1.Increment(ResourceKind.StorageAccess, 4);
+        constraint.ShrinkBacklog(decayGas1);
+
+        constraint.Backlog.Should().Be(19, "30 - (1*3 + 2*4) = 19");
+
+        MultiGas decayGas2 = default;
+        decayGas2.Increment(ResourceKind.Computation, 50);
+        decayGas2.Increment(ResourceKind.StorageAccess, 50);
+        constraint.ShrinkBacklog(decayGas2);
+
+        constraint.Backlog.Should().Be(0, "backlog must clamp to zero on underflow");
+    }
+
     [Test]
     public void ShrinkBacklog_Underflow_ClampsToZero()
     {

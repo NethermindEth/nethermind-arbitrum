@@ -1378,9 +1378,20 @@ namespace Nethermind.Arbitrum.Execution
                         $"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
 
-            // Update gas pool for computational speed limit enforcement
+            // Update gas pool/backlog for computational speed limit enforcement
             // This prevents compute from exceeding per-block gas limits
-            _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
+            switch (_arbosState!.L2PricingState.GetGasModelToUse())
+            {
+                case GasModel.MultiGasConstraints:
+                    _arbosState.L2PricingState.GrowBacklog(computeGas, txContext.AccumulatedMultiGas);
+                    break;
+                case GasModel.SingleGasConstraints:
+                case GasModel.Legacy:
+                case GasModel.Unknown:
+                default:
+                    _arbosState.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
+                    break;
+            }
         }
     }
 }
