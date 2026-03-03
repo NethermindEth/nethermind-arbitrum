@@ -44,7 +44,7 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
             arch_suffix: -amd64
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.9.2
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.11.4
     with:
       runner: ${{ matrix.runner }}
       group_name: core
