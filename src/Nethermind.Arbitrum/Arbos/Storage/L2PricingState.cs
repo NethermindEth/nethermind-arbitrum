@@ -96,8 +96,6 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         return GasModel.Legacy;
     }
 
-    public bool ShouldUseGasConstraints() => GetGasModelToUse() != GasModel.Legacy;
-
     public void UpdatePricingModel(ulong timePassed)
     {
         GasModel model = GetGasModelToUse();
@@ -137,7 +135,7 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
 
     public ulong GasPoolUpdateCost()
     {
-        // Charge static price for any pricer starting from ArbOS 60
+        // Charge a static price for any pricer starting from ArbOS 60
         if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion)
             return ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
 
