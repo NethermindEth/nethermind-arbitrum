@@ -202,9 +202,21 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         using IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
 
+        if (vmHost.IsRecordingExecution)
+        {
+            Dictionary<string, byte[]> asmMap = new();
+            foreach (string target in vmHost.WasmStore.GetWasmTargets())
+            {
+                if (!vmHost.WasmStore.TryGetActivatedAsm(target, moduleHash, out byte[]? asm))
+                    throw new InvalidOperationException($"Cannot find activated wasm, missing target: {target}");
+                asmMap.Add(target, asm);
+            }
+            vmHost.RecordUserWasm(moduleHash, asmMap);
+        }
+
         long startTimestamp = Stopwatch.GetTimestamp();
-        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, stylusConfig, evmApi, evmData,
-            debugMode, vmHost, in moduleHash, arbosTag, ref gasAvailable);
+        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(),
+            stylusConfig, evmApi, evmData, debugMode, arbosTag, ref gasAvailable);
         long elapsedMicroseconds = (long)Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds;
 
         vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
