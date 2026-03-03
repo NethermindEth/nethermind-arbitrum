@@ -159,6 +159,33 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.RpcModuleProvider.RegisterSingle(debugModule);
         }
 
+        // Flush the trie dirty cache to disk on shutdown so that the latest processed blocks'
+        // state is persisted. Without this, Nethermind only persists up to head - PruningBoundary,
+        // while Nitro persists up to head. On restart, the mismatch causes Nitro to detect an error.
+        // _api.ProcessExit!.Token.Register(() =>
+        // {
+        //     ILogger logger = _api.LogManager.GetClassLogger<ArbitrumPlugin>();
+        //     if (logger.IsInfo)
+        //         logger.Info("Flushing trie cache to disk before shutdown...");
+
+        //     _api.WorldStateManager?.FlushCache(CancellationToken.None);
+
+        //     // FlushCache persists state but does not update BestPersistedState because
+        //     // TrieStore.AnnounceReorgBoundaries() requires LatestCommittedBlockNumber >= LastPersistedBlockNumber + maxDepth,
+        //     // which is never met when persisting up to the head block itself.
+        //     // Set it directly so that on restart the node head matches the last processed block.
+        //     long? headNumber = _api.BlockTree!.Head?.Number;
+        //     if (headNumber.HasValue)
+        //     {
+        //         if (logger.IsInfo)
+        //             logger.Info($"Setting BestPersistedState to {headNumber.Value}.");
+        //         _api.BlockTree!.BestPersistedState = headNumber.Value;
+        //     }
+
+        //     if (logger.IsInfo)
+        //         logger.Info("Trie cache flushed.");
+        // });
+
         return Task.CompletedTask;
     }
 
