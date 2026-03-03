@@ -52,30 +52,6 @@ public class ConstraintsPrecompileTests
     }
 
     [Test]
-    public void SetMultiGasPricingConstraints_InvalidTarget_ShouldBeRejected()
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosState()
-            .WithArbosVersion(ArbosVersion.Sixty)
-            .WithReleaseSpec();
-
-        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
-
-        // Zero target should be rejected by the precompile (not at storage level)
-        // The storage itself doesn't validate, but the precompile should
-        // Here we verify that the precompile validation would catch this
-        ulong zeroTarget = 0;
-        zeroTarget.Should().Be(0, "Zero target should be rejected by precompile validation");
-
-        // The actual precompile would throw:
-        // throw ArbitrumPrecompileException.CreateFailureException("zero target");
-    }
-
-    [Test]
     public void EnableAndDisable_MultiConstraints_SwitchesGasModel()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
@@ -196,19 +172,19 @@ public class ConstraintsPrecompileTests
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set base fees for different resources and commit
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.Computation, 100);
-        l2Pricing.SetMultiGasBaseFeeForResource(ResourceKind.StorageAccess, 500);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 500);
         l2Pricing.CommitMultiGasFees();
 
-        UInt256 computationFee = l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.Computation);
-        UInt256 storageFee = l2Pricing.GetMultiGasBaseFeePerResource(ResourceKind.StorageAccess);
+        UInt256 computationFee = l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation);
+        UInt256 storageFee = l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess);
 
         computationFee.Should().Be(new UInt256(100));
         storageFee.Should().Be(new UInt256(500));
     }
 
     [Test]
-    public void MultiGasConstraints_MaxExponent_EnforcedOnSet()
+    public void MultiGasConstraints_ExponentCalculation_NoCapAtStorageLevel()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
