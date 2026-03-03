@@ -29,7 +29,7 @@ internal enum BacklogOperation
 /// </list>
 /// </para>
 /// </summary>
-public class MultiGasConstraint
+public sealed class MultiGasConstraint
 {
     private const ulong TargetOffset = 0;
     private const ulong AdjustmentWindowOffset = 1;
