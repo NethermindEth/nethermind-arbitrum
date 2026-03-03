@@ -52,8 +52,7 @@ jobs:
       dockerfile_path: ${{ inputs.dockerfile }}
       platforms: ${{ matrix.platform }}
       # Skip Trivy for diagnostic image - JetBrains tools have transitive dependency CVEs we cannot fix
-      # Skip Trivy on ARM64 - Trivy binary installation is unreliable on ARM64 runners; AMD64 scan is sufficient
-      run_trivy: ${{ inputs.dockerfile == 'Dockerfile' && matrix.platform == 'linux/amd64' }}
+      run_trivy: ${{ inputs.dockerfile == 'Dockerfile' }}
       pre_build_script: |
         sudo rm -rf /usr/share/dotnet
         sudo rm -rf /opt/ghc
@@ -100,31 +99,31 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           IMAGE_BASE="nethermind.jfrog.io/core-oci-local-dev/${IMAGE_NAME}"
-          
+
           echo "🔍 Preparing multi-arch manifest creation..."
-          
+
           # Wait a moment for images to be fully available
           sleep 10
-          
+
           # Get architecture-specific image references
           AMD64_IMAGE="${IMAGE_BASE}:${TAG}-amd64"
           ARM64_IMAGE="${IMAGE_BASE}:${TAG}-arm64"
-          
+
           echo "AMD64 Image: ${AMD64_IMAGE}"
           echo "ARM64 Image: ${ARM64_IMAGE}"
-          
+
           # Verify both images exist
           echo "Verifying AMD64 image exists..."
           docker buildx imagetools inspect "${AMD64_IMAGE}"
           echo "Verifying ARM64 image exists..."
           docker buildx imagetools inspect "${ARM64_IMAGE}"
-          
+
           echo "✅ Both architecture-specific images verified"
-          
+
           # Extract branch name for branch-based tag
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
           BRANCH_TAG="${BRANCH_NAME//\//-}"  # Replace / with -
-          
+
           # Create all the standard tags as multi-arch manifests
           # Since the reusable workflow creates single-arch tags, we need to replace them
           TAGS_TO_CREATE=(
@@ -137,26 +136,26 @@ jobs:
             "${GITHUB_SHA}"
             "${GITHUB_SHA:0:7}"
           )
-          
+
           # Create manifest for each tag using image references
           for TAG_NAME in "${TAGS_TO_CREATE[@]}"; do
             echo "🔄 Creating multi-arch manifest for: ${IMAGE_BASE}:${TAG_NAME}"
-            
+
             # Delete existing single-arch tag if it exists (ignore errors)
             docker buildx imagetools inspect "${IMAGE_BASE}:${TAG_NAME}" > /dev/null 2>&1 && \
             echo "⚠️  Tag ${TAG_NAME} already exists, will be replaced with multi-arch manifest" || \
             echo "ℹ️  Tag ${TAG_NAME} doesn't exist yet, creating new multi-arch manifest"
-            
+
             # Create the multi-arch manifest (this will replace any existing tag)
             docker buildx imagetools create -t "${IMAGE_BASE}:${TAG_NAME}" \
               "${AMD64_IMAGE}" \
               "${ARM64_IMAGE}"
-            
+
             echo "✅ Created multi-arch manifest: ${IMAGE_BASE}:${TAG_NAME}"
           done
-          
+
           echo "🎉 All multi-arch manifests created successfully"
-          
+
           # Verify main tag manifest shows both architectures
           echo "🔍 Verifying multi-arch manifest for main tag:"
           docker buildx imagetools inspect "${IMAGE_BASE}:${TAG}"
