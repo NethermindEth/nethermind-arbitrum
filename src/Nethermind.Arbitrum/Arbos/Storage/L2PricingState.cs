@@ -128,6 +128,10 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 
     public ulong GasPoolUpdateCost()
     {
+        // Charge static price for any pricer starting from ArbOS 60
+        if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion)
+            return ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+
         ulong result = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
 
         if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)

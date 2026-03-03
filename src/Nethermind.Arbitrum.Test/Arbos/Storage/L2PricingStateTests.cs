@@ -789,4 +789,65 @@ public class L2PricingStateTests
             context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.MultiGasConstraints);
         }
     }
+
+    [Test]
+    public void GasPoolUpdateCost_ArbOS60_ReturnsStaticCost()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // For ArbOS >= 60, GasPoolUpdateCost should return static cost regardless of constraints
+        ulong staticCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+
+        // With no constraints
+        l2Pricing.GasPoolUpdateCost().Should().Be(staticCost);
+
+        // With single-gas constraints
+        l2Pricing.AddConstraint(7_000_000, 60, 0);
+        l2Pricing.GasPoolUpdateCost().Should().Be(staticCost);
+
+        // With multi-gas constraints
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
+        l2Pricing.GasPoolUpdateCost().Should().Be(staticCost);
+    }
+
+    [Test]
+    public void GasPoolUpdateCost_ArbOS51WithConstraints_ReturnsCorrectCost()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FiftyOne)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // For ArbOS 51 without constraints: base (read+write) + MultiConstraintPricing overhead (read)
+        ulong baseCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        ulong withOverhead = baseCost + ArbosStorage.StorageReadCost;
+        l2Pricing.GasPoolUpdateCost().Should().Be(withOverhead);
+
+        // With 2 constraints: overhead + read length + (n-1) * (read+write)
+        l2Pricing.AddConstraint(7_000_000, 60, 0);
+        l2Pricing.AddConstraint(7_000_000, 60, 0);
+        ulong constraintCost = withOverhead + ArbosStorage.StorageReadCost + 1 * (ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost);
+        l2Pricing.GasPoolUpdateCost().Should().Be(constraintCost);
+    }
 }
