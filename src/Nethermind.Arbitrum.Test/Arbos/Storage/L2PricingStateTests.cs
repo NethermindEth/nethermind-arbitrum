@@ -516,8 +516,6 @@ public class L2PricingStateTests
         constraint.Backlog.Should().Be(5_000_000);
     }
 
-    // ----- Multi-Gas Constraints Tests (ArbOS 60)
-
     [Test]
     public void MultiGasConstraints_AddAndClear_WorksCorrectly()
     {
@@ -850,4 +848,556 @@ public class L2PricingStateTests
         ulong constraintCost = withOverhead + ArbosStorage.StorageReadCost + 1 * (ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost);
         l2Pricing.GasPoolUpdateCost().Should().Be(constraintCost);
     }
+
+    #region Coverage: Exception Guards
+
+    [Test]
+    public void CalcMultiGasConstraintsExponents_DivisorZero_ThrowsException()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add a constraint with target=0 which will cause divisor to be zero
+        // divisor = adjustmentWindow * target * maxWeight = 60 * 0 * 1 = 0
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(0, 60, 1000, weights); // target=0, backlog>0
+
+        Action act = () => l2Pricing.CalcMultiGasConstraintsExponents();
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*divisor is zero*");
+    }
+
+    [Test]
+    public void UpdatePricingModelMultiConstraints_DivisorZero_ThrowsException()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add a constraint with target=0 and backlog>0 which will cause divisor to be zero
+        // divisor = inertia * target = 60 * 0 = 0
+        l2Pricing.AddConstraint(0, 60, 1000); // target=0, backlog>0
+
+        Action act = () => l2Pricing.UpdatePricingModelMultiConstraints(0);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*divisor is zero*");
+    }
+
+    #endregion
+
+    #region Coverage: Migration Path
+
+    [Test]
+    public void SetMultiGasConstraintsFromSingleGasConstraints_ConvertsCorrectly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add single-gas constraints
+        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
+        l2Pricing.AddConstraint(2_000_000, 120, 10_000_000);
+
+        l2Pricing.ConstraintsLength().Should().Be(2);
+        l2Pricing.MultiGasConstraintsLength().Should().Be(0);
+
+        // Migrate to multi-gas constraints
+        l2Pricing.SetMultiGasConstraintsFromSingleGasConstraints();
+
+        // Verify migration
+        l2Pricing.MultiGasConstraintsLength().Should().Be(2);
+
+        // First constraint
+        MultiGasConstraint mc0 = l2Pricing.OpenMultiGasConstraintAt(0);
+        mc0.Target.Should().Be(1_000_000);
+        mc0.AdjustmentWindow.Should().Be(60);
+        mc0.Backlog.Should().Be(5_000_000);
+        mc0.MaxWeight.Should().Be(1);
+        // All 6 resource kinds should have weight 1 (except Unknown and L1Calldata)
+        mc0.GetResourceWeight(ResourceKind.Computation).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.HistoryGrowth).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.StorageAccess).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.StorageGrowth).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.L2Calldata).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.WasmComputation).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.Unknown).Should().Be(0);
+        mc0.GetResourceWeight(ResourceKind.L1Calldata).Should().Be(0);
+
+        // Second constraint
+        MultiGasConstraint mc1 = l2Pricing.OpenMultiGasConstraintAt(1);
+        mc1.Target.Should().Be(2_000_000);
+        mc1.AdjustmentWindow.Should().Be(120);
+        mc1.Backlog.Should().Be(10_000_000);
+    }
+
+    [Test]
+    public void SetMultiGasConstraintsFromSingleGasConstraints_LargeAdjustmentWindow_ClampsToUInt32Max()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add constraint with adjustment window larger than uint.MaxValue
+        l2Pricing.AddConstraint(1_000_000, ulong.MaxValue, 5_000_000);
+
+        // Migrate
+        l2Pricing.SetMultiGasConstraintsFromSingleGasConstraints();
+
+        // Verify adjustment window is clamped to uint.MaxValue
+        MultiGasConstraint mc = l2Pricing.OpenMultiGasConstraintAt(0);
+        mc.AdjustmentWindow.Should().Be(uint.MaxValue);
+    }
+
+    [Test]
+    public void SetMultiGasConstraintsFromSingleGasConstraints_ClearsExistingMultiGasConstraints()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add existing multi-gas constraints
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 5 },
+        };
+        l2Pricing.AddMultiGasConstraint(9_000_000, 999, 999_000, weights);
+        l2Pricing.MultiGasConstraintsLength().Should().Be(1);
+
+        // Add single-gas constraint
+        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
+
+        // Migrate - should clear existing multi-gas constraints first
+        l2Pricing.SetMultiGasConstraintsFromSingleGasConstraints();
+
+        // Verify only the migrated constraint exists
+        l2Pricing.MultiGasConstraintsLength().Should().Be(1);
+        MultiGasConstraint mc = l2Pricing.OpenMultiGasConstraintAt(0);
+        mc.Target.Should().Be(1_000_000);
+        mc.MaxWeight.Should().Be(1); // Not 5 from the old constraint
+    }
+
+    #endregion
+
+    #region Coverage: Legacy Pricing Paths
+
+    [Test]
+    public void GasPoolUpdateCost_ArbOS50_ReturnsCorrectCost()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // For ArbOS 50 (< 51): base (read+write) + MultiConstraintPricing overhead (read)
+        // but no constraint iteration cost (that's only for >= 51)
+        ulong baseCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        ulong withOverhead = baseCost + ArbosStorage.StorageReadCost;
+        l2Pricing.GasPoolUpdateCost().Should().Be(withOverhead);
+
+        // With constraints, cost should still be the same (no iteration for v50)
+        l2Pricing.AddConstraint(7_000_000, 60, 0);
+        l2Pricing.GasPoolUpdateCost().Should().Be(withOverhead);
+    }
+
+    [Test]
+    public void GasPoolUpdateCost_ArbOS49_ReturnsBaseCostOnly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FortyNine)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // For ArbOS < 50: just base (read+write), no MultiConstraintPricing overhead
+        ulong baseCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        l2Pricing.GasPoolUpdateCost().Should().Be(baseCost);
+    }
+
+    [Test]
+    public void UpdatePricingModelLegacy_HighBacklog_IncreasesBaseFee()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FortyNine) // Force legacy mode
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        UInt256 minPrice = l2Pricing.MinBaseFeeWeiStorage.Get();
+        l2Pricing.BaseFeeWeiStorage.Set(minPrice);
+
+        // Set high backlog: tolerance * speedLimit = 10 * 7M = 70M
+        // backlog = 200M, excess = 130M
+        l2Pricing.GasBacklogStorage.Set(200_000_000);
+
+        // Update pricing with 0 time passed (just calculate, don't reduce backlog)
+        l2Pricing.UpdatePricingModel(0);
+
+        UInt256 newPrice = l2Pricing.BaseFeeWeiStorage.Get();
+        newPrice.Should().BeGreaterThan(minPrice);
+    }
+
+    [Test]
+    public void GrowBacklog_LegacyModel_UpdatesGasBacklog()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FortyNine) // Force legacy mode
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        l2Pricing.GasBacklogStorage.Set(1000);
+
+        // Grow backlog (legacy model uses usedGas, ignores usedMultiGas)
+        l2Pricing.GrowBacklog(500, default);
+
+        l2Pricing.GasBacklogStorage.Get().Should().Be(1500);
+    }
+
+    [Test]
+    public void ShrinkBacklog_LegacyModel_ReducesGasBacklog()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FortyNine) // Force legacy mode
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        l2Pricing.GasBacklogStorage.Set(1000);
+
+        // Shrink backlog (legacy model uses usedGas, ignores usedMultiGas)
+        l2Pricing.ShrinkBacklog(300, default);
+
+        l2Pricing.GasBacklogStorage.Get().Should().Be(700);
+    }
+
+    [Test]
+    public void GrowBacklog_SingleGasConstraints_UpdatesAllConstraintBacklogs()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty) // Single-gas constraints mode
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        l2Pricing.AddConstraint(1_000_000, 60, 1000);
+        l2Pricing.AddConstraint(2_000_000, 120, 2000);
+
+        // Grow backlog
+        l2Pricing.GrowBacklog(500, default);
+
+        l2Pricing.OpenConstraintAt(0).Backlog.Should().Be(1500);
+        l2Pricing.OpenConstraintAt(1).Backlog.Should().Be(2500);
+    }
+
+    [Test]
+    public void ShrinkBacklog_SingleGasConstraints_ReducesAllConstraintBacklogs()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty) // Single-gas constraints mode
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        l2Pricing.AddConstraint(1_000_000, 60, 1000);
+        l2Pricing.AddConstraint(2_000_000, 120, 2000);
+
+        // Shrink backlog
+        l2Pricing.ShrinkBacklog(300, default);
+
+        l2Pricing.OpenConstraintAt(0).Backlog.Should().Be(700);
+        l2Pricing.OpenConstraintAt(1).Backlog.Should().Be(1700);
+    }
+
+    #endregion
+
+    #region Coverage: Multi-Gas Fees and Base Fee Calculation
+
+    [Test]
+    public void CommitMultiGasFees_WhenNotMultiGasConstraints_DoesNothing()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty) // Single-gas constraints mode
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add single-gas constraint (not multi-gas)
+        l2Pricing.AddConstraint(1_000_000, 60, 5_000_000);
+        l2Pricing.GetGasModelToUse().Should().Be(GasModel.SingleGasConstraints);
+
+        // Set a next-block fee
+        l2Pricing.MultiGasFees.SetNextBlockFee(ResourceKind.Computation, 12345);
+
+        // CommitMultiGasFees should do nothing (early return)
+        l2Pricing.CommitMultiGasFees();
+
+        // Current block fee should still be 0 (not committed)
+        l2Pricing.MultiGasFees.GetCurrentBlockFee(ResourceKind.Computation).Should().Be(UInt256.Zero);
+    }
+
+    [Test]
+    public void CommitMultiGasFees_WhenMultiGasConstraints_CommitsNextToCurrent()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add multi-gas constraint
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(1_000_000, 60, 5_000_000, weights);
+        l2Pricing.GetGasModelToUse().Should().Be(GasModel.MultiGasConstraints);
+
+        // Set a next-block fee
+        l2Pricing.MultiGasFees.SetNextBlockFee(ResourceKind.Computation, 12345);
+
+        // CommitMultiGasFees should commit next to current
+        l2Pricing.CommitMultiGasFees();
+
+        // Current block fee should now be 12345
+        l2Pricing.MultiGasFees.GetCurrentBlockFee(ResourceKind.Computation).Should().Be(new UInt256(12345));
+    }
+
+    [Test]
+    public void MultiDimensionalPriceForRefund_L1CalldataUsesBaseFeeWei()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add multi-gas constraint and update pricing to set fees
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(1_000_000, 60, 5_000_000, weights);
+        l2Pricing.UpdatePricingModel(0);
+        l2Pricing.CommitMultiGasFees();
+
+        UInt256 baseFeeWei = l2Pricing.BaseFeeWeiStorage.Get();
+
+        // L1Calldata should always use baseFeeWei, not per-resource fee
+        MultiGas gasUsed = default;
+        gasUsed.Increment(ResourceKind.L1Calldata, 100);
+
+        UInt256 refund = l2Pricing.MultiDimensionalPriceForRefund(gasUsed);
+
+        // L1Calldata uses baseFeeWei regardless of per-resource fee
+        refund.Should().Be(baseFeeWei * 100);
+    }
+
+    [Test]
+    public void MultiDimensionalPriceForRefund_ZeroFeeUsesBaseFeeWei()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Don't add any multi-gas constraints - fees will be zero
+        // But we need at least one constraint for the model to be MultiGasConstraints
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights); // backlog=0 means base fee
+        l2Pricing.UpdatePricingModel(0);
+        // Don't commit - current block fees remain zero
+
+        UInt256 baseFeeWei = l2Pricing.BaseFeeWeiStorage.Get();
+
+        // StorageAccess has no weight, so fee should be zero -> falls back to baseFeeWei
+        MultiGas gasUsed = default;
+        gasUsed.Increment(ResourceKind.StorageAccess, 100);
+
+        UInt256 refund = l2Pricing.MultiDimensionalPriceForRefund(gasUsed);
+
+        // Zero fee falls back to baseFeeWei
+        refund.Should().Be(baseFeeWei * 100);
+    }
+
+    [Test]
+    public void CalcMultiGasConstraintsExponents_ZeroBacklog_ReturnsZeroExponents()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add constraint with zero backlog
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights); // backlog=0
+
+        long[] exponents = l2Pricing.CalcMultiGasConstraintsExponents();
+
+        // All exponents should be zero when backlog is zero
+        foreach (long exp in exponents)
+            exp.Should().Be(0);
+    }
+
+    [Test]
+    public void UpdatePricingModelMultiGasConstraints_ZeroExponent_UsesMinBaseFee()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        UInt256 minPrice = l2Pricing.MinBaseFeeWeiStorage.Get();
+
+        // Add constraint with zero backlog
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+        };
+        l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights); // backlog=0
+
+        l2Pricing.UpdatePricingModel(0);
+
+        // With zero backlog, exponent is 0, so base fee should be minBaseFee
+        UInt256 baseFee = l2Pricing.BaseFeeWeiStorage.Get();
+        baseFee.Should().Be(minPrice);
+
+        // Per-resource fee should also be minBaseFee
+        l2Pricing.MultiGasFees.GetNextBlockFee(ResourceKind.Computation).Should().Be(minPrice);
+    }
+
+    #endregion
 }
