@@ -17,14 +17,14 @@ public class L1BlockCacheTests
     public void Setup()
     {
         // Clear a static cache before each test for isolation
-        L1BlockCache.ClearStaticCache();
+        //L1BlockCache.ClearStaticCache();
     }
 
     [TearDown]
     public void TearDown()
     {
         // Clean up the static state after each test
-        L1BlockCache.ClearStaticCache();
+        //L1BlockCache.ClearStaticCache();
     }
 
     [Test]
@@ -173,7 +173,7 @@ public class L1BlockCacheTests
         cache.SetL1BlockHash(100UL, TestItem.KeccakA);
         cache.SetL1BlockHash(200UL, TestItem.KeccakB);
 
-        L1BlockCache.ClearStaticCache();
+        cache.ClearStaticCache();
 
         cache.TryGetL1BlockHash(100UL, out _).Should().BeFalse();
         cache.TryGetL1BlockHash(200UL, out _).Should().BeFalse();
@@ -186,7 +186,7 @@ public class L1BlockCacheTests
         cache.SetCachedL1BlockNumber(999UL);
         cache.SetL1BlockHash(100UL, TestItem.KeccakA);
 
-        L1BlockCache.ClearStaticCache();
+        cache.ClearStaticCache();
 
         // Static hash cache cleared
         cache.TryGetL1BlockHash(100UL, out _).Should().BeFalse();

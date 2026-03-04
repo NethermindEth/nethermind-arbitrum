@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Autofac;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
@@ -59,7 +60,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
             return baseBuilder
                 // Singleton so that all child env share the same caches. Note: this module is applied per-processing
                 // module, so singleton here is like scoped but exclude inner prewarmer lifetime.
-                .AddSingleton<PreBlockCaches>()
+                .AddSingleton<IPreBlockCachesWrapper, PreBlockCachesWrapper>()
                 .AddScoped<IBlockCachePreWarmer, BlockCachePreWarmer>()
                 .Add<PrewarmerEnvFactory>()
 
@@ -71,7 +72,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
 
                     return new PrewarmerScopeProvider(
                         worldStateScopeProvider,
-                        ctx.Resolve<PreBlockCaches>(),
+                        ctx.Resolve<PreBlockCachesWrapper>(),
                         populatePreBlockCache: false);
                 })
                 .AddDecorator<ICodeInfoRepository>((ctx, originalCodeInfoRepository) =>
@@ -84,8 +85,6 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                         blocksConfig.CachePrecompilesOnBlockProcessing ? preBlockCaches?.PrecompileCache : null);
                 });
         }
-
-        return baseBuilder;
 
         if (_arbitrumConfig.DigestMessagePrefetchEnabled)
         {
@@ -127,7 +126,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
 
                     IPrecompileProvider precompileProvider = ctx.Resolve<IPrecompileProvider>();
                     // Note: The use of FrozenDictionary means that this cannot be used for other processing env also due to risk of memory leak.
-                    return new CachedCodeInfoRepository(precompileProvider, originalCodeInfoRepository,
+                    return new PrecompileCachedCodeInfoRepository(precompileProvider, originalCodeInfoRepository,
                         blocksConfig.CachePrecompilesOnBlockProcessing ? preBlockCaches?.PrecompileCache : null);
                 })
                 .AddDecorator<IWorldState, PrefetchAwareWorldState>();

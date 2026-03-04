@@ -45,8 +45,6 @@ using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Arbitrum.Tracing;
-using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
@@ -290,7 +288,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
             // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
-            .AddSingleton<IClearableCache, L1BlockHashCacheService>()
+            //.AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 

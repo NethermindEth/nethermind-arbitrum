@@ -74,7 +74,7 @@ public class SealablePreBlockCaches : IStagedPreBlockCaches
         return _stateCache.AddOrUpdate(key, newValue, updateFunc);
     }
 
-    public bool TryGetValue(AddressAsKey key, out Account? account)
+    public bool TryGetValue(in AddressAsKey key, out Account? account)
     {
         if (!Volatile.Read(ref _backgroundSealed))
         {

@@ -103,7 +103,7 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
             return ResultWrapper<MessageResult>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
 
         ResultWrapper<ParsedInitMessage> initMessageResult = TryBuildInitMessage(
-            chainSpec.ChainId,
+            _chainSpec.ChainId,
             message.InitialL1BaseFee,
             message.SerializedChainConfig,
             "Failed to deserialize ChainConfig.");
@@ -610,7 +610,7 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
                 {
                     // Version 0: chainId(32) + version(1) + JSON config
                     serializedChainConfig = l2Msg[33..];
-                    initialL1BaseFee = specHelper.InitialL1BaseFee;
+                    initialL1BaseFee = _specHelper.InitialL1BaseFee;
                     if (_logger.IsDebug)
                         _logger.Debug($"Init message v0: chainId={chainId}, using default L1BaseFee={initialL1BaseFee}");
                     break;
@@ -691,7 +691,7 @@ public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
 
     private ResultWrapper<MessageResult> InitializeGenesisFromMessageInternal(ParsedInitMessage initMessage)
     {
-        BlockHeader genesisHeader = initializer.Initialize(initMessage);
+        BlockHeader genesisHeader = _initializer.Initialize(initMessage);
 
         if (_logger.IsInfo)
             _logger.Info($"Genesis initialized from digestMessage: Hash={genesisHeader.Hash}, ChainId={initMessage.ChainId}");
