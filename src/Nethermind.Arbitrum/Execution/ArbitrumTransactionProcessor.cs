@@ -227,7 +227,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
-                    totalToRefund += substate.Refund + substate.DestroyList.Count * RefundOf.Destroy(spec.IsEip3529Enabled);
+                    totalToRefund += substate.Refund + substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
                 refund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
