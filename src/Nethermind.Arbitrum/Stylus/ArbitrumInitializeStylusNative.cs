@@ -27,8 +27,7 @@ public class ArbitrumInitializeStylusNative(IStylusTargetConfig config, ILogMana
 
     private void VerifyStylusNativeLibrary()
     {
-        nint handle = NativeLibrary.Load(StylusLibraryName, typeof(StylusNative).Assembly, DllImportSearchPath.AssemblyDirectory);
-        NativeLibrary.Free(handle);
+        NativeLibrary.Load(StylusLibraryName, typeof(StylusNative).Assembly, DllImportSearchPath.AssemblyDirectory);
 
         string platformDescriptor = StylusTargets.GetLocalDescriptor();
         if (_logger.IsInfo)
