@@ -22,7 +22,7 @@ public sealed class L1BlockCache : IL1BlockCache
     /// 256 capacities match the BLOCKHASH opcode window (last 256 blocks).
     /// Thread-safe and shared across all transactions.
     /// </summary>
-    private static readonly ClockCache<ulong, Hash256> CachedL1BlockHashes = new(256);
+    private readonly ClockCache<ulong, Hash256> _cachedL1BlockHashes = new(256);
 
     public ulong? GetCachedL1BlockNumber()
     {
@@ -41,20 +41,20 @@ public sealed class L1BlockCache : IL1BlockCache
 
     public bool TryGetL1BlockHash(ulong l1BlockNumber, out Hash256 hash)
     {
-        return CachedL1BlockHashes.TryGet(l1BlockNumber, out hash);
+        return _cachedL1BlockHashes.TryGet(l1BlockNumber, out hash);
     }
 
     public void SetL1BlockHash(ulong l1BlockNumber, Hash256 hash)
     {
-        CachedL1BlockHashes.Set(l1BlockNumber, hash);
+        _cachedL1BlockHashes.Set(l1BlockNumber, hash);
     }
 
     /// <summary>
     /// Clears the static L1 block hash cache.
     /// Called during debug_reinitialize to ensure complete state isolation between tests.
     /// </summary>
-    public static void ClearStaticCache()
+    public void ClearStaticCache()
     {
-        CachedL1BlockHashes.Clear();
+        _cachedL1BlockHashes.Clear();
     }
 }

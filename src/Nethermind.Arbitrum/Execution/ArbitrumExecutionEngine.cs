@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Int256;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -27,28 +28,61 @@ namespace Nethermind.Arbitrum.Execution;
 /// <summary>
 /// Core execution engine containing all Arbitrum block production and state management logic.
 /// </summary>
-public sealed class ArbitrumExecutionEngine(
-    ArbitrumBlockTreeInitializer initializer,
-    IBlockTree blockTree,
-    IManualBlockProductionTrigger trigger,
-    ChainSpec chainSpec,
-    IArbitrumSpecHelper specHelper,
-    ILogManager logManager,
-    CachedL1PriceData cachedL1PriceData,
-    IBlockProcessingQueue processingQueue,
-    IArbitrumConfig arbitrumConfig,
-    IBlocksConfig blocksConfig)
-    : IArbitrumExecutionEngine
+public sealed class ArbitrumExecutionEngine : IArbitrumExecutionEngine
 {
-    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
+    private readonly ILogger _logger;
 
-    public IBlockTree BlockTree { get; } = blockTree;
-    public bool BuildBlocksOnMainState => blocksConfig.BuildBlocksOnMainState;
+    public IBlockTree BlockTree { get; }
+    public bool BuildBlocksOnMainState => _blocksConfig.BuildBlocksOnMainState;
 
     private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
-    private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
+    private readonly ArbitrumSyncMonitor _syncMonitor;
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
+
+    //private Task? _blockPreWarmTask;
+    //private CancellationTokenSource? _prewarmCancellation;
+    private readonly ArbitrumBlockTreeInitializer _initializer;
+    private readonly IBlockTree _blockTree;
+    private readonly IManualBlockProductionTrigger _trigger;
+    private readonly ChainSpec _chainSpec;
+    private readonly IArbitrumSpecHelper _specHelper;
+    private readonly CachedL1PriceData _cachedL1PriceData;
+    private readonly IBlockProcessingQueue _processingQueue;
+    private readonly IArbitrumConfig _arbitrumConfig;
+    private readonly IBlocksConfig _blocksConfig;
+    private readonly ArbitrumBlockProducer? _blockProducer;
+
+    /// <summary>
+    /// Core execution engine containing all Arbitrum block production and state management logic.
+    /// </summary>
+    public ArbitrumExecutionEngine(ArbitrumBlockTreeInitializer initializer,
+        IBlockTree blockTree,
+        IManualBlockProductionTrigger trigger,
+        ChainSpec chainSpec,
+        IArbitrumSpecHelper specHelper,
+        ILogManager logManager,
+        CachedL1PriceData cachedL1PriceData,
+        IBlockProcessingQueue processingQueue,
+        IArbitrumConfig arbitrumConfig,
+        IBlocksConfig blocksConfig,
+        IBlockProducer? blockProducer = null)
+    {
+        _initializer = initializer;
+        _blockTree = blockTree;
+        _trigger = trigger;
+        _chainSpec = chainSpec;
+        _specHelper = specHelper;
+        _cachedL1PriceData = cachedL1PriceData;
+        _processingQueue = processingQueue;
+        _arbitrumConfig = arbitrumConfig;
+        _blocksConfig = blocksConfig;
+        _blockProducer = blockProducer as ArbitrumBlockProducer;
+        _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
+        BlockTree = blockTree;
+        _syncMonitor = new ArbitrumSyncMonitor(blockTree, specHelper, arbitrumConfig, logManager);
+    }
+
 
     public Task<bool> TryAcquireSemaphoreAsync(int millisecondsTimeout = 0)
         => _createBlocksSemaphore.WaitAsync(millisecondsTimeout);
@@ -69,7 +103,7 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<MessageResult>.Fail("SerializedChainConfig must not be empty.", ErrorCodes.InvalidParams);
 
         ResultWrapper<ParsedInitMessage> initMessageResult = TryBuildInitMessage(
-            chainSpec.ChainId,
+            _chainSpec.ChainId,
             message.InitialL1BaseFee,
             message.SerializedChainConfig,
             "Failed to deserialize ChainConfig.");
@@ -102,10 +136,26 @@ public sealed class ArbitrumExecutionEngine(
                 return ResultWrapper<MessageResult>.Fail(
                     $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
 
-            if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+            //if (_blockProducer?.CanPrefetch == true && parameters.MessageForPrefetch is not null)
+            if (_blockProducer?.CanPrefetch == true)
+            {
+                if (parameters.MessageForPrefetch is not null)
+                {
+                    if (_blockProducer!.PreWarmNextBlock(parameters.Message, parameters.MessageForPrefetch, headBlockHeader?.Clone()))
+                        Metrics.PrefetchCalled++;
+                    else
+                        Metrics.PrefetchSkipped++;
+                }
+            }
+
+            ResultWrapper<MessageResult> result = _blocksConfig.BuildBlocksOnMainState ? 
+                await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader) :
+                await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
+
+            //_blockProducer?.SwapCaches();
+
+            return result;
         }
         finally
         {
@@ -236,7 +286,7 @@ public sealed class ArbitrumExecutionEngine(
     {
         try
         {
-            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
+            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, _specHelper);
             return ResultWrapper<long>.Success(blockNumber);
         }
         catch (OverflowException)
@@ -249,12 +299,12 @@ public sealed class ArbitrumExecutionEngine(
     {
         try
         {
-            ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, specHelper);
+            ulong messageIndex = MessageBlockConverter.BlockNumberToMessageIndex(blockNumber, _specHelper);
             return ResultWrapper<ulong>.Success(messageIndex);
         }
         catch (ArgumentOutOfRangeException)
         {
-            ulong genesis = specHelper.GenesisBlockNum;
+            ulong genesis = _specHelper.GenesisBlockNum;
             return ResultWrapper<ulong>.Fail(
                 $"blockNumber {blockNumber} < genesis {genesis}");
         }
@@ -295,7 +345,7 @@ public sealed class ArbitrumExecutionEngine(
     {
         try
         {
-            cachedL1PriceData.MarkFeedStart(to);
+            _cachedL1PriceData.MarkFeedStart(to);
             return ResultWrapper<EmptyResponse>.Success(default);
         }
         catch (Exception ex)
@@ -428,18 +478,18 @@ public sealed class ArbitrumExecutionEngine(
         }
 
         BlockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
-        processingQueue.BlockRemoved += OnBlockRemoved;
+        _processingQueue.BlockRemoved += OnBlockRemoved;
 
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            Block? block = await _trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
-            using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+            using CancellationTokenSource processingTimeoutTokenSource = _arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
                 .WaitAsync(processingTimeoutTokenSource.Token);
 
@@ -475,7 +525,7 @@ public sealed class ArbitrumExecutionEngine(
         finally
         {
             BlockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
-            processingQueue.BlockRemoved -= OnBlockRemoved;
+            _processingQueue.BlockRemoved -= OnBlockRemoved;
 
             _newBestSuggestedBlockEvents.Clear();
             _blockRemovedEvents.Clear();
@@ -493,7 +543,7 @@ public sealed class ArbitrumExecutionEngine(
 
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            Block? block = await _trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
             if (block?.Hash is null)
                 return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
@@ -560,7 +610,7 @@ public sealed class ArbitrumExecutionEngine(
                 {
                     // Version 0: chainId(32) + version(1) + JSON config
                     serializedChainConfig = l2Msg[33..];
-                    initialL1BaseFee = specHelper.InitialL1BaseFee;
+                    initialL1BaseFee = _specHelper.InitialL1BaseFee;
                     if (_logger.IsDebug)
                         _logger.Debug($"Init message v0: chainId={chainId}, using default L1BaseFee={initialL1BaseFee}");
                     break;
@@ -641,7 +691,7 @@ public sealed class ArbitrumExecutionEngine(
 
     private ResultWrapper<MessageResult> InitializeGenesisFromMessageInternal(ParsedInitMessage initMessage)
     {
-        BlockHeader genesisHeader = initializer.Initialize(initMessage);
+        BlockHeader genesisHeader = _initializer.Initialize(initMessage);
 
         if (_logger.IsInfo)
             _logger.Info($"Genesis initialized from digestMessage: Hash={genesisHeader.Hash}, ChainId={initMessage.ChainId}");

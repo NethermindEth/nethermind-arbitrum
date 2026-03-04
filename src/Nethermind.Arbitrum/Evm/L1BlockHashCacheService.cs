@@ -8,7 +8,7 @@ namespace Nethermind.Arbitrum.Evm;
 /// <summary>
 /// Singleton service wrapping L1BlockCache static cache for IClearableCache auto-discovery.
 /// </summary>
-public sealed class L1BlockHashCacheService : IClearableCache
-{
-    public void ClearCache() => L1BlockCache.ClearStaticCache();
-}
+//public sealed class L1BlockHashCacheService : IClearableCache
+//{
+//    public void ClearCache() => L1BlockCache.ClearStaticCache();
+//}

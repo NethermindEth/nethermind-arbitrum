@@ -46,11 +46,15 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3"
+      "Web3",
+      "Arbitrum"
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 500,
+    "MaxBufferedCommitCount": 5000
   },
   "Blocks": {
     "SecondsPerSlot": 2,
@@ -65,11 +69,12 @@
   },
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
-    "RebuildLocalWasm": "auto"
+    "RebuildLocalWasm": "auto",
+    "DigestMessagePrefetchEnabled": true
   },
   "VerifyBlockHash": {
-    "Enabled": false,
-    "VerifyEveryNBlocks": 10000,
+    "Enabled": true,
+    "VerifyEveryNBlocks": 1000,
     "ArbNodeRpcUrl": "https://sepolia-rollup.arbitrum.io/rpc"
   }
 }

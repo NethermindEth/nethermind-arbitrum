@@ -26,4 +26,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    [ConfigItem(Description = "Experimental: Use MsgForPrefetch to pre-warm state for next block in DigestMessage", DefaultValue = "false")]
+    bool DigestMessagePrefetchEnabled { get; set; }
 }

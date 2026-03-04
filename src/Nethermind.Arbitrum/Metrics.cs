@@ -24,6 +24,18 @@ public class Metrics
     public static long StylusExecutionMicroseconds => _stylusExecutionMicroseconds.GetTotalValue();
     private static readonly ZeroContentionCounter _stylusExecutionMicroseconds = new();
 
+    [GaugeMetric]
+    [Description("Prefetch wait time")]
+    public static double PrefetchWaitTime { get; set; }
+
+    [CounterMetric]
+    [Description("Number of messages block prefetch was executed")]
+    public static long PrefetchCalled { get; set; }
+
+    [CounterMetric]
+    [Description("Number of messages block prefetch was skipped")]
+    public static long PrefetchSkipped { get; set; }
+
     [ThreadStatic]
     private static bool _currentTxUsedStylus;
 
