@@ -43,6 +43,8 @@
     <Project Path="Nethermind/src/Nethermind/Nethermind.Runner.Test/Nethermind.Runner.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Specs.Test/Nethermind.Specs.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Evm.Test/Nethermind.Evm.Test.csproj" />
+    <Project Path="Nethermind/src/Nethermind/Nethermind.Test.Analyzers/Nethermind.Test.Analyzers.csproj" />
+    <Project Path="Nethermind/src/Nethermind/Nethermind.Test.Analyzers.CodeFixes/Nethermind.Test.Analyzers.CodeFixes.csproj" />
   </Folder>
   <Project Path="Nethermind/src/Nethermind/Nethermind.Abi/Nethermind.Abi.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Api/Nethermind.Api.csproj" />
