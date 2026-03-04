@@ -873,21 +873,21 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         const int codeLength = 500;
+        const long codeDepositCost = GasCostOf.CodeDeposit * codeLength; // 200 * 500 = 100_000
 
-        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, codeLength);
+        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, codeDepositCost);
 
-        const long expectedCost = GasCostOf.CodeDeposit * codeLength; // 200 * 500 = 100_000
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
-        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(expectedCost);
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - codeDepositCost);
+        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(codeDepositCost);
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(0);
     }
 
     [Test]
-    public void ConsumeCodeDeposit_EmptyCode_NoGasCharged()
+    public void ConsumeCodeDeposit_ZeroCost_NoGasCharged()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, codeLength: 0);
+        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, cost: 0);
 
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(0);
@@ -898,11 +898,11 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(10_000_000);
         const int maxCodeSize = 24576; // EIP-170 max code size
+        const long codeDepositCost = GasCostOf.CodeDeposit * maxCodeSize; // 200 * 24576 = 4,915,200
 
-        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, maxCodeSize);
+        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, codeDepositCost);
 
-        const long expectedCost = GasCostOf.CodeDeposit * maxCodeSize; // 200 * 24576 = 4,915,200
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(10_000_000 - expectedCost);
-        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(expectedCost);
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(10_000_000 - codeDepositCost);
+        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(codeDepositCost);
     }
 }

@@ -77,11 +77,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Tracks as StorageGrowth.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ConsumeCodeDeposit(ref ArbitrumGasPolicy gas, int codeLength)
+    public static void ConsumeCodeDeposit(ref ArbitrumGasPolicy gas, long cost)
     {
-        Debug.Assert(codeLength >= 0, "codeLength must be non-negative");
-        long cost = GasCostOf.CodeDeposit * codeLength;
-        EthereumGasPolicy.ConsumeCodeDeposit(ref gas._ethereum, codeLength);
+        EthereumGasPolicy.ConsumeCodeDeposit(ref gas._ethereum, cost);
         gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)cost);
     }
 
