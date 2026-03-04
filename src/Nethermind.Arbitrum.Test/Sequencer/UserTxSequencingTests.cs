@@ -1,14 +1,10 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -32,25 +28,20 @@ public class UserTxSequencingTests
             .WithNonce(0)
             .WithGasLimit(21000)
             .WithGasPrice(1.GWei())
-            .WithTo(TestItem.AddressB)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(1.Ether())
-            .WithChainId(412346)
+            .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        BlockHeader parentHeader = Build.A.BlockHeader
-            .WithNumber(1)
-            .WithTimestamp((ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds())
-            .WithNonce(1)
-            .TestObject;
-
-        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions([Rlp.Encode(tx).Bytes], 0, parentHeader.Timestamp, parentHeader.Nonce);
+        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions(
+            [Rlp.Encode(tx).Bytes], 0, timestamp, 1);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
-            assembled.Message, 412346, 20, LimboLogs.Instance.GetClassLogger());
+            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger());
 
         parsed.Should().HaveCount(1);
-        // NitroL2MessageParser doesn't recover sender from signature; verify data fields
         parsed[0].To.Should().Be(tx.To!);
         parsed[0].Value.Should().Be(tx.Value);
         parsed[0].Nonce.Should().Be(tx.Nonce);
@@ -65,9 +56,9 @@ public class UserTxSequencingTests
             .WithNonce(0)
             .WithGasLimit(21000)
             .WithGasPrice(1.GWei())
-            .WithTo(TestItem.AddressB)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
             .WithValue(1.Ether())
-            .WithChainId(412346)
+            .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
@@ -75,22 +66,18 @@ public class UserTxSequencingTests
             .WithNonce(1)
             .WithGasLimit(21000)
             .WithGasPrice(1.GWei())
-            .WithTo(TestItem.AddressC)
+            .WithTo(FullChainSimulationAccounts.AccountC.Address)
             .WithValue(2.Ether())
-            .WithChainId(412346)
+            .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        BlockHeader parentHeader = Build.A.BlockHeader
-            .WithNumber(1)
-            .WithTimestamp((ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds())
-            .WithNonce(1)
-            .TestObject;
-
-        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions([Rlp.Encode(tx1).Bytes, Rlp.Encode(tx2).Bytes], 0, parentHeader.Timestamp, parentHeader.Nonce);
+        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        MessageWithMetadata assembled = L2MessageAssembler.AssembleFromSignedTransactions(
+            [Rlp.Encode(tx1).Bytes, Rlp.Encode(tx2).Bytes], 0, timestamp, 1);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
-            assembled.Message, 412346, 20, LimboLogs.Instance.GetClassLogger());
+            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger());
 
         parsed.Should().HaveCount(2);
         parsed[0].To.Should().Be(tx1.To!);
@@ -102,7 +89,7 @@ public class UserTxSequencingTests
     }
 
     [Test]
-    public void TransactionQueue_Full_RejectsNew()
+    public async Task TransactionQueue_Full_RejectsNew()
     {
         TransactionQueue queue = new(1, 95000, false);
 
@@ -120,19 +107,17 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        // First enqueue should succeed (fills capacity=1)
-        Task<Exception?> task1 = queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
+        Exception? result1 = await queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
+        result1.Should().BeNull();
 
-        // Second enqueue should be rejected since capacity is 1
-        Task<Exception?> task2 = queue.EnqueueAsync(new TxQueueItem(tx2, CancellationToken.None));
-
-        task2.IsCompleted.Should().BeTrue();
-        task2.Result.Should().BeOfType<InvalidOperationException>();
-        task2.Result!.Message.Should().Contain("queue is full");
+        Exception? result2 = await queue.EnqueueAsync(new TxQueueItem(tx2, CancellationToken.None));
+        result2.Should().NotBeNull();
+        result2.Should().BeOfType<InvalidOperationException>();
+        result2.Message.Should().Contain("queue is full");
     }
 
     [Test]
-    public void TransactionQueue_OversizedTx_RejectsImmediately()
+    public async Task TransactionQueue_OversizedTx_RejectsImmediately()
     {
         TransactionQueue queue = new(10, 100, false);
 
@@ -144,11 +129,11 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        Task<Exception?> task = queue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
+        Exception? result = await queue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
-        task.IsCompleted.Should().BeTrue();
-        task.Result.Should().BeOfType<InvalidOperationException>();
-        task.Result!.Message.Should().Contain("exceeds maximum");
+        result.Should().NotBeNull();
+        result.Should().BeOfType<InvalidOperationException>();
+        result.Message.Should().Contain("exceeds maximum");
     }
 
     [Test]
@@ -160,12 +145,9 @@ public class UserTxSequencingTests
             .WithStateRoot(TestItem.KeccakA)
             .TestObject;
 
-        // Pre-populate cache by doing a manual update
-        cache.Update(header, TestItem.AddressA, 42);
+        cache.Update(header, FullChainSimulationAccounts.AccountA.Address, 42);
 
-        // Now Get should return cached value without needing a real state reader
-        // We pass a mock state reader that would throw if called
-        ulong nonce = cache.Get(header, null!, TestItem.AddressA);
+        ulong nonce = cache.Get(header, null!, FullChainSimulationAccounts.AccountA.Address);
 
         nonce.Should().Be(42);
     }
@@ -180,394 +162,407 @@ public class UserTxSequencingTests
             .WithParentHash(TestItem.KeccakB)
             .TestObject;
 
-        // Populate cache for header1
-        cache.Update(header1, TestItem.AddressA, 10);
+        cache.Update(header1, FullChainSimulationAccounts.AccountA.Address, 10);
 
-        // Finalize with a block whose parentHash matches header1's parent
         Block block1 = Build.A.Block
             .WithHeader(header1)
             .TestObject;
         cache.Finalize(block1);
 
-        // Create a new header with different parent (simulating a different block)
         BlockHeader header2 = Build.A.BlockHeader
             .WithNumber(2)
             .WithHash(TestItem.KeccakC)
             .WithParentHash(TestItem.KeccakD)
             .TestObject;
 
-        // The cache should reset since the new header has a different parent hash than the finalized block hash
-        // Get will need to read from state; since we can't mock IStateReader easily here,
-        // we verify by updating and checking
-        cache.Update(header2, TestItem.AddressA, 20);
-        ulong nonce = cache.Get(header2, null!, TestItem.AddressA);
+        cache.Update(header2, FullChainSimulationAccounts.AccountA.Address, 20);
+        ulong nonce = cache.Get(header2, null!, FullChainSimulationAccounts.AccountA.Address);
 
         nonce.Should().Be(20);
     }
 
     [Test]
-    public async Task SendRawTransaction_WithUserTx_ProducesBlock()
+    public void SendRawTransaction_WithUserTx_ProducesBlock()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
-            chain, out DelayedMessageQueue _, out TransactionQueue _, out ArbitrumEthRpcModule ethRpcModule);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        ResultWrapper<MessageResult> genesisResult = engine.DigestInitMessage(
-            FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-        genesisResult.Result.Should().Be(Result.Success);
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
 
-        await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
-        long headAfterDeposit = chain.BlockTree.Head!.Number;
+        byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-        Transaction userTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-        byte[] txBytes = Rlp.Encode(userTx).Bytes;
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(transferTxBytes).ShouldAsync().RequestSucceed();
 
-        // eth_sendRawTransaction blocks until block inclusion, so run in background
-        Task<ResultWrapper<Hash256>> sendTask = Task.Run(() => ethRpcModule.eth_sendRawTransaction(txBytes));
-        await Task.Delay(50);
+        StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
+        StartSequencingResult result = chain.NitroExecutionRpcModule
+            .nitroexecution_startSequencing(env.L1BLockNumber, env.L1Timestamp, env.L2Timestamp)
+            .ShouldAsync().RequestSucceed()
+            .And.Subject.Data;
 
-        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync(1, 1000, 1000);
-        seqResult.Result.Should().Be(Result.Success, $"start sequencing should succeed, error: {seqResult.Result.Error}");
-        seqResult.Data.SequencedMsg.Should().NotBeNull("expected a block with user tx");
-        seqResult.Data.WaitDurationMs.Should().Be(0);
+        SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [transferTxBytes], [0, 0]);
+        StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
 
-        engine.EndSequencing(null);
+        result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        ResultWrapper<Hash256> sendResult = await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
-        sendResult.Result.Should().Be(Result.Success);
-        sendResult.Data.Should().NotBeNull();
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
-        chain.BlockTree.Head!.Number.Should().Be(headAfterDeposit + 1);
+        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether());
     }
 
     [Test]
-    public async Task SendRawTransaction_DelayedMsgPriority_SequencesDelayedFirst()
+    public void SendRawTransaction_DelayedMsgPriority_SequencesDelayedFirst()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
-            chain, out DelayedMessageQueue delayedQueue, out TransactionQueue _, out ArbitrumEthRpcModule ethRpcModule);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        ResultWrapper<MessageResult> genesisResult = engine.DigestInitMessage(
-            FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-        genesisResult.Result.Should().Be(Result.Success);
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
 
-        Hash256 requestId1 = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(requestId1, 92, TestItem.AddressA,
-            FullChainSimulationAccounts.AccountA.Address, 10.Ether());
+        // Enqueue a delayed message (ETH deposit to AccountB)
+        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(
+            TestItem.KeccakA, chain.InitialL1BaseFee, FullChainSimulationAccounts.AccountA.Address,
+            FullChainSimulationAccounts.AccountB.Address, 5.Ether());
 
         ulong delayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
-        delayedQueue.Enqueue([depositMsg], delayedMsgRead);
+        chain.NitroExecutionRpcModule.nitroexecution_enqueueDelayedMessages([depositMsg], delayedMsgRead)
+            .Should().RequestSucceed();
 
-        Transaction userTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
-        byte[] txBytes = Rlp.Encode(userTx).Bytes;
+        // Submit user transaction
+        byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountC.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-        Task<ResultWrapper<Hash256>> sendTask = Task.Run(() => ethRpcModule.eth_sendRawTransaction(txBytes));
-        await Task.Delay(50);
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(transferTxBytes).ShouldAsync().RequestSucceed();
 
-        // Delayed messages have priority over user transactions
-        ResultWrapper<StartSequencingResult> result1 = await engine.StartSequencingAsync(0, 0, 0);
-        result1.Result.Should().Be(Result.Success);
-        result1.Data.SequencedMsg.Should().NotBeNull();
-        // Delayed message increases DelayedMessagesRead
-        result1.Data.SequencedMsg!.MsgWithMeta.DelayedMessagesRead.Should().Be(delayedMsgRead + 1);
+        // First sequencing: delayed message has priority
+        StartSequencingEnvironment env1 = StartSequencingEnvironment.FromNowUtc();
+        StartSequencingResult result1 = chain.NitroExecutionRpcModule
+            .nitroexecution_startSequencing(env1.L1BLockNumber, env1.L1Timestamp, env1.L2Timestamp)
+            .ShouldAsync().RequestSucceed()
+            .And.Subject.Data;
 
-        engine.EndSequencing(null);
+        SequencedMsg expectedSequencedMessage1 = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, depositMsg, 1, [0, 0]);
+        StartSequencingResult expectedSequencingResult1 = new(expectedSequencedMessage1, 0);
+        result1.Should().BeEquivalentTo(expectedSequencingResult1);
 
-        ResultWrapper<EmptyResponse> appendResult = await engine.AppendLastSequencedBlockAsync();
-        appendResult.Result.Should().Be(Result.Success);
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
-        ResultWrapper<StartSequencingResult> result2 = await engine.StartSequencingAsync(1, 1000, 1000);
-        result2.Result.Should().Be(Result.Success);
-        result2.Data.SequencedMsg.Should().NotBeNull();
-        // User tx message keeps DelayedMessagesRead the same as the parent block's
-        result2.Data.SequencedMsg!.MsgWithMeta.DelayedMessagesRead.Should().Be(delayedMsgRead + 1);
+        // Second sequencing: user transaction
+        StartSequencingEnvironment env2 = StartSequencingEnvironment.FromNowUtc();
+        StartSequencingResult result2 = chain.NitroExecutionRpcModule
+            .nitroexecution_startSequencing(env2.L1BLockNumber, env2.L1Timestamp, env2.L2Timestamp)
+            .ShouldAsync().RequestSucceed()
+            .And.Subject.Data;
 
-        engine.EndSequencing(null);
+        SequencedMsg expectedSequencedMessage2 = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env2, [transferTxBytes], [0, 0]);
+        StartSequencingResult expectedSequencingResult2 = new(expectedSequencedMessage2, 0);
+        result2.Should().BeEquivalentTo(expectedSequencingResult2);
 
-        ResultWrapper<Hash256> sendResult = await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
-        sendResult.Result.Should().Be(Result.Success);
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
     }
 
     [Test]
     public async Task SendRawTransaction_EndSequencingSuccess_NotifiesSenders()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(
-            configureArbitrum: c => c.SequencerAwaitTxResult = true);
-        ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
-            chain, out DelayedMessageQueue _, out TransactionQueue _, out ArbitrumEthRpcModule ethRpcModule);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = true;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        ResultWrapper<MessageResult> genesisResult = engine.DigestInitMessage(
-            FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-        genesisResult.Result.Should().Be(Result.Success);
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountB.Address, 10.Ether()).Should().RequestSucceed();
 
-        await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
-        await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountB.Address);
-
-        Transaction tx1 = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-        Transaction tx2 = Build.A.Transaction
-            .WithNonce(0)
+        byte[] tx1Bytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(21000)
             .WithGasPrice(1.GWei())
-            .WithTo(TestItem.AddressC)
+            .WithTo(FullChainSimulationAccounts.AccountC.Address)
             .WithValue(1.Ether())
-            .WithChainId(412346)
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
+
+        byte[] tx2Bytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountB.Address))
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountC.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountB)
-            .TestObject;
+            .TestObject).Bytes;
 
-        byte[] tx1Bytes = Rlp.Encode(tx1).Bytes;
-        byte[] tx2Bytes = Rlp.Encode(tx2).Bytes;
-
-        Task<ResultWrapper<Hash256>> sendTask1 = Task.Run(() => ethRpcModule.eth_sendRawTransaction(tx1Bytes));
-        Task<ResultWrapper<Hash256>> sendTask2 = Task.Run(() => ethRpcModule.eth_sendRawTransaction(tx2Bytes));
+        // With SequencerAwaitTxResult=true, eth_sendRawTransaction blocks until sequenced
+        Task<ResultWrapper<Hash256>> sendTask1 = Task.Run(() => chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx1Bytes));
+        await Task.Delay(10); // Ensure tx1 is enqueued before tx2 for deterministic ordering
+        Task<ResultWrapper<Hash256>> sendTask2 = Task.Run(() => chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx2Bytes));
         await Task.Delay(50);
 
-        ResultWrapper<StartSequencingResult> seqResult = await engine.StartSequencingAsync(1, 1000, 1000);
-        seqResult.Result.Should().Be(Result.Success);
-        seqResult.Data.SequencedMsg.Should().NotBeNull();
+        StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
+        StartSequencingResult result = chain.NitroExecutionRpcModule
+            .nitroexecution_startSequencing(env.L1BLockNumber, env.L1Timestamp, env.L2Timestamp)
+            .ShouldAsync().RequestSucceed()
+            .And.Subject.Data;
 
-        sendTask1.IsCompleted.Should().BeFalse();
-        sendTask2.IsCompleted.Should().BeFalse();
+        SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [tx1Bytes, tx2Bytes], [0, 0]);
+        StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
+        result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        engine.EndSequencing(null);
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
-        ResultWrapper<Hash256> result1 = await sendTask1.WaitAsync(TimeSpan.FromSeconds(5));
-        ResultWrapper<Hash256> result2 = await sendTask2.WaitAsync(TimeSpan.FromSeconds(5));
-
-        result1.Result.Should().Be(Result.Success, "tx1 should be included successfully");
-        result2.Result.Should().Be(Result.Success, "tx2 should be included successfully");
+        (await sendTask1.WaitAsync(TimeSpan.FromSeconds(5))).Should().RequestSucceed();
+        (await sendTask2.WaitAsync(TimeSpan.FromSeconds(5))).Should().RequestSucceed();
     }
 
     [Test]
-    public async Task StartSequencing_NoUserTxsOrDelayed_ReturnsWaitDuration()
+    public void StartSequencing_NoUserTxsOrDelayed_ReturnsWaitDuration()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(chain, out _, out _);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        ResultWrapper<MessageResult> genesisResult = engine.DigestInitMessage(
-            FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-        genesisResult.Result.Should().Be(Result.Success);
+        StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
+        StartSequencingResult result = chain.NitroExecutionRpcModule
+            .nitroexecution_startSequencing(env.L1BLockNumber, env.L1Timestamp, env.L2Timestamp)
+            .ShouldAsync().RequestSucceed()
+            .And.Subject.Data;
 
-        ResultWrapper<StartSequencingResult> result = await engine.StartSequencingAsync(1, 1000, 1000);
-
-        result.Result.Should().Be(Result.Success);
-        result.Data.SequencedMsg.Should().BeNull();
-        result.Data.WaitDurationMs.Should().BeGreaterThan(0);
+        result.SequencedMsg.Should().BeNull();
+        result.WaitDurationMs.Should().BeGreaterThan(0);
     }
 
     [Test]
-    public async Task SendRawTransaction_SequencerDisabled_FallsBackToTxPool()
-    {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, transactionQueue: null);
-
-        Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-        byte[] txBytes = Rlp.Encode(tx).Bytes;
-
-        // With null TransactionQueue, falls through to base TxPool behavior
-        ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(txBytes);
-        result.Should().NotBeNull();
-    }
-
-    [Test]
-    public async Task SendRawTransaction_QueueFull_ReturnsError()
+    public void SendRawTransaction_QueueFull_ReturnsError()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
         TransactionQueue smallQueue = new(1, 95000, false);
         ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
 
-        Transaction tx1 = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-        Transaction tx2 = SequencerTestHelpers.CreateUserTx(1, TestItem.AddressB, 1.Ether());
+        byte[] tx1Bytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-        byte[] tx1Bytes = Rlp.Encode(tx1).Bytes;
-        byte[] tx2Bytes = Rlp.Encode(tx2).Bytes;
+        byte[] tx2Bytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(1)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-        Task<ResultWrapper<Hash256>> _ = Task.Run(() => ethRpcModule.eth_sendRawTransaction(tx1Bytes));
-        await Task.Delay(50);
+        // First tx fills the queue (capacity=1)
+        ethRpcModule.eth_sendRawTransaction(tx1Bytes).ShouldAsync().RequestSucceed();
 
-        ResultWrapper<Hash256> result2 = await ethRpcModule.eth_sendRawTransaction(tx2Bytes);
-
-        result2.Result.ResultType.Should().Be(ResultType.Failure);
-        result2.Result.Error.Should().Contain("queue is full");
+        // Second tx should be rejected
+        ethRpcModule.eth_sendRawTransaction(tx2Bytes).ShouldAsync().RequestFail("queue is full");
     }
 
     [Test]
-    public async Task SendRawTransaction_OversizedTransaction_ReturnsError()
+    public void SendRawTransaction_OversizedTransaction_ReturnsError()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        TransactionQueue smallQueue = new(10, 100, false);
-        ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+                c.SequencerMaxTxDataSize = 100;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        Transaction tx = Build.A.Transaction
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
             .WithGasPrice(1.GWei())
             .WithData(new byte[200])
-            .WithChainId(412346)
+            .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
-            .TestObject;
+            .TestObject).Bytes;
 
-        byte[] txBytes = Rlp.Encode(tx).Bytes;
-        ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(txBytes);
-
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain("exceeds maximum");
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestFail("exceeds maximum");
     }
 
     [Test]
-    public async Task SendRawTransaction_InvalidRlp_ReturnsError()
+    public void SendRawTransaction_InvalidRlp_ReturnsError()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-
-        TransactionQueue queue = new(10, 95000, false);
-        ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
         byte[] invalidBytes = [0xFF, 0xFE, 0xFD];
-        ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(invalidBytes);
-
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain("Invalid RLP");
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(invalidBytes).ShouldAsync().RequestFail("Invalid RLP");
     }
 
     [Test]
     public async Task SendRawTransaction_ForwardingMode_ForwardsToBackup()
     {
-        using HttpListener listener = new();
-        string prefix = "http://localhost:19878/";
-        listener.Prefixes.Add(prefix);
-        listener.Start();
+        using TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
 
         bool transactionReceived = false;
-
-        Task serverTask = Task.Run(async () =>
+        Task responseTask = remoteSequencer.Handle(body =>
         {
-            HttpListenerContext ctx = await listener.GetContextAsync();
-            using StreamReader reader = new(ctx.Request.InputStream);
-            string body = await reader.ReadToEndAsync();
-
             using JsonDocument doc = JsonDocument.Parse(body);
             doc.RootElement.GetProperty("method").GetString().Should().Be("eth_sendRawTransaction");
             transactionReceived = true;
 
-            byte[] responseBytes = Encoding.UTF8.GetBytes(
-                """{"jsonrpc":"2.0","id":1,"result":"0x0000000000000000000000000000000000000000000000000000000000000001"}""");
-            ctx.Response.ContentType = "application/json";
-            ctx.Response.ContentLength64 = responseBytes.Length;
-            await ctx.Response.OutputStream.WriteAsync(responseBytes);
-            ctx.Response.Close();
+            return """{"jsonrpc":"2.0","id":1,"result":"0x0000000000000000000000000000000000000000000000000000000000000001"}"""u8.ToArray();
         });
 
-        try
-        {
-            using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-            ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
-                chain, out DelayedMessageQueue _, out TransactionQueue _, out ArbitrumEthRpcModule ethRpcModule,
-                useForwarder: prefix);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-            ResultWrapper<MessageResult> genesisResult = engine.DigestInitMessage(
-                FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-            genesisResult.Result.Should().Be(Result.Success);
+        chain.NitroExecutionRpcModule.nitroexecution_forwardTo(remoteSequencer.Uri).Should().RequestSucceed();
 
-            Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-            byte[] txBytes = Rlp.Encode(tx).Bytes;
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-            ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(txBytes);
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestSucceed();
 
-            await serverTask.WaitAsync(TimeSpan.FromSeconds(5));
-
-            result.Result.Should().Be(Result.Success);
-            result.Data.Should().NotBeNull();
-            transactionReceived.Should().BeTrue();
-        }
-        finally
-        {
-            listener.Stop();
-        }
+        await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+        transactionReceived.Should().BeTrue("server should have received the forwarded transaction");
     }
 
     [Test]
     public async Task SendRawTransaction_ForwardingNoSequencer_ReturnsError()
     {
-        using HttpListener listener = new();
-        string prefix = "http://localhost:19879/";
-        listener.Prefixes.Add(prefix);
-        listener.Start();
+        using TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
+        Task responseTask = remoteSequencer
+            .Handle(_ => """{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"sequencer temporarily not available"}}"""u8.ToArray());
 
-        Task serverTask = Task.Run(async () =>
-        {
-            HttpListenerContext ctx = await listener.GetContextAsync();
-            using StreamReader reader = new(ctx.Request.InputStream);
-            await reader.ReadToEndAsync();
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-            byte[] responseBytes = Encoding.UTF8.GetBytes(
-                """{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"sequencer temporarily not available"}}""");
-            ctx.Response.ContentType = "application/json";
-            ctx.Response.ContentLength64 = responseBytes.Length;
-            await ctx.Response.OutputStream.WriteAsync(responseBytes);
-            ctx.Response.Close();
-        });
+        chain.NitroExecutionRpcModule.nitroexecution_forwardTo(remoteSequencer.Uri).Should().RequestSucceed();
 
-        try
-        {
-            using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-            ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithSequencer(
-                chain, out DelayedMessageQueue _, out TransactionQueue _, out ArbitrumEthRpcModule ethRpcModule,
-                useForwarder: prefix);
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-            ResultWrapper<MessageResult> genesisResult = engine.DigestInitMessage(
-                FullChainSimulationInitMessage.CreateDigestInitMessage(92));
-            genesisResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestFail("not available");
 
-            Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-            byte[] txBytes = Rlp.Encode(tx).Bytes;
-
-            ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(txBytes);
-
-            await serverTask.WaitAsync(TimeSpan.FromSeconds(5));
-
-            result.Result.ResultType.Should().Be(ResultType.Failure);
-            result.Result.Error.Should().Contain("not available");
-        }
-        finally
-        {
-            listener.Stop();
-        }
+        await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [Test]
-    public async Task SendRawTransaction_PausedMode_ReturnsError()
+    public void SendRawTransaction_PausedMode_ReturnsError()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        SequencerState sequencerState = new(LimboLogs.Instance);
-        sequencerState.Activate();
-        sequencerState.Pause();
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        TransactionQueue queue = new(10, 95000, false);
-        ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue, sequencerState);
+        chain.NitroExecutionRpcModule.nitroexecution_pause().Should().RequestSucceed();
 
-        Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-        byte[] txBytes = Rlp.Encode(tx).Bytes;
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-        ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(txBytes);
-
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain("not available");
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestFail("not available");
     }
 
     [Test]
-    public async Task SendRawTransaction_InactiveMode_ReturnsError()
+    public void SendRawTransaction_SequencerDisabled_ReturnsError()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        SequencerState sequencerState = new(LimboLogs.Instance);
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
 
-        TransactionQueue queue = new(10, 95000, false);
-        ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, queue, sequencerState);
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei())
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Ether())
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
 
-        Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Ether());
-        byte[] txBytes = Rlp.Encode(tx).Bytes;
-
-        ResultWrapper<Hash256> result = await ethRpcModule.eth_sendRawTransaction(txBytes);
-
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain("not available");
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestFail("is disabled");
     }
 }

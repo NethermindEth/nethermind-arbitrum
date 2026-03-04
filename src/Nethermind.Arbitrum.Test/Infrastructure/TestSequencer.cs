@@ -22,6 +22,16 @@ public static class TestSequencer
 
         return new SequencedMsg((ulong)header.Number, messageWithMetadata, messageResultForRpc, timeboostBlockMetadata);
     }
+
+    public static SequencedMsg ExpectedSequencedMessage(BlockHeader header, L1IncomingMessage delayedMessage, ulong delayedMessagesRead, byte[] timeboostBlockMetadata)
+    {
+        MessageWithMetadata messageWithMetadata = new(delayedMessage, delayedMessagesRead);
+
+        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header, NullLogger.Instance);
+        MessageResultForRpc messageResultForRpc = new() { Hash = header.Hash, SendRoot = headerInfo.SendRoot };
+
+        return new SequencedMsg((ulong)header.Number, messageWithMetadata, messageResultForRpc, timeboostBlockMetadata);
+    }
 }
 
 public record StartSequencingEnvironment(ulong L1BLockNumber, ulong L1Timestamp, ulong L2Timestamp)
