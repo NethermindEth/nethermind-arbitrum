@@ -29,14 +29,14 @@ public class SequencerLifecycleTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -69,7 +69,7 @@ public class SequencerLifecycleTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         chain.NitroExecutionRpcModule.nitroexecution_pause().Should().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_activate().Should().RequestSucceed();
@@ -77,9 +77,9 @@ public class SequencerLifecycleTests
         byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -97,7 +97,7 @@ public class SequencerLifecycleTests
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
-        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether());
+        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }
 
     [Test]
@@ -151,9 +151,9 @@ public class SequencerLifecycleTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Wei())
+            .WithValue(1.Wei)
             .WithChainId(412346)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -175,9 +175,9 @@ public class SequencerLifecycleTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Wei())
+            .WithValue(1.Wei)
             .WithChainId(412346)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -206,14 +206,14 @@ public class SequencerLifecycleTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -252,6 +252,6 @@ public class SequencerLifecycleTests
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
-        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether());
+        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }
 }

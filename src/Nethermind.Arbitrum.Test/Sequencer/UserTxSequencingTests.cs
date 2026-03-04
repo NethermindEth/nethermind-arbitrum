@@ -27,9 +27,9 @@ public class UserTxSequencingTests
         Transaction tx = Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
@@ -55,9 +55,9 @@ public class UserTxSequencingTests
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
@@ -65,9 +65,9 @@ public class UserTxSequencingTests
         Transaction tx2 = Build.A.Transaction
             .WithNonce(1)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountC.Address)
-            .WithValue(2.Ether())
+            .WithValue(2.Ether)
             .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
@@ -96,14 +96,14 @@ public class UserTxSequencingTests
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
         Transaction tx2 = Build.A.Transaction
             .WithNonce(1)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
@@ -124,7 +124,7 @@ public class UserTxSequencingTests
         Transaction tx = Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithData(new byte[200])
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
@@ -193,14 +193,14 @@ public class UserTxSequencingTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -221,7 +221,7 @@ public class UserTxSequencingTests
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
-        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether());
+        chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }
 
     [Test]
@@ -236,12 +236,12 @@ public class UserTxSequencingTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         // Enqueue a delayed message (ETH deposit to AccountB)
         L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(
             TestItem.KeccakA, chain.InitialL1BaseFee, FullChainSimulationAccounts.AccountA.Address,
-            FullChainSimulationAccounts.AccountB.Address, 5.Ether());
+            FullChainSimulationAccounts.AccountB.Address, 5.Ether);
 
         ulong delayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         chain.NitroExecutionRpcModule.nitroexecution_enqueueDelayedMessages([depositMsg], delayedMsgRead)
@@ -251,9 +251,9 @@ public class UserTxSequencingTests
         byte[] transferTxBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountC.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -301,15 +301,15 @@ public class UserTxSequencingTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether()).Should().RequestSucceed();
-        chain.PrefundAccount(FullChainSimulationAccounts.AccountB.Address, 10.Ether()).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountB.Address, 10.Ether).Should().RequestSucceed();
 
         byte[] tx1Bytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountC.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -317,9 +317,9 @@ public class UserTxSequencingTests
         byte[] tx2Bytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountB.Address))
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountC.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountB)
             .TestObject).Bytes;
@@ -379,9 +379,9 @@ public class UserTxSequencingTests
         byte[] tx1Bytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -389,9 +389,9 @@ public class UserTxSequencingTests
         byte[] tx2Bytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(1)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -419,7 +419,7 @@ public class UserTxSequencingTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithData(new byte[200])
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
@@ -473,9 +473,9 @@ public class UserTxSequencingTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -507,9 +507,9 @@ public class UserTxSequencingTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -536,9 +536,9 @@ public class UserTxSequencingTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
@@ -556,9 +556,9 @@ public class UserTxSequencingTests
         byte[] txBytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithChainId(chain.BlockTree.ChainId)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;

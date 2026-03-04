@@ -415,7 +415,7 @@ public class ArbGasInfoParserTests
         // Fund the sender account with an ETH deposit
         Hash256 depositRequestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         ResultWrapper<MessageResult> depositResult = await chain.Digest(
-            new TestEthDeposit(depositRequestId, 92, sender, sender, 100.Ether()));
+            new TestEthDeposit(depositRequestId, 92, sender, sender, 100.Ether));
         depositResult.Result.Should().Be(Result.Success);
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
@@ -434,7 +434,7 @@ public class ArbGasInfoParserTests
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -842,7 +842,7 @@ public class ArbGasInfoParserTests
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -884,7 +884,7 @@ public class ArbGasInfoParserTests
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)

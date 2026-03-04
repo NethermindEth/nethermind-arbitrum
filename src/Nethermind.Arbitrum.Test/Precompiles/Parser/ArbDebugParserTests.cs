@@ -244,7 +244,7 @@ public class ArbDebugParserTests
         // Create a target contract with some initial code
         Address targetContract = new("0x0000000000000000000000000000000000000456");
         byte[] originalCode = [0x60, 0x80, 0x60, 0x40, 0x52]; // Some bytecode
-        UInt256 contractBalance = 1.Ether();
+        UInt256 contractBalance = 1.Ether;
         UInt256 contractNonce = 5;
 
         worldState.CreateAccount(targetContract, contractBalance, contractNonce);

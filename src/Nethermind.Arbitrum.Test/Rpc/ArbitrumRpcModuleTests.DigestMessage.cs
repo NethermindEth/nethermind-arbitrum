@@ -39,7 +39,7 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        UInt256 value = 1000.Ether();
+        UInt256 value = 1000.Ether;
 
         ResultWrapper<MessageResult> result = await chain.Digest(new TestEthDeposit(requestId, L1BaseFee, sender, receiver, value));
         result.Result.ResultType.Should().Be(ResultType.Success);
@@ -60,11 +60,11 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address beneficiary = new(RandomNumberGenerator.GetBytes(Address.Size));
 
-        UInt256 depositValue = 20.Ether(); // 10 ETH to deposit to sender
-        UInt256 retryValue = 10.Ether(); // 10 ETH to send to retryTo
+        UInt256 depositValue = 20.Ether; // 10 ETH to deposit to sender
+        UInt256 retryValue = 10.Ether; // 10 ETH to send to retryTo
 
         ulong gasLimit = 21000;
-        UInt256 gasFee = 1.GWei();
+        UInt256 gasFee = 1.GWei;
 
         UInt256 maxSubmissionFee = 128800;
 
@@ -94,9 +94,9 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
 
-        UInt256 transferValue = 10.Ether();
+        UInt256 transferValue = 10.Ether;
 
-        UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
+        UInt256 maxFeePerGas = 1.GWei; // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = 21000;
 
         UInt256 sponsorNonce = chain.WorldStateAccessor.GetNonce(sponsor, chain.BlockTree.Head!.Header);
@@ -128,9 +128,9 @@ public class ArbitrumRpcModuleDigestMessageTests
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address contract = ArbosAddresses.ArbInfoAddress;
 
-        UInt256 transferValue = 10.Ether();
+        UInt256 transferValue = 10.Ether;
 
-        UInt256 maxFeePerGas = 1.GWei(); // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
+        UInt256 maxFeePerGas = 1.GWei; // Fits the default BlockHeader.BaseFeePerGas = ArbosState.L2PricingState.BaseFeeWeiStorage
         ulong gasLimit = GasCostOf.Transaction * 2;
 
         AbiSignature signature = new("getBalance", AbiType.Address);
@@ -173,7 +173,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbInfoAddress)
             .WithValue(0)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -252,7 +252,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -287,7 +287,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 4) // Register needs more gas for storage operations
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -323,7 +323,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(registerCalldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 4)
             .WithNonce(registerNonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -342,7 +342,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(lookupCalldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(lookupNonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -377,7 +377,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -412,7 +412,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAddressTableAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -449,7 +449,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -484,7 +484,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -519,7 +519,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 3) // More gas for array operations
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -556,7 +556,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -593,7 +593,7 @@ public class ArbitrumRpcModuleDigestMessageTests
             .WithTo(ArbosAddresses.ArbAggregatorAddress)
             .WithData(callData)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)

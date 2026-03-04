@@ -150,7 +150,7 @@ public static class SequencerTestHelpers
         ArbitrumRpcTestBlockchain chain, ArbitrumExecutionEngine engine, Address recipient)
     {
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        L1IncomingMessage depositMsg = CreateEthDepositMessage(requestId, 92, TestItem.AddressA, recipient, 10.Ether());
+        L1IncomingMessage depositMsg = CreateEthDepositMessage(requestId, 92, TestItem.AddressA, recipient, 10.Ether);
 
         ulong delayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         engine.EnqueueDelayedMessages([depositMsg], delayedMsgRead);
@@ -166,7 +166,7 @@ public static class SequencerTestHelpers
         return Build.A.Transaction
             .WithNonce(nonce)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(to)
             .WithValue(value)
             .WithChainId(412346)

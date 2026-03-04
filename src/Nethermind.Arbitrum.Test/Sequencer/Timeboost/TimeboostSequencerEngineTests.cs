@@ -37,14 +37,14 @@ public class TimeboostSequencerEngineTests
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountB.Address);
 
         // Regular tx from AccountA — enqueued in the normal transaction queue
-        Transaction regularTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressC, 1.Wei());
+        Transaction regularTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressC, 1.Wei);
         Task<ResultWrapper<Hash256>> regularSendTask = Task.Run(() =>
             ethRpcModule.eth_sendRawTransaction(Rlp.Encode(regularTx).Bytes));
 
         // Auction resolution tx from AccountB — written directly to the priority queue
         Transaction auctionTx = Build.A.Transaction
-            .WithNonce(0).WithGasLimit(21000).WithGasPrice(1.GWei())
-            .WithTo(TestItem.AddressC).WithValue(1.Wei()).WithChainId(412346)
+            .WithNonce(0).WithGasLimit(21000).WithGasPrice(1.GWei)
+            .WithTo(TestItem.AddressC).WithValue(1.Wei).WithChainId(412346)
             .SignedAndResolved(FullChainSimulationAccounts.AccountB)
             .TestObject;
         await auctionResolutionQueue.Writer.WriteAsync(new TxQueueItem(auctionTx, CancellationToken.None));
@@ -82,7 +82,7 @@ public class TimeboostSequencerEngineTests
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
 
         // Regular tx: no timeboost bits should be set
-        Transaction regularTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
+        Transaction regularTx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei);
         Task<Exception?> regularEnqueue = transactionQueue.EnqueueAsync(new TxQueueItem(regularTx, CancellationToken.None));
         await Task.Delay(50);
 
@@ -97,7 +97,7 @@ public class TimeboostSequencerEngineTests
 
         // Timeboosted tx: at least one bitmap bit should be set
         ulong headBlock = (ulong)chain.BlockTree.Head!.Number;
-        Transaction timeboostedTx = SequencerTestHelpers.CreateUserTx(1, TestItem.AddressB, 1.Wei());
+        Transaction timeboostedTx = SequencerTestHelpers.CreateUserTx(1, TestItem.AddressB, 1.Wei);
         TxQueueItem timeboostedItem = TxQueueItem.CreateTimeboosted(timeboostedTx, CancellationToken.None, blockStamp: headBlock);
         Task<Exception?> boostEnqueue = transactionQueue.EnqueueAsync(timeboostedItem);
         await Task.Delay(50);
@@ -134,7 +134,7 @@ public class TimeboostSequencerEngineTests
 
         // Stamp the tx at the current head block; with timeout=0 it expires immediately
         ulong currentHead = (ulong)chain.BlockTree.Head!.Number;
-        Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei());
+        Transaction tx = SequencerTestHelpers.CreateUserTx(0, TestItem.AddressB, 1.Wei);
         TxQueueItem expiredItem = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, blockStamp: currentHead);
 
         Task<Exception?> resultTask = expiredItem.ResultChannel.Task;
