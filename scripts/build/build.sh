@@ -37,12 +37,13 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   cp $output_path/$rid/arbitrum-tmp/Nethermind.Arbitrum.* $output_path/$rid/plugins/
 
   # Copy Stylus native libraries from NuGet package output.
-  # With CopyLocalLockFileAssemblies=true the runtimes land at arbitrum-tmp/runtimes/.
-  # They must land in plugins/runtimes/ to match the MSBuild CopyFilesToRunner target.
-  # Stylus is a core feature - fail if libraries are missing.
-  mkdir -p $output_path/$rid/plugins/runtimes
+  mkdir -p $output_path/$rid/runtimes
   if [ -d "$output_path/$rid/arbitrum-tmp/runtimes" ]; then
-    cp -r $output_path/$rid/arbitrum-tmp/runtimes/. $output_path/$rid/plugins/runtimes/
+    cp -r $output_path/$rid/arbitrum-tmp/runtimes/. $output_path/$rid/runtimes/
+    if ! find "$output_path/$rid/runtimes" -name "*stylus*" -print -quit | grep -q .; then
+      echo "ERROR: No Stylus native libraries were copied for $rid"
+      exit 1
+    fi
   else
     echo "ERROR: Stylus native libraries not found for $rid"
     exit 1

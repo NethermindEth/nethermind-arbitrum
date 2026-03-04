@@ -31,6 +31,9 @@
   <Folder Name="/Plugins/UPnP/">
     <Project Path="Nethermind/src/Nethermind/Nethermind.UPnP.Plugin/Nethermind.UPnP.Plugin.csproj" />
   </Folder>
+  <Folder Name="/Plugins/Xdc/">
+    <Project Path="Nethermind/src/Nethermind/Nethermind.Xdc/Nethermind.Xdc.csproj" />
+  </Folder>
   <Folder Name="/Tests/">
     <Project Path="Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj" />
     <Project Path="Nethermind/src/Nethermind/Nethermind.Config.Test/Nethermind.Config.Test.csproj" />
