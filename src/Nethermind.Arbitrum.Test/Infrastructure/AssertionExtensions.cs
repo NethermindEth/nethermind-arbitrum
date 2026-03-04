@@ -87,6 +87,14 @@ public class ResultWrapperAssertions<T>(ResultWrapper<T> instance)
     }
 
     [CustomAssertion]
+    public AndConstraint<ResultWrapperAssertions<T>> RequestFail(string errorSubstring, string because = "", params object[] becauseArgs)
+    {
+        Subject.Result.ResultType.Should().Be(ResultType.Failure, because, becauseArgs);
+        Subject.Result.Error.Should().Contain(errorSubstring, because, becauseArgs);
+        return new AndConstraint<ResultWrapperAssertions<T>>(this);
+    }
+
+    [CustomAssertion]
     public AndConstraint<ResultWrapperAssertions<T>> TransactionStatusesBe(ArbitrumRpcTestBlockchain chain, byte[] statuses, string because = "", params object[] becauseArgs)
     {
         chain.LatestReceiptStatuses().Should().BeEquivalentTo(statuses, because, becauseArgs);

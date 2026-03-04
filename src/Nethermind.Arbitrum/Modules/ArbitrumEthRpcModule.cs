@@ -76,7 +76,7 @@ namespace Nethermind.Arbitrum.Modules
         public override async Task<ResultWrapper<Hash256>> eth_sendRawTransaction(byte[] transaction)
         {
             if (_transactionQueue is null)
-                return await base.eth_sendRawTransaction(transaction);
+                return ResultWrapper<Hash256>.Fail("Sequencer is disabled.", ErrorCodes.TransactionRejected);
 
             Transaction tx;
             try
