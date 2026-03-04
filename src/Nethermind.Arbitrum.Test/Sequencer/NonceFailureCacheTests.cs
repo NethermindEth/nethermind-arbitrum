@@ -3,14 +3,13 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Test.Builders;
 
 namespace Nethermind.Arbitrum.Test.Sequencer;
 
 public class NonceFailureCacheTests
 {
-    private static TxQueueItem CreateItem() => new(Build.A.Transaction.TestObject, CancellationToken.None);
-
     [Test]
     public void Add_WhenFull_EvictsOldestEntry()
     {
@@ -19,11 +18,11 @@ public class NonceFailureCacheTests
         TxQueueItem middle = CreateItem();
         TxQueueItem newest = CreateItem();
 
-        cache.Add(TestItem.AddressA, 1, oldest);
-        cache.Add(TestItem.AddressA, 2, middle);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 1, oldest);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 2, middle);
 
         // Cache is full (2 items). Adding a third should evict the oldest.
-        cache.Add(TestItem.AddressB, 1, newest);
+        cache.Add(FullChainSimulationAccounts.AccountB.Address, 1, newest);
 
         // Oldest entry should have been evicted with overflow error
         oldest.ResultChannel.Task.IsCompleted.Should().BeTrue();
@@ -31,10 +30,10 @@ public class NonceFailureCacheTests
             .Which.Message.Should().Contain("overflow");
 
         // Middle and newest should still be in the cache (revivable)
-        cache.TryRevive(TestItem.AddressA, 2, out TxQueueItem? revivedMiddle).Should().BeTrue();
+        cache.TryRevive(FullChainSimulationAccounts.AccountA.Address, 2, out TxQueueItem? revivedMiddle).Should().BeTrue();
         revivedMiddle.Should().BeSameAs(middle);
 
-        cache.TryRevive(TestItem.AddressB, 1, out TxQueueItem? revivedNewest).Should().BeTrue();
+        cache.TryRevive(FullChainSimulationAccounts.AccountB.Address, 1, out TxQueueItem? revivedNewest).Should().BeTrue();
         revivedNewest.Should().BeSameAs(newest);
     }
 
@@ -45,8 +44,8 @@ public class NonceFailureCacheTests
         TxQueueItem first = CreateItem();
         TxQueueItem duplicate = CreateItem();
 
-        cache.Add(TestItem.AddressA, 5, first);
-        cache.Add(TestItem.AddressA, 5, duplicate);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 5, first);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 5, duplicate);
 
         // First should remain in cache (no result yet)
         first.ResultChannel.Task.IsCompleted.Should().BeFalse();
@@ -64,7 +63,7 @@ public class NonceFailureCacheTests
         NonceFailureCache cache = new(maxSize: 10, expiry: TimeSpan.FromSeconds(-1));
         TxQueueItem item = CreateItem();
 
-        cache.Add(TestItem.AddressA, 1, item);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 1, item);
 
         item.ResultChannel.Task.IsCompleted.Should().BeTrue();
         item.ResultChannel.Task.Result.Should().BeOfType<InvalidOperationException>()
@@ -77,13 +76,13 @@ public class NonceFailureCacheTests
         NonceFailureCache cache = new(maxSize: 10);
         TxQueueItem item = CreateItem();
 
-        cache.Add(TestItem.AddressA, 3, item);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 3, item);
 
-        cache.TryRevive(TestItem.AddressA, 3, out TxQueueItem? revived).Should().BeTrue();
+        cache.TryRevive(FullChainSimulationAccounts.AccountA.Address, 3, out TxQueueItem? revived).Should().BeTrue();
         revived.Should().BeSameAs(item);
 
         // Should be removed — second revive should fail
-        cache.TryRevive(TestItem.AddressA, 3, out _).Should().BeFalse();
+        cache.TryRevive(FullChainSimulationAccounts.AccountA.Address, 3, out _).Should().BeFalse();
     }
 
     [Test]
@@ -91,7 +90,7 @@ public class NonceFailureCacheTests
     {
         NonceFailureCache cache = new(maxSize: 10);
 
-        cache.TryRevive(TestItem.AddressA, 99, out TxQueueItem? result).Should().BeFalse();
+        cache.TryRevive(FullChainSimulationAccounts.AccountA.Address, 99, out TxQueueItem? result).Should().BeFalse();
         result.Should().BeNull();
     }
 
@@ -102,14 +101,14 @@ public class NonceFailureCacheTests
 
         TxQueueItem expiredA = CreateItem();
         TxQueueItem expiredB = CreateItem();
-        cache.Add(TestItem.AddressA, 1, expiredA);
-        cache.Add(TestItem.AddressA, 2, expiredB);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 1, expiredA);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 2, expiredB);
 
         // Wait for first batch to expire
         Thread.Sleep(100);
 
         TxQueueItem alive = CreateItem();
-        cache.Add(TestItem.AddressB, 1, alive);
+        cache.Add(FullChainSimulationAccounts.AccountB.Address, 1, alive);
 
         cache.EvictExpired();
 
@@ -124,7 +123,7 @@ public class NonceFailureCacheTests
 
         // Alive entry should still be in cache
         alive.ResultChannel.Task.IsCompleted.Should().BeFalse();
-        cache.TryRevive(TestItem.AddressB, 1, out TxQueueItem? revived).Should().BeTrue();
+        cache.TryRevive(FullChainSimulationAccounts.AccountB.Address, 1, out TxQueueItem? revived).Should().BeTrue();
         revived.Should().BeSameAs(alive);
     }
 
@@ -135,16 +134,16 @@ public class NonceFailureCacheTests
 
         TxQueueItem first = CreateItem();
         TxQueueItem second = CreateItem();
-        cache.Add(TestItem.AddressA, 1, first);
-        cache.Add(TestItem.AddressA, 2, second);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 1, first);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 2, second);
 
         // Wait for first two to expire
         Thread.Sleep(100);
 
         TxQueueItem third = CreateItem();
         TxQueueItem fourth = CreateItem();
-        cache.Add(TestItem.AddressB, 1, third);
-        cache.Add(TestItem.AddressB, 2, fourth);
+        cache.Add(FullChainSimulationAccounts.AccountB.Address, 1, third);
+        cache.Add(FullChainSimulationAccounts.AccountB.Address, 2, fourth);
 
         cache.EvictExpired();
 
@@ -165,9 +164,9 @@ public class NonceFailureCacheTests
         TxQueueItem itemB = CreateItem();
         TxQueueItem itemC = CreateItem();
 
-        cache.Add(TestItem.AddressA, 1, itemA);
-        cache.Add(TestItem.AddressB, 1, itemB);
-        cache.Add(TestItem.AddressC, 1, itemC);
+        cache.Add(FullChainSimulationAccounts.AccountA.Address, 1, itemA);
+        cache.Add(FullChainSimulationAccounts.AccountB.Address, 1, itemB);
+        cache.Add(FullChainSimulationAccounts.AccountC.Address, 1, itemC);
 
         cache.Clear();
 
@@ -180,8 +179,13 @@ public class NonceFailureCacheTests
         }
 
         // Cache should be empty
-        cache.TryRevive(TestItem.AddressA, 1, out _).Should().BeFalse();
-        cache.TryRevive(TestItem.AddressB, 1, out _).Should().BeFalse();
-        cache.TryRevive(TestItem.AddressC, 1, out _).Should().BeFalse();
+        cache.TryRevive(FullChainSimulationAccounts.AccountA.Address, 1, out _).Should().BeFalse();
+        cache.TryRevive(FullChainSimulationAccounts.AccountB.Address, 1, out _).Should().BeFalse();
+        cache.TryRevive(FullChainSimulationAccounts.AccountC.Address, 1, out _).Should().BeFalse();
+    }
+
+    private static TxQueueItem CreateItem()
+    {
+        return new TxQueueItem(Build.A.Transaction.TestObject, CancellationToken.None);
     }
 }
