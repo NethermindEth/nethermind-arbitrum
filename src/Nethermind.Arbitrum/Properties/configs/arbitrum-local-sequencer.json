@@ -24,7 +24,14 @@
     "Port": 20545,
     "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
-    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
+    "EngineEnabledModules": [
+      "Net",
+      "Eth",
+      "Subscribe",
+      "Web3",
+      "Arbitrum",
+      "nitroexecution"
+    ],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -51,8 +58,7 @@
       "Arbitrum",
       "nitroexecution"
     ],
-    "RpcRecorderState": "All",
-    "RpcRecorderBaseFilePath": "/Users/prytikov/Code/nethermind-arbitrum/logs/rpc.{counter}.log"
+    "RpcRecorderState": "None"
   },
   "Pruning": {
     "PruningBoundary": 192
@@ -67,6 +73,14 @@
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
     "RebuildLocalWasm": "auto",
-    "SequencerEnabled": true
+    "SequencerEnabled": true,
+    "SequencerAwaitTxResult": false,
+    "TimeboostEnabled": true,
+    "TimeboostAuctionContractAddress": "0x7DD3F2a3fAeF3B9F2364c335163244D3388Feb83",
+    "TimeboostAuctioneerAddress": "0x46225F4cee2b4A1d506C7f894bb3dAeB21BF1596",
+    "TimeboostRoundDurationSeconds": 60,
+    "TimeboostAuctionClosingWindowSeconds": 15,
+    "TimeboostExpressLaneAdvantageMs": 200,
+    "TimeboostQueueTimeoutInBlocks": 5
   }
 }
