@@ -7,6 +7,7 @@ ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
 ARG CI
 ARG COMMIT_HASH
+ARG TARGETARCH
 
 WORKDIR /src
 
@@ -28,14 +29,18 @@ RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Ru
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
-# Copy Stylus native libraries to maintain relative structure from plugin assembly
-# The /arbitrum-plugin directory only exists in build stage and won't be available at runtime.
-# Native libraries must be copied to /app/plugins/Arbos/Stylus/ so the StylusNative.Loader can
-# find them at runtime using DllImportSearchPath.AssemblyDirectory relative path resolution.
-RUN mkdir -p /app/plugins/Arbos/Stylus && \
-    cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /app/plugins/Arbos/Stylus/ && \
-    echo "Stylus libraries copied:" && \
-    find /app/plugins/Arbos/Stylus -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
+# Copy only the platform-specific Stylus native library from NuGet package output.
+# CopyLocalLockFileAssemblies=true publishes all platform runtimes to /arbitrum-plugin/runtimes/.
+# Copying only the target RID avoids bloating the image with unused libraries.
+RUN case "$TARGETARCH" in \
+      amd64)   rid="linux-x64" ;; \
+      arm64)   rid="linux-arm64" ;; \
+      *) echo "Unsupported TARGETARCH: $TARGETARCH" && exit 1 ;; \
+    esac && \
+    mkdir -p /app/plugins/runtimes/$rid/native && \
+    cp -r /arbitrum-plugin/runtimes/$rid/. /app/plugins/runtimes/$rid/ && \
+    echo "Stylus libraries copied for $rid:" && \
+    find /app/plugins/runtimes -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
 
 # Copy configuration files
 COPY src/Nethermind.Arbitrum/Properties/configs /app/configs
