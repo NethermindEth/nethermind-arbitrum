@@ -14,11 +14,10 @@ public class ArbitrumInitializeStylusNative(IStylusTargetConfig config, ILogMana
 
     public Task Execute(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-
         VerifyStylusNativeLibrary();
 
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested)
+            return Task.CompletedTask;
 
         StylusNative.SetWasmLruCacheCapacity(Math.Utils.SaturateMul(config.NativeLruCacheCapacityMb, 1024 * 1024ul));
         PopulateStylusTargetCache(config);
@@ -28,28 +27,13 @@ public class ArbitrumInitializeStylusNative(IStylusTargetConfig config, ILogMana
 
     private void VerifyStylusNativeLibrary()
     {
-        string localTarget = StylusTargets.GetLocalTargetName();
-
-        if (!NativeLibrary.TryLoad(StylusLibraryName, typeof(StylusNative).Assembly,
-                DllImportSearchPath.AssemblyDirectory, out nint handle))
-        {
-            string expectedFile = GetExpectedLibraryFileName();
-            throw new InvalidOperationException(
-                $"Failed to load Stylus native library for target '{localTarget}'. " +
-                $"Ensure the Nethermind.Arbitrum.Stylus NuGet package is correctly installed " +
-                $"and the native library for your platform is present. " +
-                $"Expected file: runtimes/{localTarget}/native/{expectedFile}");
-        }
-
+        nint handle = NativeLibrary.Load(StylusLibraryName, typeof(StylusNative).Assembly, DllImportSearchPath.AssemblyDirectory);
         NativeLibrary.Free(handle);
 
+        string platformDescriptor = StylusTargets.GetLocalDescriptor();
         if (_logger.IsInfo)
-            _logger.Info($"Stylus native library verified for {localTarget}");
+            _logger.Info($"Stylus native library verified for {platformDescriptor}");
     }
-
-    private static string GetExpectedLibraryFileName() =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "stylus.dll" :
-        RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "libstylus.dylib" : "libstylus.so";
 
     private static void PopulateStylusTargetCache(IStylusTargetConfig config)
     {
@@ -59,7 +43,7 @@ public class ArbitrumInitializeStylusNative(IStylusTargetConfig config, ILogMana
         bool nativeSet = false;
         foreach (string target in targets)
         {
-            if (target == StylusTargets.WavmTargetName)
+            if (target == StylusTargets.WavmTargetName) // WAVM is unknown target for WASM compiler (wasmer) and handled separately
                 continue;
 
             string effectiveStylusTarget = target switch
