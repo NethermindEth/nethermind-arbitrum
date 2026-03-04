@@ -56,12 +56,12 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_WithNonZeroBaseFee_ExecutesWithZeroBaseFee()
     {
-        await ProduceBlockWithBaseFee(1000.Wei());
+        await ProduceBlockWithBaseFee(1000.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(100.Wei())
+            .WithValue(100.Wei)
             .WithGasLimit(Transaction.BaseTxGasCost)
             .TestObject;
 
@@ -76,11 +76,11 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_WithStateOverride_AppliesOverridesCorrectly()
     {
-        await ProduceBlockWithBaseFee(500.Wei());
+        await ProduceBlockWithBaseFee(500.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(100.Wei())
+            .WithValue(100.Wei)
             .WithGasLimit(50000)
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .TestObject;
@@ -89,7 +89,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         Dictionary<Address, AccountOverride> stateOverride = new()
         {
-            [FullChainSimulationAccounts.AccountA.Address] = new AccountOverride { Balance = 999.Ether() }
+            [FullChainSimulationAccounts.AccountA.Address] = new AccountOverride { Balance = 999.Ether }
         };
 
         ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest, stateOverride);
@@ -101,7 +101,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_ContractCreationWithoutData_ReturnsInvalidInputError()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
@@ -122,7 +122,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthEstimateGas_ContractCreationWithoutData_ReturnsInvalidInputError()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
@@ -142,12 +142,12 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthEstimateGas_WhenInsufficientBalance_ReturnsExecutionError()
     {
-        await ProduceBlockWithBaseFee(1000.Wei());
+        await ProduceBlockWithBaseFee(1000.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(10000.Ether())
+            .WithValue(10000.Ether)
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
@@ -162,7 +162,7 @@ public partial class ArbitrumEthRpcModuleTests
     public async Task EthCreateAccessList_WithNonZeroBaseFee_CreatesWithZeroBaseFee()
     {
         Address contractAddress = await DeployTestContract();
-        await ProduceBlockWithBaseFee(3000.Wei());
+        await ProduceBlockWithBaseFee(3000.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
@@ -185,12 +185,12 @@ public partial class ArbitrumEthRpcModuleTests
     public async Task EthCreateAccessList_WithOptimizationEnabled_ReturnsOptimizedAccessList()
     {
         Address contractAddress = await DeployTestContract();
-        await ProduceBlockWithBaseFee(1000.Wei());
+        await ProduceBlockWithBaseFee(1000.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(contractAddress)
-            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, TransferSignature, FullChainSimulationAccounts.AccountB.Address, 100.Wei()))
+            .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, TransferSignature, FullChainSimulationAccounts.AccountB.Address, 100.Wei))
             .WithGasLimit(50000)
             .TestObject;
 
@@ -208,7 +208,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCreateAccessList_ContractCreationWithoutData_ReturnsInvalidInputError()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
@@ -228,12 +228,12 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_WithNullGas_UsesBlockGasLimit()
     {
-        await ProduceBlockWithBaseFee(500.Wei());
+        await ProduceBlockWithBaseFee(500.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(50.Wei())
+            .WithValue(50.Wei)
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
@@ -248,14 +248,14 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthCall_AtSpecificBlockNumber_UsesCorrectBaseFee()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
-        await ProduceBlockWithBaseFee(200.Wei());
-        await ProduceBlockWithBaseFee(300.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
+        await ProduceBlockWithBaseFee(200.Wei);
+        await ProduceBlockWithBaseFee(300.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(10.Wei())
+            .WithValue(10.Wei)
             .WithGasLimit(Transaction.BaseTxGasCost)
             .TestObject;
 
@@ -270,7 +270,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthEstimateGas_WhenInvalidCallData_ReturnsExecutionError()
     {
-        await ProduceBlockWithBaseFee(1000.Wei());
+        await ProduceBlockWithBaseFee(1000.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
@@ -291,7 +291,7 @@ public partial class ArbitrumEthRpcModuleTests
         // Produce 310 blocks to exceed a test threshold
         const int targetBlocks = 310;
         for (int i = 0; i < targetBlocks; i++)
-            await ProduceBlockWithBaseFee(1.Wei());
+            await ProduceBlockWithBaseFee(1.Wei);
 
         // Get the current head block
         Block? head = _chain.BlockTree.Head;
@@ -510,7 +510,7 @@ public partial class ArbitrumEthRpcModuleTests
             baseFee,
             FullChainSimulationAccounts.Owner.Address, // Any random account
             FullChainSimulationAccounts.AccountA.Address,
-            1.Ether()
+            1.Ether
         );
 
         ResultWrapper<MessageResult> result = await _chain.Digest(deposit);
@@ -524,10 +524,10 @@ public partial class ArbitrumEthRpcModuleTests
 
         TestEthDeposit deposit = new(
             TestItem.KeccakB,
-            100.Wei(),
+            100.Wei,
             FullChainSimulationAccounts.AccountA.Address,
             FullChainSimulationAccounts.AccountA.Address,
-            10.Ether()
+            10.Ether
         );
         await _chain.Digest(deposit);
 
@@ -535,7 +535,7 @@ public partial class ArbitrumEthRpcModuleTests
             .WithTo(null)
             .WithData(bytecode)
             .WithGasLimit(1000000)
-            .WithGasPrice(100.Wei())
+            .WithGasPrice(100.Wei)
             .WithValue(0)
             .WithNonce(0)
             .SignedAndResolved(_ethereumEcdsa, FullChainSimulationAccounts.AccountA)
@@ -543,7 +543,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         TestL2Transactions l2Txs = new(
             TestItem.KeccakC,
-            100.Wei(),
+            100.Wei,
             FullChainSimulationAccounts.AccountA.Address,
             deployTx
         );

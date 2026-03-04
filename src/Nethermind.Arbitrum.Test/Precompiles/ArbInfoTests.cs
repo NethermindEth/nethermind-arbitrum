@@ -120,7 +120,7 @@ public class ArbInfoTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbInfoAddress)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(21432) // Enough to cover intrinsic gas 21432, but less than required 22938
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
