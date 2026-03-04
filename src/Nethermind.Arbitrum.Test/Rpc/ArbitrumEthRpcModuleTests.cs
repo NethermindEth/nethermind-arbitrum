@@ -338,20 +338,20 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthPendingTransactions_AfterDigestingTransaction_ReturnsEmptyArray()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithTo(FullChainSimulationAccounts.AccountB.Address)
-            .WithValue(10.Wei())
+            .WithValue(10.Wei)
             .WithGasLimit(Transaction.BaseTxGasCost)
-            .WithGasPrice(100.Wei())
+            .WithGasPrice(100.Wei)
             .WithNonce(0)
             .SignedAndResolved(_ethereumEcdsa, FullChainSimulationAccounts.AccountA)
             .TestObject;
 
         TestL2Transactions l2Txs = new(
             TestItem.KeccakD,
-            100.Wei(),
+            100.Wei,
             FullChainSimulationAccounts.AccountA.Address,
             tx
         );
@@ -366,7 +366,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetTransactionCount_Pending_ReturnsStateNonce()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Address account = FullChainSimulationAccounts.AccountA.Address;
         UInt256 expectedNonce = _chain.WorldStateAccessor.GetNonce(account);
@@ -380,7 +380,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetTransactionCount_Latest_DelegatesToBase()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Address account = FullChainSimulationAccounts.AccountA.Address;
         UInt256 expectedNonce = _chain.WorldStateAccessor.GetNonce(account);
@@ -394,7 +394,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetTransactionCount_SpecificBlock_DelegatesToBase()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Address account = FullChainSimulationAccounts.AccountA.Address;
         long blockNumber = _chain.BlockTree.Head!.Number;
@@ -416,9 +416,9 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task FeeHistory_WithRewardPercentiles_ReturnsZeroRewards()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
-        await ProduceBlockWithBaseFee(200.Wei());
-        await ProduceBlockWithBaseFee(300.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
+        await ProduceBlockWithBaseFee(200.Wei);
+        await ProduceBlockWithBaseFee(300.Wei);
 
         ResultWrapper<FeeHistoryResults> result = _chain.ArbitrumEthRpcModule.eth_feeHistory(3, BlockParameter.Latest, [25, 50, 75]);
 
@@ -436,8 +436,8 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task FeeHistory_GasUsedRatio_WithinValidRange()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
-        await ProduceBlockWithBaseFee(200.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
+        await ProduceBlockWithBaseFee(200.Wei);
 
         ResultWrapper<FeeHistoryResults> result = _chain.ArbitrumEthRpcModule.eth_feeHistory(2, BlockParameter.Latest);
 
@@ -454,8 +454,8 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task FeeHistory_WhenBlockCountExceedsChain_ClipsToAvailableBlocks()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
-        await ProduceBlockWithBaseFee(200.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
+        await ProduceBlockWithBaseFee(200.Wei);
 
         long headNumber = _chain.BlockTree.Head!.Number;
 
@@ -471,7 +471,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetBlockByNumber_WhenCalled_IncludesArbitrumHeaderFields()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Block head = _chain.BlockTree.Head!;
         ArbitrumBlockHeaderInfo expectedInfo = ArbitrumBlockHeaderInfo.Deserialize(head.Header, TestLogger);
@@ -484,7 +484,7 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetBlockByHash_WhenCalled_IncludesArbitrumHeaderFields()
     {
-        await ProduceBlockWithBaseFee(100.Wei());
+        await ProduceBlockWithBaseFee(100.Wei);
 
         Block head = _chain.BlockTree.Head!;
         ArbitrumBlockHeaderInfo expectedInfo = ArbitrumBlockHeaderInfo.Deserialize(head.Header, TestLogger);

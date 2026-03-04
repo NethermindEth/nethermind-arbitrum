@@ -30,7 +30,7 @@ public class DelayedMessageSequencingTests
         genesisResult.Result.Should().Be(Result.Success);
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(requestId, 92, TestItem.AddressA, TestItem.AddressB, 1.Ether());
+        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(requestId, 92, TestItem.AddressA, TestItem.AddressB, 1.Ether);
 
         // Genesis block has Nonce=1 (DelayedMessagesRead=1), so first delayed message index is 1
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
@@ -78,7 +78,7 @@ public class DelayedMessageSequencingTests
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
         L1IncomingMessage retryableMsg = SequencerTestHelpers.CreateSubmitRetryableMessage(
             requestId, 92, TestItem.AddressA, TestItem.AddressB, TestItem.AddressC,
-            2.Ether(), 1.Ether(), 10.GWei(), 1_000_000, 1.GWei());
+            2.Ether, 1.Ether, 10.GWei, 1_000_000, 1.GWei);
 
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         queue.Enqueue([retryableMsg], genesisDelayedMsgRead);
@@ -146,7 +146,7 @@ public class DelayedMessageSequencingTests
         genesisResult.Result.Should().Be(Result.Success);
 
         Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(requestId, 92, TestItem.AddressA, TestItem.AddressB, 1.Ether());
+        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(requestId, 92, TestItem.AddressA, TestItem.AddressB, 1.Ether);
 
         ulong genesisDelayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
         queue.Enqueue([depositMsg], genesisDelayedMsgRead);

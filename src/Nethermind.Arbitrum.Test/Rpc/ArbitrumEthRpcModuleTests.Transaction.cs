@@ -227,10 +227,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);
@@ -252,10 +252,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);

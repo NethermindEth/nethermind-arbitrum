@@ -48,7 +48,7 @@ internal static class TimeboostTestHelpers
         => Build.A.Transaction
             .WithNonce(nonce)
             .WithGasLimit(21000)
-            .WithGasPrice(1.GWei())
+            .WithGasPrice(1.GWei)
             .WithTo(TestItem.AddressC)
             .WithChainId(TestChainId)
             .SignedAndResolved(signer ?? FullChainSimulationAccounts.AccountA)
