@@ -26,7 +26,7 @@ public class StylusLogTests
             .WithType(TxType.EIP1559)
             .WithTo(context.LogContractAddress)
             .WithData(callData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(context.Chain.WorldStateAccessor.GetNonce(context.Sender))
             .WithValue(0)
@@ -63,7 +63,7 @@ public class StylusLogTests
             .WithType(TxType.EIP1559)
             .WithTo(context.LogContractAddress)
             .WithData(callData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(context.Chain.WorldStateAccessor.GetNonce(context.Sender))
             .WithValue(0)
@@ -105,7 +105,7 @@ public class StylusLogTests
             .WithType(TxType.EIP1559)
             .WithTo(context.LogContractAddress)
             .WithData(callData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(context.Chain.WorldStateAccessor.GetNonce(context.Sender))
             .WithValue(0)
@@ -132,7 +132,7 @@ public class StylusLogTests
             .WithType(TxType.EIP1559)
             .WithTo(context.MulticallContractAddress)
             .WithData(multicallData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(2_000_000)
             .WithNonce(context.Chain.WorldStateAccessor.GetNonce(context.Sender))
             .WithValue(0)
@@ -159,7 +159,7 @@ public class StylusLogTests
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 

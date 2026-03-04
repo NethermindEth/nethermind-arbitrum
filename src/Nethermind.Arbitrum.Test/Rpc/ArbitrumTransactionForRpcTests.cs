@@ -48,7 +48,7 @@ public class ArbitrumTransactionForRpcTests
             L1RequestId = _testHash,
             SenderAddress = _testAddress,
             To = TestItem.AddressB,
-            Value = 100.Wei()
+            Value = 100.Wei
         };
 
         Hash256 blockHash = TestItem.KeccakB;
@@ -72,10 +72,10 @@ public class ArbitrumTransactionForRpcTests
             ChainId = TestChainId,
             SenderAddress = _testAddress,
             Nonce = 42,
-            GasFeeCap = 1000.Wei(),
+            GasFeeCap = 1000.Wei,
             Gas = 21000,
             To = TestItem.AddressB,
-            Value = 50.Wei(),
+            Value = 50.Wei,
             Data = new byte[] { 0xaa, 0xbb }
         };
 
@@ -83,7 +83,7 @@ public class ArbitrumTransactionForRpcTests
         ArbitrumUnsignedTransaction? reconstructed = (Transaction)rpcTx.ToTransaction() as ArbitrumUnsignedTransaction;
 
         reconstructed.Should().NotBeNull();
-        reconstructed!.GasFeeCap.Should().Be(1000.Wei());
+        reconstructed!.GasFeeCap.Should().Be(1000.Wei);
         reconstructed.Gas.Should().Be(21000);
         reconstructed.GasLimit.Should().Be(21000);
     }
@@ -97,14 +97,14 @@ public class ArbitrumTransactionForRpcTests
             TicketId = _testHash,
             SenderAddress = _testAddress,
             Nonce = 10,
-            GasFeeCap = 500.Wei(),
+            GasFeeCap = 500.Wei,
             Gas = 50000,
             To = TestItem.AddressB,
-            Value = 25.Wei(),
+            Value = 25.Wei,
             Data = new byte[] { 0x12, 0x34 },
             RefundTo = TestItem.AddressC,
-            MaxRefund = 100.Wei(),
-            SubmissionFeeRefund = 10.Wei()
+            MaxRefund = 100.Wei,
+            SubmissionFeeRefund = 10.Wei
         };
 
         TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
@@ -113,8 +113,8 @@ public class ArbitrumTransactionForRpcTests
         reconstructed.Should().NotBeNull();
         reconstructed!.TicketId.Should().Be(_testHash);
         reconstructed.RefundTo.Should().Be(TestItem.AddressC);
-        reconstructed.MaxRefund.Should().Be(100.Wei());
-        reconstructed.SubmissionFeeRefund.Should().Be(10.Wei());
+        reconstructed.MaxRefund.Should().Be(100.Wei);
+        reconstructed.SubmissionFeeRefund.Should().Be(10.Wei);
     }
 
     [Test]
@@ -126,14 +126,14 @@ public class ArbitrumTransactionForRpcTests
             ChainId = TestChainId,
             RequestId = _testHash,
             SenderAddress = _testAddress,
-            L1BaseFee = 20.Wei(),
-            DepositValue = 1.Ether(),
-            GasFeeCap = 200.Wei(),
+            L1BaseFee = 20.Wei,
+            DepositValue = 1.Ether,
+            GasFeeCap = 200.Wei,
             Gas = 100000,
             RetryTo = TestItem.AddressB,
-            RetryValue = 50.Wei(),
+            RetryValue = 50.Wei,
             Beneficiary = TestItem.AddressC,
-            MaxSubmissionFee = 5.Wei(),
+            MaxSubmissionFee = 5.Wei,
             FeeRefundAddr = TestItem.AddressD,
             RetryData = retryData
         };
@@ -143,8 +143,8 @@ public class ArbitrumTransactionForRpcTests
 
         reconstructed.Should().NotBeNull();
         reconstructed!.RequestId.Should().Be(_testHash);
-        reconstructed.L1BaseFee.Should().Be(20.Wei());
-        reconstructed.DepositValue.Should().Be(1.Ether());
+        reconstructed.L1BaseFee.Should().Be(20.Wei);
+        reconstructed.DepositValue.Should().Be(1.Ether);
         reconstructed.RetryData.ToArray().Should().BeEquivalentTo(retryData);
         reconstructed.Beneficiary.Should().Be(TestItem.AddressC);
         reconstructed.FeeRefundAddr.Should().Be(TestItem.AddressD);
@@ -158,10 +158,10 @@ public class ArbitrumTransactionForRpcTests
             ChainId = TestChainId,
             RequestId = _testHash,
             SenderAddress = _testAddress,
-            GasFeeCap = 300.Wei(),
+            GasFeeCap = 300.Wei,
             Gas = 75000,
             To = TestItem.AddressB,
-            Value = 10.Wei(),
+            Value = 10.Wei,
             Data = new byte[] { 0x00, 0x11 }
         };
 
@@ -170,7 +170,7 @@ public class ArbitrumTransactionForRpcTests
 
         reconstructed.Should().NotBeNull();
         reconstructed!.RequestId.Should().Be(_testHash);
-        reconstructed.GasFeeCap.Should().Be(300.Wei());
+        reconstructed.GasFeeCap.Should().Be(300.Wei);
         reconstructed.Gas.Should().Be(75000);
     }
 
@@ -183,7 +183,7 @@ public class ArbitrumTransactionForRpcTests
             L1RequestId = _testHash,
             SenderAddress = _testAddress,
             To = null,
-            Value = 1.Ether()
+            Value = 1.Ether
         };
 
         TransactionForRpc rpcTx = TransactionForRpc.FromTransaction(tx, new TransactionForRpcContext(TestChainId));
@@ -244,14 +244,14 @@ public class ArbitrumTransactionForRpcTests
             ChainId = TestChainId,
             RequestId = _testHash,
             SenderAddress = _testAddress,
-            L1BaseFee = 10.Wei(),
-            DepositValue = 1.Ether(),
-            GasFeeCap = 100.Wei(),
+            L1BaseFee = 10.Wei,
+            DepositValue = 1.Ether,
+            GasFeeCap = 100.Wei,
             Gas = 50000,
             RetryTo = TestItem.AddressB,
             RetryValue = UInt256.Zero,
             Beneficiary = TestItem.AddressC,
-            MaxSubmissionFee = 1.Wei(),
+            MaxSubmissionFee = 1.Wei,
             FeeRefundAddr = TestItem.AddressD,
             RetryData = Array.Empty<byte>()
         };

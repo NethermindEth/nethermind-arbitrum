@@ -103,7 +103,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .WithGasLimit(GasCostOf.Transaction)
                 .WithGasPrice(gasPrice)
                 .WithNonce(0)
-                .WithValue(1.Ether())
+                .WithValue(1.Ether)
                 .To(TestItem.AddressB)
                 .SignedAndResolved(ethereumEcdsa, TestItem.PrivateKeyA)
                 .TestObject;
@@ -226,7 +226,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .WithGasLimit(GasCostOf.Transaction)
                 .WithGasPrice(baseFeeWei)
                 .WithNonce(2) //incorrect Nonce
-                .WithValue(1.Ether())
+                .WithValue(1.Ether)
                 .To(TestItem.AddressB)
                 .SignedAndResolved(ethereumEcdsa, TestItem.PrivateKeyA)
                 .TestObject;
@@ -235,7 +235,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
                 .WithGasLimit(GasCostOf.Transaction)
                 .WithGasPrice(baseFeeWei)
                 .WithNonce(0)
-                .WithValue(1.Ether())
+                .WithValue(1.Ether)
                 .To(TestItem.AddressB)
                 .SignedAndResolved(ethereumEcdsa, TestItem.PrivateKeyD) //Address is a contract - not EOA
                 .TestObject;
@@ -279,10 +279,10 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             Address beneficiary = TestItem.AddressB;
 
             UInt256 depositValue = 0; // no deposit to sender so that their balance stays 0
-            UInt256 retryValue = 2.Ether();
+            UInt256 retryValue = 2.Ether;
 
             ulong gasLimit = 21000;
-            UInt256 gasFee = 1.GWei();
+            UInt256 gasFee = 1.GWei;
 
             UInt256 l1BaseFee = 92;
             UInt256 maxSubmissionFee = 1000; // bigger than sender's balance
