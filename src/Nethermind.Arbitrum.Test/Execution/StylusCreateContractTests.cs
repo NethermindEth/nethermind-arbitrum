@@ -332,7 +332,7 @@ public class StylusCreateContractTests
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -351,7 +351,7 @@ public class StylusCreateContractTests
             .WithType(TxType.EIP1559)
             .WithTo(createContractAddress)
             .WithData(create1CallData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -375,7 +375,7 @@ public class StylusCreateContractTests
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -396,7 +396,7 @@ public class StylusCreateContractTests
             .WithType(TxType.EIP1559)
             .WithTo(context.CreateContractAddress)
             .WithData(callData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(context.Chain.WorldStateAccessor.GetNonce(context.Sender))
             .WithValue(value ?? UInt256.Zero)

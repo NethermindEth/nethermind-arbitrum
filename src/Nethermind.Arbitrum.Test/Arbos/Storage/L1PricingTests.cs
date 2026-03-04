@@ -58,7 +58,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             l1Pricing.SetAmortizedCostCapBips(testItem.AmortizationCapBips);
 
-            l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei(), arbosState,
+            l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei, arbosState,
                 worldState, GetSpecProvider().GenesisSpec, null);
 
             //assert
@@ -217,8 +217,8 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             {
                 UnitReward = 0,
                 UnitsPerSecond = 78,
-                FundsCollectedPerSecond = (ulong)7800.GWei(),
-                FundsSpent = (ulong)3000.GWei(),
+                FundsCollectedPerSecond = (ulong)7800.GWei,
+                FundsSpent = (ulong)3000.GWei,
                 AmortizationCapBips = 100,
                 L1BasefeeGwei = 10
             };
@@ -251,7 +251,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             if (input.AmortizationCapBips != 0)
             {
-                UInt256 availableFundsCap = (input.UnitsPerSecond * input.L1BasefeeGwei * 1.GWei()) *
+                UInt256 availableFundsCap = (input.UnitsPerSecond * input.L1BasefeeGwei * 1.GWei) *
                                                (ulong)input.AmortizationCapBips.ToLongSafe() / Utils.BipsMultiplier;
 
                 if (availableFundsCap < availableFunds)

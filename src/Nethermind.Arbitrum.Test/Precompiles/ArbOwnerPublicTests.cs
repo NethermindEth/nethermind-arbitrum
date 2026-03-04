@@ -97,7 +97,7 @@ public class ArbOwnerPublicTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .WithValue(0)
@@ -106,8 +106,8 @@ public class ArbOwnerPublicTests
 
         EIP1559TransactionForRpc tx = new(transaction, new(transaction.ChainId ?? BlockchainIds.Mainnet))
         {
-            MaxFeePerGas = 10.GWei(),
-            MaxPriorityFeePerGas = 2.GWei(),
+            MaxFeePerGas = 10.GWei,
+            MaxPriorityFeePerGas = 2.GWei,
             GasPrice = null
         };
 
@@ -437,7 +437,7 @@ public class ArbOwnerPublicTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .WithValue(0)
@@ -446,8 +446,8 @@ public class ArbOwnerPublicTests
 
         EIP1559TransactionForRpc tx = new(transaction, new(transaction.ChainId ?? BlockchainIds.Mainnet))
         {
-            MaxFeePerGas = 10.GWei(),
-            MaxPriorityFeePerGas = 2.GWei(),
+            MaxFeePerGas = 10.GWei,
+            MaxPriorityFeePerGas = 2.GWei,
             GasPrice = null
         };
 

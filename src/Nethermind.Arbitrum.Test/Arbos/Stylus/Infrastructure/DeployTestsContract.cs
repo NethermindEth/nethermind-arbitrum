@@ -50,7 +50,7 @@ public class DeployTestsContract
         Address caller = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address contract = new(RandomNumberGenerator.GetBytes(Address.Size));
 
-        state.CreateAccountIfNotExists(caller, balance: 1.Ether(), nonce: 0);
+        state.CreateAccountIfNotExists(caller, balance: 1.Ether, nonce: 0);
         state.CreateAccountIfNotExists(contract, balance: 0, nonce: 0);
 
         byte[] wat = File.ReadAllBytes("Arbos/Stylus/Resources/counter-contract.wat");

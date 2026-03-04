@@ -27,10 +27,10 @@ public partial class ArbitrumEthRpcModuleTests
         Hash256 requestId = TestItem.KeccakA;
         TestEthDeposit deposit = new(
             requestId,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);
@@ -52,10 +52,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);
@@ -70,7 +70,7 @@ public partial class ArbitrumEthRpcModuleTests
         depositTx!.RequestId.Should().Be(TestItem.KeccakA);
         depositTx.From.Should().Be(TestItem.AddressA);
         depositTx.To.Should().Be(TestItem.AddressB);
-        depositTx.Value.Should().Be(1.Ether());
+        depositTx.Value.Should().Be(1.Ether);
     }
 
     [Test]
@@ -78,10 +78,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);
@@ -101,10 +101,10 @@ public partial class ArbitrumEthRpcModuleTests
         Hash256 requestId = TestItem.KeccakA;
         TestEthDeposit deposit = new(
             requestId,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         ResultWrapper<MessageResult> digestResult = await _chain.Digest(deposit);
@@ -129,10 +129,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);
@@ -151,10 +151,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);
@@ -170,8 +170,8 @@ public partial class ArbitrumEthRpcModuleTests
     [Test]
     public async Task EthGetBlockByNumber_WithMultipleArbitrumTransactions_ReturnsAllTransactions()
     {
-        UInt256[] depositValues = new[] { 1.Ether(), 2.Ether(), 3.Ether() };
-        UInt256[] baseFees = new[] { 100.Wei(), 200.Wei(), 300.Wei() };
+        UInt256[] depositValues = new[] { 1.Ether, 2.Ether, 3.Ether };
+        UInt256[] baseFees = new[] { 100.Wei, 200.Wei, 300.Wei };
 
         for (int i = 0; i < 3; i++)
         {
@@ -201,10 +201,10 @@ public partial class ArbitrumEthRpcModuleTests
     {
         TestEthDeposit deposit = new(
             TestItem.KeccakA,
-            100.Wei(),
+            100.Wei,
             TestItem.AddressA,
             TestItem.AddressB,
-            1.Ether()
+            1.Ether
         );
 
         await _chain.Digest(deposit);

@@ -284,7 +284,7 @@ public class ArbitrumVirtualMachineTests
 
         // Ensure sender has balance
         Address sender = TestItem.AddressA;
-        worldState.CreateAccount(sender, 1.Ether());
+        worldState.CreateAccount(sender, 1.Ether);
         worldState.Commit(chain.SpecProvider.GenesisSpec);
 
         Transaction tx = Build.A.Transaction
@@ -1982,7 +1982,7 @@ public class ArbitrumVirtualMachineTests
             .WithTo(ArbosAddresses.ArbSysAddress)
             .WithData(calldata)
             .WithValue(value)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -2047,7 +2047,7 @@ public class ArbitrumVirtualMachineTests
             .WithTo(ArbosAddresses.ArbInfoAddress)
             .WithData(calldata)
             .WithValue(value)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(nonce)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
@@ -2118,7 +2118,7 @@ public class ArbitrumVirtualMachineTests
             .WithTo(ArbWasmParser.Address)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(1_000_000)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -2181,7 +2181,7 @@ public class ArbitrumVirtualMachineTests
             .WithTo(ArbGasInfoParser.Address)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -2234,7 +2234,7 @@ public class ArbitrumVirtualMachineTests
             .WithTo(ArbInfoParser.Address)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -2519,7 +2519,7 @@ public class ArbitrumVirtualMachineTests
             .WithTo(ArbSys.Address)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -3117,7 +3117,7 @@ public class ArbitrumVirtualMachineTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
         // Fund the sender account with an ETH deposit
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3141,7 +3141,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(contractAddress)
             .WithData(CounterContractCallData.GetIncrementCalldata())
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -3168,7 +3168,7 @@ public class ArbitrumVirtualMachineTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
         // Fund the sender account with an ETH deposit
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3192,7 +3192,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(contractAddress)
             .WithData(CounterContractCallData.GetIncrementCalldata())
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -3219,7 +3219,7 @@ public class ArbitrumVirtualMachineTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
         // Fund the sender account with an ETH deposit
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3243,7 +3243,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(contractAddress)
             .WithData(CounterContractCallData.GetIncrementCalldata())
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -3270,7 +3270,7 @@ public class ArbitrumVirtualMachineTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
         // Fund the sender account with an ETH deposit
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3305,7 +3305,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(contractAddress)
             .WithData(CounterContractCallData.GetIncrementCalldata())
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -3331,7 +3331,7 @@ public class ArbitrumVirtualMachineTests
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3359,7 +3359,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(multicallAddress)
             .WithData(multicallData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -3383,7 +3383,7 @@ public class ArbitrumVirtualMachineTests
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3427,7 +3427,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(multicallAddress)
             .WithData(multicallData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
@@ -3454,11 +3454,11 @@ public class ArbitrumVirtualMachineTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         PrivateKey delegatingAccount = FullChainSimulationAccounts.AccountA;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
-        chain.PrefundAccount(delegatingAccount.Address, 100.Ether()).Should()
+        chain.PrefundAccount(delegatingAccount.Address, 100.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -3484,7 +3484,7 @@ public class ArbitrumVirtualMachineTests
 
         Transaction setCodeTx = Build.A.Transaction
             .WithType(TxType.SetCode)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(100_000)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithAuthorizationCode(authTuple)
@@ -3505,7 +3505,7 @@ public class ArbitrumVirtualMachineTests
             .WithType(TxType.EIP1559)
             .WithTo(multicallAddress)
             .WithData(multicallData)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
             .WithValue(0)
