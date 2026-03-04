@@ -1,0 +1,334 @@
+# Block Verification Workflow
+#
+# Automated daily compatibility check between Nitro (CL) and Nethermind (EL)
+# by syncing real Arbitrum Sepolia and Mainnet blocks from genesis.
+
+name: Compatibility Verification
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC
+
+  workflow_dispatch:
+    inputs:
+      nitro_branch:
+        description: 'Nitro branch to use'
+        required: false
+        default: 'master'
+        type: string
+      network:
+        description: 'Network to verify (all runs both in parallel)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - mainnet
+          - sepolia
+
+concurrency:
+  group: block-verification-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel long-running syncs
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  # Build Nitro and Nethermind in parallel
+  build-nitro:
+    uses: ./.github/workflows/_build-nitro.yml
+    with:
+      nitro_branch: ${{ inputs.nitro_branch || 'master' }}
+      artifact_name: nitro-verification-build
+
+  build-nethermind:
+    uses: ./.github/workflows/_build-nethermind.yml
+    with:
+      configuration: Release
+      artifact_name: nethermind-verification-build
+
+  # Run verification for each network in parallel (matrix)
+  verify-blocks:
+    name: Verify ${{ matrix.network }}
+    needs: [build-nitro, build-nethermind]
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - network: mainnet
+            config: arbitrum-mainnet
+            chain_id: 42161
+            parent_chain_id: 1
+            rpc_port: 21545
+            engine_port: 21551
+          - network: sepolia
+            config: arbitrum-sepolia
+            chain_id: 421614
+            parent_chain_id: 11155111
+            rpc_port: 22545
+            engine_port: 22551
+
+    env:
+      NETWORK: ${{ matrix.network }}
+      CONFIG: ${{ matrix.config }}
+      CHAIN_ID: ${{ matrix.chain_id }}
+      PARENT_CHAIN_ID: ${{ matrix.parent_chain_id }}
+      RPC_PORT: ${{ matrix.rpc_port }}
+      ENGINE_PORT: ${{ matrix.engine_port }}
+      # Run for 15 minutes, checking for hash mismatches
+      VERIFICATION_DURATION: 900
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Download Nitro build
+        uses: actions/download-artifact@v4
+        with:
+          name: nitro-verification-build
+          path: nitro/
+
+      - name: Download Nethermind build
+        uses: actions/download-artifact@v4
+        with:
+          name: nethermind-verification-build
+          path: nethermind-build/
+
+      - name: Make Nitro executable
+        run: chmod +x nitro/target/bin/*
+
+      - name: Create data directories
+        run: |
+          mkdir -p "/tmp/verification-$NETWORK/nethermind"
+          mkdir -p "/tmp/verification-$NETWORK/nitro"
+          mkdir -p "/tmp/verification-$NETWORK/logs"
+
+      - name: Start Nethermind EL
+        run: |
+          cd nethermind-build
+          # Nethermind auto-generates JWT secret if file doesn't exist
+          JWT_FILE="/tmp/verification-$NETWORK/jwt.hex"
+          echo "JWT_FILE=$JWT_FILE" >> "$GITHUB_ENV"
+
+          nohup dotnet nethermind.dll \
+            -c "$CONFIG" \
+            --data-dir "/tmp/verification-$NETWORK/nethermind" \
+            --JsonRpc.JwtSecretFile="$JWT_FILE" \
+            --JsonRpc.Port="$RPC_PORT" \
+            --JsonRpc.EnginePort="$ENGINE_PORT" \
+            --VerifyBlockHash.Enabled=true \
+            > "/tmp/verification-$NETWORK/logs/nethermind.log" 2>&1 &
+          echo $! > "/tmp/verification-$NETWORK/nethermind.pid"
+          echo "Nethermind started with PID $(cat "/tmp/verification-$NETWORK/nethermind.pid")"
+
+      - name: Wait for Nethermind RPC
+        run: |
+          echo "Waiting for Nethermind Engine RPC on port $ENGINE_PORT..."
+          for i in {1..60}; do
+            # Use TCP connection check - Engine API only responds to POST JSON-RPC, not GET
+            if nc -z 127.0.0.1 "$ENGINE_PORT" 2>/dev/null; then
+              echo "Nethermind RPC port is open!"
+              # Wait for JWT file to be generated and full initialization
+              sleep 5
+              exit 0
+            fi
+            echo "Attempt $i/60: Waiting for Nethermind..."
+            sleep 5
+          done
+          echo "ERROR: Nethermind RPC did not start within 5 minutes"
+          cat "/tmp/verification-$NETWORK/logs/nethermind.log"
+          exit 1
+
+      - name: Start Nitro CL and sync
+        env:
+          L1_RPC: ${{ matrix.network == 'sepolia' && secrets.L1_SEPOLIA_RPC || secrets.L1_MAINNET_RPC }}
+          L1_BEACON: ${{ matrix.network == 'sepolia' && secrets.L1_SEPOLIA_BEACON || secrets.L1_MAINNET_BEACON }}
+        run: |
+          echo "Starting Nitro CL for $NETWORK (duration: ${VERIFICATION_DURATION}s)..."
+          START_TIME=$(date +%s)
+
+          # Verify JWT file exists (generated by Nethermind)
+          if [ ! -f "$JWT_FILE" ]; then
+            echo "ERROR: JWT file not found at $JWT_FILE"
+            exit 1
+          fi
+
+          # Start Nitro CL in background
+          # Note: CL doesn't need local database - uses --init.empty=true
+          # It reads batches from L1 and forwards execution payloads to Nethermind EL
+          nitro/target/bin/nitro \
+            --persistent.global-config="/tmp/verification-$NETWORK/nitro" \
+            --parent-chain.connection.url="$L1_RPC" \
+            --parent-chain.blob-client.beacon-url="$L1_BEACON" \
+            --chain.id="$CHAIN_ID" \
+            --parent-chain.id="$PARENT_CHAIN_ID" \
+            --init.empty=true \
+            --init.validate-genesis-assertion=false \
+            --log-level=INFO \
+            --node.execution-rpc-client.url="http://127.0.0.1:$ENGINE_PORT" \
+            --node.execution-rpc-client.jwtsecret="$JWT_FILE" \
+            --node.sequencer=false \
+            --node.batch-poster.enable=false \
+            --node.staker.enable=false \
+            --node.feed.input.url="" \
+            > "/tmp/verification-$NETWORK/logs/nitro.log" 2>&1 &
+
+          NITRO_PID=$!
+          echo $NITRO_PID > "/tmp/verification-$NETWORK/nitro.pid"
+          echo "Nitro started with PID $NITRO_PID"
+
+          # Monitor block progress
+          echo "Monitoring sync progress..."
+          LAST_BLOCK=0
+          STALL_COUNT=0
+          MAX_STALL=30  # 5 minutes without progress
+
+          while true; do
+            sleep 10
+
+            # Check if Nitro is still running
+            if ! kill -0 $NITRO_PID 2>/dev/null; then
+              echo "ERROR: Nitro process exited unexpectedly"
+              tail -100 "/tmp/verification-$NETWORK/logs/nitro.log"
+              exit 1
+            fi
+
+            # Get current block from Nethermind
+            CURRENT_BLOCK=$(curl -s -X POST -H "Content-Type: application/json" \
+              --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+              "http://127.0.0.1:$RPC_PORT" 2>/dev/null | grep -oP '(?<="result":"0x)[^"]+' | xargs -I{} printf "%d" 0x{} 2>/dev/null || echo "0")
+
+            ELAPSED=$(($(date +%s) - START_TIME))
+            echo "Current block: $CURRENT_BLOCK (elapsed: ${ELAPSED}s / ${VERIFICATION_DURATION}s)"
+
+            # Check for verification errors in Nethermind logs (exact pattern from ArbitrumSyncMonitor.cs)
+            if grep -q "Block hash mismatch for" "/tmp/verification-$NETWORK/logs/nethermind.log" 2>/dev/null; then
+              echo "ERROR: Block verification mismatch detected!"
+              grep "Block hash mismatch for" "/tmp/verification-$NETWORK/logs/nethermind.log"
+              exit 1
+            fi
+
+            # Check if verification duration reached
+            if [ "$ELAPSED" -ge "$VERIFICATION_DURATION" ]; then
+              echo "SUCCESS: Verification completed after ${ELAPSED}s, synced to block $CURRENT_BLOCK with no hash mismatches!"
+              break
+            fi
+
+            # Check for stall
+            if [ "$CURRENT_BLOCK" -eq "$LAST_BLOCK" ]; then
+              STALL_COUNT=$((STALL_COUNT + 1))
+              if [ "$STALL_COUNT" -ge "$MAX_STALL" ]; then
+                echo "ERROR: Sync stalled at block $CURRENT_BLOCK for too long"
+                exit 1
+              fi
+            else
+              STALL_COUNT=0
+              LAST_BLOCK=$CURRENT_BLOCK
+            fi
+          done
+
+      - name: Generate results
+        if: always()
+        run: |
+          CURRENT_BLOCK=$(curl -s -X POST -H "Content-Type: application/json" \
+            --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+            "http://127.0.0.1:$RPC_PORT" 2>/dev/null | grep -oP '(?<="result":"0x)[^"]+' | xargs -I{} printf "%d" 0x{} 2>/dev/null || echo "0")
+
+          cat > "/tmp/verification-$NETWORK/results-$NETWORK.json" << EOF
+          {
+            "network": "$NETWORK",
+            "chain_id": $CHAIN_ID,
+            "final_block": $CURRENT_BLOCK,
+            "status": "${{ job.status }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          echo "=== Verification Results ==="
+          cat "/tmp/verification-$NETWORK/results-$NETWORK.json"
+
+      - name: Stop processes
+        if: always()
+        run: |
+          if [ -f "/tmp/verification-$NETWORK/nitro.pid" ]; then
+            kill "$(cat "/tmp/verification-$NETWORK/nitro.pid")" 2>/dev/null || true
+          fi
+          if [ -f "/tmp/verification-$NETWORK/nethermind.pid" ]; then
+            kill "$(cat "/tmp/verification-$NETWORK/nethermind.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-logs-${{ matrix.network }}-${{ github.run_id }}
+          path: /tmp/verification-${{ matrix.network }}/logs/
+          retention-days: 14
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-results-${{ matrix.network }}-${{ github.run_id }}
+          path: /tmp/verification-${{ matrix.network }}/results-${{ matrix.network }}.json
+          retention-days: 90
+
+  # Generate summary report
+  report:
+    name: Summary Report
+    needs: [verify-blocks]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: verification-results-*
+          path: results/
+          merge-multiple: true
+
+      - name: Generate GitHub Summary
+        run: |
+          {
+            echo "## Block Verification Results"
+            echo ""
+            echo "| Network | Chain ID | Final Block | Status |"
+            echo "|---------|----------|--------------|-------------|--------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Handle case when no result files exist
+          shopt -s nullglob
+          files=(results/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "| _No results found_ | - | - | - |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              NETWORK=$(jq -r '.network' "$file")
+              CHAIN_ID=$(jq -r '.chain_id' "$file")
+              FINAL=$(jq -r '.final_block' "$file")
+              STATUS=$(jq -r '.status' "$file")
+
+              if [ "$STATUS" = "success" ]; then
+                STATUS_EMOJI="pass"
+              else
+                STATUS_EMOJI="fail"
+              fi
+
+              echo "| $NETWORK | $CHAIN_ID | $FINAL | $STATUS_EMOJI $STATUS |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          {
+            echo ""
+            echo "Run ID: ${{ github.run_id }}"
+            echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_STEP_SUMMARY"

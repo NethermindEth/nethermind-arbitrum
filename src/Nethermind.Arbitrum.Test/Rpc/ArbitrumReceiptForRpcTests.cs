@@ -7,7 +7,6 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -299,6 +298,7 @@ public class ArbitrumReceiptForRpcTests
             stream.Encode(g);
 
         byte[] encoded = stream.Data.ToArray()!;
-        return MultiGas.Decode(new RlpStream(encoded));
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        return MultiGas.Decode(ref ctx);
     }
 }

@@ -17,6 +17,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
+using Nethermind.Int256;
 using Nethermind.Evm.Tracing;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
@@ -238,7 +239,7 @@ namespace Nethermind.Arbitrum.Execution
         )
         {
             ulong timePassed = newHeader.Timestamp - parent.Timestamp;
-            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
+            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1 ?? UInt256.Zero, l1Header.BlockNumber, newHeader.Number, timePassed);
 
             return new ArbitrumInternalTransaction
             {

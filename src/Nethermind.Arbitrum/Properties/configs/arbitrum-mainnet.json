@@ -65,18 +65,18 @@
   "Merge": {
     "Enabled": true
   },
-  "Arbitrum": {
-    "RebuildLocalWasm": "false",
-    "DigestMessagePrefetchEnabled": true
-  },
   "Snapshot": {
-    "Enabled": false,
+    "Enabled": true,
     "SnapshotDirectory": "snapshot/mainnet",
     "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
   },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto"
+  },
   "VerifyBlockHash": {
-    "Enabled": true,
-    "VerifyEveryNBlocks": 2000,
+    "Enabled": false,
+    "VerifyEveryNBlocks": 10000,
     "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }

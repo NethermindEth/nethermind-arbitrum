@@ -8,6 +8,11 @@
 
 # Nethermind Arbitrum Plugin
 
+[![Build](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/build.yml/badge.svg)](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/build.yml)
+[![Format Check](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/format.yml/badge.svg)](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/format.yml)
+[![Test](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/test.yml/badge.svg)](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/test.yml)
+[![OpenSSF Scorecard](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/scorecard.yml/badge.svg)](https://github.com/NethermindEth/nethermind-arbitrum/actions/workflows/scorecard.yml)
+[![codecov](https://codecov.io/gh/NethermindEth/nethermind-arbitrum/branch/main/graph/badge.svg)](https://codecov.io/gh/NethermindEth/nethermind-arbitrum)
 [![License: BSL-1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](LICENSE.md)
 
 Nethermind Arbitrum Plugin enables execution layer functionality for Arbitrum rollups, providing client diversity for the Arbitrum ecosystem.

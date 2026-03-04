@@ -8,6 +8,7 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Api.Steps;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
@@ -27,8 +28,10 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Arbitrum.Processing;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
+using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
+using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -42,7 +45,9 @@ using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using System.Runtime.Intrinsics.Arm;
+using Nethermind.Arbitrum.Tracing;
+using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
@@ -124,6 +129,35 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
+
+        // Register Arbitrum debug module for MemDb mode (system testing)
+        IInitConfig initConfig = _api.Config<IInitConfig>();
+        if (initConfig.DiagnosticMode == DiagnosticMode.MemDb)
+        {
+            IDbProvider dbProvider = _api.Context.Resolve<IDbProvider>();
+
+            if (_api.BlockTree is not IResettableBlockTree resettableBlockTree)
+                throw new InvalidOperationException(
+                    $"BlockTree must implement IResettableBlockTree for MemDb debug mode. " +
+                    $"Actual type: {_api.BlockTree?.GetType().Name ?? "null"}. " +
+                    $"Ensure ArbitrumBlockTree is registered in DI.");
+
+            // Resolve all IClearableCache services for auto-discovery
+            IEnumerable<IClearableCache> cacheAwareServices = _api.Context.Resolve<IEnumerable<IClearableCache>>();
+
+            // Resolve optional caches not managed by IClearableCache
+            IBlockhashCache? blockhashCache = _api.Context.ResolveOptional<IBlockhashCache>();
+            PreBlockCaches? preBlockCaches = _api.Context.ResolveOptional<PreBlockCaches>();
+
+            IArbitrumDebugRpcModule debugModule = new ArbitrumDebugRpcModule(
+                dbProvider,
+                resettableBlockTree,
+                cacheAwareServices,
+                _api.LogManager,
+                blockhashCache,
+                preBlockCaches);
+            _api.RpcModuleProvider.RegisterSingle(debugModule);
+        }
 
         return Task.CompletedTask;
     }
@@ -208,7 +242,16 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
             .AddSingleton<ArbitrumGenesisStateInitializer>()
-            .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>()
+            .AddScoped<IGenesisBuilder, ArbitrumGenesisBuilder>();
+
+        // When GenesisStateUnavailable=true (comparison mode), use no-op loader to skip genesis
+        // Otherwise, use the standard loader chain without the wrapper overhead
+        if (chainSpec.GenesisStateUnavailable)
+        {
+            builder.AddSingleton<IGenesisLoader, NoOpGenesisLoader>();
+        }
+
+        builder
 
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IWasmStore>(context =>
@@ -246,6 +289,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
+            // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
+            .AddSingleton<IClearableCache, L1BlockHashCacheService>()
+            .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()

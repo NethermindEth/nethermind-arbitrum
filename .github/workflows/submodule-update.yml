@@ -1,0 +1,171 @@
+name: Nethermind Submodule Update
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # Daily at 5 AM UTC (before comparison tests)
+  workflow_dispatch:      # Manual trigger for testing
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: submodule-update
+  cancel-in-progress: true
+
+jobs:
+  check-for-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      has-updates: ${{ steps.check.outputs.has-updates }}
+      current-sha: ${{ steps.check.outputs.current-sha }}
+      latest-sha: ${{ steps.check.outputs.latest-sha }}
+      commit-count: ${{ steps.check.outputs.commit-count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Check for submodule updates
+        id: check
+        run: |
+          cd src/Nethermind
+          CURRENT_SHA=$(git rev-parse HEAD)
+          git fetch origin master
+          LATEST_SHA=$(git rev-parse origin/master)
+
+          echo "Current SHA: $CURRENT_SHA"
+          echo "Latest SHA: $LATEST_SHA"
+
+          if [ "$CURRENT_SHA" != "$LATEST_SHA" ]; then
+            COMMIT_COUNT=$(git rev-list --count "$CURRENT_SHA".."$LATEST_SHA")
+            echo "Found $COMMIT_COUNT new commits"
+            echo "has-updates=true" >> "$GITHUB_OUTPUT"
+            echo "current-sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+            echo "latest-sha=$LATEST_SHA" >> "$GITHUB_OUTPUT"
+            echo "commit-count=$COMMIT_COUNT" >> "$GITHUB_OUTPUT"
+          else
+            echo "Submodule is up to date"
+            echo "has-updates=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  create-update-pr:
+    needs: check-for-updates
+    if: needs.check-for-updates.outputs.has-updates == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CURRENT_SHA: ${{ needs.check-for-updates.outputs.current-sha }}
+      LATEST_SHA: ${{ needs.check-for-updates.outputs.latest-sha }}
+      COMMIT_COUNT: ${{ needs.check-for-updates.outputs.commit-count }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update submodule and create branch
+        id: update
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          BRANCH_NAME="auto/nethermind-update-$(date +%Y%m%d)"
+          SHORT_SHA="${LATEST_SHA:0:7}"
+
+          echo "Branch name: $BRANCH_NAME"
+          echo "Short SHA: $SHORT_SHA"
+
+          # Check if branch already exists
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if PR already exists for today
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists for branch $BRANCH_NAME, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git checkout -b "$BRANCH_NAME"
+          cd src/Nethermind
+          git checkout "$LATEST_SHA"
+          cd ../..
+          git add src/Nethermind
+          git commit -m "chore(deps): update Nethermind submodule to $SHORT_SHA"
+          git push origin "$BRANCH_NAME"
+
+          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "short-sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Generate changelog
+        if: steps.update.outputs.skip != 'true'
+        id: changelog
+        run: |
+          cd src/Nethermind
+          git fetch origin master
+
+          # Generate changelog (last 20 commits) - sanitize for safety
+          # Using %h (short hash) and %s (subject) which are relatively safe
+          git log --oneline \
+            "$CURRENT_SHA".."$LATEST_SHA" \
+            --pretty=format:"- %h %s" | head -20 > /tmp/changelog.txt
+
+          # Check if there are more commits
+          if [ "$COMMIT_COUNT" -gt 20 ]; then
+            echo "" >> /tmp/changelog.txt
+            echo "_...and $((COMMIT_COUNT - 20)) more commits_" >> /tmp/changelog.txt
+          fi
+
+      - name: Create Pull Request
+        if: steps.update.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SHORT_SHA: ${{ steps.update.outputs.short-sha }}
+        run: |
+          # Build PR body in a file to handle special characters safely
+          PR_BODY_FILE=/tmp/pr_body.md
+
+          {
+            echo "## Automated Submodule Update"
+            echo
+            echo "This PR updates the Nethermind submodule from \`$CURRENT_SHA\` to \`$LATEST_SHA\`."
+            echo
+            echo "### Changes ($COMMIT_COUNT commits)"
+            echo
+            cat /tmp/changelog.txt
+            echo
+            echo "[View full diff on GitHub](https://github.com/NethermindEth/nethermind/compare/${CURRENT_SHA}...${LATEST_SHA})"
+            echo
+            echo "### CI Checks"
+            echo "- [ ] Build"
+            echo "- [ ] Unit Tests"
+            echo "- [ ] Format Check"
+            echo "- [ ] Comparison Tests (manual trigger recommended)"
+            echo
+            echo "---"
+            echo "*This PR was automatically created by the submodule update workflow.*"
+          } > "$PR_BODY_FILE"
+
+          gh pr create \
+            --title "chore(deps): Update Nethermind submodule ($COMMIT_COUNT commits)" \
+            --body-file "$PR_BODY_FILE" \
+            --label "dependencies" \
+            --label "automated"

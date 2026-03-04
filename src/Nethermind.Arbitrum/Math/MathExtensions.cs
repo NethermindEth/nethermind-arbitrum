@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Math
@@ -64,6 +65,7 @@ namespace Nethermind.Arbitrum.Math
             return @this - other;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T SaturateAdd<T>(this T @this, T other)
             where T : IUnsignedNumber<T>, IMinMaxValue<T>, IAdditionOperators<T, T, T>, IComparisonOperators<T, T, bool>
         {

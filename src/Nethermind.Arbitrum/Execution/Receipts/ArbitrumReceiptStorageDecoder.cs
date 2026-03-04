@@ -15,66 +15,12 @@ namespace Nethermind.Arbitrum.Execution.Receipts;
 /// </summary>
 [Decoder(RlpDecoderKey.Storage)]
 public class ArbitrumReceiptStorageDecoder :
-    IRlpStreamDecoder<ArbitrumTxReceipt>, IRlpValueDecoder<ArbitrumTxReceipt>, IRlpObjectDecoder<ArbitrumTxReceipt>, IReceiptRefDecoder,
-    IRlpStreamDecoder<TxReceipt>, IRlpValueDecoder<TxReceipt>, IRlpObjectDecoder<TxReceipt>
+    IRlpStreamEncoder<ArbitrumTxReceipt>, IRlpValueDecoder<ArbitrumTxReceipt>, IRlpObjectDecoder<ArbitrumTxReceipt>, IReceiptRefDecoder,
+    IRlpStreamEncoder<TxReceipt>, IRlpValueDecoder<TxReceipt>, IRlpObjectDecoder<TxReceipt>
 {
-    public ArbitrumTxReceipt Decode(RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
-    {
-        if (rlpStream.IsNextItemNull())
-        {
-            rlpStream.ReadByte();
-            return null!;
-        }
-
-        ArbitrumTxReceipt txReceipt = new();
-        int lastCheck = rlpStream.ReadSequenceLength() + rlpStream.Position;
-
-        byte[] firstItem = rlpStream.DecodeByteArray();
-        if (firstItem.Length == 1)
-            txReceipt.StatusCode = firstItem[0];
-        else
-            txReceipt.PostTransactionState = firstItem.Length == 0 ? null : new Hash256(firstItem);
-
-        txReceipt.Sender = rlpStream.DecodeAddress();
-        txReceipt.GasUsedTotal = (long)rlpStream.DecodeUBigInt();
-
-        int sequenceLength = rlpStream.ReadSequenceLength();
-        int logEntriesCheck = sequenceLength + rlpStream.Position;
-        using ArrayPoolListRef<LogEntry> logEntries = new(sequenceLength * 2 / LengthOfAddressRlp);
-
-        while (rlpStream.Position < logEntriesCheck)
-            logEntries.Add(CompactLogEntryDecoder.Decode(rlpStream, RlpBehaviors.AllowExtraBytes)!);
-
-        txReceipt.Logs = [.. logEntries];
-
-        // Optional fields at end - forward/backward compatible
-        if (lastCheck > rlpStream.Position)
-        {
-            int remainingItems = rlpStream.PeekNumberOfItemsRemaining(lastCheck);
-
-            // GasUsedForL1
-            if (remainingItems > 0)
-                txReceipt.GasUsedForL1 = rlpStream.DecodeULong();
-
-            // MultiGasUsed (optional)
-            if (remainingItems > 1 && !rlpStream.IsNextItemNull())
-                txReceipt.MultiGasUsed = MultiGas.Decode(rlpStream);
-            else if (remainingItems > 1)
-                rlpStream.SkipItem();
-        }
-
-        bool allowExtraBytes = (rlpBehaviors & RlpBehaviors.AllowExtraBytes) != 0;
-        if (!allowExtraBytes)
-            rlpStream.Check(lastCheck);
-
-        txReceipt.Bloom = new Bloom(txReceipt.Logs);
-
-        return txReceipt;
-    }
-
     public ArbitrumTxReceipt Decode(ref ValueDecoderContext decoderContext, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
     {
-        if (decoderContext.IsNextItemNull())
+        if (decoderContext.IsNextItemEmptyList())
         {
             decoderContext.ReadByte();
             return null!;
@@ -111,7 +57,7 @@ public class ArbitrumReceiptStorageDecoder :
                 txReceipt.GasUsedForL1 = decoderContext.DecodeULong();
 
             // MultiGasUsed (optional)
-            if (remainingItems > 1 && !decoderContext.IsNextItemNull())
+            if (remainingItems > 1 && !decoderContext.IsNextItemEmptyList())
                 txReceipt.MultiGasUsed = MultiGas.Decode(ref decoderContext);
             else if (remainingItems > 1)
                 decoderContext.SkipItem();
@@ -131,7 +77,7 @@ public class ArbitrumReceiptStorageDecoder :
     {
         item = new TxReceiptStructRef();
 
-        if (decoderContext.IsNextItemNull())
+        if (decoderContext.IsNextItemEmptyList())
         {
             decoderContext.ReadByte();
             return;
@@ -226,8 +172,6 @@ public class ArbitrumReceiptStorageDecoder :
     }
 
     // TxReceipt interface implementations
-    TxReceipt IRlpStreamDecoder<TxReceipt>.Decode(RlpStream rlpStream, RlpBehaviors rlpBehaviors) =>
-        Decode(rlpStream, rlpBehaviors);
 
     public void Encode(RlpStream stream, TxReceipt item, RlpBehaviors rlpBehaviors = RlpBehaviors.None) =>
         Encode(stream, (ArbitrumTxReceipt)item, rlpBehaviors);

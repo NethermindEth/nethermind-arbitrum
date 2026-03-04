@@ -5,7 +5,6 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Serialization.Rlp;
 
@@ -133,7 +132,7 @@ public class ArbitrumReceiptStorageDecoderTests
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
 
         Rlp.ValueDecoderContext context = new(rlp.Bytes);
-        ArbitrumTxReceipt decoded = decoder.Decode(ref context, RlpBehaviors.None);
+        ArbitrumTxReceipt decoded = decoder.Decode(ref context);
 
         AssertReceiptFieldsEqual(receipt, decoded);
         decoded.GasUsedForL1.Should().Be(300);
@@ -154,7 +153,8 @@ public class ArbitrumReceiptStorageDecoderTests
 
         ArbitrumReceiptStorageDecoder decoder = new();
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        ArbitrumTxReceipt decoded = decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
+        Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
+        ArbitrumTxReceipt decoded = decoder.Decode(ref ctx);
 
         decoded.StatusCode.Should().Be(1);
         decoded.PostTransactionState.Should().BeNull();
@@ -174,8 +174,9 @@ public class ArbitrumReceiptStorageDecoderTests
         receipt.MultiGasUsed = multiGas;
 
         ArbitrumReceiptStorageDecoder decoder = new();
-        Rlp rlp = decoder.Encode(receipt, RlpBehaviors.None);
-        ArbitrumTxReceipt decoded = decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
+        Rlp rlp = decoder.Encode(receipt);
+        Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
+        ArbitrumTxReceipt decoded = decoder.Decode(ref ctx);
 
         decoded.PostTransactionState.Should().Be(TestItem.KeccakH);
         decoded.GasUsedForL1.Should().Be(100);
@@ -222,10 +223,11 @@ public class ArbitrumReceiptStorageDecoderTests
         receipt.MultiGasUsed = multiGas;
 
         ArbitrumReceiptStorageDecoder decoder = new();
-        IRlpStreamDecoder<TxReceipt> txReceiptDecoder = decoder;
+        IRlpValueDecoder<TxReceipt> txReceiptDecoder = decoder;
 
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        TxReceipt decoded = txReceiptDecoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
+        Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
+        TxReceipt decoded = txReceiptDecoder.Decode(ref ctx);
 
         decoded.Should().BeOfType<ArbitrumTxReceipt>();
         ArbitrumTxReceipt arbitrumDecoded = (ArbitrumTxReceipt)decoded;
@@ -248,7 +250,8 @@ public class ArbitrumReceiptStorageDecoderTests
     {
         ArbitrumReceiptStorageDecoder decoder = new();
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
-        return decoder.Decode(new RlpStream(rlp.Bytes), RlpBehaviors.None);
+        Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
+        return decoder.Decode(ref ctx);
     }
 
     private static void AssertReceiptFieldsEqual(ArbitrumTxReceipt expected, ArbitrumTxReceipt actual)
@@ -301,6 +304,7 @@ public class ArbitrumReceiptStorageDecoderTests
             stream.Encode(g);
 
         byte[] encoded = stream.Data.ToArray()!;
-        return MultiGas.Decode(new RlpStream(encoded));
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        return MultiGas.Decode(ref ctx);
     }
 }

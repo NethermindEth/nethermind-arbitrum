@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System;
 using System.Diagnostics;
-using System.Threading;
 using Microsoft.Extensions.ObjectPool;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core;

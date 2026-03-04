@@ -48,4 +48,13 @@ public sealed class L1BlockCache : IL1BlockCache
     {
         _cachedL1BlockHashes.Set(l1BlockNumber, hash);
     }
+
+    /// <summary>
+    /// Clears the static L1 block hash cache.
+    /// Called during debug_reinitialize to ensure complete state isolation between tests.
+    /// </summary>
+    public static void ClearStaticCache()
+    {
+        CachedL1BlockHashes.Clear();
+    }
 }

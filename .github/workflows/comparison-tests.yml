@@ -1,0 +1,160 @@
+name: Comparison Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      nitro_branch:
+        description: 'Nitro branch to test against'
+        required: true
+        default: 'system-tests'
+        type: string
+      test_filter:
+        description: 'Specific test to run (overrides test file)'
+        required: false
+        default: ''
+        type: string
+      run_all_tests:
+        description: 'Run all tests (ignore passing-tests.txt)'
+        required: false
+        default: false
+        type: boolean
+      fail_fast:
+        description: 'Stop on first test failure'
+        required: false
+        default: false
+        type: boolean
+      workers:
+        description: 'Number of parallel workers (auto = CPU count)'
+        required: false
+        default: 'auto'
+        type: string
+  schedule:
+    - cron: '0 6 * * 1-5'  # Weekdays at 6 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read  # Required for downloading artifacts
+
+env:
+  # Centralized version management
+  GO_VERSION: '1.23'
+  PYTHON_VERSION: '3.12'
+  NITRO_REPO: 'NethermindEth/arbitrum-nitro'
+
+jobs:
+  build-nitro-deps:
+    uses: ./.github/workflows/_build-nitro.yml
+    with:
+      nitro_repo: 'NethermindEth/arbitrum-nitro'
+      nitro_branch: ${{ inputs.nitro_branch || 'system-tests' }}
+      artifact_name: nitro-deps
+
+  build-nethermind:
+    uses: ./.github/workflows/_build-nethermind.yml
+    with:
+      artifact_name: nethermind-build
+
+  comparison-tests:
+    name: Run Comparison Tests
+    needs: [build-nitro-deps, build-nethermind]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Nethermind-Arbitrum
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout Nitro
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.NITRO_REPO }}
+          ref: ${{ inputs.nitro_branch || 'system-tests' }}
+          path: nitro
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: nitro/go.sum
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download Nethermind build
+        uses: actions/download-artifact@v4
+        with:
+          name: nethermind-build
+          path: nethermind-build/
+
+      - name: Download Nitro dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: nitro-deps
+          path: nitro/
+
+      - name: Install Python dependencies
+        run: pip install -e "tools/comparison"
+
+      - name: Run Comparison Tests
+        env:
+          NITRO_PATH: ${{ github.workspace }}/nitro
+          NETHERMIND_BUILD_DIR: ${{ github.workspace }}/nethermind-build
+          TEST_FILTER: ${{ inputs.test_filter }}
+          RUN_ALL_TESTS: ${{ inputs.run_all_tests }}
+          FAIL_FAST: ${{ inputs.fail_fast }}
+          WORKERS: ${{ inputs.workers || 'auto' }}
+          NITRO_BRANCH: ${{ inputs.nitro_branch || 'system-tests' }}
+        run: |
+          set -euo pipefail
+
+          # Build arguments array
+          LOG_DIR="/tmp/nm-nitro-compare-${{ github.run_id }}"
+          ARGS=(
+            "--workers" "$WORKERS"
+            "--nethermind-build-dir" "$NETHERMIND_BUILD_DIR"
+            "--log-dir" "$LOG_DIR"
+            "--github-summary"
+            "--nitro-branch" "$NITRO_BRANCH"
+          )
+
+          if [ -n "${TEST_FILTER:-}" ]; then
+            ARGS+=("--test-filter" "$TEST_FILTER")
+          elif [ "${RUN_ALL_TESTS:-false}" != "true" ]; then
+            ARGS+=("--test-file" "tools/comparison/passing-tests.txt")
+          fi
+
+          if [ "${FAIL_FAST:-false}" = "true" ]; then
+            ARGS+=("--fail-fast")
+          fi
+
+          python -m comparison_runner "${ARGS[@]}"
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comparison-test-logs-${{ github.run_id }}
+          path: /tmp/nm-nitro-compare-${{ github.run_id }}
+          retention-days: 7
+          if-no-files-found: ignore
+          compression-level: 6
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comparison-test-results-${{ github.run_id }}
+          path: /tmp/nm-nitro-compare-${{ github.run_id }}/summary.json
+          retention-days: 30
+          if-no-files-found: ignore

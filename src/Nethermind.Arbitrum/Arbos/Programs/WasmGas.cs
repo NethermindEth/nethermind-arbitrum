@@ -70,7 +70,7 @@ public static class WasmGas
         }
 
         ReadOnlySpan<byte> currentValue = vm.WorldState.Get(in storageCell);
-        long sClearRefunds = RefundOf.SClear(true);
+        long sClearRefunds = RefundOf.SClearAfterEip3529;
 
         // Same value -> just warm read (Computation)
         if (Bytes.AreEqual(currentValue, newValue))
