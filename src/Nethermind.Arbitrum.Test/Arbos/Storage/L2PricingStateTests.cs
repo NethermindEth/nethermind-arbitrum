@@ -673,55 +673,54 @@ public class L2PricingStateTests
     }
 
     [Test]
-    public void GetGasModelToUse_BasedOnVersionAndConstraints_ReturnsCorrectModel()
+    public void GetGasModelToUse_WhenArbOS49_ReturnsLegacy()
     {
-        // Legacy model (v49, no constraints)
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FortyNine)
+            .WithReleaseSpec();
+
+        context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.Legacy);
+    }
+
+    [Test]
+    public void GetGasModelToUse_WhenArbOS50WithConstraints_ReturnsSingleGasConstraints()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        context.ArbosState.L2PricingState.AddConstraint(7_000_000, 60, 0);
+        context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.SingleGasConstraints);
+    }
+
+    [Test]
+    public void GetGasModelToUse_WhenArbOS60WithMultiGasConstraints_ReturnsMultiGasConstraints()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        Dictionary<ResourceKind, ulong> weights = new()
         {
-            IWorldState worldState = TestWorldStateFactory.CreateForTest();
-            using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
-            _ = ArbOSInitialization.Create(worldState);
-
-            PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-                .WithArbosState()
-                .WithArbosVersion(ArbosVersion.FortyNine)
-                .WithReleaseSpec();
-
-            context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.Legacy);
-        }
-
-        // Single constraints model (v50 with single-gas constraints)
-        {
-            IWorldState worldState = TestWorldStateFactory.CreateForTest();
-            using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
-            _ = ArbOSInitialization.Create(worldState);
-
-            PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-                .WithArbosState()
-                .WithArbosVersion(ArbosVersion.Fifty)
-                .WithReleaseSpec();
-
-            context.ArbosState.L2PricingState.AddConstraint(7_000_000, 60, 0);
-            context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.SingleGasConstraints);
-        }
-
-        // Multi-gas constraints model (v60 with multi-gas constraints)
-        {
-            IWorldState worldState = TestWorldStateFactory.CreateForTest();
-            using IDisposable disposer = worldState.BeginScope(IWorldState.PreGenesis);
-            _ = ArbOSInitialization.Create(worldState);
-
-            PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-                .WithArbosState()
-                .WithArbosVersion(ArbosVersion.Sixty)
-                .WithReleaseSpec();
-
-            Dictionary<ResourceKind, ulong> weights = new()
-            {
-                { ResourceKind.Computation, 1 },
-            };
-            context.ArbosState.L2PricingState.AddMultiGasConstraint(7_000_000, 60, 0, weights);
-            context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.MultiGasConstraints);
-        }
+            { ResourceKind.Computation, 1 },
+        };
+        context.ArbosState.L2PricingState.AddMultiGasConstraint(7_000_000, 60, 0, weights);
+        context.ArbosState.L2PricingState.GetGasModelToUse().Should().Be(GasModel.MultiGasConstraints);
     }
 
     [Test]
@@ -785,7 +784,6 @@ public class L2PricingStateTests
         l2Pricing.GasPoolUpdateCost().Should().Be(constraintCost);
     }
 
-    #region Coverage: Exception Guards
 
     [Test]
     public void CalcMultiGasConstraintsExponents_DivisorZero_ThrowsException()
@@ -841,9 +839,7 @@ public class L2PricingStateTests
             .WithMessage("*divisor is zero*");
     }
 
-    #endregion
 
-    #region Coverage: Migration Path
 
     [Test]
     public void SetMultiGasConstraintsFromSingleGasConstraints_WhenCalled_ConvertsCorrectly()
@@ -958,9 +954,7 @@ public class L2PricingStateTests
         mc.MaxWeight.Should().Be(1); // Not 5 from the old constraint
     }
 
-    #endregion
 
-    #region Coverage: Legacy Pricing Paths
 
     [Test]
     public void GasPoolUpdateCost_ArbOS50_ReturnsCorrectCost()
@@ -1133,9 +1127,7 @@ public class L2PricingStateTests
         l2Pricing.OpenConstraintAt(1).Backlog.Should().Be(1700);
     }
 
-    #endregion
 
-    #region Coverage: Multi-Gas Fees and Base Fee Calculation
 
     [Test]
     public void CommitMultiGasFees_WhenNotMultiGasConstraints_DoesNothing()
@@ -1335,5 +1327,4 @@ public class L2PricingStateTests
         l2Pricing.MultiGasFees.GetNextBlockFee(ResourceKind.Computation).Should().Be(minPrice);
     }
 
-    #endregion
 }

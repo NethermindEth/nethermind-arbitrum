@@ -114,17 +114,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     }
 
     /// <summary>
-    /// Consume gas for code deposit. Tracks as StorageGrowth resource since it writes new code to state.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ConsumeCodeDeposit(ref ArbitrumGasPolicy gas, int codeLength)
-    {
-        long cost = GasCostOf.CodeDeposit * codeLength;
-        EthereumGasPolicy.ConsumeCodeDeposit(ref gas._ethereum, codeLength);
-        gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)cost);
-    }
-
-    /// <summary>
     /// Consume gas for SelfDestruct operation.
     /// </summary>
     public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
