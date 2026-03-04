@@ -29,22 +29,57 @@ public class ArbitrumInitializeStylusNative(IStylusTargetConfig config, ILogMana
     private void VerifyStylusNativeLibrary()
     {
         string localTarget = StylusTargets.GetLocalTargetName();
+        string rid = GetRuntimeIdentifier();
+        string libraryFileName = GetExpectedLibraryFileName();
 
-        if (!NativeLibrary.TryLoad(StylusLibraryName, typeof(StylusNative).Assembly,
+        // Try loading from assembly directory first (standard .NET resolution)
+        if (NativeLibrary.TryLoad(StylusLibraryName, typeof(StylusNative).Assembly,
                 DllImportSearchPath.AssemblyDirectory, out nint handle))
         {
-            string expectedFile = GetExpectedLibraryFileName();
-            throw new InvalidOperationException(
-                $"Failed to load Stylus native library for target '{localTarget}'. " +
-                $"Ensure the Nethermind.Arbitrum.Stylus NuGet package is correctly installed " +
-                $"and the native library for your platform is present. " +
-                $"Expected file: runtimes/{localTarget}/native/{expectedFile}");
+            NativeLibrary.Free(handle);
+            if (_logger.IsInfo)
+                _logger.Info($"Stylus native library verified for {localTarget}");
+            return;
         }
 
-        NativeLibrary.Free(handle);
+        // Try loading from runtimes/{RID}/native/ subdirectory (NuGet package layout)
+        string? assemblyDir = Path.GetDirectoryName(typeof(StylusNative).Assembly.Location);
+        if (assemblyDir is not null)
+        {
+            string runtimePath = Path.Combine(assemblyDir, "runtimes", rid, "native", libraryFileName);
+            if (NativeLibrary.TryLoad(runtimePath, out handle))
+            {
+                NativeLibrary.Free(handle);
+                if (_logger.IsInfo)
+                    _logger.Info($"Stylus native library verified for {localTarget} from {runtimePath}");
+                return;
+            }
+        }
 
-        if (_logger.IsInfo)
-            _logger.Info($"Stylus native library verified for {localTarget}");
+        throw new InvalidOperationException(
+            $"Failed to load Stylus native library for target '{localTarget}'. " +
+            $"Ensure the Nethermind.Arbitrum.Stylus NuGet package is correctly installed " +
+            $"and the native library for your platform is present. " +
+            $"Expected file: runtimes/{rid}/native/{libraryFileName}");
+    }
+
+    private static string GetRuntimeIdentifier()
+    {
+        string arch = RuntimeInformation.OSArchitecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.Arm64 => "arm64",
+            _ => throw new PlatformNotSupportedException($"Unsupported architecture: {RuntimeInformation.OSArchitecture}")
+        };
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return $"win-{arch}";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            return $"osx-{arch}";
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            return $"linux-{arch}";
+
+        throw new PlatformNotSupportedException($"Unsupported operating system");
     }
 
     private static string GetExpectedLibraryFileName() =>
