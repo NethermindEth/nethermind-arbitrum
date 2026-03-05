@@ -232,8 +232,6 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
             ulong maxWeight = constraint.MaxWeight;
 
             ulong divisor = ((ulong)adjustmentWindow).SaturateMul(target).SaturateMul(maxWeight);
-            if (divisor == 0)
-                throw new InvalidOperationException($"Invalid multi-gas constraint at index {i}: divisor is zero (target={target}, window={adjustmentWindow}, maxWeight={maxWeight})");
 
             // Direct loop instead of UsedResources() iterator to avoid allocation
             for (int kindIndex = 0; kindIndex < MultiGas.NumResourceKinds; kindIndex++)
@@ -243,6 +241,8 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
                     continue;
 
                 long dividend = backlog.SaturateMul(weight).SaturateMul(Utils.BipsMultiplier).ToLongSafe();
+                if (divisor == 0)
+                    throw new InvalidOperationException($"Invalid multi-gas constraint at index {i}: divisor is zero (target={target}, window={adjustmentWindow}, maxWeight={maxWeight})");
                 long exp = dividend / divisor.ToLongSafe();
                 exponentPerKind[kindIndex] = Utils.SaturatingSignedAdd(exponentPerKind[kindIndex], exp);
             }
