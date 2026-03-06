@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -549,30 +548,40 @@ public sealed class ArbitrumExecutionEngine(
             if (builtBlock.Hash is null)
                 return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
-            // Sometimes, it seems RecordBlockCreation is called slightly before the actual block is finalized/committed to the database.
-            // So we need to wait for the block to be available in the database.
-            Hash256? canonicalHash = null;
-            Stopwatch sw = Stopwatch.StartNew();
-            while (sw.ElapsedMilliseconds <= arbitrumConfig.MessageLagMs)
+            TaskCompletionSource<Hash256> blockAddedTcs = new();
+
+            void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
             {
-                canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
-
-                if (canonicalHash is null)
-                {
-                    await Task.Delay(10);
-                    continue;
-                }
-
-                break;
+                if (e.Block.Number == blockNumber)
+                    blockAddedTcs.TrySetResult(e.Block.Hash!);
             }
 
-            if (canonicalHash is null)
-                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
-            else if (canonicalHash != builtBlock.Hash)
-                return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+            BlockTree.BlockAddedToMain += OnBlockAddedToMain;
 
-            RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
-            return ResultWrapper<RecordResult>.Success(result);
+            try
+            {
+                // Check immediately in case the block was committed before we subscribed
+                Hash256? canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+                if (canonicalHash is null)
+                {
+                    using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+                    canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
+                }
+
+                if (canonicalHash != builtBlock.Hash)
+                    return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+                RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+                return ResultWrapper<RecordResult>.Success(result);
+            }
+            catch (OperationCanceledException)
+            {
+                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+            }
+            finally
+            {
+                BlockTree.BlockAddedToMain -= OnBlockAddedToMain;
+            }
         }
     }
 
