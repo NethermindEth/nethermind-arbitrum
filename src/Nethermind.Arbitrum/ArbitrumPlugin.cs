@@ -253,12 +253,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
 
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
-            .AddSingleton<IWasmStore>(context =>
-            {
-                IWasmDb wasmDb = context.Resolve<IWasmDb>();
-                IStylusTargetConfig stylusTargetConfig = context.Resolve<IStylusTargetConfig>();
-                return new WasmStore(wasmDb, stylusTargetConfig, cacheTag: 1);
-            })
+            .AddSingleton<IWasmStore, IWasmDb, IStylusTargetConfig>((db, config) => new WasmStore(db, config, cacheTag: 1))
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
