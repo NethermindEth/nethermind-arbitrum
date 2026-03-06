@@ -43,7 +43,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
         private Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
-        private Mock<StateReconstructor> _stateReconstructor = null!;
+        private Mock<IStateReconstructor> _stateReconstructor = null!;
         [SetUp]
         public void Setup()
         {
@@ -58,7 +58,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
             _witnessGeneratingBlockProcessingEnvFactory = new Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
-            _stateReconstructor = new Mock<StateReconstructor>();
+            _stateReconstructor = new Mock<IStateReconstructor>();
 
             ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();

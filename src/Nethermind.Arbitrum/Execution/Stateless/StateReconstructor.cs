@@ -24,7 +24,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor
+public class StateReconstructor : IStateReconstructor
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly IBlockTree _blockTree;

@@ -40,7 +40,7 @@ public sealed class ArbitrumExecutionEngine(
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
     IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
-    StateReconstructor stateReconstructor,
+    IStateReconstructor stateReconstructor,
     IBlocksConfig blocksConfig)
     : IArbitrumExecutionEngine
 {
