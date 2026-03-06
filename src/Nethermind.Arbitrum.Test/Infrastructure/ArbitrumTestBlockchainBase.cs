@@ -213,9 +213,9 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         {
             using IDisposable dispose = worldState.BeginScope(genesisBlock?.Header ?? IWorldState.PreGenesis);
 
-            worldState.CreateAccount(TestItem.AddressA, 100.Ether());
-            worldState.CreateAccount(TestItem.AddressB, 200.Ether());
-            worldState.CreateAccount(TestItem.AddressC, 300.Ether());
+            worldState.CreateAccount(TestItem.AddressA, 100.Ether);
+            worldState.CreateAccount(TestItem.AddressB, 200.Ether);
+            worldState.CreateAccount(TestItem.AddressC, 300.Ether);
             worldState.CreateAccount(TestItem.AddressD, 0, 0);
             byte[] byteCode = Bytes.FromHexString("0x1234567890");
             worldState.InsertCode(TestItem.AddressD, Keccak.Compute(byteCode), byteCode, SpecProvider.GenesisSpec);

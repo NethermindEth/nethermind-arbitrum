@@ -70,7 +70,7 @@ public class StylusEvmDataTests
         TestContext context = SetupTestContext();
         Address eoa = FullChainSimulationAccounts.AccountA.Address;
 
-        context.Chain.PrefundAccount(eoa, 1.Ether()).Should()
+        context.Chain.PrefundAccount(eoa, 1.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(context.Chain, [StatusCode.Success, StatusCode.Success]);
 
@@ -139,7 +139,7 @@ public class StylusEvmDataTests
     {
         TestContext context = SetupTestContext();
         Address accountToCheck = FullChainSimulationAccounts.AccountB.Address;
-        UInt256 expectedBalance = 5.Ether();
+        UInt256 expectedBalance = 5.Ether;
 
         context.Chain.PrefundAccount(accountToCheck, expectedBalance).Should()
             .RequestSucceed().And
@@ -166,7 +166,7 @@ public class StylusEvmDataTests
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
-        chain.PrefundAccount(sender, 1000.Ether()).Should()
+        chain.PrefundAccount(sender, 1000.Ether).Should()
             .RequestSucceed().And
             .TransactionStatusesBe(chain, [StatusCode.Success, StatusCode.Success]);
 

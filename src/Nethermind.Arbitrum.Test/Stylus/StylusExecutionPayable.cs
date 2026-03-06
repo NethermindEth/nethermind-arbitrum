@@ -54,7 +54,7 @@ public class StylusExecutionPayable
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallPayableSignature, counterContract, GetPayableCalldata))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(650007)
                 .WithValue(66)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))

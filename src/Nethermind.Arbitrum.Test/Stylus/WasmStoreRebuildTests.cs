@@ -79,7 +79,7 @@ public class WasmStoreRebuildTests
                 .WithType(TxType.EIP1559)
                 .WithTo(contract)
                 .WithData(CounterIncrementCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
