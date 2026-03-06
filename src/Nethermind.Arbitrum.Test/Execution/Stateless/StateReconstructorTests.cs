@@ -302,7 +302,185 @@ public class StateReconstructorTests
         result.Result.Error.Should().Be($"Invalid range: start {start} > end {end}");
     }
 
-    private static ArbitrumRpcTestBlockchain BuildChainWithRecording(SwitchableReadOnlyTrieStore? switchableStore = null)
+    [Test]
+    public async Task PrepareForRecord_ThenRecordBlockCreation_PreparedStateRemainsAvailable()
+    {
+        SwitchableReadOnlyTrieStore switchableStore = new();
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
+
+        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
+        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+
+        ulong prepareStart = 14;
+        ulong prepareEnd = 17;
+        ResultWrapper<EmptyResponse> prepareResult = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(prepareStart, prepareEnd));
+        prepareResult.Result.Should().Be(Result.Success);
+
+        // PrepareForRecord also includes the parent state (prepareStart-1) so RecordBlockCreation can access it
+        long overlayStart = (long)prepareStart - 1;
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= chain.BlockTree.Head!.Number; blockNum++)
+        {
+            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
+
+            bool shouldBeAvailable = blockNum == (long)chain.GenesisBlockNumber
+                || (blockNum >= overlayStart && blockNum <= (long)prepareEnd);
+
+            trieStore.HasRoot(header.StateRoot!).Should().Be(shouldBeAvailable,
+                $"block {blockNum} state should {(shouldBeAvailable ? "" : "not ")}be available after PrepareForRecord");
+        }
+
+        // RecordBlockCreation for block 18 uses block 17's already-prepared state — no reconstruction needed
+        DigestMessageParameters lastMessage = GetLastDigestedMessage();
+        ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(lastMessage.Index, lastMessage.Message, WasmTargets: []));
+
+        recordResult.Result.Should().Be(Result.Success);
+        recordResult.Data.Preimages.Should().NotBeEmpty();
+
+        // PrepareForRecord-pinned states are unaffected by the RecordBlockCreation
+        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= chain.BlockTree.Head!.Number; blockNum++)
+        {
+            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
+
+            bool shouldBeAvailable = blockNum == (long)chain.GenesisBlockNumber
+                || (blockNum >= overlayStart && blockNum <= (long)prepareEnd);
+
+            trieStore.HasRoot(header.StateRoot!).Should().Be(shouldBeAvailable,
+                $"block {blockNum} state should {(shouldBeAvailable ? "" : "not ")}be available after RecordBlockCreation");
+        }
+    }
+
+    [Test]
+    public void PrepareForRecord_WithSmallMaxStatesPrepared_EvictsOldStates()
+    {
+        SwitchableReadOnlyTrieStore switchableStore = new();
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStatesPrepared: 3);
+
+        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
+        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+
+        // First PrepareForRecord: 4 states [4,5,6,7] prepared but max=3 → block 4 immediately evicted
+        ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(Start: 5, End: 7));
+        firstResult.Result.Should().Be(Result.Success);
+
+        trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeFalse(
+            "block 4 was the oldest in the queue and should have been evicted when max was exceeded");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(5)!.StateRoot!).Should().BeTrue("block 5 should be available");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(6)!.StateRoot!).Should().BeTrue("block 6 should be available");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(7)!.StateRoot!).Should().BeTrue("block 7 should be available");
+
+        // Second PrepareForRecord: 4 more states [9,10,11,12] added → queue [5,6,7,9,10,11,12], keep 3 most recent [10,11,12]
+        ResultWrapper<EmptyResponse> secondResult = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(Start: 10, End: 12));
+        secondResult.Result.Should().Be(Result.Success);
+
+        trieStore.HasRoot(chain.BlockTree.FindHeader(5)!.StateRoot!).Should().BeFalse("block 5 should be evicted");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(6)!.StateRoot!).Should().BeFalse("block 6 should be evicted");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(7)!.StateRoot!).Should().BeFalse("block 7 should be evicted");
+        // Block 9 was reconstructed as an intermediate but wasn't kept: it was enqueued then immediately evicted
+        trieStore.HasRoot(chain.BlockTree.FindHeader(9)!.StateRoot!).Should().BeFalse(
+            "block 9 was evicted as the oldest remaining state after second PrepareForRecord");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(10)!.StateRoot!).Should().BeTrue("block 10 should be available");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(11)!.StateRoot!).Should().BeTrue("block 11 should be available");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(12)!.StateRoot!).Should().BeTrue("block 12 should be available");
+    }
+
+    [Test]
+    public async Task PrepareForRecord_InterleavedWithRecordBlockCreation_MaintainsCorrectAvailability()
+    {
+        SwitchableReadOnlyTrieStore switchableStore = new();
+        // max=5 so the first PrepareForRecord [3,4,5,6,7] fits exactly without eviction
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStatesPrepared: 5);
+
+        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
+        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+
+        // Phase 1: prepare states for blocks 3-7 (PrepareForRecord includes start-1=3)
+        ulong start1 = 4;
+        ulong end1 = 7;
+        ResultWrapper<EmptyResponse> firstPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(start1, end1));
+        firstPrepare.Result.Should().Be(Result.Success);
+
+        DigestMessageParameters lastDigestMsg =  GetLastDigestedMessage();
+        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
+        {
+            if (blockNum == (long)chain.GenesisBlockNumber || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
+                    $"block {blockNum} state should be available after first PrepareForRecord");
+            else
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeFalse(
+                    $"block {blockNum} state should not be available after first PrepareForRecord");
+        }
+
+        // Phase 2: (Unordered) RecordBlockCreation calls reuse prepared states — no reconstruction, prepared states unaffected
+        DigestMessageParameters msg8 = GetDigestedMessage(8);
+        ResultWrapper<RecordResult> record8 = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(msg8.Index, msg8.Message, WasmTargets: []));
+        record8.Result.Should().Be(Result.Success);
+        record8.Data.Preimages.Should().NotBeEmpty();
+
+        DigestMessageParameters msg6 = GetDigestedMessage(6);
+        ResultWrapper<RecordResult> record6 = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(msg6.Index, msg6.Message, WasmTargets: []));
+        record6.Result.Should().Be(Result.Success);
+        record6.Data.Preimages.Should().NotBeEmpty();
+
+        // Prepared states are unchanged after read-only RecordBlockCreations
+        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
+        {
+            if (blockNum == (long)chain.GenesisBlockNumber || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
+                    $"block {blockNum} state should be available after first RecordBlockCreation");
+            else
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeFalse(
+                    $"block {blockNum} state should not be available after first RecordBlockCreation");
+        }
+
+        // Phase 3: second PrepareForRecord prepares [11,12,13,14] → queue [3,4,5,6,7,11,12,13,14], evict 4 oldest [3,4,5,6]
+        ResultWrapper<EmptyResponse> secondPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(Start: 12, End: 14));
+        secondPrepare.Result.Should().Be(Result.Success);
+
+        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
+        {
+            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 7 || blockNum == 11 || blockNum == 12 || blockNum == 13 || blockNum == 14)
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
+                    $"block {blockNum} state should be available after second PrepareForRecord");
+            else
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeFalse(
+                    $"block {blockNum} state should not be available after second PrepareForRecord");
+        }
+
+        // Phase 4: one last RecordBlockCreation call that does not find parent state: reconstructs it temporarily
+        // and evicts it before the call returns. The prepared states remain unaffected.
+        DigestMessageParameters msg7 = GetDigestedMessage(7);
+        ResultWrapper<RecordResult> record7 = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(msg7.Index, msg7.Message, WasmTargets: []));
+        record7.Result.Should().Be(Result.Success);
+        record7.Data.Preimages.Should().NotBeEmpty();
+
+        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
+        {
+            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 7 || blockNum == 11 || blockNum == 12 || blockNum == 13 || blockNum == 14)
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
+                    $"block {blockNum} state should be available after second RecordBlockCreation");
+            else
+                trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeFalse(
+                    $"block {blockNum} state should not be available after second RecordBlockCreation");
+        }
+    }
+
+    private static ArbitrumRpcTestBlockchain BuildChainWithRecording(
+        SwitchableReadOnlyTrieStore? switchableStore = null,
+        int? maxStatesPrepared = null)
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
 
@@ -313,6 +491,9 @@ public class StateReconstructorTests
             builder.WithContainerConfigurer(b => b.AddSingleton<ReconstructedStateTrieStore>(ctx =>
                 new ReconstructedStateTrieStore(new MemDb(), switchableStore.Wrap(ctx.Resolve<IReadOnlyTrieStore>()))));
 
+        if (maxStatesPrepared.HasValue)
+            builder.WithArbitrumConfig(cfg => cfg.ValidatorMaxStatesPrepared = maxStatesPrepared.Value);
+
         // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore
         return builder.Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
     }
@@ -321,6 +502,12 @@ public class StateReconstructorTests
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
         return recording.GetDigestMessages().Last();
+    }
+
+    private static DigestMessageParameters GetDigestedMessage(ulong index)
+    {
+        FullChainSimulationRecordingFile recording = new(RecordingPath);
+        return recording.GetDigestMessages().Single(m => m.Index == index);
     }
 
     /// <summary>
