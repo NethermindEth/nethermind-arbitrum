@@ -100,7 +100,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
             {
                 builder.AddScoped<IStylusTargetConfig>(_ => new StylusTargetConfig() { OverrideWasmTargets = wasmTargets });
                 // Need to redeclare IWasmStore because it was originally declared as a singleton and therefore was cached with original IStylusTargetConfig
-                builder.AddScoped<IWasmStore>(ctx => new WasmStore(ctx.Resolve<IWasmDb>(), ctx.Resolve<IStylusTargetConfig>(), cacheTag: 1));
+                builder.AddScoped<IWasmStore, IWasmDb, IStylusTargetConfig>((db, config) => new WasmStore(db, config, cacheTag: 1));
             }
 
             builder
