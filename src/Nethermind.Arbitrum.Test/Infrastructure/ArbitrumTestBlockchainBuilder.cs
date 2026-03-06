@@ -82,12 +82,14 @@ public class ArbitrumTestBlockchainBuilder
         return this;
     }
 
-    public ArbitrumRpcTestBlockchain Build()
+    public ArbitrumRpcTestBlockchain Build(Action<ArbitrumRpcTestBlockchain>? afterBuild = null)
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(configurer: _configurer, chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
 
         foreach (Action<ArbitrumRpcTestBlockchain> configuration in _configurations)
             configuration(chain);
+
+        afterBuild?.Invoke(chain);
 
         return chain;
     }
