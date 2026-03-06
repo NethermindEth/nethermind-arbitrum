@@ -37,6 +37,7 @@ TestKeepaliveAndRetryableExpiry
 TestL1PricingRewardRate
 TestL1PricingRewardRecipient
 TestLogSubscription
+TestMultigasDataCanBeDisabled
 TestMultigasDataFromReceipts
 TestNitroNodeVersionAlerter
 TestOutboxProofs
