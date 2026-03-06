@@ -168,6 +168,8 @@ def start_nethermind(
         f"--Init.LogFileName={config_name}-{port}.log",  # Unique log per worker
         "--log",
         "debug",
+        # Enable MultiGas exposure in receipts for comparison testing
+        "--Arbitrum.ExposeMultiGas=true",
     ]
 
     stdout_target: int | TextIO = log_file if log_file else subprocess.DEVNULL

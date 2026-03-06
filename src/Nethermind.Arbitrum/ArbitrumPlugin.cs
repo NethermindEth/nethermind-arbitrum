@@ -12,6 +12,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -119,7 +120,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         // Register nitroexecution namespace
-        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine);
+        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine, _api.LogManager);
         _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
@@ -191,6 +192,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
+        // Register Arbitrum-specific RLP decoders (receipts with MultiGas support)
+        Rlp.RegisterDecoders(typeof(ArbitrumReceiptStorageDecoder).Assembly, true);
+
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
