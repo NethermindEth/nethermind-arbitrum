@@ -29,6 +29,12 @@ public class ArbitrumTxExecutionContext
     public MultiGas AccumulatedMultiGas { get; set; }
 
     /// <summary>
+    /// The effective gas price for the current transaction, calculated during processing.
+    /// For internal Arbitrum transactions, this is the block's effective base fee.
+    /// </summary>
+    public UInt256 EffectiveGasPrice { get; set; }
+
+    /// <summary>
     /// Resets the context for the next transaction.
     /// </summary>
     public void Reset()
@@ -40,5 +46,6 @@ public class ArbitrumTxExecutionContext
         ComputeHoldGas = 0;
         TopLevelTxType = ArbitrumTxType.EthLegacy;
         AccumulatedMultiGas = default;
+        EffectiveGasPrice = UInt256.Zero;
     }
 }

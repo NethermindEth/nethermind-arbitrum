@@ -104,6 +104,17 @@ namespace Nethermind.Arbitrum.Execution
             // If not doing any actual EVM
             if (!preProcessResult.ContinueProcessing)
             {
+                // For internal transactions that skip EVM, set AccumulatedMultiGas
+                // based on the gas that will be reported (from SpentGas or OverrideSpentGas)
+                long gasUsed = tx.SpentGas;
+                if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
+                    gasUsed = arbTx.OverrideSpentGas.Value;
+
+                // All gas for internal transactions is attributed to Computation
+                var multiGas = new MultiGas();
+                multiGas.Increment(ResourceKind.Computation, (ulong)gasUsed);
+                TxExecContext.AccumulatedMultiGas = multiGas;
+
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, snapshot,
                     isPreProcessing: true, preProcessResult.Logs);
             }
@@ -113,6 +124,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Don't pass execution options as we don't want to commit / restore at this stage
             ExecutionOptions filteredOpts = opts & ~(ExecutionOptions.Restore | ExecutionOptions.Commit);
+
             TransactionResult evmResult = base.Execute(tx, tracer, filteredOpts);
 
             // Post-processing changes the state - run only if EVM execution actually proceeded
@@ -140,6 +152,38 @@ namespace Nethermind.Arbitrum.Execution
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
             _currentSpec = GetSpec(_currentHeader);
+
+            // Set effective gas price using the block's effective base fee.
+            // Nitro's Arbitrum transaction types (ArbitrumUnsigned, ArbitrumContract, ArbitrumRetry, etc.)
+            // all return baseFee directly from their effectiveGasPrice() method, ignoring the tx's gas params.
+            // Only standard EVM transactions use the EIP-1559 calculation.
+            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
+
+            // Match Nitro's behavior for EffectiveGasPrice:
+            // - ArbitrumTransaction types always return baseFee directly
+            // - Regular EVM transactions apply ShouldDropTip logic: if dropping tip, use baseFee
+            if (tx is ArbitrumTransaction)
+            {
+                TxExecContext.EffectiveGasPrice = effectiveBaseFee;
+            }
+            else
+            {
+                // Calculate using EIP-1559 formula first
+                UInt256 calculatedPrice = tx.CalculateEffectiveGasPrice(_currentSpec.IsEip1559Enabled, effectiveBaseFee);
+
+                // Apply ShouldDropTip logic (same as in CalculateEffectiveGasPrice override)
+                // arbosState is not yet initialized here, so we use arbosVersion from startTx or default
+                if (calculatedPrice > effectiveBaseFee)
+                {
+                    // Drop tip: use baseFee directly (matches Nitro's behavior in most cases)
+                    // This aligns with ShouldDropTip returning true in typical scenarios
+                    TxExecContext.EffectiveGasPrice = effectiveBaseFee;
+                }
+                else
+                {
+                    TxExecContext.EffectiveGasPrice = calculatedPrice;
+                }
+            }
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx,
@@ -241,6 +285,11 @@ namespace Nethermind.Arbitrum.Execution
             // Use GetTotalAccumulated() to get net gas (accumulated - retained)
             ArbitrumGasPolicy gasWithRefund = unspentGas;
             ArbitrumGasPolicy.ApplyRefund(ref gasWithRefund, (ulong)System.Math.Max(0, refund));
+
+            // Get accumulated MultiGas from the policy (includes VM's burner gas via AddToAccumulated)
+            // Note: Transaction processor's _arbosState burner gas is NOT added here because
+            // those operations (L1 pricing updates, etc.) happen before EVM and are not counted
+            // in Nitro's MultiGasUsed for receipts.
             TxExecContext.AccumulatedMultiGas = gasWithRefund.GetTotalAccumulated();
 
             long operationGas = spentGas;
@@ -1075,9 +1124,12 @@ namespace Nethermind.Arbitrum.Execution
             // Preserve intrinsic gas MultiGas breakdown and add poster gas to L1Calldata.
             // This ensures intrinsic gas (computation, L2 calldata, etc.) plus L1 costs are tracked.
             MultiGas accumulated = intrinsicGas.GetAccumulated();
+
             if (gasNeededToStartEVM > 0)
                 accumulated.Increment(ResourceKind.L1Calldata, gasNeededToStartEVM);
+
             gasAvailable = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasLeft, in accumulated);
+
             return TransactionResult.Ok;
         }
 
