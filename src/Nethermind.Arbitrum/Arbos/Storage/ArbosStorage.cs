@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -37,7 +38,7 @@ public class ArbosStorage
 
     public ValueHash256 Get(ValueHash256 key)
     {
-        _burner.Burn(StorageReadCost);
+        _burner.Burn(ResourceKind.StorageAccess, StorageReadCost);
         ValueHash256 mappedAddress = MapAddress(key);
         _burner.TracingInfo?.RecordStorageGet(mappedAddress);
         return GetFreeInternal(mappedAddress);
@@ -74,7 +75,7 @@ public class ArbosStorage
     public void Set(ValueHash256 key, ValueHash256 value)
     {
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
-        _burner.Burn(cost);
+        _burner.Burn(ResourceKind.StorageAccess, cost);
 
         ValueHash256 mappedAddress = MapAddress(key);
         _burner.TracingInfo?.RecordStorageSet(mappedAddress, value);
