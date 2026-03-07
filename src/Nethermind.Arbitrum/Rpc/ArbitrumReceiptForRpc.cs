@@ -27,6 +27,11 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
 
         if (receipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
             MultiGasUsed = multiGas.ToJson();
+
+        // Use the stored EffectiveGasPrice from the receipt (calculated during block processing)
+        // instead of TxGasInfo which may be 0 for internal Arbitrum transactions
+        if (receipt.EffectiveGasPrice > 0)
+            EffectiveGasPrice = receipt.EffectiveGasPrice;
     }
 
     public ArbitrumReceiptForRpc(
@@ -42,6 +47,11 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
 
             if (arbitrumReceipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
                 MultiGasUsed = multiGas.ToJson();
+
+            // Use the stored EffectiveGasPrice from the receipt (calculated during block processing)
+            // instead of TxGasInfo which may be 0 for internal Arbitrum transactions
+            if (arbitrumReceipt.EffectiveGasPrice > 0)
+                EffectiveGasPrice = arbitrumReceipt.EffectiveGasPrice;
         }
     }
 

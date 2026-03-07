@@ -41,7 +41,9 @@ using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 using Nethermind.Serialization.Rlp;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
@@ -66,6 +68,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     {
         _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
+
+        // Register polymorphic JSON converter for receipts to ensure ArbitrumReceiptForRpc
+        // properties (GasUsedForL1, MultiGasUsed) are serialized correctly
+        EthereumJsonSerializer.AddConverter(new ReceiptForRpcPolymorphicConverter());
 
         // Load Arbitrum-specific configuration from chainspec
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider

@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Stylus;
@@ -71,9 +72,11 @@ public record ArbitrumPrecompileExecutionContext(
     public bool IsMethodCalledPure { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
+    public MultiGas BurnedMultiGas => _burnedMultiGas;
     public IArbitrumSpecHelper? SpecHelper { get; init; }
 
     private ulong _gasLeft = GasSupplied;
+    private MultiGas _burnedMultiGas;
 
     public void Burn(ulong amount)
     {
@@ -84,6 +87,19 @@ public record ArbitrumPrecompileExecutionContext(
         else
         {
             GasLeft -= amount;
+        }
+    }
+
+    public void Burn(ResourceKind kind, ulong amount)
+    {
+        if (GasLeft < amount)
+        {
+            BurnOut();
+        }
+        else
+        {
+            GasLeft -= amount;
+            _burnedMultiGas.Increment(kind, amount);
         }
     }
 

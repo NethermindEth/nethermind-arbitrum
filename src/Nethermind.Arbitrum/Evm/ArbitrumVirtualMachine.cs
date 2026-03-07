@@ -68,12 +68,15 @@ public sealed unsafe class ArbitrumVirtualMachine(
         wasmStore.ResetPages();
 
         _systemBurner = new SystemBurner();
-        FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
+        // Use ZeroGasBurner for FreeArbosState - it's a "free" state like Nitro's OpenSystemArbosState
+        // which creates a new burner each time that doesn't flow to receipt's MultiGasUsed
+        FreeArbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), Logger);
 
         TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
 
-        // Capture accumulated MultiGas for receipt
-        ArbitrumTxExecutionContext.AccumulatedMultiGas = vmState.Gas.GetAccumulated();
+        // Add gas burned by ArbOS storage operations (via IBurner) to the policy's accumulated,
+        // so it flows through to GetTotalAccumulated() when the transaction processor calculates the final gas.
+        ArbitrumGasPolicy.AddToAccumulated(ref vmState.Gas, _systemBurner.BurnedMultiGas);
 
         return result;
     }
@@ -496,11 +499,18 @@ public sealed unsafe class ArbitrumVirtualMachine(
             SpecHelper = specHelper,
         };
 
-        return precompile.IsDebug
+        CallResult result = precompile.IsDebug
             ? DebugPrecompileCall(state, context, precompile)
             : precompile.IsOwner
                 ? OwnerPrecompileCall(state, context, precompile)
                 : NonOwnerPrecompileCall(state, context, precompile);
+
+        // Aggregate precompile context's burned MultiGas into systemBurner for receipt tracking
+        // Skip for owner precompiles - they don't charge multigas (Nitro returns multigas.ZeroGas())
+        if (!precompile.IsOwner)
+            _systemBurner.AddBurnedMultiGas(context.BurnedMultiGas);
+
+        return result;
     }
 
     private CallResult DebugPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
@@ -520,6 +530,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult OwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
+        // Save BurnedMultiGas before owner check - owner precompiles don't charge multigas
+        // (Nitro creates a separate burner and returns multigas.ZeroGas() for owner precompiles)
+        MultiGas savedMultiGas = _systemBurner.BurnedMultiGas;
+
         ulong before = _systemBurner.Burned;
         bool isSenderAChainOwner = FreeArbosState.ChainOwners.IsMember(context.Caller);
         // We also simulate burning opening arbos (1 storage read) but we reuse the existing one for performances
@@ -527,6 +541,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         if (gasUsed > context.GasLeft)
         {
+            // Restore BurnedMultiGas - owner precompile check shouldn't count toward multigas
+            _systemBurner.RestoreBurnedMultiGas(in savedMultiGas);
             ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
             return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
             {
@@ -536,6 +552,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         if (!isSenderAChainOwner)
         {
+            // Restore BurnedMultiGas - owner precompile check shouldn't count toward multigas
+            _systemBurner.RestoreBurnedMultiGas(in savedMultiGas);
             context.Burn(gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
 
             if (Logger.IsTrace)
@@ -549,6 +567,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         CallResult result = NonOwnerPrecompileCall(state, context, precompile);
+
+        // Restore BurnedMultiGas - owner precompiles don't charge multigas (Nitro returns multigas.ZeroGas())
+        _systemBurner.RestoreBurnedMultiGas(in savedMultiGas);
 
         ReturnSomeGas(state, context.GasSupplied);
         if (Logger.IsTrace)
@@ -996,12 +1017,14 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private static void ConsumeAllGas(VmState<ArbitrumGasPolicy> state)
     {
-        state.Gas = ArbitrumGasPolicy.FromLong(0);
+        // Preserve accumulated MultiGas for receipt tracking
+        state.Gas = ArbitrumGasPolicy.FromLongWithAccumulated(0, state.Gas.GetAccumulated());
     }
 
     private static void ReturnSomeGas(VmState<ArbitrumGasPolicy> state, ulong gasToReturn)
     {
-        state.Gas = ArbitrumGasPolicy.FromLong((long)gasToReturn);
+        // Preserve accumulated MultiGas for receipt tracking
+        state.Gas = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasToReturn, state.Gas.GetAccumulated());
     }
 
     private readonly record struct PrecompileOutcome(
