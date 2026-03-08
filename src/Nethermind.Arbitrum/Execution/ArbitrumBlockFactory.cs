@@ -16,6 +16,11 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution;
 
+public class ArbitrumBlockFactoryErrors
+{
+    public const int CreateBlockMutexHeld = -50000;
+}
+
 public class ArbitrumBlockFactory(
     IBlockTree blockTree,
     IBlockProcessingQueue processingQueue,
@@ -33,7 +38,7 @@ public class ArbitrumBlockFactory(
     {
         // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<Block>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
+            return ResultWrapper<Block>.Fail("CreateBlock mutex held.", ArbitrumBlockFactoryErrors.CreateBlockMutexHeld);
 
         try
         {

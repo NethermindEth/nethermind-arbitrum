@@ -334,12 +334,11 @@ public sealed class ArbitrumExecutionEngine(
         transactionQueue ??= new(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult);
 
         _sequencerEngine = new ArbitrumSequencerEngine(
+            arbitrumBlockFactory,
             BlockTree,
-            trigger,
             specHelper,
             delayedMessageQueue,
             sequencerState,
-            _createBlocksSemaphore,
             cachedL1PriceData,
             logManager,
             arbitrumConfig,
