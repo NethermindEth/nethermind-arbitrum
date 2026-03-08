@@ -682,7 +682,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (outputGasCost > context.GasLeft)
             return new(ShouldRevert: true, GasLeft: 0L, RanOutOfGas: true);
 
-        context.Burn(outputGasCost);
+        // Precompile output data gas is charged as Computation (matches Nitro precompile.go:856)
+        context.Burn(ResourceKind.Computation, outputGasCost);
         return new(ShouldRevert: !success, GasLeft: context.GasLeft, RanOutOfGas: false);
     }
 
