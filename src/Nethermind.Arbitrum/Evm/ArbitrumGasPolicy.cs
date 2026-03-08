@@ -302,6 +302,18 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     }
 
     /// <summary>
+    /// Charges gas for code deposit during contract creation (CREATE/CREATE2).
+    /// Tracks as StorageGrowth resource since it represents writing contract bytecode to state storage.
+    /// This matches Nitro's multigas categorization where createDataGas goes to StorageGrowthGas.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ConsumeCodeDepositGas(ref ArbitrumGasPolicy gas, long cost)
+    {
+        EthereumGasPolicy.Consume(ref gas._ethereum, cost);
+        gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)cost);
+    }
+
+    /// <summary>
     /// Charges gas for LOG emission with topic and data costs.
     /// Splits gas between Computation and HistoryGrowth.
     /// </summary>
