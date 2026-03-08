@@ -80,6 +80,11 @@ public class ArbitrumBlockTree(
         // Uses protected setter from BlockTree base class (no reflection needed)
         Genesis = null;
 
+        // Reset internal BlockTree state (Head, BestKnownNumber, BestSuggestedHeader, etc.)
+        // This is critical because after clearing databases, these cached values
+        // point to blocks that no longer exist, causing block processing to fail
+        ResetInternalState();
+
         // Clear store caches using the IClearableCache interface
         (_headerStoreRef as IClearableCache)?.ClearCache();
         (_blockStoreRef as IClearableCache)?.ClearCache();
