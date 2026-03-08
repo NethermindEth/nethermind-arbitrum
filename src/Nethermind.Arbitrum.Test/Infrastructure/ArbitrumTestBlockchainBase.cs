@@ -251,7 +251,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<IUnclesValidator>(Always.Valid)
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
             .AddSingleton<ArbitrumInitializeStylusNative>()
-            .AddSingleton<ArbitrumInitializeWasmDb>();
+            .AddSingleton<ArbitrumInitializeWasmDb>()
+            .AddSingleton<IManualBlockProductionTrigger>(BlockProductionTrigger);
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)

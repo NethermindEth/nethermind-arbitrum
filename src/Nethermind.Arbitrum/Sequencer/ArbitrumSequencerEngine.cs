@@ -250,6 +250,7 @@ public class ArbitrumSequencerEngine(
             // Return auction resolution tx to queue for retry
             if (auctionResolutionQueue is not null)
                 await auctionResolutionQueue.Writer.WriteAsync(item);
+
             return null;
         }
 
@@ -261,6 +262,7 @@ public class ArbitrumSequencerEngine(
         {
             if (_logger.IsError)
                 _logger.Error($"Error creating block with auction resolution tx: {ex.Message}", ex);
+
             item.ReturnResult(ex);
             return null;
         }

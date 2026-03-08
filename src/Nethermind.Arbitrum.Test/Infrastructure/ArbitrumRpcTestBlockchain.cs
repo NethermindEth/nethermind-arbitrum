@@ -16,6 +16,7 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
+using Nethermind.Consensus.Producers;
 using Nethermind.Db.LogIndex;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -298,15 +299,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         ArbitrumExecutionEngine engine = new(
             chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
             chain.BlockTree,
-            chain.BlockProductionTrigger,
+            chain.Container.Resolve<IManualBlockProductionTrigger>(),
             chain.ChainSpec,
             chain.Dependencies.SpecHelper,
             chain.LogManager,
             chain.Dependencies.CachedL1PriceData,
-            chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IBlocksConfig>(),
-            chain.Container.Resolve<IStateReader>());
+            chain.Container.Resolve<IStateReader>(),
+            chain.Container.Resolve<ArbitrumBlockFactory>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 

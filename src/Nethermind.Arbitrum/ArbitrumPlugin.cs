@@ -306,6 +306,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
+            .AddSingleton<ArbitrumBlockFactory>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
