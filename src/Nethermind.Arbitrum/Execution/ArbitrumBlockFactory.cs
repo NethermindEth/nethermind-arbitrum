@@ -29,28 +29,31 @@ public class ArbitrumBlockFactory(
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
 
-    public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(long blockNumber, MessageWithMetadata message)
+    public async Task<ResultWrapper<Block>> DigestMessageAsync(long blockNumber, MessageWithMetadata message)
     {
-        ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtBlockNumberAsync(blockNumber);
-        if (resultAtMessageIndex.Result == Result.Success)
-            return resultAtMessageIndex;
-
         // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
+            return ResultWrapper<Block>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
 
         try
         {
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
-
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
-                return ResultWrapper<MessageResult>.Fail(
-                    $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+                return ResultWrapper<Block>.Fail($"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
+
+            ArbitrumPayloadAttributes payload = new()
+            {
+                MessageWithMetadata = message,
+                Number = blockNumber,
+                PreviousArbosVersion = headBlockHeader != null
+                    ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, _logger).ArbOSFormatVersion
+                    : 0
+            };
 
             if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(message, blockNumber, headBlockHeader);
+                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(payload, headBlockHeader);
 
-            return await ProduceBlockWhileLockedAsync(message, blockNumber, headBlockHeader);
+            return await ProduceBlockWhileLockedAsync(payload, headBlockHeader);
         }
         finally
         {
@@ -58,10 +61,10 @@ public class ArbitrumBlockFactory(
         }
     }
 
-    public async Task<ResultWrapper<MessageResult[]>> ReorgAsync(long blockNumber, MessageWithMetadataAndBlockInfo[] newMessages)
+    public async Task<ResultWrapper<Block[]>> ReorgAsync(long blockNumber, MessageWithMetadataAndBlockInfo[] newMessages)
     {
         if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<MessageResult[]>.Fail("CreateBlock mutex held", ErrorCodes.InternalError);
+            return ResultWrapper<Block[]>.Fail("CreateBlock mutex held", ErrorCodes.InternalError);
 
         try
         {
@@ -70,12 +73,12 @@ public class ArbitrumBlockFactory(
             // 4. Validate target block exists
             BlockHeader? currentHead = blockTree.Head?.Header;
             if (currentHead is null || lastBlockNumToKeep > currentHead.Number)
-                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
+                return ResultWrapper<Block[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
 
             // 5. Find the target block
             Block? blockToKeep = blockTree.FindBlock(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
             if (blockToKeep is null)
-                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
+                return ResultWrapper<Block[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
 
             // 6. Clear safe/finalized blocks if below reorg target
             BlockHeader? safeBlock = blockTree.FindSafeHeader();
@@ -96,31 +99,33 @@ public class ArbitrumBlockFactory(
             blockTree.UpdateMainChain([blockToKeep], wereProcessed: true, forceHeadBlock: true);
 
             // 9. Process new messages using simpler block production (no event waiting after reorg)
-            MessageResult[] messageResults = new MessageResult[newMessages.Length];
+            Block[] messageResults = new Block[newMessages.Length];
             for (int i = 0; i < newMessages.Length; i++)
             {
                 MessageWithMetadataAndBlockInfo message = newMessages[i];
                 BlockHeader headBlockHeader = blockTree.Head!.Header;
+                ArbitrumPayloadAttributes payload = new()
+                {
+                    MessageWithMetadata = message.MessageWithMeta,
+                    Number = headBlockHeader.Number + 1,
+                    PreviousArbosVersion = ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, _logger).ArbOSFormatVersion
+                };
 
-                ResultWrapper<MessageResult> blockResult = await ProduceBlockWithoutWaitingOnProcessingQueueAsync(
-                    message.MessageWithMeta,
-                    headBlockHeader.Number + 1,
-                    headBlockHeader);
-
+                ResultWrapper<Block> blockResult = await ProduceBlockWithoutWaitingOnProcessingQueueAsync(payload, headBlockHeader);
                 if (blockResult.Result != Result.Success)
-                    return ResultWrapper<MessageResult[]>.Fail(blockResult.Result.Error ?? "Unknown error producing block", blockResult.ErrorCode);
+                    return ResultWrapper<Block[]>.Fail(blockResult.Result.Error ?? "Unknown error producing block", blockResult.ErrorCode);
 
                 messageResults[i] = blockResult.Data;
             }
 
             // 10. Return results
-            return ResultWrapper<MessageResult[]>.Success(messageResults);
+            return ResultWrapper<Block[]>.Success(messageResults);
         }
         catch (Exception ex)
         {
             if (_logger.IsError)
                 _logger.Error($"Error processing Reorg for block number {blockNumber}: {ex.Message}", ex);
-            return ResultWrapper<MessageResult[]>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
+            return ResultWrapper<Block[]>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
         }
         finally
         {
@@ -128,42 +133,24 @@ public class ArbitrumBlockFactory(
         }
     }
 
-    private async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    private async Task<ResultWrapper<Block>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
-        ArbitrumPayloadAttributes payload = new()
-        {
-            MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber,
-            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, _logger).ArbOSFormatVersion : 0
-        };
-
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
             if (block?.Hash is null)
-                return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                return ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
-            return ResultWrapper<MessageResult>.Success(new MessageResult
-            {
-                BlockHash = block.Hash!,
-                SendRoot = GetSendRootFromBlock(block)
-            });
+            return ResultWrapper<Block>.Success(block);
         }
         catch (TimeoutException)
         {
-            return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+            return ResultWrapper<Block>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
     }
 
-    private async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    private async Task<ResultWrapper<Block>> ProduceBlockWhileLockedAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
-        ArbitrumPayloadAttributes payload = new()
-        {
-            MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber,
-            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, _logger).ArbOSFormatVersion : 0
-        };
-
         void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
         {
             if (e.Block.Hash is null)
@@ -186,9 +173,9 @@ public class ArbitrumBlockFactory(
 
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
+            Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
             if (block?.Hash is null)
-                return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+                return ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
 
             TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
             TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
@@ -202,14 +189,10 @@ public class ArbitrumBlockFactory(
             if (resultArgs.ProcessingResult != ProcessingResult.Exception)
                 return resultArgs.ProcessingResult switch
                 {
-                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
-                    {
-                        BlockHash = block.Hash!,
-                        SendRoot = GetSendRootFromBlock(block)
-                    }),
-                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.",
+                    ProcessingResult.Success => ResultWrapper<Block>.Success(block),
+                    ProcessingResult.ProcessingError => ResultWrapper<Block>.Fail(resultArgs.Message ?? "Block processing failed.",
                         ErrorCodes.InternalError),
-                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}",
+                    _ => ResultWrapper<Block>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}",
                         ErrorCodes.InternalError)
                 };
             BlockchainException exception = new(
@@ -219,12 +202,12 @@ public class ArbitrumBlockFactory(
             if (_logger.IsError)
                 _logger.Error($"Block processing failed for {block.Hash}", exception);
 
-            return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
+            return ResultWrapper<Block>.Fail(exception.Message, ErrorCodes.InternalError);
 
         }
         catch (TimeoutException)
         {
-            return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+            return ResultWrapper<Block>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
         finally
         {
@@ -233,43 +216,6 @@ public class ArbitrumBlockFactory(
 
             _newBestSuggestedBlockEvents.Clear();
             _blockRemovedEvents.Clear();
-        }
-    }
-
-    private Hash256 GetSendRootFromBlock(Block block)
-    {
-        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
-
-        // ArbitrumBlockHeaderInfo.Deserialize returns Empty if deserialization fails
-        if (headerInfo == ArbitrumBlockHeaderInfo.Empty && _logger.IsWarn)
-            _logger.Warn($"Block header info deserialization returned empty result for block {block.Hash}");
-
-        return headerInfo.SendRoot;
-    }
-
-    private Task<ResultWrapper<MessageResult>> ResultAtBlockNumberAsync(long blockNumber)
-    {
-        try
-        {
-            BlockHeader? blockHeader = blockTree.FindHeader(blockNumber, BlockTreeLookupOptions.RequireCanonical);
-            if (blockHeader == null)
-                return Task.FromResult(ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber)));
-
-            if (_logger.IsTrace)
-                _logger.Trace($"Found block header for block {blockNumber}: hash={blockHeader.Hash}");
-
-            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(blockHeader, _logger);
-            return Task.FromResult(ResultWrapper<MessageResult>.Success(new MessageResult
-            {
-                BlockHash = blockHeader.Hash ?? Hash256.Zero,
-                SendRoot = headerInfo.SendRoot,
-            }));
-        }
-        catch (Exception ex)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Error processing ResultAtMessageIndex for message index {blockNumber}: {ex.Message}", ex);
-            return Task.FromResult(ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.InternalError));
         }
     }
 }

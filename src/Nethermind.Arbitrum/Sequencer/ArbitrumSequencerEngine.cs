@@ -17,6 +17,7 @@ using Nethermind.State;
 namespace Nethermind.Arbitrum.Sequencer;
 
 public class ArbitrumSequencerEngine(
+    // ArbitrumBlockFactory factory,
     IBlockTree blockTree,
     IManualBlockProductionTrigger trigger,
     IArbitrumSpecHelper specHelper,
@@ -31,7 +32,6 @@ public class ArbitrumSequencerEngine(
     IExpressLaneService? expressLaneService = null,
     AuctionResolutionQueue? auctionResolutionQueue = null)
 {
-
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -371,13 +371,11 @@ public class ArbitrumSequencerEngine(
         BlockHeader head = blockTree.Head?.Header
             ?? throw new InvalidOperationException("BlockTree.Head is null");
 
-        Transaction[] transactions = new Transaction[queueItems.Count];
         byte[][] rlpEncodedTxs = new byte[queueItems.Count][];
         HashSet<Hash256>? timeboostedTxHashes = arbitrumConfig.TimeboostEnabled ? new() : null;
 
         for (int i = 0; i < queueItems.Count; i++)
         {
-            transactions[i] = queueItems[i].Tx;
             rlpEncodedTxs[i] = queueItems[i].RlpEncoded;
             if (timeboostedTxHashes is not null && queueItems[i].IsTimeboosted && queueItems[i].Tx.Hash is not null)
                 timeboostedTxHashes.Add(queueItems[i].Tx.Hash!);
@@ -405,7 +403,7 @@ public class ArbitrumSequencerEngine(
             return null;
         }
 
-        _logger.Warn($"Created block with regular {transactions.Length} transactions");
+        _logger.Warn($"Created block with regular {queueItems.Count} transactions");
 
         _lastCreatedBlockWithRegularTxsInfo = new SequencedBlockInfo(block, msgIdx);
         _lastRegularTxQueueItems = queueItems;

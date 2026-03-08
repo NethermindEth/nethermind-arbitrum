@@ -86,7 +86,19 @@ public sealed class ArbitrumExecutionEngine(
         if (blockNumberResult.Result != Result.Success)
             return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error!);
 
-        return await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
+        ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndexAsync(parameters.Index);
+        if (resultAtMessageIndex.Result == Result.Success)
+            return resultAtMessageIndex;
+
+        ResultWrapper<Block> blockResult = await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
+        if (blockResult.Result != Result.Success)
+            return ResultWrapper<MessageResult>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+        return ResultWrapper<MessageResult>.Success(new()
+        {
+            BlockHash = blockResult.Data.Hash!,
+            SendRoot = GetSendRootFromBlock(blockResult.Data)
+        });
     }
 
     public async Task<ResultWrapper<MessageResult[]>> ReorgAsync(ReorgParameters parameters)
@@ -98,7 +110,17 @@ public sealed class ArbitrumExecutionEngine(
         if (blockNumResult.Result != Result.Success)
             return ResultWrapper<MessageResult[]>.Fail(blockNumResult.Result.Error ?? "Unknown error converting message index", blockNumResult.ErrorCode);
 
-        return await arbitrumBlockFactory.ReorgAsync(blockNumResult.Data, parameters.NewMessages);
+        ResultWrapper<Block[]> reorgedBlocks =  await arbitrumBlockFactory.ReorgAsync(blockNumResult.Data, parameters.NewMessages);
+        if (reorgedBlocks.Result != Result.Success)
+            return ResultWrapper<MessageResult[]>.Fail(reorgedBlocks.Result.Error ?? "Unknown error during reorg", reorgedBlocks.ErrorCode);
+
+        MessageResult[] results = reorgedBlocks.Data.Select(block => new MessageResult
+        {
+            BlockHash = block.Hash!,
+            SendRoot = GetSendRootFromBlock(block)
+        }).ToArray();
+
+        return ResultWrapper<MessageResult[]>.Success(results);
     }
 
     public Task<ResultWrapper<MessageResult>> ResultAtMessageIndexAsync(ulong messageIndex)
