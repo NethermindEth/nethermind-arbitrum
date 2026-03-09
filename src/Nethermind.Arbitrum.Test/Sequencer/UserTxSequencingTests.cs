@@ -372,9 +372,12 @@ public class UserTxSequencingTests
     [Test]
     public void SendRawTransaction_QueueFull_ReturnsError()
     {
-        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        TransactionQueue smallQueue = new(1, 95000, false);
-        ArbitrumEthRpcModule ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, smallQueue);
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain
+            .CreateDefault(configureArbitrum: c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerMaxTxQueueSize = 1;
+            });
 
         byte[] tx1Bytes = Rlp.Encode(Build.A.Transaction
             .WithNonce(0)
@@ -397,10 +400,10 @@ public class UserTxSequencingTests
             .TestObject).Bytes;
 
         // First tx fills the queue (capacity=1)
-        ethRpcModule.eth_sendRawTransaction(tx1Bytes).ShouldAsync().RequestSucceed();
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx1Bytes).ShouldAsync().RequestSucceed();
 
         // Second tx should be rejected
-        ethRpcModule.eth_sendRawTransaction(tx2Bytes).ShouldAsync().RequestFail("queue is full");
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx2Bytes).ShouldAsync().RequestFail("queue is full");
     }
 
     [Test]
@@ -547,7 +550,7 @@ public class UserTxSequencingTests
     }
 
     [Test]
-    public void SendRawTransaction_SequencerDisabled_ReturnsError()
+    public void SendRawTransaction_SequencerDisabledAndNoForwarderDefined_ReturnsError()
     {
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
@@ -563,6 +566,6 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
 
-        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestFail("is disabled");
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(txBytes).ShouldAsync().RequestFail("not available");
     }
 }

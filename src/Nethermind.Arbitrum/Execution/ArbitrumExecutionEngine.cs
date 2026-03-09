@@ -21,7 +21,6 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -37,21 +36,17 @@ public sealed class ArbitrumExecutionEngine(
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
     IArbitrumConfig arbitrumConfig,
-    IStateReader stateReader,
-    ArbitrumBlockFactory arbitrumBlockFactory)
+    ArbitrumBlockFactory arbitrumBlockFactory,
+    ArbitrumSequencerEngine sequencerEngine,
+    IExpressLaneService expressLaneService,
+    IAuctionResolutionQueue auctionResolutionQueue)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
 
     public IBlockTree BlockTree { get; } = blockTree;
 
-    private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
-
-    private IExpressLaneService? _expressLaneService;
-    private AuctionResolutionQueue? _auctionResolutionQueue;
-
-    private ArbitrumSequencerEngine? _sequencerEngine;
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -319,35 +314,6 @@ public sealed class ArbitrumExecutionEngine(
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
         => Task.FromResult(ResultWrapper<string>.Success("OK"));
 
-    public TransactionQueue? TransactionQueue => _sequencerEngine?.TransactionQueue;
-
-    public void InitializeSequencer(
-        DelayedMessageQueue delayedMessageQueue,
-        SequencerState sequencerState,
-        IExpressLaneService? expressLaneService = null,
-        AuctionResolutionQueue? auctionResolutionQueue = null,
-        TransactionQueue? transactionQueue = null)
-    {
-        _expressLaneService = expressLaneService;
-        _auctionResolutionQueue = auctionResolutionQueue;
-
-        transactionQueue ??= new(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult);
-
-        _sequencerEngine = new ArbitrumSequencerEngine(
-            arbitrumBlockFactory,
-            BlockTree,
-            specHelper,
-            delayedMessageQueue,
-            sequencerState,
-            cachedL1PriceData,
-            logManager,
-            arbitrumConfig,
-            stateReader,
-            transactionQueue,
-            expressLaneService,
-            auctionResolutionQueue);
-    }
-
     public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
         => RunSequencerOpAsync(seq => seq.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp), nameof(StartSequencingAsync));
 
@@ -380,9 +346,6 @@ public sealed class ArbitrumExecutionEngine(
         if (!arbitrumConfig.TimeboostEnabled)
             return ResultWrapper<bool>.Fail("Timeboost is not enabled");
 
-        if (_auctionResolutionQueue is null || _expressLaneService is null)
-            return ResultWrapper<bool>.Fail("Timeboost not initialized");
-
         Transaction tx;
         try
         {
@@ -393,8 +356,8 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<bool>.Fail($"Failed to decode transaction: {ex.Message}");
         }
 
-        if (tx.To != _expressLaneService.AuctionContractAddress)
-            return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {_expressLaneService.AuctionContractAddress}");
+        if (tx.To != expressLaneService.AuctionContractAddress)
+            return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {expressLaneService.AuctionContractAddress}");
 
         if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctioneerAddress))
             return ResultWrapper<bool>.Fail("TimeboostAuctioneerAddress is not configured");
@@ -404,11 +367,11 @@ public sealed class ArbitrumExecutionEngine(
         if (sender != expectedAuctioneer)
             return ResultWrapper<bool>.Fail($"Transaction sender {sender} is not the authorized auctioneer {expectedAuctioneer}");
 
-        if (!_expressLaneService.IsWithinAuctionCloseWindow(DateTime.UtcNow))
+        if (!expressLaneService.IsWithinAuctionCloseWindow(DateTime.UtcNow))
             return ResultWrapper<bool>.Fail("Not within the auction close window");
 
         TxQueueItem item = new(tx, CancellationToken.None);
-        await _auctionResolutionQueue.Writer.WriteAsync(item);
+        await auctionResolutionQueue.WriteAsync(item);
         return ResultWrapper<bool>.Success(true);
     }
 
@@ -416,9 +379,6 @@ public sealed class ArbitrumExecutionEngine(
     {
         if (!arbitrumConfig.TimeboostEnabled)
             return ResultWrapper<bool>.Fail("Timeboost is not enabled");
-
-        if (_expressLaneService is null || _sequencerEngine is null)
-            return ResultWrapper<bool>.Fail("Timeboost not initialized");
 
         Transaction tx;
         try
@@ -444,7 +404,7 @@ public sealed class ArbitrumExecutionEngine(
 
         try
         {
-            await _expressLaneService.SequenceAsync(submission, currentBlock);
+            await expressLaneService.SequenceAsync(submission, currentBlock);
             return ResultWrapper<bool>.Success(true);
         }
         catch (Exception ex)
@@ -455,12 +415,12 @@ public sealed class ArbitrumExecutionEngine(
 
     private ResultWrapper<T> RunSequencerOp<T>(Func<ArbitrumSequencerEngine, T> action, string opName)
     {
-        if (_sequencerEngine is null)
+        if (!arbitrumConfig.SequencerEnabled)
             return ResultWrapper<T>.Fail("Sequencer not enabled");
 
         try
         {
-            T result = action(_sequencerEngine);
+            T result = action(sequencerEngine);
             return ResultWrapper<T>.Success(result);
         }
         catch (Exception ex)
@@ -475,12 +435,12 @@ public sealed class ArbitrumExecutionEngine(
     {
         _logger.Warn($"Sequencer: {opName}");
 
-        if (_sequencerEngine is null)
+        if (!arbitrumConfig.SequencerEnabled)
             return ResultWrapper<EmptyResponse>.Fail("Sequencer not enabled");
 
         try
         {
-            action(_sequencerEngine);
+            action(sequencerEngine);
             return ResultWrapper<EmptyResponse>.Success(default);
         }
         catch (Exception ex)
@@ -495,12 +455,12 @@ public sealed class ArbitrumExecutionEngine(
     {
         _logger.Warn($"Sequencer: {opName}");
 
-        if (_sequencerEngine is null)
+        if (!arbitrumConfig.SequencerEnabled)
             return ResultWrapper<T>.Fail("Sequencer not enabled");
 
         try
         {
-            T result = await action(_sequencerEngine);
+            T result = await action(sequencerEngine);
             return ResultWrapper<T>.Success(result);
         }
         catch (Exception ex)
@@ -515,12 +475,12 @@ public sealed class ArbitrumExecutionEngine(
     {
         _logger.Warn($"Sequencer: {opName}");
 
-        if (_sequencerEngine is null)
+        if (!arbitrumConfig.SequencerEnabled)
             return ResultWrapper<EmptyResponse>.Fail("Sequencer not enabled");
 
         try
         {
-            await action(_sequencerEngine);
+            await action(sequencerEngine);
             return ResultWrapper<EmptyResponse>.Success(default);
         }
         catch (Exception ex)

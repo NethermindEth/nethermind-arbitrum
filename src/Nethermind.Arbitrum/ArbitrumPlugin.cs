@@ -101,16 +101,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
         if (arbitrumConfig.SequencerEnabled)
         {
-            ArbitrumExecutionEngine concreteEngine = _api.Context.Resolve<ArbitrumExecutionEngine>();
             SequencerState sequencerState = _api.Context.Resolve<SequencerState>();
             sequencerState.Activate();
-
-            concreteEngine.InitializeSequencer(
-                _api.Context.Resolve<DelayedMessageQueue>(),
-                sequencerState,
-                _api.Context.ResolveOptional<IExpressLaneService>(),
-                _api.Context.ResolveOptional<AuctionResolutionQueue>(),
-                _api.Context.Resolve<TransactionQueue>());
         }
 
         // Wrap engine with comparison decorator if verification is enabled
@@ -313,41 +305,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             // Rpcs
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
-            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
+            .AddSingleton<ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
-        if (arbitrumConfig.SequencerEnabled)
-        {
-            builder
-                .AddSingleton<DelayedMessageQueue>()
-                .AddSingleton<SequencerState>()
-                .AddSingleton<TransactionQueue>(_ => new TransactionQueue(1024, arbitrumConfig.SequencerMaxTxDataSize, arbitrumConfig.SequencerAwaitTxResult));
-
-            if (arbitrumConfig.TimeboostEnabled)
-            {
-                if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctionContractAddress))
-                    throw new InvalidOperationException(
-                        "Timeboost is enabled but TimeboostAuctionContractAddress is not configured. " +
-                        "Please set Arbitrum.TimeboostAuctionContractAddress or disable Timeboost.");
-
-                builder
-                    .AddSingleton<RoundTimingInfo>(_ => new RoundTimingInfo(
-                        offset: DateTime.UnixEpoch,
-                        round: TimeSpan.FromSeconds(arbitrumConfig.TimeboostRoundDurationSeconds),
-                        auctionClosing: TimeSpan.FromSeconds(arbitrumConfig.TimeboostAuctionClosingWindowSeconds)))
-                    .AddSingleton<AuctionResolutionQueue>()
-                    .AddSingleton<IExpressLaneService, ExpressLaneService>();
-            }
-        }
-
-        builder.RegisterType<ArbitrumEthModuleFactory>()
-            .AsSelf()
-            .As<IRpcModuleFactory<IEthRpcModule>>()
-            .SingleInstance()
-            .OnActivated(e =>
-            {
-                e.Instance.TransactionQueue = e.Context.ResolveOptional<TransactionQueue>();
-                e.Instance.SequencerState = e.Context.ResolveOptional<SequencerState>();
-            });
+        builder
+            .AddModule(new SequencerModule(arbitrumConfig));
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -364,5 +327,37 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                     ctx.Resolve<IWorldState>(),
                     ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
             });
+    }
+
+    private class SequencerModule(IArbitrumConfig arbitrumConfig) : Module
+    {
+        protected override void Load(ContainerBuilder builder)
+        {
+            if (arbitrumConfig.TimeboostEnabled && string.IsNullOrWhiteSpace(arbitrumConfig.TimeboostAuctionContractAddress))
+                throw new InvalidOperationException(
+                    "Timeboost is enabled but TimeboostAuctionContractAddress is not configured. " +
+                    "Please set Arbitrum.TimeboostAuctionContractAddress or disable Timeboost.");
+
+            builder.AddSingleton<ArbitrumSequencerEngine>()
+                .AddSingleton<SequencerState>()
+                .AddSingleton<DelayedMessageQueue>()
+                .AddSingleton<TransactionQueue>(_ => new TransactionQueue(
+                    arbitrumConfig.SequencerMaxTxQueueSize,
+                    arbitrumConfig.SequencerMaxTxDataSize,
+                    arbitrumConfig.SequencerAwaitTxResult))
+                .AddSingleton<RoundTimingInfo>(_ => new RoundTimingInfo(
+                    offset: DateTime.UnixEpoch,
+                    round: TimeSpan.FromSeconds(arbitrumConfig.TimeboostRoundDurationSeconds),
+                    auctionClosing: TimeSpan.FromSeconds(arbitrumConfig.TimeboostAuctionClosingWindowSeconds)));
+
+            if (arbitrumConfig.TimeboostEnabled)
+                builder
+                    .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
+                    .AddSingleton<IExpressLaneService, ExpressLaneService>();
+            else
+                builder
+                    .AddSingleton<IAuctionResolutionQueue, DisabledAuctionResolutionQueue>()
+                    .AddSingleton<IExpressLaneService, DisabledExpressLaneService>();
+        }
     }
 }

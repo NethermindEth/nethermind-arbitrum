@@ -39,8 +39,8 @@ namespace Nethermind.Arbitrum.Modules
     public class ArbitrumEthRpcModule : EthRpcModule
     {
         private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
-        private readonly TransactionQueue? _transactionQueue;
-        private readonly SequencerState? _sequencerState;
+        private readonly TransactionQueue _transactionQueue;
+        private readonly SequencerState _sequencerState;
         private readonly IEthereumEcdsa _ecdsa;
 
         public ArbitrumEthRpcModule(
@@ -62,8 +62,8 @@ namespace Nethermind.Arbitrum.Modules
             ILogIndexConfig? logIndexConfig,
             ulong? secondsPerSlot,
             ArbitrumChainSpecEngineParameters chainSpecParams,
-            TransactionQueue? transactionQueue,
-            SequencerState? sequencerState,
+            TransactionQueue transactionQueue,
+            SequencerState sequencerState,
             IEthereumEcdsa ecdsa)
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
         {
@@ -75,9 +75,6 @@ namespace Nethermind.Arbitrum.Modules
 
         public override async Task<ResultWrapper<Hash256>> eth_sendRawTransaction(byte[] transaction)
         {
-            if (_transactionQueue is null)
-                return ResultWrapper<Hash256>.Fail("Sequencer is disabled.", ErrorCodes.TransactionRejected);
-
             Transaction tx;
             try
             {
@@ -93,9 +90,7 @@ namespace Nethermind.Arbitrum.Modules
             // Force hash computation before enqueuing so tx.Hash is available for the response
             _ = tx.Hash;
 
-            SequencerMode mode = _sequencerState?.Mode ?? SequencerMode.Active;
-
-            switch (mode)
+            switch (_sequencerState.Mode)
             {
                 case SequencerMode.Active:
                     Exception? enqueueError = await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
@@ -103,7 +98,7 @@ namespace Nethermind.Arbitrum.Modules
                         ? ResultWrapper<Hash256>.Fail(enqueueError.Message, ErrorCodes.TransactionRejected)
                         : ResultWrapper<Hash256>.Success(tx.Hash!);
                 case SequencerMode.Forwarding:
-                    TransactionForwarder? forwarder = _sequencerState!.Forwarder;
+                    TransactionForwarder? forwarder = _sequencerState.Forwarder;
                     if (forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 

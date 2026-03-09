@@ -29,7 +29,7 @@ public class ArbitrumBlockFactory(
     IArbitrumConfig arbitrumConfig,
     ILogManager logManager)
 {
-    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockFactory>();
     private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
@@ -69,7 +69,7 @@ public class ArbitrumBlockFactory(
     public async Task<ResultWrapper<Block[]>> ReorgAsync(long blockNumber, MessageWithMetadataAndBlockInfo[] newMessages)
     {
         if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<Block[]>.Fail("CreateBlock mutex held", ErrorCodes.InternalError);
+            return ResultWrapper<Block[]>.Fail("CreateBlock mutex held", ArbitrumBlockFactoryErrors.CreateBlockMutexHeld);
 
         try
         {

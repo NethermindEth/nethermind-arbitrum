@@ -15,3 +15,17 @@ public interface IExpressLaneService
 
     Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber);
 }
+
+public class DisabledExpressLaneService : IExpressLaneService
+{
+    public Address AuctionContractAddress => Address.Zero;
+
+    public bool CurrentRoundHasController() => false;
+
+    public bool IsWithinAuctionCloseWindow(DateTime t) => false;
+
+    public Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber)
+    {
+        return Task.CompletedTask;
+    }
+}

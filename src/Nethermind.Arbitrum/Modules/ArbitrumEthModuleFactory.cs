@@ -43,11 +43,10 @@ public class ArbitrumEthModuleFactory(
     IBlocksConfig blocksConfig,
     ILogIndexConfig logIndexConfig,
     ArbitrumChainSpecEngineParameters chainSpecParams,
-    IEthereumEcdsa ecdsa) : ModuleFactoryBase<IEthRpcModule>
+    IEthereumEcdsa ecdsa,
+    TransactionQueue transactionQueue,
+    SequencerState sequencerState) : ModuleFactoryBase<IEthRpcModule>
 {
-    public TransactionQueue? TransactionQueue { get; set; }
-    public SequencerState? SequencerState { get; set; }
-
     public override IEthRpcModule Create()
     {
         return new ArbitrumEthRpcModule(
@@ -69,8 +68,8 @@ public class ArbitrumEthModuleFactory(
             logIndexConfig,
             blocksConfig.SecondsPerSlot,
             chainSpecParams,
-            TransactionQueue,
-            SequencerState,
+            transactionQueue,
+            sequencerState,
             ecdsa);
     }
 }

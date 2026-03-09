@@ -23,14 +23,19 @@ public class TimeboostSequencerEngineTests
     public async Task AuctionResolutionTx_WithRegularTxPending_SequencedFirst()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(
-            configureArbitrum: c => c.TimeboostEnabled = true);
+            configureArbitrum: c =>
+            {
+                c.SequencerEnabled = true;
+                c.TimeboostEnabled = true;
+                c.TimeboostAuctionContractAddress = new("0x0000000000000000000000000000000000000001");
+            });
 
         ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithTimeboost(
             chain,
             out DelayedMessageQueue _,
             out TransactionQueue _,
             out ArbitrumEthRpcModule ethRpcModule,
-            out AuctionResolutionQueue auctionResolutionQueue);
+            out IAuctionResolutionQueue auctionResolutionQueue);
 
         engine.DigestInitMessage(FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
@@ -47,7 +52,7 @@ public class TimeboostSequencerEngineTests
             .WithTo(TestItem.AddressC).WithValue(1.Wei).WithChainId(412346)
             .SignedAndResolved(FullChainSimulationAccounts.AccountB)
             .TestObject;
-        await auctionResolutionQueue.Writer.WriteAsync(new TxQueueItem(auctionTx, CancellationToken.None));
+        await auctionResolutionQueue.WriteAsync(new TxQueueItem(auctionTx, CancellationToken.None));
 
         await Task.Delay(50); // allow regular tx to land in the channel
 
@@ -69,14 +74,19 @@ public class TimeboostSequencerEngineTests
     public async Task TimeboostedTx_Sequenced_IsMarkedInBlockMetadata()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(
-            configureArbitrum: c => c.TimeboostEnabled = true);
+            configureArbitrum: c =>
+            {
+                c.SequencerEnabled = true;
+                c.TimeboostEnabled = true;
+                c.TimeboostAuctionContractAddress = new("0x0000000000000000000000000000000000000001");
+            });
 
         ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithTimeboost(
             chain,
             out DelayedMessageQueue _,
             out TransactionQueue transactionQueue,
             out ArbitrumEthRpcModule _,
-            out AuctionResolutionQueue _);
+            out IAuctionResolutionQueue _);
 
         engine.DigestInitMessage(FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);
@@ -118,8 +128,10 @@ public class TimeboostSequencerEngineTests
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(
             configureArbitrum: c =>
             {
+                c.SequencerEnabled = true;
                 c.TimeboostEnabled = true;
                 c.TimeboostQueueTimeoutInBlocks = 0;
+                c.TimeboostAuctionContractAddress = new("0x0000000000000000000000000000000000000001");
             });
 
         ArbitrumExecutionEngine engine = SequencerTestHelpers.CreateEngineWithTimeboost(
@@ -127,7 +139,7 @@ public class TimeboostSequencerEngineTests
             out DelayedMessageQueue _,
             out TransactionQueue transactionQueue,
             out ArbitrumEthRpcModule _,
-            out AuctionResolutionQueue _);
+            out IAuctionResolutionQueue _);
 
         engine.DigestInitMessage(FullChainSimulationInitMessage.CreateDigestInitMessage(92));
         await SequencerTestHelpers.FundAccountAsync(chain, engine, FullChainSimulationAccounts.AccountA.Address);

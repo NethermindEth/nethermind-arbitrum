@@ -27,12 +27,12 @@ public class ArbitrumSequencerEngine(
     IArbitrumConfig arbitrumConfig,
     IStateReader stateReader,
     TransactionQueue transactionQueue,
-    IExpressLaneService? expressLaneService = null,
-    AuctionResolutionQueue? auctionResolutionQueue = null)
+    IExpressLaneService expressLaneService,
+    IAuctionResolutionQueue auctionResolutionQueue)
 {
+    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
-    private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
 
     // Pooled collections reused across PrecheckNonces calls to avoid per-block hash table/queue allocations.
     private readonly Dictionary<Address, ulong> _pendingNonces = new();
@@ -42,15 +42,13 @@ public class ArbitrumSequencerEngine(
     private SequencedBlockInfo? _lastCreatedBlockWithRegularTxsInfo;
     private List<TxQueueItem>? _lastRegularTxQueueItems;
 
-    public TransactionQueue TransactionQueue { get; } = transactionQueue;
-
     public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         if (!sequencerState.IsActive)
         {
             if (sequencerState.Mode == SequencerMode.Forwarding)
             {
-                List<TxQueueItem> pendingItems = TransactionQueue.DrainBatch();
+                List<TxQueueItem> pendingItems = transactionQueue.DrainBatch();
                 if (pendingItems.Count > 0)
                     await HandleInactiveAsync(pendingItems);
             }
@@ -63,7 +61,7 @@ public class ArbitrumSequencerEngine(
             return new StartSequencingResult(result, 0);
 
         // Timeboost: give auction resolution transactions priority over all other work
-        if (auctionResolutionQueue is not null && auctionResolutionQueue.Reader.TryRead(out TxQueueItem? auctionItem))
+        if (auctionResolutionQueue.TryRead(out TxQueueItem? auctionItem))
         {
             result = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, timestamp);
             if (result is not null)
@@ -96,7 +94,7 @@ public class ArbitrumSequencerEngine(
         if (error is not null)
         {
             foreach (TxQueueItem item in queueItems)
-                TransactionQueue.PushRetry(item);
+                transactionQueue.PushRetry(item);
             return;
         }
 
@@ -230,7 +228,7 @@ public class ArbitrumSequencerEngine(
 
         foreach ((TxQueueItem item, Exception? error) in results)
             if (error is NoSequencerException)
-                TransactionQueue.PushRetry(item);
+                transactionQueue.PushRetry(item);
             else
                 item.ReturnResult(error);
 
@@ -252,9 +250,7 @@ public class ArbitrumSequencerEngine(
 
         if (sequencedMessage.ErrorCode == ArbitrumBlockFactoryErrors.CreateBlockMutexHeld)
         {
-            if (auctionResolutionQueue is not null)
-                await auctionResolutionQueue.Writer.WriteAsync(item);
-
+            await auctionResolutionQueue.WriteAsync(item);
             return null;
         }
 
@@ -271,10 +267,10 @@ public class ArbitrumSequencerEngine(
     {
         // Timeboost: if a controller exists for the current round, delay regular txs
         // to give express lane transactions time to arrive first.
-        if (arbitrumConfig.TimeboostEnabled && expressLaneService?.CurrentRoundHasController() == true)
+        if (arbitrumConfig.TimeboostEnabled && expressLaneService.CurrentRoundHasController())
             await Task.Delay(arbitrumConfig.TimeboostExpressLaneAdvantageMs);
 
-        List<TxQueueItem> queueItems = TransactionQueue.DrainBatch();
+        List<TxQueueItem> queueItems = transactionQueue.DrainBatch();
 
         if (queueItems.Count == 0)
             return null;
@@ -316,7 +312,7 @@ public class ArbitrumSequencerEngine(
         if (l1BlockNumber == 0 || timestampDelta > (ulong)arbitrumConfig.SequencerMaxAcceptableTimestampDelta)
         {
             foreach (TxQueueItem item in queueItems)
-                TransactionQueue.PushRetry(item);
+                transactionQueue.PushRetry(item);
 
             if (_logger.IsError)
                 _logger.Error($"Cannot sequence: unknown L1 block or L1 timestamp too far from local clock time, " +
@@ -339,7 +335,7 @@ public class ArbitrumSequencerEngine(
         if (sequencedMessage.ErrorCode == ArbitrumBlockFactoryErrors.CreateBlockMutexHeld)
         {
             foreach (TxQueueItem item in queueItems)
-                TransactionQueue.PushRetry(item);
+                transactionQueue.PushRetry(item);
 
             if (_logger.IsDebug)
                 _logger.Debug("Could not acquire block creation semaphore for user transaction sequencing");
@@ -348,7 +344,7 @@ public class ArbitrumSequencerEngine(
         }
 
         foreach (TxQueueItem item in queueItems)
-            TransactionQueue.PushRetry(item);
+            transactionQueue.PushRetry(item);
 
         if (_logger.IsError)
             _logger.Error($"Failed to create block with regular transactions: {sequencedMessage.Result.Error}");
