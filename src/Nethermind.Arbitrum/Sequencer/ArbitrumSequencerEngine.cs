@@ -8,21 +8,20 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Blockchain;
-using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Sequencer;
 
 public class ArbitrumSequencerEngine(
+    ArbitrumBlockFactory factory,
     IBlockTree blockTree,
-    IManualBlockProductionTrigger trigger,
     IArbitrumSpecHelper specHelper,
     DelayedMessageQueue delayedMessageQueue,
     SequencerState sequencerState,
-    SemaphoreSlim createBlocksSemaphore,
     CachedL1PriceData cachedL1PriceData,
     ILogManager logManager,
     IArbitrumConfig arbitrumConfig,
@@ -31,7 +30,6 @@ public class ArbitrumSequencerEngine(
     IExpressLaneService? expressLaneService = null,
     AuctionResolutionQueue? auctionResolutionQueue = null)
 {
-
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -67,7 +65,7 @@ public class ArbitrumSequencerEngine(
         // Timeboost: give auction resolution transactions priority over all other work
         if (auctionResolutionQueue is not null && auctionResolutionQueue.Reader.TryRead(out TxQueueItem? auctionItem))
         {
-            result = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, l1Timestamp, timestamp);
+            result = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, timestamp);
             if (result is not null)
                 return new StartSequencingResult(result, 0);
         }
@@ -111,28 +109,20 @@ public class ArbitrumSequencerEngine(
 
     public async Task AppendLastSequencedBlockAsync()
     {
-        await createBlocksSemaphore.WaitAsync();
-        try
+        if (_lastSequencedBlockInfo is null)
         {
-            if (_lastSequencedBlockInfo is null)
-            {
-                if (_logger.IsWarn)
-                    _logger.Warn("AppendLastSequencedBlock called but no sequenced block info available");
-                return;
-            }
-
-            cachedL1PriceData.CacheL1PriceDataOfMsg(
-                _lastSequencedBlockInfo.MsgIdx,
-                Array.Empty<TxReceipt>(),
-                _lastSequencedBlockInfo.Block,
-                blockBuiltUsingDelayedMessage: true);
-
-            _lastSequencedBlockInfo = null;
+            if (_logger.IsWarn)
+                _logger.Warn("AppendLastSequencedBlock called but no sequenced block info available");
+            return;
         }
-        finally
-        {
-            createBlocksSemaphore.Release();
-        }
+
+        cachedL1PriceData.CacheL1PriceDataOfMsg(
+            _lastSequencedBlockInfo.MsgIdx,
+            Array.Empty<TxReceipt>(),
+            _lastSequencedBlockInfo.Block,
+            blockBuiltUsingDelayedMessage: true);
+
+        _lastSequencedBlockInfo = null;
     }
 
     public void EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
@@ -153,34 +143,45 @@ public class ArbitrumSequencerEngine(
 
     public async Task<SequencedMsg?> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
     {
-        if (msg?.Message?.Header is null)
+        if (msg?.Message.Header is null)
             return null;
 
-        await createBlocksSemaphore.WaitAsync();
-        try
+        BlockHeader currentHeader = blockTree.Head!.Header;
+
+        if (msg.Message.Header.RequestId is not null)
         {
-            BlockHeader currentHeader = blockTree.Head!.Header;
+            ulong delayedMsgIdx = BinaryPrimitives.ReadUInt64BigEndian(msg.Message.Header.RequestId.Bytes.Slice(24));
 
-            if (msg.Message.Header.RequestId is not null)
+            if (delayedMsgIdx != currentHeader.Nonce)
             {
-                ulong delayedMsgIdx = BinaryPrimitives.ReadUInt64BigEndian(msg.Message.Header.RequestId.Bytes.Slice(24));
+                if (_logger.IsInfo)
+                    _logger.Info($"Not resequencing delayed message due to unexpected index, expected {currentHeader.Nonce} found {delayedMsgIdx}");
 
-                if (delayedMsgIdx != currentHeader.Nonce)
-                {
-                    if (_logger.IsInfo)
-                        _logger.Info($"Not resequencing delayed message due to unexpected index, expected {currentHeader.Nonce} found {delayedMsgIdx}");
-                    return null;
-                }
-
-                return await SequenceDelayedMessageWithBlockMutexAsync(msg.Message, delayedMsgIdx);
+                return null;
             }
 
-            return await ResequenceRegularMessageWithBlockMutexAsync(msg);
+            ResultWrapper<SequencedMsg> resequencedDelayedMessage = await SequenceDelayedMessageWithBlockMutexAsync(msg.Message, delayedMsgIdx);
+            if (resequencedDelayedMessage.Result != Result.Success)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"Failed to resequence delayed message: {resequencedDelayedMessage.Result.Error}");
+
+                return null;
+            }
+
+            return resequencedDelayedMessage.Data;
         }
-        finally
+
+        ResultWrapper<SequencedMsg> resequencedMessage = await ResequenceRegularMessageWithBlockMutexAsync(msg);
+        if (resequencedMessage.Result != Result.Success)
         {
-            createBlocksSemaphore.Release();
+            if (_logger.IsError)
+                _logger.Error($"Failed to resequence regular message: {resequencedMessage.Result.Error}");
+
+            return null;
         }
+
+        return resequencedMessage.Data;
     }
 
     public void Pause()
@@ -243,31 +244,27 @@ public class ArbitrumSequencerEngine(
         return (item, error);
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithSingleTxAsync(TxQueueItem item, ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+    private async Task<SequencedMsg?> CreateBlockWithSingleTxAsync(TxQueueItem item, ulong l1BlockNumber, ulong timestamp)
     {
-        if (!await createBlocksSemaphore.WaitAsync(0))
+        ResultWrapper<SequencedMsg> sequencedMessage = await CreateBlockWithRegularTxsWithMutexAsync([item], l1BlockNumber, timestamp);
+        if (sequencedMessage.Result == Result.Success)
+            return sequencedMessage.Data;
+
+        if (sequencedMessage.ErrorCode == ArbitrumBlockFactoryErrors.CreateBlockMutexHeld)
         {
-            // Return auction resolution tx to queue for retry
             if (auctionResolutionQueue is not null)
                 await auctionResolutionQueue.Writer.WriteAsync(item);
+
             return null;
         }
 
-        try
-        {
-            return await CreateBlockWithRegularTxsWithMutexAsync([item], l1BlockNumber, timestamp);
-        }
-        catch (Exception ex)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Error creating block with auction resolution tx: {ex.Message}", ex);
-            item.ReturnResult(ex);
-            return null;
-        }
-        finally
-        {
-            createBlocksSemaphore.Release();
-        }
+        item.ReturnResult(new Exception(sequencedMessage.Result.Error!));
+
+        if (_logger.IsError)
+            _logger.Error($"Failed to create block with auction resolution tx: {sequencedMessage.Result.Error}");
+
+        return null;
+
     }
 
     private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
@@ -324,6 +321,7 @@ public class ArbitrumSequencerEngine(
             if (_logger.IsError)
                 _logger.Error($"Cannot sequence: unknown L1 block or L1 timestamp too far from local clock time, " +
                     $"l1Block={l1BlockNumber}, l1Timestamp={l1Timestamp}, localTimestamp={timestamp}");
+
             return null;
         }
 
@@ -334,84 +332,67 @@ public class ArbitrumSequencerEngine(
         if (queueItems.Count == 0)
             return null;
 
-        if (!await createBlocksSemaphore.WaitAsync(0))
+        ResultWrapper<SequencedMsg> sequencedMessage = await CreateBlockWithRegularTxsWithMutexAsync(queueItems, l1BlockNumber, timestamp);
+        if (sequencedMessage.Result == Result.Success)
+            return sequencedMessage.Data;
+
+        if (sequencedMessage.ErrorCode == ArbitrumBlockFactoryErrors.CreateBlockMutexHeld)
         {
             foreach (TxQueueItem item in queueItems)
                 TransactionQueue.PushRetry(item);
 
             if (_logger.IsDebug)
                 _logger.Debug("Could not acquire block creation semaphore for user transaction sequencing");
-            return null;
-        }
-
-        try
-        {
-            return await CreateBlockWithRegularTxsWithMutexAsync(queueItems, l1BlockNumber, timestamp);
-        }
-        catch (Exception ex)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Error creating block with regular transactions: {ex.Message}", ex);
-
-            foreach (TxQueueItem item in queueItems)
-                TransactionQueue.PushRetry(item);
 
             return null;
         }
-        finally
-        {
-            createBlocksSemaphore.Release();
-        }
+
+        foreach (TxQueueItem item in queueItems)
+            TransactionQueue.PushRetry(item);
+
+        if (_logger.IsError)
+            _logger.Error($"Failed to create block with regular transactions: {sequencedMessage.Result.Error}");
+
+        return null;
     }
 
-    private async Task<SequencedMsg?> CreateBlockWithRegularTxsWithMutexAsync(List<TxQueueItem> queueItems, ulong l1BlockNumber, ulong timestamp)
+    private async Task<ResultWrapper<SequencedMsg>> CreateBlockWithRegularTxsWithMutexAsync(List<TxQueueItem> queueItems, ulong l1BlockNumber, ulong timestamp)
     {
-        BlockHeader head = blockTree.Head?.Header
-            ?? throw new InvalidOperationException("BlockTree.Head is null");
-
-        Transaction[] transactions = new Transaction[queueItems.Count];
         byte[][] rlpEncodedTxs = new byte[queueItems.Count][];
         HashSet<Hash256>? timeboostedTxHashes = arbitrumConfig.TimeboostEnabled ? new() : null;
 
         for (int i = 0; i < queueItems.Count; i++)
         {
-            transactions[i] = queueItems[i].Tx;
             rlpEncodedTxs[i] = queueItems[i].RlpEncoded;
+
             if (timeboostedTxHashes is not null && queueItems[i].IsTimeboosted && queueItems[i].Tx.Hash is not null)
                 timeboostedTxHashes.Add(queueItems[i].Tx.Hash!);
         }
 
+        BlockHeader? currentHead = blockTree.Head?.Header;
+        if (currentHead is null)
+            return ResultWrapper<SequencedMsg>.Fail("Unable to build block as block tree head is null.", ErrorCodes.InternalError);
+
+        long blockNumber = currentHead.Number + 1;
         MessageWithMetadata messageWithMetadata =
-            L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, l1BlockNumber, timestamp, head.Nonce);
+            L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, l1BlockNumber, timestamp, currentHead.Nonce);
 
-        long blockNumber = head.Number + 1;
+        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, messageWithMetadata);
+        if (blockResult.Result != Result.Success)
+            return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for message: {blockResult.Result.Error}", blockResult.ErrorCode);
+
+        _logger.Warn($"Created block with regular {queueItems.Count} transactions");
+
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
-
-        ArbitrumBlockHeaderInfo prevHeaderInfo = ArbitrumBlockHeaderInfo.Deserialize(head, _logger);
-        ArbitrumPayloadAttributes payload = new()
-        {
-            MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber,
-            PreviousArbosVersion = prevHeaderInfo.ArbOSFormatVersion
-        };
-
-        Block? block = await trigger.BuildBlock(parentHeader: head, payloadAttributes: payload);
-        if (block?.Hash is null)
-        {
-            foreach (TxQueueItem item in queueItems)
-                TransactionQueue.PushRetry(item);
-            return null;
-        }
-
-        _logger.Warn($"Created block with regular {transactions.Length} transactions");
-
-        _lastCreatedBlockWithRegularTxsInfo = new SequencedBlockInfo(block, msgIdx);
+        _lastCreatedBlockWithRegularTxsInfo = new SequencedBlockInfo(blockResult.Data, msgIdx);
         _lastRegularTxQueueItems = queueItems;
 
         if (_logger.IsInfo)
-            _logger.Info($"Created block with {queueItems.Count} user txs, msgIdx={msgIdx}, blockNumber={block.Number}");
+            _logger.Info($"Created block with {queueItems.Count} user txs, msgIdx={msgIdx}, blockNumber={blockResult.Data.Number}");
 
-        return BuildSequencedMsg(block, msgIdx, messageWithMetadata, timeboostedTxHashes);
+        SequencedMsg sequencedMessage = BuildSequencedMsg(blockResult.Data, msgIdx, messageWithMetadata, timeboostedTxHashes);
+
+        return ResultWrapper<SequencedMsg>.Success(sequencedMessage);
     }
 
     /// <summary>
@@ -476,30 +457,25 @@ public class ArbitrumSequencerEngine(
         return output;
     }
 
-    private async Task<SequencedMsg?> ResequenceRegularMessageWithBlockMutexAsync(MessageWithMetadata msg)
+    private async Task<ResultWrapper<SequencedMsg>> ResequenceRegularMessageWithBlockMutexAsync(MessageWithMetadata msg)
     {
-        BlockHeader head = blockTree.Head?.Header
-            ?? throw new InvalidOperationException("Unable to sequence regular message as BlockTree.Head is null");
+        BlockHeader? currentHead = blockTree.Head?.Header;
+        if (currentHead is null)
+            return ResultWrapper<SequencedMsg>.Fail("Unable to build block as block tree head is null.", ErrorCodes.InternalError);
 
-        long blockNumber = head.Number + 1;
+        long blockNumber = currentHead.Number + 1;
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
 
-        ArbitrumBlockHeaderInfo prevHeaderInfo = ArbitrumBlockHeaderInfo.Deserialize(head, _logger);
-        ArbitrumPayloadAttributes payload = new()
-        {
-            MessageWithMetadata = msg,
-            Number = blockNumber,
-            PreviousArbosVersion = prevHeaderInfo.ArbOSFormatVersion
-        };
-
-        Block? block = await trigger.BuildBlock(parentHeader: head, payloadAttributes: payload);
-        if (block?.Hash is null)
-            throw new InvalidOperationException($"Failed to build block {blockNumber} or block has no hash.");
+        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, msg);
+        if (blockResult.Result != Result.Success)
+            return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for delayed message: {blockResult.Result.Error}", blockResult.ErrorCode);
 
         if (_logger.IsInfo)
-            _logger.Info($"Resequenced regular message, msgIdx={msgIdx}, blockNumber={block.Number}");
+            _logger.Info($"Resequenced regular message, msgIdx={msgIdx}, blockNumber={blockResult.Data.Number}");
 
-        return BuildSequencedMsg(block, msgIdx, msg, null);
+        SequencedMsg sequencedMessage = BuildSequencedMsg(blockResult.Data, msgIdx, msg, null);
+
+        return ResultWrapper<SequencedMsg>.Success(sequencedMessage);
     }
 
     private async Task<SequencedMsg?> SequenceDelayedMessageAsync()
@@ -507,68 +483,44 @@ public class ArbitrumSequencerEngine(
         if (!delayedMessageQueue.TryDequeue(out DelayedMessage? delayedMessage))
             return null;
 
-        if (!await createBlocksSemaphore.WaitAsync(0))
+        ResultWrapper<SequencedMsg> sequencedMessage = await SequenceDelayedMessageWithBlockMutexAsync(delayedMessage!.Message, delayedMessage.MessageIndex);
+        if (sequencedMessage.Result != Result.Success)
         {
-            if (_logger.IsDebug)
-                _logger.Debug("Could not acquire block creation semaphore for delayed message sequencing");
-            return null;
+            delayedMessageQueue.Clear();
+            throw new InvalidOperationException($"Error sequencing delayed message at index {delayedMessage.MessageIndex}: {sequencedMessage.Result.Error}");
         }
 
-        try
-        {
-            return await SequenceDelayedMessageWithBlockMutexAsync(delayedMessage!.Message, delayedMessage.MessageIndex);
-        }
-        catch (Exception ex)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Error sequencing delayed message at index {delayedMessage!.MessageIndex}: {ex.Message}", ex);
-            delayedMessageQueue.Clear();
-            throw;
-        }
-        finally
-        {
-            createBlocksSemaphore.Release();
-        }
+        return sequencedMessage.Data;
     }
 
-    private async Task<SequencedMsg?> SequenceDelayedMessageWithBlockMutexAsync(L1IncomingMessage message, ulong delayedMsgIdx)
+    private async Task<ResultWrapper<SequencedMsg>> SequenceDelayedMessageWithBlockMutexAsync(L1IncomingMessage message, ulong delayedMsgIdx)
     {
-        BlockHeader head = blockTree.Head?.Header
-            ?? throw new InvalidOperationException($"Unable to sequence delayed message {delayedMsgIdx} as BlockTree.Head is null");
+        BlockHeader? currentHead = blockTree.Head?.Header;
+        if (currentHead is null)
+            return ResultWrapper<SequencedMsg>.Fail("Unable to build block as block tree head is null.", ErrorCodes.InternalError);
 
-        ulong expectedDelayedMsgIdx = head.Nonce;
+        ulong expectedDelayedMsgIdx = currentHead.Nonce;
         if (expectedDelayedMsgIdx != delayedMsgIdx)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Wrong delayed message sequenced got {delayedMsgIdx} expected {expectedDelayedMsgIdx}");
-            return null;
-        }
+            return ResultWrapper<SequencedMsg>.Fail($"Wrong delayed message sequenced got {delayedMsgIdx} expected {expectedDelayedMsgIdx}");
 
-        long blockNumber = head.Number + 1;
-        ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
-
+        long blockNumber = currentHead.Number + 1;
         MessageWithMetadata messageWithMetadata = new(message, delayedMsgIdx + 1);
 
-        ArbitrumBlockHeaderInfo prevHeaderInfo = ArbitrumBlockHeaderInfo.Deserialize(head, _logger);
-        ArbitrumPayloadAttributes payload = new()
-        {
-            MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber,
-            PreviousArbosVersion = prevHeaderInfo.ArbOSFormatVersion
-        };
+        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, messageWithMetadata);
+        if (blockResult.Result != Result.Success)
+            return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for delayed message: {blockResult.Result.Error}", blockResult.ErrorCode);
 
-        Block? block = await trigger.BuildBlock(parentHeader: head, payloadAttributes: payload);
-        if (block?.Hash is null)
-            throw new InvalidOperationException($"Failed to build block {blockNumber} or block has no hash for delayed message index {delayedMsgIdx}.");
-
-        _lastSequencedBlockInfo = new SequencedBlockInfo(block, msgIdx);
+        ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
+        _lastSequencedBlockInfo = new SequencedBlockInfo(blockResult.Data, msgIdx);
 
         _logger.Warn($"Sequenced block with delayed message {msgIdx}");
 
         if (_logger.IsInfo)
-            _logger.Info($"Added DelayedMessage, msgIdx={msgIdx}, delayedMsgIdx={delayedMsgIdx}, blockNumber={block.Number}");
+            _logger.Info($"Added DelayedMessage, msgIdx={msgIdx}, delayedMsgIdx={delayedMsgIdx}, blockNumber={blockResult.Data.Number}");
 
-        return BuildSequencedMsg(block, msgIdx, messageWithMetadata, null);
+        SequencedMsg sequencedDelayedMessage = BuildSequencedMsg(blockResult.Data, msgIdx, messageWithMetadata, null);
+
+        return ResultWrapper<SequencedMsg>.Success(sequencedDelayedMessage);
     }
 
     private SequencedMsg BuildSequencedMsg(

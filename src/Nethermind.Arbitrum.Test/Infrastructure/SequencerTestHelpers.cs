@@ -26,51 +26,6 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class SequencerTestHelpers
 {
-    public static ArbitrumExecutionEngine CreateEngineWithSequencer(
-        ArbitrumRpcTestBlockchain chain,
-        out DelayedMessageQueue delayedMessageQueue,
-        out TransactionQueue transactionQueue,
-        out ArbitrumEthRpcModule ethRpcModule,
-        string? useForwarder = null)
-    {
-        delayedMessageQueue = new DelayedMessageQueue();
-        SequencerState sequencerState = new(LimboLogs.Instance);
-
-        if (useForwarder is not null)
-            sequencerState.ForwardTo(useForwarder);
-        else
-            sequencerState.Activate();
-
-        ArbitrumExecutionEngine engine = new(
-            chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
-            chain.BlockTree,
-            chain.BlockProductionTrigger,
-            chain.ChainSpec,
-            chain.SpecHelper,
-            chain.LogManager,
-            chain.CachedL1PriceData,
-            chain.BlockProcessingQueue,
-            chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IBlocksConfig>(),
-            chain.Container.Resolve<IStateReader>());
-
-        engine.InitializeSequencer(delayedMessageQueue, sequencerState);
-        transactionQueue = engine.TransactionQueue!;
-
-        ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, transactionQueue, sequencerState);
-
-        return engine;
-    }
-
-    public static ArbitrumExecutionEngine CreateEngineWithSequencer(
-        ArbitrumRpcTestBlockchain chain,
-        out DelayedMessageQueue delayedMessageQueue,
-        out TransactionQueue transactionQueue,
-        string? useForwarder = null)
-    {
-        return CreateEngineWithSequencer(chain, out delayedMessageQueue, out transactionQueue, out _, useForwarder);
-    }
-
     public static L1IncomingMessage CreateEthDepositMessage(
         Hash256 requestId, UInt256 l1BaseFee, Address sender, Address receiver, UInt256 value)
     {
@@ -196,10 +151,9 @@ public static class SequencerTestHelpers
             chain.SpecHelper,
             chain.LogManager,
             chain.CachedL1PriceData,
-            chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IBlocksConfig>(),
-            chain.Container.Resolve<IStateReader>());
+            chain.Container.Resolve<IStateReader>(),
+            chain.Container.Resolve<ArbitrumBlockFactory>());
 
         engine.InitializeSequencer(delayedMessageQueue, sequencerState, expressLaneService, auctionResolutionQueue);
         transactionQueue = engine.TransactionQueue!;

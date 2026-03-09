@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Modules;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Math;
 
@@ -17,19 +19,16 @@ public static class MessageBlockConverter
     /// <param name="specHelper">The Arbitrum spec helper containing genesis block number</param>
     /// <returns>The corresponding block number</returns>
     /// <exception cref="OverflowException">Thrown when the result would overflow long.MaxValue</exception>
-    public static long MessageIndexToBlockNumber(ulong messageIndex, IArbitrumSpecHelper specHelper)
+    public static ResultWrapper<long> MessageIndexToBlockNumber(ulong messageIndex, IArbitrumSpecHelper specHelper)
     {
         ulong genesisBlockNum = specHelper.GenesisBlockNum;
 
         // Check for overflow before performing addition
         if (messageIndex > long.MaxValue - genesisBlockNum)
-        {
-            throw new OverflowException(
-                $"Message index {messageIndex} would cause overflow when added to genesis block {genesisBlockNum}");
-        }
+            return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
 
         ulong blockNumber = genesisBlockNum + messageIndex;
-        return (long)blockNumber;
+        return ResultWrapper<long>.Success((long)blockNumber);
     }
 
     /// <summary>

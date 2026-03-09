@@ -78,6 +78,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _arbitrumConfig = new ArbitrumConfig();
 
+            ArbitrumBlockFactory blockFactory = new(
+                _blockTreeMock.Object,
+                _blockProcessingQueue.Object,
+                _triggerMock.Object,
+                _blockConfig,
+                _arbitrumConfig,
+                _logManager);
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 _blockTreeMock.Object,
@@ -86,10 +94,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig,
-                new Mock<IStateReader>().Object);
+                new Mock<IStateReader>().Object,
+                blockFactory);
 
             _rpcModule = new ArbitrumRpcModule(engine);
         }
@@ -242,6 +249,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            ArbitrumBlockFactory blockFactory = new(
+                blockTree,
+                _blockProcessingQueue.Object,
+                _triggerMock.Object,
+                _blockConfig,
+                _arbitrumConfig,
+                _logManager);
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
@@ -250,10 +265,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig,
-                new Mock<IStateReader>().Object);
+                new Mock<IStateReader>().Object,
+                blockFactory);
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -275,6 +289,15 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            ArbitrumBlockFactory blockFactory = new(
+                blockTree,
+                _blockProcessingQueue.Object,
+                _triggerMock.Object,
+                _blockConfig,
+                _arbitrumConfig,
+                _logManager);
+
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
@@ -283,10 +306,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig,
-                new Mock<IStateReader>().Object);
+                new Mock<IStateReader>().Object,
+                blockFactory);
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -314,6 +336,14 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            ArbitrumBlockFactory blockFactory = new(
+                blockTree,
+                _blockProcessingQueue.Object,
+                _triggerMock.Object,
+                _blockConfig,
+                _arbitrumConfig,
+                _logManager);
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
@@ -322,10 +352,9 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _specHelper.Object,
                 _logManager,
                 cachedL1PriceData,
-                _blockProcessingQueue.Object,
                 _arbitrumConfig,
-                _blockConfig,
-                new Mock<IStateReader>().Object);
+                new Mock<IStateReader>().Object,
+                blockFactory);
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
