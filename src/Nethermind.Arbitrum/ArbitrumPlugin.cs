@@ -260,7 +260,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         builder
 
             .AddSingleton<IWasmDb, WasmDb>()
-            .AddSingleton<IWasmStore>(context =>
+            .AddScoped<IWasmStore>(context =>
             {
                 IWasmDb wasmDb = context.Resolve<IWasmDb>();
                 return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);

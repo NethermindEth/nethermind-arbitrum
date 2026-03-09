@@ -18,6 +18,8 @@ on:
         default: 'nitro-build'
         type: string
 
+permissions: {}
+
 jobs:
   build:
     name: Build Nitro (${{ inputs.nitro_branch }})
