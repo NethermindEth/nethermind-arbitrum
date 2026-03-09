@@ -261,7 +261,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     {
         if (!EthereumGasPolicy.ConsumeStorageWrite(ref gas._ethereum, isSlotCreation, spec))
             return false;
-        long cost = isSlotCreation ? GasCostOf.SSet : spec.GetSStoreResetCost();
+        long cost = isSlotCreation ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
         gas._accumulated.Increment(isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess, (ulong)cost);
         return true;
     }

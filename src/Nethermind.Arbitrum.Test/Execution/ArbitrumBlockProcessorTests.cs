@@ -172,12 +172,12 @@ public class ArbitrumBlockProcessorTests
         arbosState.L2PricingState.PerBlockGasLimitStorage.Set(50_000);
 
         Address sender = TestItem.AddressA;
-        UInt256 baseFeePerGas = 1.GWei();
-        worldState.CreateAccount(sender, 100.Ether(), 0);
+        UInt256 baseFeePerGas = 1.GWei;
+        worldState.CreateAccount(sender, 100.Ether, 0);
 
         Transaction tx1 = Build.A.Transaction
             .WithTo(TestItem.AddressB)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithGasLimit(25_000)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(0)
@@ -187,7 +187,7 @@ public class ArbitrumBlockProcessorTests
 
         Transaction tx2 = Build.A.Transaction
             .WithTo(TestItem.AddressC)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithGasLimit(40_000)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(1)
@@ -197,7 +197,7 @@ public class ArbitrumBlockProcessorTests
 
         Transaction tx3 = Build.A.Transaction
             .WithTo(TestItem.AddressD)
-            .WithValue(1.Ether())
+            .WithValue(1.Ether)
             .WithGasLimit(30_000)
             .WithGasPrice(baseFeePerGas)
             .WithNonce(2)
@@ -255,7 +255,7 @@ public class ArbitrumBlockProcessorTests
     {
         private readonly ArbitrumRpcTestBlockchain _chain;
         private readonly IDisposable _stateScope;
-        private readonly UInt256 _baseFeePerGas = 1.GWei();
+        private readonly UInt256 _baseFeePerGas = 1.GWei;
         private readonly Address _sender = TestItem.AddressA;
 
         public IWorldState StateProvider { get; }
@@ -286,7 +286,7 @@ public class ArbitrumBlockProcessorTests
             BlockGasLimit = blockGasLimit;
             arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
 
-            StateProvider.CreateAccount(_sender, 100.Ether(), 0);
+            StateProvider.CreateAccount(_sender, 100.Ether, 0);
             StateProvider.Commit(_chain.SpecProvider.GenesisSpec);
 
             ReceiptsTracer = new BlockReceiptsTracer();
@@ -300,7 +300,7 @@ public class ArbitrumBlockProcessorTests
         {
             return Build.A.Transaction
                 .WithTo(to ?? TestItem.AddressB)
-                .WithValue(1.Ether())
+                .WithValue(1.Ether)
                 .WithGasLimit(gasLimit)
                 .WithGasPrice(_baseFeePerGas)
                 .WithNonce(nonce)

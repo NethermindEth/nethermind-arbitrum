@@ -378,7 +378,7 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        worldState.CreateAccount(sender, 1.Ether());
+        worldState.CreateAccount(sender, 1.Ether);
 
         Rlp encodedTx = Rlp.Encode(transferTx);
         ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
@@ -533,7 +533,7 @@ public class ArbitrumTransactionProcessorTests
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -608,7 +608,7 @@ public class ArbitrumTransactionProcessorTests
             .WithTo(ArbosAddresses.ArbOwnerAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -686,7 +686,7 @@ public class ArbitrumTransactionProcessorTests
             .WithTo(ArbosAddresses.ArbGasInfoAddress)
             .WithData(calldata)
             .WithValue(0)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(gasLimit)
             .WithNonce(worldState.GetNonce(sender))
             .SignedAndResolved(TestItem.PrivateKeyA)
@@ -1258,7 +1258,7 @@ public class ArbitrumTransactionProcessorTests
 
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
-        UInt256 value = 1.Ether();
+        UInt256 value = 1.Ether;
 
         //sender account
         worldState.CreateAccount(TestItem.AddressA, gasLimit * (header.BaseFeePerGas + tip) + value, 0);
@@ -1334,7 +1334,7 @@ public class ArbitrumTransactionProcessorTests
 
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
-        UInt256 value = 1.Ether();
+        UInt256 value = 1.Ether;
         UInt256 maxFeePerGas = header.BaseFeePerGas * 5; //tip not capped
 
         //sender account
@@ -1413,7 +1413,7 @@ public class ArbitrumTransactionProcessorTests
 
         ulong gasLimit = 100_000;
         UInt256 tip = 2 * header.BaseFeePerGas;
-        UInt256 value = 1.Ether();
+        UInt256 value = 1.Ether;
         UInt256 maxFeePerGas = (header.BaseFeePerGas * 10 + header.BaseFeePerGas * 5) / 10; //tip capped at 1.5 of base fee
 
         //sender account
@@ -1509,7 +1509,7 @@ public class ArbitrumTransactionProcessorTests
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
         ArbitrumRetryTransaction retryTx = TestTransaction.PrepareArbitrumRetryTx(worldState, header, ticketIdHash, TestItem.AddressA, TestItem.AddressB, header.Beneficiary!,
-            50.GWei());
+            50.GWei);
         retryTx.Nonce = 100; //nonce not matching to sender state
 
         //sender account
@@ -2739,8 +2739,8 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyC)
             .TestObject;
 
-        chain.MainWorldState.CreateAccount(sender1, 1.Ether(), 0);
-        chain.MainWorldState.CreateAccount(sender2, 1.Ether(), 0);
+        chain.MainWorldState.CreateAccount(sender1, 1.Ether, 0);
+        chain.MainWorldState.CreateAccount(sender2, 1.Ether, 0);
 
         ArbitrumGethLikeTxTracer tracer1 = new(GethTraceOptions.Default);
         TransactionResult result1 = chain.TxProcessor.Execute(failingTx, tracer1);
@@ -2794,7 +2794,7 @@ public class ArbitrumTransactionProcessorTests
         ulong l1Bytes = (ulong)BrotliCompression.Compress(encodedTx.Bytes, brotliCompressionLevel).Length;
         ulong expectedCalldataUnits = l1Bytes * GasCostOf.TxDataNonZeroEip2028;
 
-        chain.MainWorldState.CreateAccount(sender, 1.Ether(), 0);
+        chain.MainWorldState.CreateAccount(sender, 1.Ether, 0);
 
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
@@ -2969,7 +2969,7 @@ public class ArbitrumTransactionProcessorTests
             .SignedAndResolved(TestItem.PrivateKeyA)
             .TestObject;
 
-        UInt256 senderInitialBalance = 10.Ether();
+        UInt256 senderInitialBalance = 10.Ether;
         worldState.CreateAccount(sender, senderInitialBalance, 0);
 
         ArbitrumTransactionProcessor arbProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
@@ -3387,7 +3387,7 @@ public class ArbitrumTransactionProcessorTests
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(12345);
         Address sender = new("0x1000000000000000000000000000000000000001");
         Address refundTo = new("0x2000000000000000000000000000000000000002");
-        UInt256 maxRefund = 10.Ether();
+        UInt256 maxRefund = 10.Ether;
         UInt256 submissionFeeRefund = 5000;
         const ulong gasLimit = 100000;
         ulong timeout = chain.BlockTree.Head!.Header.Timestamp + 1000;
@@ -3472,7 +3472,7 @@ public class ArbitrumTransactionProcessorTests
         Hash256 ticketId = ArbRetryableTxTests.Hash256FromUlong(67890);
         Address sender = new("0x3000000000000000000000000000000000000003");
         Address refundTo = new("0x4000000000000000000000000000000000000004");
-        UInt256 maxRefund = 5.Ether();
+        UInt256 maxRefund = 5.Ether;
         UInt256 submissionFeeRefund = 3000;
         const ulong gasLimit = 150000;
         ulong timeout = chain.BlockTree.Head!.Header.Timestamp + 2000;

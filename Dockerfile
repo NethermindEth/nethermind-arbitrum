@@ -29,18 +29,11 @@ RUN dotnet publish src/Nethermind/src/Nethermind/Nethermind.Runner/Nethermind.Ru
 RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
-# Copy only the platform-specific Stylus native library from NuGet package output.
-# CopyLocalLockFileAssemblies=true publishes all platform runtimes to /arbitrum-plugin/runtimes/.
-# Copying only the target RID avoids bloating the image with unused libraries.
-RUN case "$TARGETARCH" in \
-      amd64)   rid="linux-x64" ;; \
-      arm64)   rid="linux-arm64" ;; \
-      *) echo "Unsupported TARGETARCH: $TARGETARCH" && exit 1 ;; \
-    esac && \
-    mkdir -p /app/plugins/runtimes/$rid/native && \
-    cp -r /arbitrum-plugin/runtimes/$rid/. /app/plugins/runtimes/$rid/ && \
-    echo "Stylus libraries copied for $rid:" && \
-    find /app/plugins/runtimes -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
+# Copy Stylus native libraries to maintain relative structure from plugin assembly
+RUN cd /arbitrum-plugin && \
+    find runtimes -name "*stylus*" -exec cp --parents {} /app/ \; && \
+    echo "Stylus libraries copied:" && \
+    find /app/runtimes -name "*stylus*" | sort
 
 # Copy configuration files
 COPY src/Nethermind.Arbitrum/Properties/configs /app/configs

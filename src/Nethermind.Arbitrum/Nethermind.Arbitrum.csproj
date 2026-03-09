@@ -12,6 +12,7 @@
 
   <PropertyGroup>
     <ArbitrumConfigsDir>Properties</ArbitrumConfigsDir>
+    <ArbitrumNativeLibrariesDir>runtimes</ArbitrumNativeLibrariesDir>
     <RunnerProjectRelativePath>..\Nethermind\src\Nethermind\Nethermind.Runner\Nethermind.Runner.csproj</RunnerProjectRelativePath>
   </PropertyGroup>
 
@@ -27,7 +28,6 @@
       <Private>false</Private>
     </ProjectReference>
   </ItemGroup>
-
 
   <ItemGroup>
     <None Include="$(ArbitrumConfigsDir)\chainspec\**\*.*">
@@ -57,25 +57,27 @@
       <RunnerPluginDir>$(RunnerOutputDirPath)/plugins</RunnerPluginDir>
       <RunnerConfigsDir>$(RunnerOutputDirPath)/configs</RunnerConfigsDir>
       <RunnerChainspecDir>$(RunnerOutputDirPath)/chainspec</RunnerChainspecDir>
+      <RunnerNativeLibrariesDir>$(RunnerOutputDirPath)/runtimes</RunnerNativeLibrariesDir>
     </PropertyGroup>
 
     <ItemGroup>
       <FilesToCopyToPluginsDir Include="$(OutputPath)Nethermind.Arbitrum.*" />
       <FilesToCopyToConfigsDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\configs\**\*.*" />
       <FilesToCopyToChainspecDir Include="$(OutputPath)\$(ArbitrumConfigsDir)\chainspec\**\*.*" />
-      <StylusRuntimeFiles Include="$(OutputPath)runtimes/**/*stylus*" />
+      <FilesToCopyToNativeLibrariesDir Include="$(OutputPath)\$(ArbitrumNativeLibrariesDir)\**\*stylus*" />
     </ItemGroup>
 
-    <Message Text="Copying Arbitrum plugin and its configs after build..." Importance="high" />
+    <Message Text="Copying Arbitrum plugin, configs, and native libraries after the build..." Importance="high" />
     <Copy SourceFiles="@(FilesToCopyToPluginsDir)" DestinationFolder="$(RunnerPluginDir)" />
     <Copy SourceFiles="@(FilesToCopyToConfigsDir)" DestinationFolder="$(RunnerConfigsDir)" />
     <Copy SourceFiles="@(FilesToCopyToChainspecDir)" DestinationFolder="$(RunnerChainspecDir)" />
-    <Copy SourceFiles="@(StylusRuntimeFiles)"
-          DestinationFiles="@(StylusRuntimeFiles-&gt;'$(RunnerPluginDir)/runtimes/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(FilesToCopyToNativeLibrariesDir)"
+          DestinationFiles="@(FilesToCopyToNativeLibrariesDir->'$(RunnerNativeLibrariesDir)/%(RecursiveDir)%(Filename)%(Extension)')" />
 
     <Message Text="Copied @(FilesToCopyToPluginsDir-&gt;Count()) files to $(RunnerPluginDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToConfigsDir-&gt;Count()) files to $(RunnerConfigsDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToChainspecDir-&gt;Count()) files to $(RunnerChainspecDir)" Importance="high" />
+    <Message Text="Copied @(FilesToCopyToNativeLibrariesDir-&gt;Count()) files to $(RunnerNativeLibrariesDir)" Importance="high" />
   </Target>
 
 </Project>

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Evm;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 

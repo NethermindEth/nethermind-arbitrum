@@ -103,7 +103,7 @@ public class ArbitrumGasPolicyTests
 
         ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
 
-        long expectedCost = Cancun.Instance.GetSStoreResetCost();
+        long expectedCost = Cancun.Instance.GasCosts.SStoreResetCost;
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
         gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be((ulong)expectedCost);
     }

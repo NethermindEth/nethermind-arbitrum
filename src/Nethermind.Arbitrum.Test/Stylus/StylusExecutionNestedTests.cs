@@ -54,7 +54,7 @@ public class StylusExecutionNestedTests
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, GetNetworkFeeBalanceCalldata))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(650007)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))

@@ -27,7 +27,7 @@ public class NitroL2MessageParserTests
     private const int ChainId = 1;
 
     // The initial L1 pricing basefee starts at 50 GWei unless set in the init message
-    private static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei();
+    private static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei;
 
     [Test]
     public static void ParseSubmitRetryable_WhenGivenValidMessage_ReturnsExpectedTransaction()
