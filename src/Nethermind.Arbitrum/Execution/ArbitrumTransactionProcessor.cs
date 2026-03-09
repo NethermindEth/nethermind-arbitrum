@@ -487,16 +487,15 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blCtx.Header.ParentHash!;
                 }
 
-                Dictionary<string, object> callArguments =
-                    AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
+                StartBlockCallArgs callArguments = AbiMetadata.DecodeStartBlock(tx.Data!);
 
-                ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
-                ulong timePassed = (ulong)callArguments["timePassed"];
+                ulong l1BlockNumber = callArguments.L1BlockNumber;
+                ulong timePassed = callArguments.TimePassed;
 
                 if (_arbosState!.CurrentArbosVersion < ArbosVersion.Three)
                 {
                     // (incorrectly) use the L2 block number instead
-                    timePassed = (ulong)callArguments["l2BlockNumber"];
+                    timePassed = callArguments.L2BlockNumber;
                 }
 
                 if (_arbosState!.CurrentArbosVersion < ArbosVersion.Eight)
@@ -525,12 +524,12 @@ namespace Nethermind.Arbitrum.Execution
 
             if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportMethodId))
             {
-                Dictionary<string, object> callArguments = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+                BatchPostingReportCallArgs callArguments = AbiMetadata.DecodeBatchPostingReport(tx.Data!);
 
-                UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
-                Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
-                ulong batchDataGas = (ulong)callArguments["batchDataGas"];
-                UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
+                UInt256 batchTimestamp = callArguments.BatchTimestamp;
+                Address batchPosterAddress = callArguments.BatchPosterAddress;
+                ulong batchDataGas = callArguments.BatchDataGas;
+                UInt256 l1BaseFeeWei = callArguments.L1BaseFeeWei;
 
                 if (_arbosState != null)
                 {
@@ -552,16 +551,15 @@ namespace Nethermind.Arbitrum.Execution
 
             if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportV2MethodId))
             {
-                Dictionary<string, object> callArguments =
-                    AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReportV2, tx.Data.ToArray());
+                BatchPostingReportV2CallArgs callArguments = AbiMetadata.DecodeBatchPostingReportV2(tx.Data!);
 
-                UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
-                Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
-                ulong batchNumber = (ulong)callArguments["batchNumber"];
-                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];
-                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];
-                ulong batchExtraGas = (ulong)callArguments["batchExtraGas"];
-                UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
+                UInt256 batchTimestamp = callArguments.BatchTimestamp;
+                Address batchPosterAddress = callArguments.BatchPosterAddress;
+                ulong batchNumber = callArguments.BatchNumber;
+                ulong batchCallDataLength = callArguments.BatchCallDataLength;
+                ulong batchCallDataNonZeros = callArguments.BatchCallDataNonZeros;
+                ulong batchExtraGas = callArguments.BatchExtraGas;
+                UInt256 l1BaseFeeWei = callArguments.L1BaseFeeWei;
 
                 if (_arbosState != null)
                 {
@@ -1349,19 +1347,11 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private void UpdateL1FeesAvailable(ArbosState arbosState, UInt256 posterFee)
+        private static void UpdateL1FeesAvailable(ArbosState arbosState, UInt256 posterFee)
         {
-            try
-            {
-                // Add poster fee to L1 fees available pool for future rewards distribution
-                // This tracks the total L1 fees collected for staker rewards
-                arbosState.L1PricingState.AddToL1FeesAvailable(posterFee);
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsError)
-                    _logger.Error($"Failed to update L1FeesAvailable: {ex}");
-            }
+            // Add poster fee to L1 fees available pool for future rewards distribution.
+            // Propagates on failure — silent state corruption here would diverge the chain.
+            arbosState.L1PricingState.AddToL1FeesAvailable(posterFee);
         }
 
         private void UpdateGasPool(ulong gasUsed, ArbitrumTxExecutionContext txContext)

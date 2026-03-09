@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Abi;
+using Nethermind.Core;
+using Nethermind.Int256;
 using System.Text.Json;
 using Nethermind.Core.Crypto;
 using System.Buffers.Binary;
@@ -31,6 +33,60 @@ public class AbiMetadata
     public static byte[] StartBlockMethodId => _startBlockMethodId ??= GetMethodSignature(StartBlockMethod);
     public static byte[] BatchPostingReportMethodId => _batchPostingReportMethodId ??= GetMethodSignature(BatchPostingReport);
     public static byte[] BatchPostingReportV2MethodId => _batchPostingReportV2MethodId ??= GetMethodSignature(BatchPostingReportV2);
+
+    // Cached signatures — avoid re-parsing JSON on every internal transaction
+    private static readonly AbiSignature _startBlockSignature = BuildCachedSignature(StartBlockMethod);
+    private static readonly AbiSignature _batchPostingReportSignature = BuildCachedSignature(BatchPostingReport);
+    private static readonly AbiSignature _batchPostingReportV2Signature = BuildCachedSignature(BatchPostingReportV2);
+
+    private static AbiSignature BuildCachedSignature(string methodName)
+    {
+        AbiParam[] inputs = GetArbAbiParams(Metadata, methodName);
+        return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());
+    }
+
+    public static StartBlockCallArgs DecodeStartBlock(ReadOnlyMemory<byte> data)
+    {
+        if (data.Length <= 4) throw new ArgumentException("Input data too short");
+        object[] args = AbiEncoder.Instance.Decode(AbiEncodingStyle.None, _startBlockSignature, data.Slice(4).ToArray());
+        return new StartBlockCallArgs
+        {
+            L1BaseFee = (UInt256)args[0],
+            L1BlockNumber = (ulong)args[1],
+            L2BlockNumber = (ulong)args[2],
+            TimePassed = (ulong)args[3]
+        };
+    }
+
+    public static BatchPostingReportCallArgs DecodeBatchPostingReport(ReadOnlyMemory<byte> data)
+    {
+        if (data.Length <= 4) throw new ArgumentException("Input data too short");
+        object[] args = AbiEncoder.Instance.Decode(AbiEncodingStyle.None, _batchPostingReportSignature, data.Slice(4).ToArray());
+        return new BatchPostingReportCallArgs
+        {
+            BatchTimestamp = (UInt256)args[0],
+            BatchPosterAddress = (Address)args[1],
+            BatchNumber = (ulong)args[2],
+            BatchDataGas = (ulong)args[3],
+            L1BaseFeeWei = (UInt256)args[4]
+        };
+    }
+
+    public static BatchPostingReportV2CallArgs DecodeBatchPostingReportV2(ReadOnlyMemory<byte> data)
+    {
+        if (data.Length <= 4) throw new ArgumentException("Input data too short");
+        object[] args = AbiEncoder.Instance.Decode(AbiEncodingStyle.None, _batchPostingReportV2Signature, data.Slice(4).ToArray());
+        return new BatchPostingReportV2CallArgs
+        {
+            BatchTimestamp = (UInt256)args[0],
+            BatchPosterAddress = (Address)args[1],
+            BatchNumber = (ulong)args[2],
+            BatchCallDataLength = (ulong)args[3],
+            BatchCallDataNonZeros = (ulong)args[4],
+            BatchExtraGas = (ulong)args[5],
+            L1BaseFeeWei = (UInt256)args[6]
+        };
+    }
 
 
     private static readonly JsonSerializerOptions? _jso = new()
@@ -171,4 +227,32 @@ public class AbiMetadata
         public required AbiType Type { get; set; }
         public bool? Indexed { get; set; } // for event parameters
     }
+}
+
+public readonly struct StartBlockCallArgs
+{
+    public UInt256 L1BaseFee { get; init; }
+    public ulong L1BlockNumber { get; init; }
+    public ulong L2BlockNumber { get; init; }
+    public ulong TimePassed { get; init; }
+}
+
+public readonly struct BatchPostingReportCallArgs
+{
+    public UInt256 BatchTimestamp { get; init; }
+    public Address BatchPosterAddress { get; init; }
+    public ulong BatchNumber { get; init; }
+    public ulong BatchDataGas { get; init; }
+    public UInt256 L1BaseFeeWei { get; init; }
+}
+
+public readonly struct BatchPostingReportV2CallArgs
+{
+    public UInt256 BatchTimestamp { get; init; }
+    public Address BatchPosterAddress { get; init; }
+    public ulong BatchNumber { get; init; }
+    public ulong BatchCallDataLength { get; init; }
+    public ulong BatchCallDataNonZeros { get; init; }
+    public ulong BatchExtraGas { get; init; }
+    public UInt256 L1BaseFeeWei { get; init; }
 }
