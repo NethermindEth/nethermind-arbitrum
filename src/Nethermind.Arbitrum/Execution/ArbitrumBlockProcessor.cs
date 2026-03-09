@@ -476,7 +476,7 @@ namespace Nethermind.Arbitrum.Execution
                     return [];
                 }
 
-                List<Transaction> addedTransactions = new(lastTxReceipt.Logs!.Length);
+                List<Transaction> addedTransactions = new();
 
                 if (lastTxReceipt.Logs != null)
                 {
