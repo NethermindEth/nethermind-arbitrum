@@ -79,7 +79,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ConsumeCodeDeposit(ref ArbitrumGasPolicy gas, long cost)
     {
-        EthereumGasPolicy.Consume(ref gas._ethereum, cost);
+        EthereumGasPolicy.ConsumeCodeDeposit(ref gas._ethereum, cost);
         gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)cost);
     }
 
