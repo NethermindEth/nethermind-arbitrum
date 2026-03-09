@@ -62,25 +62,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
             BuildBlocksOnMainState = false,
         };
 
-    private ITransactionProcessor CreateTransactionProcessor(
-        IArbitrumSpecHelper arbitrumSpecHelper,
-        IWasmStore wasmStore,
-        ISpecProvider specProvider,
-        IArbosVersionProvider arbosVersionProvider,
-        IWorldState state,
-        IHeaderFinder witnessGeneratingHeaderFinder,
-        ArbitrumUserWasmsRecorder wasmsRecorder)
-    {
-        BlockhashProvider blockhashProvider = new(new BlockhashCache(witnessGeneratingHeaderFinder, logManager), state, logManager);
-        // We give a NoOp l1BlockCache to the vm so that it forces querying the world state
-        ArbitrumVirtualMachine vm = new(arbitrumSpecHelper, blockhashProvider, wasmStore, specProvider, logManager, new NoOpL1BlockCache(), enableWitnessGeneration: true, wasmsRecorder: wasmsRecorder);
-
-        return new ArbitrumTransactionProcessor(
-            BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, logManager,
-            new ArbitrumCodeInfoRepository(new CodeInfoRepository(state, new EthereumPrecompileProvider()),
-            arbosVersionProvider, state as WitnessGeneratingWorldState));
-    }
-
     // TODO: check debug endpoint exec later (compare with nitro) -- Not priority for now
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope() => CreateScope(null);
 
@@ -91,7 +72,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
         WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
-        ArbitrumUserWasmsRecorder wasmsRecorder = new();
         IBlocksConfig blocksConfig = rootLifetimeScope.Resolve<IBlocksConfig>();
 
         ILifetimeScope envLifetimeScope = rootLifetimeScope.BeginLifetimeScope((builder) =>
@@ -105,20 +85,48 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
 
             builder
                 .AddScoped<IStateReader>(stateReader)
+                .AddScoped<ArbitrumUserWasmsRecorder>()
 
-                .AddScoped<IHeaderFinder>(builder => new WitnessGeneratingHeaderFinder(builder.Resolve<IHeaderStore>()))
-                .AddScoped<IWorldState>(builder => new WitnessGeneratingWorldState(worldState, stateReader, trieStore, (builder.Resolve<IHeaderFinder>() as WitnessGeneratingHeaderFinder)!))
+                .AddScoped<WitnessGeneratingHeaderFinder, IHeaderStore>(headerStore => new WitnessGeneratingHeaderFinder(headerStore))
+                .BindScoped<IHeaderFinder, WitnessGeneratingHeaderFinder>()
+
+                .AddScoped<WitnessGeneratingWorldState, WitnessGeneratingHeaderFinder>(headerFinder =>
+                    new WitnessGeneratingWorldState(worldState, stateReader, trieStore, headerFinder))
+                .BindScoped<IWorldState, WitnessGeneratingWorldState>()
 
                 .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
 
-                .AddScoped<ITransactionProcessor>(builder => CreateTransactionProcessor(
-                    builder.Resolve<IArbitrumSpecHelper>(),
-                    builder.Resolve<IWasmStore>(),
-                    builder.Resolve<ISpecProvider>(),
-                    builder.Resolve<IArbosVersionProvider>(),
-                    builder.Resolve<IWorldState>(),
-                    builder.Resolve<IHeaderFinder>(),
-                    wasmsRecorder))
+                // We give a NoOp l1BlockCache to the vm so that it forces querying
+                // the world state to record state accesses.
+                // The VM gets its own private BlockhashProvider backed by WitnessGeneratingHeaderFinder so that
+                // blockhash lookups are recorded in the witness. We do NOT register IBlockhashProvider/IBlockhashCache
+                // in the child scope so that BranchProcessor (which is AddScoped and calls Prefetch()) falls back to
+                // the root scope's unrecorded provider and does not pollute the witness with prefetch header lookups.
+                .AddScoped<ArbitrumVirtualMachine>(ctx =>
+                {
+                    ILogManager log = ctx.Resolve<ILogManager>();
+                    BlockhashCache recordingCache = new(ctx.Resolve<WitnessGeneratingHeaderFinder>(), log);
+                    BlockhashProvider recordingProvider = new(recordingCache, ctx.Resolve<IWorldState>(), log);
+                    return new ArbitrumVirtualMachine(
+                        ctx.Resolve<IArbitrumSpecHelper>(),
+                        recordingProvider,
+                        ctx.Resolve<IWasmStore>(),
+                        ctx.Resolve<ISpecProvider>(),
+                        log,
+                        new NoOpL1BlockCache(),
+                        enableWitnessGeneration: true,
+                        wasmsRecorder: ctx.Resolve<ArbitrumUserWasmsRecorder>());
+                })
+
+                // Pass CodeInfoRepository, which does not cache anything, forcing querying the
+                // the world state to record state accesses.
+                .AddScoped<ICodeInfoRepository, IWorldState, IArbosVersionProvider>((state, versionProvider) =>
+                    new ArbitrumCodeInfoRepository(
+                        new CodeInfoRepository(state, new EthereumPrecompileProvider()),
+                        versionProvider,
+                        state as WitnessGeneratingWorldState))
+
+                .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
 
                 // 1st: add the tx executor
                 .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>()
@@ -129,23 +137,13 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                 .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>()
 
                 // 3rd: configure the builder for block production (like ArbitrumBlockProducerEnvFactory but with my own witness capturing world state)
-                .AddScoped<ITxSource>(builder => builder.Resolve<IBlockProducerTxSourceFactory>().Create())
+                .AddScoped<ITxSource, IBlockProducerTxSourceFactory>(factory => factory.Create())
                 .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>()
                 .AddDecorator<IWithdrawalProcessor, BlockProductionWithdrawalProcessor>()
                 .AddDecorator<IBlockchainProcessor, OneTimeChainProcessor>()
                 .AddScoped<IBlockProducerEnv, BlockProducerEnv>()
 
-                .AddScoped<IWitnessGeneratingBlockProcessingEnv>(builder =>
-                    new ArbitrumWitnessGeneratingBlockProcessingEnv(
-                        builder.Resolve<ITxSource>(),
-                        builder.Resolve<IBlockchainProcessor>(),
-                        builder.Resolve<IReadOnlyBlockTree>(),
-                        (builder.Resolve<IWorldState>() as WitnessGeneratingWorldState)!,
-                        builder.Resolve<IBlocksConfig>(),
-                        builder.Resolve<ISpecProvider>(),
-                        builder.Resolve<IArbitrumSpecHelper>(),
-                        wasmsRecorder,
-                        logManager));
+                .AddScoped<IWitnessGeneratingBlockProcessingEnv, ArbitrumWitnessGeneratingBlockProcessingEnv>();
         });
 
         return new ExecutionRecordingScope(envLifetimeScope);
