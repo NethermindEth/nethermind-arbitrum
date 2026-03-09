@@ -77,11 +77,9 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         ILifetimeScope envLifetimeScope = rootLifetimeScope.BeginLifetimeScope((builder) =>
         {
             if (wasmTargets is not null)
-            {
+                // No need to redeclare IWasmStore because it is now declared as scoped
+                // and therefore a new instance will be created in this child scope with the correct dependencies
                 builder.AddScoped<IStylusTargetConfig>(_ => new StylusTargetConfig() { OverrideWasmTargets = wasmTargets });
-                // Need to redeclare IWasmStore because it was originally declared as a singleton and therefore was cached with original IStylusTargetConfig
-                builder.AddScoped<IWasmStore, IWasmDb, IStylusTargetConfig>((db, config) => new WasmStore(db, config, cacheTag: 1));
-            }
 
             builder
                 .AddScoped<IStateReader>(stateReader)
