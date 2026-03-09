@@ -159,7 +159,7 @@ internal static class ArbitrumEvmInstructions
     {
         IReleaseSpec spec = vm.Spec;
         // Deduct the gas cost for external code access.
-        TGasPolicy.Consume(ref gas, spec.GetExtCodeCost());
+        TGasPolicy.Consume(ref gas, spec.GasCosts.ExtCodeCost);
 
         // Pop the account address from the stack.
         Address? address = stack.PopAddress();
