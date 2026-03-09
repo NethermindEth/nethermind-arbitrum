@@ -5,9 +5,7 @@ on:
     - cron: '0 5 * * *'  # Daily at 5 AM UTC (before comparison tests)
   workflow_dispatch:      # Manual trigger for testing
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: submodule-update
@@ -16,6 +14,8 @@ concurrency:
 jobs:
   check-for-updates:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       has-updates: ${{ steps.check.outputs.has-updates }}
       current-sha: ${{ steps.check.outputs.current-sha }}
@@ -54,6 +54,9 @@ jobs:
     needs: check-for-updates
     if: needs.check-for-updates.outputs.has-updates == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       CURRENT_SHA: ${{ needs.check-for-updates.outputs.current-sha }}
       LATEST_SHA: ${{ needs.check-for-updates.outputs.latest-sha }}
