@@ -1347,11 +1347,17 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private static void UpdateL1FeesAvailable(ArbosState arbosState, UInt256 posterFee)
+        private void UpdateL1FeesAvailable(ArbosState arbosState, UInt256 posterFee)
         {
-            // Add poster fee to L1 fees available pool for future rewards distribution.
-            // Propagates on failure — silent state corruption here would diverge the chain.
-            arbosState.L1PricingState.AddToL1FeesAvailable(posterFee);
+            try
+            {
+                arbosState.L1PricingState.AddToL1FeesAvailable(posterFee);
+            }
+            catch (Exception ex)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"Failed to update L1FeesAvailable: {ex.Message}");
+            }
         }
 
         private void UpdateGasPool(ulong gasUsed, ArbitrumTxExecutionContext txContext)
