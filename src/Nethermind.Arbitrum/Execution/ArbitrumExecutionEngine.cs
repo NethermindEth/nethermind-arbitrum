@@ -110,7 +110,7 @@ public sealed class ArbitrumExecutionEngine(
         if (blockNumResult.Result != Result.Success)
             return ResultWrapper<MessageResult[]>.Fail(blockNumResult.Result.Error ?? "Unknown error converting message index", blockNumResult.ErrorCode);
 
-        ResultWrapper<Block[]> reorgedBlocks =  await arbitrumBlockFactory.ReorgAsync(blockNumResult.Data, parameters.NewMessages);
+        ResultWrapper<Block[]> reorgedBlocks = await arbitrumBlockFactory.ReorgAsync(blockNumResult.Data, parameters.NewMessages);
         if (reorgedBlocks.Result != Result.Success)
             return ResultWrapper<MessageResult[]>.Fail(reorgedBlocks.Result.Error ?? "Unknown error during reorg", reorgedBlocks.ErrorCode);
 
