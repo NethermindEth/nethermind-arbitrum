@@ -9,7 +9,7 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
-using Nethermind.Consensus.Validators;
+using Autofac;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -45,9 +45,9 @@ public class ArbitrumWitnessGenerationTests
         using ArbitrumWitness witness = await chain.BuildBlockWitness(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
         AssertWitnessMatchesRecordResult(witness, recordResult);
 
-        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
-        ArbitrumStatelessBlockProcessingEnv blockProcessingEnv =
-            new(witness, chain.SpecHelper, specProvider, Always.Valid, chain.StylusTargetConfig, chain.ArbosVersionProvider, chain.LogManager, chain.ArbitrumConfig);
+        ISpecProvider specProvider = chain.Container.Resolve<ISpecProvider>();
+        using IArbitrumStatelessBlockProcessingEnvScope blockProcessingEnv =
+            chain.Container.Resolve<ArbitrumStatelessBlockProcessingEnvFactory>().CreateScope(witness);
 
         Block block = chain.BlockFinder.FindBlock(recordResult.BlockHash)
             ?? throw new ArgumentException($"Unable to find block {recordResult.BlockHash}");
@@ -83,9 +83,9 @@ public class ArbitrumWitnessGenerationTests
         using ArbitrumWitness witness = await chain.BuildBlockWitness(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
         AssertWitnessMatchesRecordResult(witness, recordResult);
 
-        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
-        ArbitrumStatelessBlockProcessingEnv blockProcessingEnv =
-            new(witness, chain.SpecHelper, specProvider, Always.Valid, chain.StylusTargetConfig, chain.ArbosVersionProvider, chain.LogManager, chain.ArbitrumConfig);
+        ISpecProvider specProvider = chain.Container.Resolve<ISpecProvider>();
+        using IArbitrumStatelessBlockProcessingEnvScope blockProcessingEnv =
+            chain.Container.Resolve<ArbitrumStatelessBlockProcessingEnvFactory>().CreateScope(witness);
 
         Block block = chain.BlockFinder.FindBlock(recordResult.BlockHash)
             ?? throw new ArgumentException($"Unable to find block {recordResult.BlockHash}");
