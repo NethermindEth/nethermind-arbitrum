@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Consensus.Producers;
@@ -305,26 +306,22 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.LogManager,
             chain.Dependencies.CachedL1PriceData,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IStateReader>(),
-            chain.Container.Resolve<ArbitrumBlockFactory>());
+            chain.Container.Resolve<ArbitrumBlockFactory>(),
+            chain.Container.Resolve<ArbitrumSequencerEngine>(),
+            chain.Container.Resolve<IExpressLaneService>(),
+            chain.Container.Resolve<IAuctionResolutionQueue>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
         IArbitrumConfig arbitrumConfig = chain.Container.Resolve<IArbitrumConfig>();
-        TransactionQueue? transactionQueue = null;
-        SequencerState? sequencerState = null;
 
         if (arbitrumConfig.SequencerEnabled)
         {
-            DelayedMessageQueue delayedMessageQueue = new();
-            sequencerState = new SequencerState(chain.LogManager);
-            sequencerState.Activate();
-            engine.InitializeSequencer(delayedMessageQueue, sequencerState);
-            transactionQueue = engine.TransactionQueue;
+            chain.Container.Resolve<SequencerState>().Activate();
         }
 
         chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine);
-        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain, transactionQueue, sequencerState);
+        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
 
         return chain;
     }
@@ -350,8 +347,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            transactionQueue,
-            sequencerState,
+            transactionQueue ?? chain.Container.Resolve<TransactionQueue>(),
+            sequencerState ?? chain.Container.Resolve<SequencerState>(),
             chain.Container.Resolve<IEthereumEcdsa>()
         );
     }

@@ -8,6 +8,8 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -86,6 +88,20 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _logManager);
 
+            ArbitrumSequencerEngine sequencer = new(
+                blockFactory,
+                _blockTreeMock.Object,
+                _specHelper.Object,
+                new DelayedMessageQueue(),
+                new SequencerState(_logManager),
+                cachedL1PriceData,
+                _logManager,
+                _arbitrumConfig,
+                new Mock<IStateReader>().Object,
+                new TransactionQueue(100, 1000, false),
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 _blockTreeMock.Object,
@@ -95,8 +111,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
-                new Mock<IStateReader>().Object,
-                blockFactory);
+                blockFactory,
+                sequencer,
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
 
             _rpcModule = new ArbitrumRpcModule(engine);
         }
@@ -257,6 +275,20 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _logManager);
 
+            ArbitrumSequencerEngine sequencer = new(
+                blockFactory,
+                blockTree,
+                _specHelper.Object,
+                new DelayedMessageQueue(),
+                new SequencerState(_logManager),
+                cachedL1PriceData,
+                _logManager,
+                _arbitrumConfig,
+                new Mock<IStateReader>().Object,
+                new TransactionQueue(100, 1000, false),
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
@@ -266,8 +298,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
-                new Mock<IStateReader>().Object,
-                blockFactory);
+                blockFactory,
+                sequencer,
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -297,6 +331,19 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _logManager);
 
+            ArbitrumSequencerEngine sequencer = new(
+                blockFactory,
+                blockTree,
+                _specHelper.Object,
+                new DelayedMessageQueue(),
+                new SequencerState(_logManager),
+                cachedL1PriceData,
+                _logManager,
+                _arbitrumConfig,
+                new Mock<IStateReader>().Object,
+                new TransactionQueue(100, 1000, false),
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
                 _initializer,
@@ -307,8 +354,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
-                new Mock<IStateReader>().Object,
-                blockFactory);
+                blockFactory,
+                sequencer,
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -344,6 +393,20 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 _logManager);
 
+            ArbitrumSequencerEngine sequencer = new(
+                blockFactory,
+                blockTree,
+                _specHelper.Object,
+                new DelayedMessageQueue(),
+                new SequencerState(_logManager),
+                cachedL1PriceData,
+                _logManager,
+                _arbitrumConfig,
+                new Mock<IStateReader>().Object,
+                new TransactionQueue(100, 1000, false),
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
+
             ArbitrumExecutionEngine engine = new(
                 _initializer,
                 blockTree,
@@ -353,8 +416,10 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
-                new Mock<IStateReader>().Object,
-                blockFactory);
+                blockFactory,
+                sequencer,
+                new DisabledExpressLaneService(),
+                new DisabledAuctionResolutionQueue());
 
             _rpcModule = new ArbitrumRpcModule(engine);
 

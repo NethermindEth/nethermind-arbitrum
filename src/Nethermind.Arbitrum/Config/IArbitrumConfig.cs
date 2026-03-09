@@ -32,6 +32,9 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Number of addresses to cache nonces for in sequencer mode", DefaultValue = "1024")]
     int SequencerNonceCacheSize { get; set; }
 
+    [ConfigItem(Description = "Maximum number of transactions in a sequencer's queue", DefaultValue = "1024")]
+    int SequencerMaxTxQueueSize { get; set; }
+
     [ConfigItem(Description = "Maximum transaction data size in bytes for sequencer mode", DefaultValue = "95000")]
     int SequencerMaxTxDataSize { get; set; }
 

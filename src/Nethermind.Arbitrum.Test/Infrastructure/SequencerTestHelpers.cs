@@ -134,14 +134,16 @@ public static class SequencerTestHelpers
         out DelayedMessageQueue delayedMessageQueue,
         out TransactionQueue transactionQueue,
         out ArbitrumEthRpcModule ethRpcModule,
-        out AuctionResolutionQueue auctionResolutionQueue,
+        out IAuctionResolutionQueue auctionResolutionQueue,
         IExpressLaneService? expressLaneService = null)
     {
         delayedMessageQueue = new DelayedMessageQueue();
         SequencerState sequencerState = new(LimboLogs.Instance);
         sequencerState.Activate();
 
-        auctionResolutionQueue = new AuctionResolutionQueue();
+        expressLaneService ??= chain.Container.Resolve<IExpressLaneService>();
+        auctionResolutionQueue = chain.Container.Resolve<IAuctionResolutionQueue>();
+        transactionQueue = chain.Container.Resolve<TransactionQueue>();
 
         ArbitrumExecutionEngine engine = new(
             chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
@@ -152,11 +154,10 @@ public static class SequencerTestHelpers
             chain.LogManager,
             chain.CachedL1PriceData,
             chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<IStateReader>(),
-            chain.Container.Resolve<ArbitrumBlockFactory>());
-
-        engine.InitializeSequencer(delayedMessageQueue, sequencerState, expressLaneService, auctionResolutionQueue);
-        transactionQueue = engine.TransactionQueue!;
+            chain.Container.Resolve<ArbitrumBlockFactory>(),
+            chain.Container.Resolve<ArbitrumSequencerEngine>(),
+            expressLaneService,
+            auctionResolutionQueue);
 
         ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, transactionQueue, sequencerState);
 
