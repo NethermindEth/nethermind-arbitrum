@@ -125,11 +125,12 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
             case GasModel.SingleGasConstraints:
                 AddToGasPoolMultiConstraints(gas);
                 break;
-            case GasModel.Unknown:
             case GasModel.Legacy:
-            default:
                 AddToGasPoolLegacy(gas);
                 break;
+            case GasModel.Unknown:
+            default:
+                throw new InvalidOperationException($"Unexpected gas model in AddToGasPool: {model}");
         }
     }
 
@@ -396,9 +397,8 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
                 UpdateMultiGasConstraintsBacklogs(op, usedMultiGas);
                 break;
             case GasModel.Unknown:
-                break;
             default:
-                throw new ArgumentOutOfRangeException();
+                throw new InvalidOperationException($"Unexpected gas model in UpdateBacklog: {model}");
         }
     }
 

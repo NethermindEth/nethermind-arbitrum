@@ -81,13 +81,13 @@ public class RetryableState(ArbosStorage retryables)
 
     public ulong KeepAlive(Hash256 ticketId, ulong currentTimestamp)
     {
-        Retryable retryable = OpenRetryable(ticketId, currentTimestamp) ?? throw new Exception("TicketId not found");
+        Retryable retryable = OpenRetryable(ticketId, currentTimestamp) ?? throw new KeyNotFoundException($"TicketId not found: {ticketId}");
 
         ulong timeout = retryable.CalculateTimeout();
         // Cannot extend life of a retryable that's already ending beyond 1 lifetime window from now
         if (timeout > currentTimestamp + Retryable.RetryableLifetimeSeconds)
         {
-            throw new Exception("Timeout too far into the future");
+            throw new InvalidOperationException($"Timeout too far into the future: {timeout} > {currentTimestamp + Retryable.RetryableLifetimeSeconds}");
         }
 
         // Add a duplicate entry to the end of the queue (only the last one deletes the retryable)
