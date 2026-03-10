@@ -8,21 +8,17 @@ namespace Nethermind.Arbitrum.Sequencer.Queues;
 
 public class DelayedMessageQueue
 {
-    private readonly Lock _lock = new();
-    private Channel<DelayedMessage> _channel = Channel.CreateUnbounded<DelayedMessage>(
-        new UnboundedChannelOptions { SingleReader = true });
-    private DelayedMessage? _tail;
+    private volatile Channel<DelayedMessage> _channel = CreateChannel();
+    private volatile DelayedMessage? _tail;
 
     public void Enqueue(L1IncomingMessage[] messages, ulong firstMsgIdx)
     {
-        lock (_lock)
+        Channel<DelayedMessage> channel = _channel;
+        for (int i = 0; i < messages.Length; i++)
         {
-            for (int i = 0; i < messages.Length; i++)
-            {
-                DelayedMessage msg = new(messages[i], firstMsgIdx + (ulong)i);
-                _channel.Writer.TryWrite(msg);
-                _tail = msg;
-            }
+            DelayedMessage msg = new(messages[i], firstMsgIdx + (ulong)i);
+            channel.Writer.TryWrite(msg);
+            _tail = msg;
         }
     }
 
@@ -35,21 +31,18 @@ public class DelayedMessageQueue
 
     public bool TryPeekTail(out DelayedMessage? message)
     {
-        lock (_lock)
-        {
-            message = _tail;
-            return message is not null;
-        }
+        message = _tail;
+        return message is not null;
     }
 
     public void Clear()
     {
-        lock (_lock)
-        {
-            _channel.Writer.Complete();
-            _channel = Channel.CreateUnbounded<DelayedMessage>(
-                new UnboundedChannelOptions { SingleReader = true });
-            _tail = null;
-        }
+        _tail = null;
+        Channel<DelayedMessage> old = _channel;
+        _channel = CreateChannel();
+        old.Writer.Complete();
     }
+
+    private static Channel<DelayedMessage> CreateChannel() =>
+        Channel.CreateUnbounded<DelayedMessage>(new UnboundedChannelOptions { SingleReader = true });
 }
