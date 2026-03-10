@@ -12,6 +12,7 @@ using Nethermind.Db;
 using Nethermind.Db.Blooms;
 using Nethermind.Logging;
 using Nethermind.State.Repositories;
+using IBlockAccessListStore = Nethermind.Blockchain.Headers.IBlockAccessListStore;
 
 namespace Nethermind.Arbitrum.Core;
 
@@ -33,6 +34,7 @@ public class ArbitrumBlockTree(
     IHeaderStore headerStore,
     IDbProvider dbProvider,
     IBadBlockStore badBlockStore,
+    IBlockAccessListStore blockAccessListStore,
     IChainLevelInfoRepository chainLevelInfoRepository,
     ISpecProvider specProvider,
     IBloomStorage bloomStorage,
@@ -44,6 +46,7 @@ public class ArbitrumBlockTree(
         dbProvider.BlockInfosDb,
         dbProvider.MetadataDb,
         badBlockStore,
+        blockAccessListStore,
         chainLevelInfoRepository,
         specProvider,
         bloomStorage,
