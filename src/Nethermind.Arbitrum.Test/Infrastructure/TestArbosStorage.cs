@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
@@ -45,10 +46,12 @@ public static class TestArbosStorage
     public class TestBurner(ulong availableGas, TracingInfo? tracingInfo = null) : IBurner
     {
         private ulong _availableGas = availableGas;
+        private MultiGas _burnedMultiGas;
 
         public bool ReadOnly => false;
         public TracingInfo? TracingInfo { get; } = tracingInfo;
         public ulong Burned => _availableGas;
+        public MultiGas BurnedMultiGas => _burnedMultiGas;
         public ref ulong GasLeft => ref _availableGas;
 
         public void Burn(ulong amount)
@@ -57,6 +60,15 @@ public static class TestArbosStorage
             {
                 _availableGas -= amount;
             }
+        }
+
+        public void Burn(ResourceKind kind, ulong amount)
+        {
+            checked
+            {
+                _availableGas -= amount;
+            }
+            _burnedMultiGas.Increment(kind, amount);
         }
     }
 }

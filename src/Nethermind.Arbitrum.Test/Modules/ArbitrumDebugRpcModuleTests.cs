@@ -19,7 +19,7 @@ namespace Nethermind.Arbitrum.Test.Modules;
 public class ArbitrumDebugRpcModuleTests
 {
     private IDbProvider _dbProvider = null!;
-    private IResettableBlockTree _blockTree = null!;
+    private IArbitrumResettableBlockTree _blockTree = null!;
     private List<IClearableCache> _cacheAwareServices = null!;
     private IClearableCache _mockCache1 = null!;
     private IClearableCache _mockCache2 = null!;
@@ -29,7 +29,7 @@ public class ArbitrumDebugRpcModuleTests
     public void Setup()
     {
         _dbProvider = CreateMockDbProvider();
-        _blockTree = Substitute.For<IResettableBlockTree>();
+        _blockTree = Substitute.For<IArbitrumResettableBlockTree>();
         _mockCache1 = Substitute.For<IClearableCache>();
         _mockCache2 = Substitute.For<IClearableCache>();
         _cacheAwareServices = [_mockCache1, _mockCache2];
