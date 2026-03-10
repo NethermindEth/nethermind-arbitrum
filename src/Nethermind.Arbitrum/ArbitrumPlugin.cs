@@ -126,7 +126,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         // Register nitroexecution namespace
-        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine, _api.LogManager);
+        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine);
         _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(

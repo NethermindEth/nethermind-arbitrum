@@ -10,7 +10,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Test;
-using Nethermind.Logging;
 using NSubstitute;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
@@ -45,7 +44,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
             .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
-        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, LimboLogs.Instance);
+        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
         RpcFinalityData safeData = new() { MsgIdx = 100, BlockHash = TestItem.KeccakA };
         RpcFinalityData finalizedData = new() { MsgIdx = 100, BlockHash = TestItem.KeccakA };
@@ -74,7 +73,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
             .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
-        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, LimboLogs.Instance);
+        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
         string response = await RpcTest.TestSerializedRequest(
             module,
@@ -100,7 +99,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
             .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
-        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, LimboLogs.Instance);
+        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
         RpcFinalityData finalizedData = new() { MsgIdx = 50, BlockHash = TestItem.KeccakB };
 
@@ -130,7 +129,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         engine.SetFinalityData(Arg.Do<SetFinalityDataParams>(p => capturedParams = p))
             .Returns(ResultWrapper<EmptyResponse>.Success(default));
 
-        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, LimboLogs.Instance);
+        INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
         Hash256 safeHash = TestItem.KeccakA;
         Hash256 finalizedHash = TestItem.KeccakB;
