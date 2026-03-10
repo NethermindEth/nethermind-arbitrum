@@ -16,75 +16,46 @@ public enum SequencerMode
 public class SequencerState(ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<SequencerState>();
-    private readonly Lock _lock = new();
-    private SequencerMode _mode = SequencerMode.Inactive;
-    private TransactionForwarder? _forwarder;
+    private volatile SequencerStateSnapshot _state = new(SequencerMode.Inactive, null);
 
-    public bool IsActive
-    {
-        get
-        {
-            lock (_lock)
-                return _mode == SequencerMode.Active;
-        }
-    }
+    public SequencerStateSnapshot Current => _state;
 
-    public SequencerMode Mode
-    {
-        get
-        {
-            lock (_lock)
-                return _mode;
-        }
-    }
+    public bool IsActive => _state.Mode == SequencerMode.Active;
 
-    public TransactionForwarder? Forwarder
-    {
-        get
-        {
-            lock (_lock)
-                return _forwarder;
-        }
-    }
+    public SequencerMode Mode => _state.Mode;
+
+    public TransactionForwarder? Forwarder => _state.Forwarder;
 
     public void Activate()
     {
-        lock (_lock)
-        {
-            _forwarder?.Disable();
-            _forwarder = null;
-            _mode = SequencerMode.Active;
-        }
+        _state.Forwarder?.Disable();
+        _state = new SequencerStateSnapshot(SequencerMode.Active, null);
     }
 
     public void Pause()
     {
-        lock (_lock)
-        {
-            _forwarder?.Disable();
-            _forwarder = null;
-            _mode = SequencerMode.Paused;
-        }
+        _state.Forwarder?.Disable();
+        _state = new SequencerStateSnapshot(SequencerMode.Paused, null);
     }
 
     public void ForwardTo(string url)
     {
-        lock (_lock)
-        {
-            if (_forwarder is not null)
-            {
-                if (_forwarder.PrimaryTarget == url)
-                {
-                    if (_logger.IsWarn)
-                        _logger.Warn($"Attempted to update sequencer forward target with existing target: {url}");
-                    return;
-                }
+        SequencerStateSnapshot current = _state;
 
-                _forwarder.Disable();
+        if (current.Forwarder is not null)
+        {
+            if (current.Forwarder.PrimaryTarget == url)
+            {
+                if (_logger.IsWarn)
+                    _logger.Warn($"Attempted to update sequencer forward target with existing target: {url}");
+                return;
             }
 
-            _forwarder = new TransactionForwarder(url, logManager);
-            _mode = SequencerMode.Forwarding;
+            current.Forwarder.Disable();
         }
+
+        _state = new SequencerStateSnapshot(SequencerMode.Forwarding, new TransactionForwarder(url, logManager));
     }
 }
+
+public record SequencerStateSnapshot(SequencerMode Mode, TransactionForwarder? Forwarder);

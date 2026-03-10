@@ -91,7 +91,8 @@ namespace Nethermind.Arbitrum.Modules
             // Force hash computation before enqueuing so tx.Hash is available for the response
             _ = tx.Hash;
 
-            switch (_sequencerState.Mode)
+            SequencerStateSnapshot state = _sequencerState.Current;
+            switch (state.Mode)
             {
                 case SequencerMode.Active:
                     Exception? enqueueError = await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
@@ -99,11 +100,10 @@ namespace Nethermind.Arbitrum.Modules
                         ? ResultWrapper<Hash256>.Fail(enqueueError.Message, ErrorCodes.TransactionRejected)
                         : ResultWrapper<Hash256>.Success(tx.Hash!);
                 case SequencerMode.Forwarding:
-                    TransactionForwarder? forwarder = _sequencerState.Forwarder;
-                    if (forwarder is null)
+                    if (state.Forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 
-                    Exception? forwardError = await forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, CancellationToken.None);
+                    Exception? forwardError = await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, CancellationToken.None);
                     return forwardError is not null
                         ? ResultWrapper<Hash256>.Fail(forwardError.Message, ErrorCodes.TransactionRejected)
                         : ResultWrapper<Hash256>.Success(tx.Hash!);

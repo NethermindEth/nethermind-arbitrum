@@ -45,13 +45,14 @@ public class ArbitrumSequencerEngine(
 
     public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
-        if (!sequencerState.IsActive)
+        SequencerStateSnapshot state = sequencerState.Current;
+        if (state.Mode != SequencerMode.Active)
         {
-            if (sequencerState.Mode == SequencerMode.Forwarding)
+            if (state is { Mode: SequencerMode.Forwarding, Forwarder: not null })
             {
                 List<TxQueueItem> pendingItems = transactionQueue.DrainBatch();
                 if (pendingItems.Count > 0)
-                    await HandleInactiveAsync(pendingItems);
+                    await HandleInactiveAsync(pendingItems, state.Forwarder);
             }
 
             return new StartSequencingResult(null, arbitrumConfig.SequencerInactiveWaitMs);
@@ -211,12 +212,8 @@ public class ArbitrumSequencerEngine(
     /// Handles the inactive (forwarding) state by forwarding queued transactions to the backup sequencer.
     /// Mirrors Go handleInactive in sequencer.go.
     /// </summary>
-    private async Task HandleInactiveAsync(List<TxQueueItem> queueItems)
+    private async Task HandleInactiveAsync(List<TxQueueItem> queueItems, TransactionForwarder forwarder)
     {
-        TransactionForwarder? forwarder = sequencerState.Forwarder;
-        if (forwarder is null)
-            return;
-
         Task<(TxQueueItem Item, Exception? Error)>[] forwardTasks = new Task<(TxQueueItem, Exception?)>[queueItems.Count];
 
         for (int i = 0; i < queueItems.Count; i++)
