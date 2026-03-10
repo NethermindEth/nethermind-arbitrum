@@ -95,18 +95,12 @@ namespace Nethermind.Arbitrum.Modules
             switch (state.Mode)
             {
                 case SequencerMode.Active:
-                    Exception? enqueueError = await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
-                    return enqueueError is not null
-                        ? ResultWrapper<Hash256>.Fail(enqueueError.Message, ErrorCodes.TransactionRejected)
-                        : ResultWrapper<Hash256>.Success(tx.Hash!);
+                    return await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
                 case SequencerMode.Forwarding:
                     if (state.Forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 
-                    Exception? forwardError = await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, CancellationToken.None);
-                    return forwardError is not null
-                        ? ResultWrapper<Hash256>.Fail(forwardError.Message, ErrorCodes.TransactionRejected)
-                        : ResultWrapper<Hash256>.Success(tx.Hash!);
+                    return await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, tx.Hash!, CancellationToken.None);
                 default:
                     return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
             }

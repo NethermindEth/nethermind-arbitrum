@@ -108,13 +108,11 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        Exception? result1 = await queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
-        result1.Should().BeNull();
+        ResultWrapper<Hash256> result1 = await queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
+        result1.Should().RequestSucceed();
 
-        Exception? result2 = await queue.EnqueueAsync(new TxQueueItem(tx2, CancellationToken.None));
-        result2.Should().NotBeNull();
-        result2.Should().BeOfType<InvalidOperationException>();
-        result2.Message.Should().Contain("queue is full");
+        ResultWrapper<Hash256> result2 = await queue.EnqueueAsync(new TxQueueItem(tx2, CancellationToken.None));
+        result2.Should().RequestFail("queue is full");
     }
 
     [Test]
@@ -130,11 +128,9 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        Exception? result = await queue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
 
-        result.Should().NotBeNull();
-        result.Should().BeOfType<InvalidOperationException>();
-        result.Message.Should().Contain("exceeds maximum");
+        result.Should().RequestFail("exceeds maximum");
     }
 
     [Test]

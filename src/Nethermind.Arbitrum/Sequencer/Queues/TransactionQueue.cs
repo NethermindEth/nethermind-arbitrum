@@ -3,6 +3,8 @@
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Sequencer.Queues;
 
@@ -20,19 +22,24 @@ public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResul
 
     /// <summary>
     /// Enqueues an item and returns a task that completes when the tx is included in a block
-    /// or rejected. Returns null on success, an exception on failure.
+    /// or rejected.
     /// </summary>
-    public async Task<Exception?> EnqueueAsync(TxQueueItem item)
+    public async Task<ResultWrapper<Hash256>> EnqueueAsync(TxQueueItem item)
     {
         if (item.RlpEncoded.Length > maxTxDataSize)
-            return new InvalidOperationException($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {maxTxDataSize}");
+            return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {maxTxDataSize}", ErrorCodes.TransactionRejected);
 
         if (!_channel.Writer.TryWrite(item))
-            return new InvalidOperationException("Transaction queue is full");
+            return ResultWrapper<Hash256>.Fail("Transaction queue is full", ErrorCodes.TransactionRejected);
 
-        return awaitTxResult
-            ? await item.ResultChannel.Task
-            : null;
+        if (awaitTxResult)
+        {
+            Exception? err = await item.ResultChannel.Task;
+            if (err is not null)
+                return ResultWrapper<Hash256>.Fail(err.Message, ErrorCodes.TransactionRejected);
+        }
+
+        return ResultWrapper<Hash256>.Success(item.Tx.Hash!);
     }
 
     /// <summary>

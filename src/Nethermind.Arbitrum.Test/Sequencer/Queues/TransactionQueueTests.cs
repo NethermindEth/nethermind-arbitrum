@@ -4,8 +4,11 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Queues;
 
@@ -18,9 +21,9 @@ public class TransactionQueueTests
         TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
         TxQueueItem item = CreateItem();
 
-        Exception? result = await queue.EnqueueAsync(item);
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
 
-        result.Should().BeNull();
+        result.Should().RequestSucceed();
         List<TxQueueItem> drained = queue.DrainBatch();
         drained.Should().HaveCount(1);
         drained[0].Should().BeSameAs(item);
@@ -51,10 +54,9 @@ public class TransactionQueueTests
         TransactionQueue queue = new(capacity: 10, maxTxDataSize: 10, awaitTxResult: false);
         TxQueueItem item = CreateItem();
 
-        Exception? result = await queue.EnqueueAsync(item);
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
 
-        result.Should().BeOfType<InvalidOperationException>();
-        result!.Message.Should().Contain("exceeds maximum");
+        result.Should().RequestFail("exceeds maximum");
     }
 
     [Test]
@@ -63,10 +65,9 @@ public class TransactionQueueTests
         TransactionQueue queue = new(capacity: 1, maxTxDataSize: 95000, awaitTxResult: false);
 
         await queue.EnqueueAsync(CreateItem());
-        Exception? result = await queue.EnqueueAsync(CreateItem());
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(CreateItem());
 
-        result.Should().BeOfType<InvalidOperationException>();
-        result!.Message.Should().Contain("full");
+        result.Should().RequestFail("full");
     }
 
     [Test]
@@ -149,14 +150,15 @@ public class TransactionQueueTests
         TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: true);
         TxQueueItem item = CreateItem();
 
-        Task<Exception?> enqueueTask = queue.EnqueueAsync(item);
+        Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
 
         enqueueTask.IsCompleted.Should().BeFalse();
 
         item.ReturnResult(null);
 
-        Exception? result = await enqueueTask;
-        result.Should().BeNull();
+        ResultWrapper<Hash256> result = await enqueueTask;
+        result.Should().RequestSucceed();
+        result.Data.Should().Be(item.Tx.Hash!);
     }
 
     [Test]
@@ -165,12 +167,11 @@ public class TransactionQueueTests
         TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: true);
         TxQueueItem item = CreateItem();
 
-        Task<Exception?> enqueueTask = queue.EnqueueAsync(item);
-        Exception expected = new InvalidOperationException("nonce too low");
-        item.ReturnResult(expected);
+        Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
+        item.ReturnResult(new InvalidOperationException("nonce too low"));
 
-        Exception? result = await enqueueTask;
-        result.Should().BeSameAs(expected);
+        ResultWrapper<Hash256> result = await enqueueTask;
+        result.Should().RequestFail("nonce too low");
     }
 
     [Test]
@@ -179,9 +180,10 @@ public class TransactionQueueTests
         TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
         TxQueueItem item = CreateItem();
 
-        Exception? result = await queue.EnqueueAsync(item);
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
 
-        result.Should().BeNull();
+        result.Should().RequestSucceed();
+        result.Data.Should().Be(item.Tx.Hash!);
         // ResultChannel should still be pending — not awaited
         item.ResultChannel.Task.IsCompleted.Should().BeFalse();
     }

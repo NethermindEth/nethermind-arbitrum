@@ -6,9 +6,11 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 
@@ -158,11 +160,13 @@ public class SequencerLifecycleTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
 
-        Exception? error = await forwarder.ForwardTransactionAsync(txBytes, CancellationToken.None);
+        Hash256 txHash = TestItem.KeccakA;
+        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(txBytes, txHash, CancellationToken.None);
 
         await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
 
-        error.Should().BeNull("transaction should forward successfully");
+        result.Should().RequestSucceed("transaction should forward successfully");
+        result.Data.Should().Be(txHash);
         transactionReceived.Should().BeTrue("server should have received the forwarded transaction");
     }
 
@@ -182,10 +186,9 @@ public class SequencerLifecycleTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject).Bytes;
 
-        Exception? error = await forwarder.ForwardTransactionAsync(txBytes, CancellationToken.None);
+        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(txBytes, TestItem.KeccakA, CancellationToken.None);
 
-        error.Should().NotBeNull();
-        error.Message.Should().Contain("not available");
+        result.Should().RequestFail("not available");
 
         forwarder.Dispose();
     }

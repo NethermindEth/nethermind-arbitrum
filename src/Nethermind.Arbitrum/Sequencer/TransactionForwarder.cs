@@ -3,6 +3,8 @@
 
 using System.Text;
 using System.Text.Json;
+using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Sequencer;
@@ -31,12 +33,11 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
 
     /// <summary>
     /// Forwards a transaction to the backup sequencer via eth_sendRawTransaction JSON-RPC.
-    /// Returns null on success, an exception on failure.
     /// </summary>
-    public async Task<Exception?> ForwardTransactionAsync(byte[] rlpEncoded, CancellationToken ct)
+    public async Task<ResultWrapper<Hash256>> ForwardTransactionAsync(byte[] rlpEncoded, Hash256 txHash, CancellationToken ct)
     {
         if (_cts.IsCancellationRequested)
-            return new InvalidOperationException("Sequencer temporarily not available");
+            return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available", ErrorCodes.TransactionRejected);
 
         using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _cts.Token);
 
@@ -60,7 +61,7 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
             if (!response.IsSuccessStatusCode)
             {
                 string body = await response.Content.ReadAsStringAsync(linked.Token);
-                return new InvalidOperationException($"Forward failed with status {response.StatusCode}: {body}");
+                return ResultWrapper<Hash256>.Fail($"Forward failed with status {response.StatusCode}: {body}", ErrorCodes.TransactionRejected);
             }
 
             string responseBody = await response.Content.ReadAsStringAsync(linked.Token);
@@ -74,26 +75,26 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
 
                 if (errorMsg.Contains("sequencer temporarily not available", StringComparison.OrdinalIgnoreCase)
                     || errorMsg.Contains("no sequencer", StringComparison.OrdinalIgnoreCase))
-                    return new NoSequencerException(errorMsg);
+                    return ResultWrapper<Hash256>.Fail(errorMsg, ArbitrumSequencerErrors.NoSequencer);
 
-                return new InvalidOperationException($"Forward RPC error: {errorMsg}");
+                return ResultWrapper<Hash256>.Fail($"Forward RPC error: {errorMsg}", ErrorCodes.TransactionRejected);
             }
 
-            return null;
+            return ResultWrapper<Hash256>.Success(txHash);
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
-            return new InvalidOperationException("Forwarder has been disabled");
+            return ResultWrapper<Hash256>.Fail("Forwarder has been disabled", ErrorCodes.TransactionRejected);
         }
         catch (OperationCanceledException)
         {
-            return new OperationCanceledException("Forward cancelled");
+            return ResultWrapper<Hash256>.Fail("Forward cancelled", ErrorCodes.TransactionRejected);
         }
         catch (Exception ex)
         {
             if (_logger.IsWarn)
                 _logger.Warn($"Error forwarding transaction to {PrimaryTarget}: {ex.Message}");
-            return ex;
+            return ResultWrapper<Hash256>.Fail(ex.Message, ErrorCodes.TransactionRejected);
         }
     }
 
@@ -120,8 +121,3 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
         public int Id { get; init; }
     }
 }
-
-/// <summary>
-/// Indicates the backup sequencer is also not sequencing (equivalent to Go's ErrNoSequencer).
-/// </summary>
-public class NoSequencerException(string message) : Exception(message);

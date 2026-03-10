@@ -214,7 +214,7 @@ public class ArbitrumSequencerEngine(
     /// </summary>
     private async Task HandleInactiveAsync(List<TxQueueItem> queueItems, TransactionForwarder forwarder)
     {
-        Task<(TxQueueItem Item, Exception? Error)>[] forwardTasks = new Task<(TxQueueItem, Exception?)>[queueItems.Count];
+        Task<(TxQueueItem Item, ResultWrapper<Hash256> Result)>[] forwardTasks = new Task<(TxQueueItem, ResultWrapper<Hash256>)>[queueItems.Count];
 
         for (int i = 0; i < queueItems.Count; i++)
         {
@@ -222,22 +222,24 @@ public class ArbitrumSequencerEngine(
             forwardTasks[i] = ForwardSingleAsync(forwarder, item);
         }
 
-        (TxQueueItem Item, Exception? Error)[] results = await Task.WhenAll(forwardTasks);
+        (TxQueueItem Item, ResultWrapper<Hash256> Result)[] results = await Task.WhenAll(forwardTasks);
 
-        foreach ((TxQueueItem item, Exception? error) in results)
-            if (error is NoSequencerException)
+        foreach ((TxQueueItem item, ResultWrapper<Hash256> result) in results)
+            if (result.ErrorCode == ArbitrumSequencerErrors.NoSequencer)
                 transactionQueue.PushRetry(item);
+            else if (result.Result != Result.Success)
+                item.ReturnResult(new Exception(result.Result.Error!));
             else
-                item.ReturnResult(error);
+                item.ReturnResult(null);
 
         _nonceFailureCache.Clear();
     }
 
-    private static async Task<(TxQueueItem Item, Exception? Error)> ForwardSingleAsync(
+    private static async Task<(TxQueueItem Item, ResultWrapper<Hash256> Result)> ForwardSingleAsync(
         TransactionForwarder forwarder, TxQueueItem item)
     {
-        Exception? error = await forwarder.ForwardTransactionAsync(item.RlpEncoded, item.CancellationToken);
-        return (item, error);
+        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(item.RlpEncoded, item.Tx.Hash!, item.CancellationToken);
+        return (item, result);
     }
 
     private async Task<SequencedMsg?> CreateBlockWithSingleTxAsync(TxQueueItem item, ulong l1BlockNumber, ulong timestamp)
