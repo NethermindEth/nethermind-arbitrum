@@ -626,6 +626,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Burn gas for argument data supplied (excluding method id)
+        // Nitro charges this as L2Calldata (precompile.go:773)
         ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length);
         // Revert if user cannot afford the argument data supplied
         if (dataGasCost > context.GasLeft)
@@ -636,7 +637,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 SubstateError = "Insufficient gas for calldata"
             };
         }
-        context.Burn(dataGasCost);
+        context.Burn(ResourceKind.L2Calldata, dataGasCost);
 
         // Impure methods may need the ArbOS state, so open & update the call context now
         if (!context.IsMethodCalledPure)
