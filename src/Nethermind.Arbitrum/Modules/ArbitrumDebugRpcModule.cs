@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Modules;
 /// </summary>
 public class ArbitrumDebugRpcModule(
     IDbProvider dbProvider,
-    IResettableBlockTree blockTree,
+    IArbitrumResettableBlockTree blockTree,
     IEnumerable<IClearableCache> cacheAwareServices,
     ILogManager logManager,
     IBlockhashCache? blockhashCache = null,
@@ -28,7 +28,7 @@ public class ArbitrumDebugRpcModule(
     : IArbitrumDebugRpcModule
 {
     private readonly IDbProvider _dbProvider = dbProvider ?? throw new ArgumentNullException(nameof(dbProvider));
-    private readonly IResettableBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
+    private readonly IArbitrumResettableBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
     private readonly IEnumerable<IClearableCache> _cacheAwareServices = cacheAwareServices ?? throw new ArgumentNullException(nameof(cacheAwareServices));
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumDebugRpcModule>();
 

@@ -140,9 +140,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
         {
             IDbProvider dbProvider = _api.Context.Resolve<IDbProvider>();
 
-            if (_api.BlockTree is not IResettableBlockTree resettableBlockTree)
+            if (_api.BlockTree is not IArbitrumResettableBlockTree resettableBlockTree)
                 throw new InvalidOperationException(
-                    $"BlockTree must implement IResettableBlockTree for MemDb debug mode. " +
+                    $"BlockTree must implement IArbitrumResettableBlockTree for MemDb debug mode. " +
                     $"Actual type: {_api.BlockTree?.GetType().Name ?? "null"}. " +
                     $"Ensure ArbitrumBlockTree is registered in DI.");
 
