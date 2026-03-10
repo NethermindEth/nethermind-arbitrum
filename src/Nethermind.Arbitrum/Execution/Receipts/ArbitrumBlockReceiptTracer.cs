@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm;
 using Nethermind.Evm.TransactionProcessing;
 
 namespace Nethermind.Arbitrum.Execution.Receipts;
@@ -14,7 +15,7 @@ public class ArbitrumBlockReceiptTracer(
     ArbitrumTxExecutionContext txExecContext,
     IArbitrumConfig arbitrumConfig) : BlockReceiptsTracer
 {
-    protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
+    protected override TxReceipt BuildReceipt(Address recipient, in GasConsumed gasConsumed, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
     {
         Transaction transaction = CurrentTx!;
         ArbitrumTxReceipt txReceipt = new()
@@ -28,7 +29,7 @@ public class ArbitrumBlockReceiptTracer(
             BlockHash = Block.Hash,
             BlockNumber = Block.Number,
             Index = _currentIndex,
-            GasUsed = spentGas,
+            GasUsed = gasConsumed.SpentGas,
             Sender = transaction.SenderAddress,
             ContractAddress = transaction.IsContractCreation ? recipient : null,
             TxHash = transaction.Hash,
