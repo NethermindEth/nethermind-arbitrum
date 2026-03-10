@@ -56,6 +56,26 @@ public sealed class ArbitrumExecutionEngine(
     public void ReleaseSemaphore()
         => _createBlocksSemaphore.Release();
 
+    /// <summary>
+    /// Checks if Genesis is initialized. Returns false with a failure result if Genesis is null
+    /// (state was reinitialized and waiting for init message).
+    /// </summary>
+    private bool IsGenesisInitialized([NotNullWhen(false)] out ResultWrapper<MessageResult>? failureResult, string callerContext)
+    {
+        if (BlockTree.Genesis is not null)
+        {
+            failureResult = null;
+            return true;
+        }
+
+        if (_logger.IsDebug)
+            _logger.Debug($"{callerContext}: Genesis is null (state reinitialized)");
+        failureResult = ResultWrapper<MessageResult>.Fail(
+            "State reinitialized - genesis not yet set. Waiting for init message.",
+            ErrorCodes.InternalError);
+        return false;
+    }
+
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
         ResultWrapper<MessageResult>? existingGenesisResult = TryGetExistingGenesisResult("Genesis already initialized, skipping DigestInitMessage");
@@ -91,14 +111,8 @@ public sealed class ArbitrumExecutionEngine(
 
         // Check if Genesis exists - if null, state was reinitialized and this is a stale message
         // from a previous test run. Return gracefully instead of throwing in BlockTree.SuggestBlock.
-        if (BlockTree.Genesis is null)
-        {
-            if (_logger.IsDebug)
-                _logger.Debug($"DigestMessage rejected: Genesis is null (state reinitialized), message index {parameters.Index}");
-            return ResultWrapper<MessageResult>.Fail(
-                "State reinitialized - genesis not yet set. Waiting for init message.",
-                ErrorCodes.InternalError);
-        }
+        if (!IsGenesisInitialized(out var genesisFailure, $"DigestMessage rejected, message index {parameters.Index}"))
+            return genesisFailure!;
 
         // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
@@ -415,14 +429,8 @@ public sealed class ArbitrumExecutionEngine(
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         // Check Genesis before building - state may have been reinitialized during processing
-        if (BlockTree.Genesis is null)
-        {
-            if (_logger.IsDebug)
-                _logger.Debug($"ProduceBlockWhileLockedAsync rejected: Genesis is null (state reinitialized), block {blockNumber}");
-            return ResultWrapper<MessageResult>.Fail(
-                "State reinitialized - genesis not yet set. Waiting for init message.",
-                ErrorCodes.InternalError);
-        }
+        if (!IsGenesisInitialized(out var genesisFailure, $"ProduceBlockWhileLockedAsync rejected, block {blockNumber}"))
+            return genesisFailure!;
 
         ArbitrumPayloadAttributes payload = new()
         {
@@ -515,14 +523,8 @@ public sealed class ArbitrumExecutionEngine(
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
         // Check Genesis before building - state may have been reinitialized during processing
-        if (BlockTree.Genesis is null)
-        {
-            if (_logger.IsDebug)
-                _logger.Debug($"ProduceBlockWithoutWaitingOnProcessingQueueAsync rejected: Genesis is null (state reinitialized), block {blockNumber}");
-            return ResultWrapper<MessageResult>.Fail(
-                "State reinitialized - genesis not yet set. Waiting for init message.",
-                ErrorCodes.InternalError);
-        }
+        if (!IsGenesisInitialized(out var genesisFailure, $"ProduceBlockWithoutWaitingOnProcessingQueueAsync rejected, block {blockNumber}"))
+            return genesisFailure!;
 
         ArbitrumPayloadAttributes payload = new()
         {
