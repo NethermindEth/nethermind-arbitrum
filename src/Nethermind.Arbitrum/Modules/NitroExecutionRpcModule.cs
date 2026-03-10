@@ -27,7 +27,8 @@ public class NitroExecutionRpcModule : INitroExecutionRpcModule
         MessageWithMetadata message,
         MessageWithMetadata? messageForPrefetch)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_digestMessage called: msgIdx={msgIdx}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_digestMessage called: msgIdx={msgIdx}");
         DigestMessageParameters parameters = new(msgIdx, message, messageForPrefetch);
         return _engine.DigestMessageAsync(parameters);
     }
@@ -37,33 +38,38 @@ public class NitroExecutionRpcModule : INitroExecutionRpcModule
         MessageWithMetadataAndBlockInfo[] newMessages,
         MessageWithMetadata[] oldMessages)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_reorg called: msgIdxOfFirstMsgToAdd={msgIdxOfFirstMsgToAdd}, newMessages={newMessages.Length}, oldMessages={oldMessages.Length}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_reorg called: msgIdxOfFirstMsgToAdd={msgIdxOfFirstMsgToAdd}, newMessages={newMessages.Length}, oldMessages={oldMessages.Length}");
         ReorgParameters parameters = new(msgIdxOfFirstMsgToAdd, newMessages, oldMessages);
         return _engine.ReorgAsync(parameters);
     }
 
     public Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_resultAtMessageIndex called: messageIndex={messageIndex}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_resultAtMessageIndex called: messageIndex={messageIndex}");
         return _engine.ResultAtMessageIndexAsync(messageIndex);
     }
 
     public async Task<ResultWrapper<MessageIndex>> nitroexecution_headMessageIndex()
     {
-        if (_logger.IsDebug) _logger.Debug("nitroexecution_headMessageIndex called");
+        if (_logger.IsDebug)
+            _logger.Debug("nitroexecution_headMessageIndex called");
         ResultWrapper<ulong> result = await _engine.HeadMessageIndexAsync();
         return ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data);
     }
 
     public Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_messageIndexToBlockNumber called: messageIndex={messageIndex}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_messageIndexToBlockNumber called: messageIndex={messageIndex}");
         return Task.FromResult(_engine.MessageIndexToBlockNumber(messageIndex));
     }
 
     public Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_blockNumberToMessageIndex called: blockNumber={blockNumber}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_blockNumberToMessageIndex called: blockNumber={blockNumber}");
         ResultWrapper<ulong> result = _engine.BlockNumberToMessageIndex(blockNumber);
         return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
     }
@@ -73,7 +79,8 @@ public class NitroExecutionRpcModule : INitroExecutionRpcModule
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_setFinalityData called: safe={safeFinalityData is not null}, finalized={finalizedFinalityData is not null}, validated={validatedFinalityData is not null}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_setFinalityData called: safe={safeFinalityData is not null}, finalized={finalizedFinalityData is not null}, validated={validatedFinalityData is not null}");
         SetFinalityDataParams parameters = new()
         {
             SafeFinalityData = safeFinalityData,
@@ -85,31 +92,36 @@ public class NitroExecutionRpcModule : INitroExecutionRpcModule
 
     public ResultWrapper<EmptyResponse> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_setConsensusSyncData called");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_setConsensusSyncData called");
         return _engine.SetConsensusSyncData(syncData);
     }
 
     public ResultWrapper<EmptyResponse> nitroexecution_markFeedStart(MessageIndex to)
     {
-        if (_logger.IsDebug) _logger.Debug($"nitroexecution_markFeedStart called: to={to}");
+        if (_logger.IsDebug)
+            _logger.Debug($"nitroexecution_markFeedStart called: to={to}");
         return _engine.MarkFeedStart(to);
     }
 
     public Task<ResultWrapper<string>> nitroexecution_triggerMaintenance()
     {
-        if (_logger.IsDebug) _logger.Debug("nitroexecution_triggerMaintenance called");
+        if (_logger.IsDebug)
+            _logger.Debug("nitroexecution_triggerMaintenance called");
         return _engine.TriggerMaintenanceAsync();
     }
 
     public Task<ResultWrapper<bool>> nitroexecution_shouldTriggerMaintenance()
     {
-        if (_logger.IsDebug) _logger.Debug("nitroexecution_shouldTriggerMaintenance called");
+        if (_logger.IsDebug)
+            _logger.Debug("nitroexecution_shouldTriggerMaintenance called");
         return _engine.ShouldTriggerMaintenanceAsync();
     }
 
     public Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus()
     {
-        if (_logger.IsDebug) _logger.Debug("nitroexecution_maintenanceStatus called");
+        if (_logger.IsDebug)
+            _logger.Debug("nitroexecution_maintenanceStatus called");
         return _engine.MaintenanceStatusAsync();
     }
 }
