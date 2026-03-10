@@ -17,10 +17,10 @@ using IBlockAccessListStore = Nethermind.Blockchain.Headers.IBlockAccessListStor
 namespace Nethermind.Arbitrum.Core;
 
 /// <summary>
-/// Interface for BlockTree implementations that support state reset for testing.
-/// Does not extend IBlockTree to avoid nullability conflicts.
+/// Interface for Arbitrum BlockTree implementations that support state reset for testing.
+/// Named differently from Nethermind.Blockchain.IResettableBlockTree to avoid ambiguity.
 /// </summary>
-public interface IResettableBlockTree
+public interface IArbitrumResettableBlockTree
 {
     /// <summary>
     /// Resets the BlockTree state for testing purposes.
@@ -52,7 +52,7 @@ public class ArbitrumBlockTree(
         bloomStorage,
         syncConfig,
         logManager,
-        (long)chainSpecParams.GenesisBlockNum!), IResettableBlockTree
+        (long)chainSpecParams.GenesisBlockNum!), IArbitrumResettableBlockTree
 {
     private readonly IBlockStore _blockStoreRef = blockStore;
     private readonly IHeaderStore _headerStoreRef = headerStore;
@@ -86,7 +86,8 @@ public class ArbitrumBlockTree(
         // Reset internal BlockTree state (Head, BestKnownNumber, BestSuggestedHeader, etc.)
         // This is critical because after clearing databases, these cached values
         // point to blocks that no longer exist, causing block processing to fail
-        ResetInternalState();
+        // Call via interface since BlockTree implements it explicitly
+        ((Nethermind.Blockchain.IResettableBlockTree)this).ResetInternalState();
 
         // Clear store caches using the IClearableCache interface
         (_headerStoreRef as IClearableCache)?.ClearCache();
