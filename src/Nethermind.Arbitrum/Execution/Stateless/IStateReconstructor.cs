@@ -7,5 +7,5 @@ public interface IStateReconstructor
 {
     void EnsureStateAvailable(BlockHeader targetParent);
     void DereferenceRoot(Hash256 parentStateRoot);
-    void PreparedAddTrim(List<(Hash256, ulong)> stateRoots);
+    void PreparedAddTrim(List<Hash256> stateRoots);
 }
