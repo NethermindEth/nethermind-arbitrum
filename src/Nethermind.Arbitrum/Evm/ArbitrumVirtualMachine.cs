@@ -718,11 +718,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         else if (Logger.IsTrace)
             Logger.Trace($"Precompile failed with exception: {exception.GetType()} and message {exception.Message}, consuming all gas");
 
-        // OutOfGas takes precedence over Revert - OOG is a hard failure that shouldn't be masked
+        // ArbOS >= 11: precompile failures revert (shouldRevert=true), OOG handled via Revert
+        // Pre-ArbOS 11: OOG is a hard failure (shouldRevert=false), returns OutOfGas
         EvmExceptionType exceptionType = exception switch
         {
-            _ when ranOutOfGas => EvmExceptionType.OutOfGas,
             _ when shouldRevert => EvmExceptionType.Revert,
+            _ when ranOutOfGas => EvmExceptionType.OutOfGas,
             _ => EvmExceptionType.PrecompileFailure
         };
 
@@ -744,10 +745,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
     private PrecompileOutcome DefaultExceptionHandling(ArbitrumPrecompileExecutionContext context, Exception exception)
     {
         bool outOfGas = exception is ArbitrumPrecompileException e && e.OutOfGas;
-
-        // OutOfGas consumes all gas (no refund), even for ArbOS >= 11 which normally reverts
-        if (outOfGas)
-            return new(ShouldRevert: false, GasLeft: 0UL, RanOutOfGas: true);
 
         return FreeArbosState.CurrentArbosVersion >= ArbosVersion.Eleven
             ? new(true, context.GasLeft, outOfGas) : new(false, 0UL, outOfGas);
