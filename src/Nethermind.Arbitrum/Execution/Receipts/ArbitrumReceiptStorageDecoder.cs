@@ -61,10 +61,6 @@ public class ArbitrumReceiptStorageDecoder :
                 txReceipt.MultiGasUsed = MultiGas.Decode(ref decoderContext);
             else if (remainingItems > 1)
                 decoderContext.SkipItem();
-
-            // EffectiveGasPrice (optional)
-            if (remainingItems > 2)
-                txReceipt.EffectiveGasPrice = decoderContext.DecodeUInt256();
         }
 
         bool allowExtraBytes = (rlpBehaviors & RlpBehaviors.AllowExtraBytes) != 0;
@@ -167,9 +163,6 @@ public class ArbitrumReceiptStorageDecoder :
             item.MultiGasUsed.Value.Encode(rlpStream);
         else
             rlpStream.EncodeNullObject();
-
-        // EffectiveGasPrice
-        rlpStream.Encode(item.EffectiveGasPrice);
     }
 
     public int GetLength(ArbitrumTxReceipt item, RlpBehaviors rlpBehaviors)
@@ -218,9 +211,6 @@ public class ArbitrumReceiptStorageDecoder :
             contentLength += item.MultiGasUsed.Value.GetRlpLength();
         else
             contentLength += 1; // null encoding
-
-        // EffectiveGasPrice
-        contentLength += LengthOf(item.EffectiveGasPrice);
 
         return (contentLength, logsLength);
     }

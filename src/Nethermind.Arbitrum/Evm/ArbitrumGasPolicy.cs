@@ -186,6 +186,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Charges gas for accessing an account based on a cold / warm state (interface implementation).
+    /// Cold access splits cost: (ColdAccountAccess - WarmStateRead) as StorageAccess, WarmStateRead as Computation.
+    /// Warm access charges WarmStateRead as Computation.
+    /// See rationale: https://github.com/OffchainLabs/nitro/blob/master/docs/decisions/0002-multi-dimensional-gas-metering.md
     /// </summary>
     public static bool ConsumeAccountAccessGas(ref ArbitrumGasPolicy gas,
         IReleaseSpec spec,
@@ -200,12 +203,23 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             accessTracker.WarmUp(address);
 
         if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
-            return UpdateGasWithResource(ref gas, GasCostOf.ColdAccountAccess, ResourceKind.StorageAccess);
+        {
+            // Cold account access: split into StorageAccess + Computation (matching Nitro gasEip2929AccountCheck)
+            long coldDelta = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
+            if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdAccountAccess))
+                return false;
+            gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
+            gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+            return true;
+        }
         return !chargeForWarm || UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation);
     }
 
     /// <summary>
     /// Charges gas for accessing a storage cell based on a cold / warm state (interface implementation).
+    /// Cold access splits cost: (ColdSLoad - WarmStateRead) as StorageAccess, WarmStateRead as Computation.
+    /// Warm access charges WarmStateRead as Computation (for SLOAD only).
+    /// See rationale: https://github.com/OffchainLabs/nitro/blob/master/docs/decisions/0002-multi-dimensional-gas-metering.md
     /// </summary>
     public static bool ConsumeStorageAccessGas(ref ArbitrumGasPolicy gas,
         ref readonly StackAccessTracker accessTracker,
@@ -220,7 +234,15 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             accessTracker.WarmUp(in storageCell);
 
         if (accessTracker.WarmUp(in storageCell))
-            return UpdateGasWithResource(ref gas, GasCostOf.ColdSLoad, ResourceKind.StorageAccess);
+        {
+            // Cold slot access: split into StorageAccess + Computation (matching Nitro gasSLoadEIP2929)
+            long coldDelta = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
+            if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdSLoad))
+                return false;
+            gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
+            gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+            return true;
+        }
         return storageAccessType != StorageAccessType.SLOAD ||
                UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation);
     }

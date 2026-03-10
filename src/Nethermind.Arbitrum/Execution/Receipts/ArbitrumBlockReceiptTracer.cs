@@ -38,9 +38,7 @@ public class ArbitrumBlockReceiptTracer(
             PostTransactionState = stateRoot,
             GasUsedForL1 = txExecContext.PosterGas, // Arbitrum specific receipt field
             // Multidimensional gas: only populate if config enables it
-            MultiGasUsed = arbitrumConfig.ExposeMultiGas ? txExecContext.AccumulatedMultiGas : null,
-            // Store effective gas price calculated during transaction processing
-            EffectiveGasPrice = txExecContext.EffectiveGasPrice
+            MultiGasUsed = arbitrumConfig.ExposeMultiGas ? txExecContext.AccumulatedMultiGas : null
         };
 
         return txReceipt;

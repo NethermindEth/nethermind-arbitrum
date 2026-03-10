@@ -152,38 +152,7 @@ namespace Nethermind.Arbitrum.Execution
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
             _currentSpec = GetSpec(_currentHeader);
-
-            // Set effective gas price using the block's effective base fee.
-            // Nitro's Arbitrum transaction types (ArbitrumUnsigned, ArbitrumContract, ArbitrumRetry, etc.)
-            // all return baseFee directly from their effectiveGasPrice() method, ignoring the tx's gas params.
-            // Only standard EVM transactions use the EIP-1559 calculation.
-            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-
-            // Match Nitro's behavior for EffectiveGasPrice:
-            // - ArbitrumTransaction types always return baseFee directly
-            // - Regular EVM transactions apply ShouldDropTip logic: if dropping tip, use baseFee
-            if (tx is ArbitrumTransaction)
-            {
-                TxExecContext.EffectiveGasPrice = effectiveBaseFee;
-            }
-            else
-            {
-                // Calculate using EIP-1559 formula first
-                UInt256 calculatedPrice = tx.CalculateEffectiveGasPrice(_currentSpec.IsEip1559Enabled, effectiveBaseFee);
-
-                // Apply ShouldDropTip logic (same as in CalculateEffectiveGasPrice override)
-                // arbosState is not yet initialized here, so we use arbosVersion from startTx or default
-                if (calculatedPrice > effectiveBaseFee)
-                {
-                    // Drop tip: use baseFee directly (matches Nitro's behavior in most cases)
-                    // This aligns with ShouldDropTip returning true in typical scenarios
-                    TxExecContext.EffectiveGasPrice = effectiveBaseFee;
-                }
-                else
-                {
-                    TxExecContext.EffectiveGasPrice = calculatedPrice;
-                }
-            }
+            // EffectiveGasPrice is calculated dynamically at RPC time (matches Nitro's DeriveFields)
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx,

@@ -56,26 +56,6 @@ public sealed class ArbitrumExecutionEngine(
     public void ReleaseSemaphore()
         => _createBlocksSemaphore.Release();
 
-    /// <summary>
-    /// Checks if Genesis is initialized. Returns false with a failure result if Genesis is null
-    /// (state was reinitialized and waiting for init message).
-    /// </summary>
-    private bool IsGenesisInitialized([NotNullWhen(false)] out ResultWrapper<MessageResult>? failureResult, string callerContext)
-    {
-        if (BlockTree.Genesis is not null)
-        {
-            failureResult = null;
-            return true;
-        }
-
-        if (_logger.IsDebug)
-            _logger.Debug($"{callerContext}: Genesis is null (state reinitialized)");
-        failureResult = ResultWrapper<MessageResult>.Fail(
-            "State reinitialized - genesis not yet set. Waiting for init message.",
-            ErrorCodes.InternalError);
-        return false;
-    }
-
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
         ResultWrapper<MessageResult>? existingGenesisResult = TryGetExistingGenesisResult("Genesis already initialized, skipping DigestInitMessage");
@@ -108,11 +88,6 @@ public sealed class ArbitrumExecutionEngine(
         // Handle init message (Kind = Initialize) - used by external consensus layers like Nitro
         if (parameters.Message.Message.Header.Kind == ArbitrumL1MessageKind.Initialize)
             return HandleInitMessageFromDigest(parameters);
-
-        // Check if Genesis exists - if null, state was reinitialized and this is a stale message
-        // from a previous test run. Return gracefully instead of throwing in BlockTree.SuggestBlock.
-        if (!IsGenesisInitialized(out var genesisFailure, $"DigestMessage rejected, message index {parameters.Index}"))
-            return genesisFailure!;
 
         // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
@@ -428,10 +403,6 @@ public sealed class ArbitrumExecutionEngine(
     /// </summary>
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
-        // Check Genesis before building - state may have been reinitialized during processing
-        if (!IsGenesisInitialized(out var genesisFailure, $"ProduceBlockWhileLockedAsync rejected, block {blockNumber}"))
-            return genesisFailure!;
-
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
@@ -501,15 +472,6 @@ public sealed class ArbitrumExecutionEngine(
         {
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("genesis", StringComparison.OrdinalIgnoreCase))
-        {
-            // State was reinitialized during block production - this is a stale message from a previous test
-            if (_logger.IsDebug)
-                _logger.Debug($"ProduceBlockWhileLockedAsync caught genesis exception: {ex.Message}");
-            return ResultWrapper<MessageResult>.Fail(
-                "State reinitialized during block production - genesis not set.",
-                ErrorCodes.InternalError);
-        }
         finally
         {
             BlockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
@@ -522,10 +484,6 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
     {
-        // Check Genesis before building - state may have been reinitialized during processing
-        if (!IsGenesisInitialized(out var genesisFailure, $"ProduceBlockWithoutWaitingOnProcessingQueueAsync rejected, block {blockNumber}"))
-            return genesisFailure!;
-
         ArbitrumPayloadAttributes payload = new()
         {
             MessageWithMetadata = messageWithMetadata,
@@ -548,15 +506,6 @@ public sealed class ArbitrumExecutionEngine(
         catch (TimeoutException)
         {
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
-        }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("genesis", StringComparison.OrdinalIgnoreCase))
-        {
-            // State was reinitialized during block production - this is a stale message from a previous test
-            if (_logger.IsDebug)
-                _logger.Debug($"ProduceBlockWithoutWaitingOnProcessingQueueAsync caught genesis exception: {ex.Message}");
-            return ResultWrapper<MessageResult>.Fail(
-                "State reinitialized during block production - genesis not set.",
-                ErrorCodes.InternalError);
         }
     }
 

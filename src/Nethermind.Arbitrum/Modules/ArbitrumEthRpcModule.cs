@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Blockchain.Find;
 using Nethermind.Db.LogIndex;
@@ -58,6 +59,17 @@ namespace Nethermind.Arbitrum.Modules
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
+        }
+
+        /// <summary>
+        /// Calculates EffectiveGasPrice for Arbitrum receipts matching Nitro's MarshalReceipt behavior.
+        /// In Nitro's MarshalReceipt (api.go:1815), for Arbitrum Nitro chains, effectiveGasPrice
+        /// is ALWAYS set to header.BaseFee for ALL transaction types, overriding DeriveFields.
+        /// </summary>
+        private static TxGasInfo GetArbitrumGasInfo(Transaction tx, IReleaseSpec spec, BlockHeader header)
+        {
+            // Nitro's MarshalReceipt unconditionally uses header.BaseFee for all Arbitrum Nitro transactions
+            return new TxGasInfo(header.BaseFeePerGas);
         }
 
         public override ResultWrapper<string> eth_call(
@@ -159,7 +171,7 @@ namespace Nethermind.Arbitrum.Modules
                         tx.Hash!,
                         receipt,
                         block.Timestamp,
-                        tx.GetGasInfo(spec, block.Header),
+                        GetArbitrumGasInfo(tx, spec, block.Header),
                         receipts.GetBlockLogFirstIndex(receipt.Index)))
                 .ToArray();
 
