@@ -44,6 +44,7 @@ public class ArbitrumBlockTree(
         dbProvider.BlockInfosDb,
         dbProvider.MetadataDb,
         badBlockStore,
+        null, // IBlockAccessListStore - EIP-7928 block access lists (not used in Arbitrum)
         chainLevelInfoRepository,
         specProvider,
         bloomStorage,
