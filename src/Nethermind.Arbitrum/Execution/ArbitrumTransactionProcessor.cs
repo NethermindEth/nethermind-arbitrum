@@ -110,9 +110,13 @@ namespace Nethermind.Arbitrum.Execution
                 if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
                     gasUsed = arbTx.OverrideSpentGas.Value;
 
-                // All gas for internal transactions is attributed to Computation
+                // Categorize gas based on transaction type (matching Nitro's tx_processor.go)
+                // ArbitrumSubmitRetryable uses L2CalldataGas, others use ComputationGas
                 var multiGas = new MultiGas();
-                multiGas.Increment(ResourceKind.Computation, (ulong)gasUsed);
+                ResourceKind resourceKind = tx is ArbitrumSubmitRetryableTransaction
+                    ? ResourceKind.L2Calldata
+                    : ResourceKind.Computation;
+                multiGas.Increment(resourceKind, (ulong)gasUsed);
                 TxExecContext.AccumulatedMultiGas = multiGas;
 
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, snapshot,

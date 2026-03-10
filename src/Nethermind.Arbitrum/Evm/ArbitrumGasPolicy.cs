@@ -217,7 +217,8 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Charges gas for accessing a storage cell based on a cold / warm state (interface implementation).
-    /// Cold access splits cost: (ColdSLoad - WarmStateRead) as StorageAccess, WarmStateRead as Computation.
+    /// For SLOAD: Cold access splits cost into StorageAccess + Computation (matching Nitro gasSLoadEIP2929).
+    /// For SSTORE: Cold access charges full cost to StorageAccess only (matching Nitro gasSStoreEIP2929).
     /// Warm access charges WarmStateRead as Computation (for SLOAD only).
     /// See rationale: https://github.com/OffchainLabs/nitro/blob/master/docs/decisions/0002-multi-dimensional-gas-metering.md
     /// </summary>
@@ -235,12 +236,24 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
         if (accessTracker.WarmUp(in storageCell))
         {
-            // Cold slot access: split into StorageAccess + Computation (matching Nitro gasSLoadEIP2929)
-            long coldDelta = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
+            // Cold slot access handling differs by operation type:
+            // - SLOAD: split into StorageAccess + Computation (matching Nitro gasSLoadEIP2929)
+            // - SSTORE: full cost to StorageAccess only (matching Nitro gasSStoreEIP2929)
             if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdSLoad))
                 return false;
-            gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
-            gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+
+            if (storageAccessType == StorageAccessType.SLOAD)
+            {
+                // SLOAD splits cold access: (ColdSLoad - WarmStateRead) to StorageAccess, WarmStateRead to Computation
+                long coldDelta = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
+                gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
+                gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+            }
+            else
+            {
+                // SSTORE: full cold cost to StorageAccess (no split)
+                gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
+            }
             return true;
         }
         return storageAccessType != StorageAccessType.SLOAD ||
