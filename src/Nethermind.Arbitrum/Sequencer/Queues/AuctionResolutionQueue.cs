@@ -4,7 +4,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Channels;
 
-namespace Nethermind.Arbitrum.Sequencer;
+namespace Nethermind.Arbitrum.Sequencer.Queues;
 
 public interface IAuctionResolutionQueue
 {
@@ -28,14 +28,10 @@ public sealed class DisabledAuctionResolutionQueue : IAuctionResolutionQueue
 
 public sealed class AuctionResolutionQueue : IAuctionResolutionQueue
 {
-    private readonly Channel<TxQueueItem> _channel =
-        Channel.CreateBounded<TxQueueItem>(new BoundedChannelOptions(10)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest
-        });
-
-    public ChannelReader<TxQueueItem> Reader => _channel.Reader;
-    public ChannelWriter<TxQueueItem> Writer => _channel.Writer;
+    private readonly Channel<TxQueueItem> _channel = Channel.CreateBounded<TxQueueItem>(new BoundedChannelOptions(10)
+    {
+        FullMode = BoundedChannelFullMode.DropOldest
+    });
 
     public bool TryRead([MaybeNullWhen(false)] out TxQueueItem item)
     {

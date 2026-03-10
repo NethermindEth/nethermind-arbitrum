@@ -3,6 +3,7 @@
 
 using System.Buffers.Binary;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;

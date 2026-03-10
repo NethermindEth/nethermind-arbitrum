@@ -4,7 +4,7 @@
 using System.Threading.Channels;
 using Nethermind.Arbitrum.Data;
 
-namespace Nethermind.Arbitrum.Sequencer;
+namespace Nethermind.Arbitrum.Sequencer.Queues;
 
 public class DelayedMessageQueue
 {

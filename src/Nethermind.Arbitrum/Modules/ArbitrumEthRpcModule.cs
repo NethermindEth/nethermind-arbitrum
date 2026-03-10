@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Blockchain.Find;
 using Nethermind.Db.LogIndex;
 using Nethermind.Blockchain.Receipts;

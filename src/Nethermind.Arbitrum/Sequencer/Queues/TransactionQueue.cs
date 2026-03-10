@@ -4,7 +4,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 
-namespace Nethermind.Arbitrum.Sequencer;
+namespace Nethermind.Arbitrum.Sequencer.Queues;
 
 /// <summary>
 /// Bounded channel-based user transaction queue with per-tx result notification.

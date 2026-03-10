@@ -4,11 +4,11 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Core;
 using Nethermind.Int256;
 
-namespace Nethermind.Arbitrum.Test.Sequencer;
+namespace Nethermind.Arbitrum.Test.Sequencer.Queues;
 
 [TestFixture]
 public class DelayedMessageQueueTests

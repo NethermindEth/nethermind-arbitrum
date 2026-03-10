@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
