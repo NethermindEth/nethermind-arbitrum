@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -15,34 +15,6 @@ internal static class TimeboostTestHelpers
 {
     internal const ulong TestChainId = 412346;
     internal static readonly Address TestAuctionContract = TestItem.AddressA;
-
-    // Signs an ExpressLaneSubmission; returns a 65-byte array: r (32) | s (32) | v (recoveryId + 27).
-    internal static byte[] SignSubmission(
-        Transaction tx,
-        ulong round,
-        ulong sequenceNumber,
-        ulong chainId,
-        Address auctionContract,
-        PrivateKey signerKey)
-    {
-        ExpressLaneSubmission template = new()
-        {
-            Transaction = tx,
-            Round = round,
-            SequenceNumber = sequenceNumber,
-            Signature = new byte[65],
-            ChainId = chainId,
-            AuctionContractAddress = auctionContract,
-        };
-
-        ValueHash256 hash = template.ComputeSigningHash();
-        Signature sig = new Ecdsa().Sign(signerKey, in hash);
-
-        byte[] result = new byte[65];
-        sig.Bytes.CopyTo(result.AsSpan(0, 64));
-        result[64] = (byte)(sig.RecoveryId + 27);
-        return result;
-    }
 
     internal static Transaction MakeTx(ulong nonce = 0, PrivateKey? signer = null)
         => Build.A.Transaction
@@ -73,5 +45,33 @@ internal static class TimeboostTestHelpers
             ChainId = TestChainId,
             AuctionContractAddress = contract,
         };
+    }
+
+    // Signs an ExpressLaneSubmission; returns a 65-byte array: r (32) | s (32) | v (recoveryId + 27).
+    private static byte[] SignSubmission(
+        Transaction tx,
+        ulong round,
+        ulong sequenceNumber,
+        ulong chainId,
+        Address auctionContract,
+        PrivateKey signerKey)
+    {
+        ExpressLaneSubmission template = new()
+        {
+            Transaction = tx,
+            Round = round,
+            SequenceNumber = sequenceNumber,
+            Signature = new byte[65],
+            ChainId = chainId,
+            AuctionContractAddress = auctionContract,
+        };
+
+        ValueHash256 hash = template.ComputeSigningHash();
+        Signature sig = new Ecdsa().Sign(signerKey, in hash);
+
+        byte[] result = new byte[65];
+        sig.Bytes.CopyTo(result.AsSpan(0, 64));
+        result[64] = (byte)(sig.RecoveryId + 27);
+        return result;
     }
 }

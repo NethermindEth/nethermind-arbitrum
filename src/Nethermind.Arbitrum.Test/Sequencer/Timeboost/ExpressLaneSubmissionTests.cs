@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
@@ -32,7 +32,7 @@ public class ExpressLaneSubmissionTests
         Address first = submission.RecoverSender();
         Address second = submission.RecoverSender();
 
-        ReferenceEquals(first, second).Should().BeTrue("second call must return the cached reference");
+        first.Should().BeSameAs(second, "second call must return the cached reference");
     }
 
     [Test]
@@ -60,7 +60,7 @@ public class ExpressLaneSubmissionTests
         ExpressLaneSubmission sub1 = BuildUnsigned(tx, round: 1, seqNum: 0);
         ExpressLaneSubmission sub2 = BuildUnsigned(tx, round: 2, seqNum: 0);
 
-        sub1.ToMessageBytes().Should().NotEqual(sub2.ToMessageBytes());
+        sub1.ToMessageBytes().Should().NotBeEquivalentTo(sub2.ToMessageBytes());
     }
 
     [Test]
@@ -70,16 +70,17 @@ public class ExpressLaneSubmissionTests
         ExpressLaneSubmission sub1 = BuildUnsigned(tx, round: 1, seqNum: 0);
         ExpressLaneSubmission sub2 = BuildUnsigned(tx, round: 1, seqNum: 1);
 
-        sub1.ToMessageBytes().Should().NotEqual(sub2.ToMessageBytes());
+        sub1.ToMessageBytes().Should().NotBeEquivalentTo(sub2.ToMessageBytes());
     }
 
-    private static ExpressLaneSubmission BuildUnsigned(Transaction tx, ulong round, ulong seqNum) => new()
-    {
-        Transaction = tx,
-        Round = round,
-        SequenceNumber = seqNum,
-        Signature = new byte[65],
-        ChainId = TimeboostTestHelpers.TestChainId,
-        AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
-    };
+    private static ExpressLaneSubmission BuildUnsigned(Transaction tx, ulong round, ulong seqNum)
+        => new()
+        {
+            Transaction = tx,
+            Round = round,
+            SequenceNumber = seqNum,
+            Signature = new byte[65],
+            ChainId = TimeboostTestHelpers.TestChainId,
+            AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
+        };
 }

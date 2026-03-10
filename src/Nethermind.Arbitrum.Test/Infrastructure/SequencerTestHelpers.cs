@@ -1,26 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System.Security.Cryptography;
-using Autofac;
-using FluentAssertions;
-using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Modules;
-using Nethermind.Arbitrum.Sequencer;
-using Nethermind.Arbitrum.Sequencer.Timeboost;
-using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
-using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
-using Nethermind.JsonRpc;
-using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -101,66 +86,4 @@ public static class SequencerTestHelpers
         return new L1IncomingMessage(header, l2Msg, null, null);
     }
 
-    public static async Task FundAccountAsync(
-        ArbitrumRpcTestBlockchain chain, ArbitrumExecutionEngine engine, Address recipient)
-    {
-        Hash256 requestId = new(RandomNumberGenerator.GetBytes(Hash256.Size));
-        L1IncomingMessage depositMsg = CreateEthDepositMessage(requestId, 92, TestItem.AddressA, recipient, 10.Ether);
-
-        ulong delayedMsgRead = chain.BlockTree.Head!.Header.Nonce;
-        engine.EnqueueDelayedMessages([depositMsg], delayedMsgRead);
-
-        ResultWrapper<StartSequencingResult> depositResult = await engine.StartSequencingAsync(0, 0, 0);
-        depositResult.Result.Should().Be(Result.Success);
-        engine.EndSequencing(null);
-        await engine.AppendLastSequencedBlockAsync();
-    }
-
-    public static Transaction CreateUserTx(ulong nonce, Address to, UInt256 value)
-    {
-        return Build.A.Transaction
-            .WithNonce(nonce)
-            .WithGasLimit(21000)
-            .WithGasPrice(1.GWei)
-            .WithTo(to)
-            .WithValue(value)
-            .WithChainId(412346)
-            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
-            .TestObject;
-    }
-
-    public static ArbitrumExecutionEngine CreateEngineWithTimeboost(
-        ArbitrumRpcTestBlockchain chain,
-        out DelayedMessageQueue delayedMessageQueue,
-        out TransactionQueue transactionQueue,
-        out ArbitrumEthRpcModule ethRpcModule,
-        out IAuctionResolutionQueue auctionResolutionQueue,
-        IExpressLaneService? expressLaneService = null)
-    {
-        delayedMessageQueue = new DelayedMessageQueue();
-        SequencerState sequencerState = new(LimboLogs.Instance);
-        sequencerState.Activate();
-
-        expressLaneService ??= chain.Container.Resolve<IExpressLaneService>();
-        auctionResolutionQueue = chain.Container.Resolve<IAuctionResolutionQueue>();
-        transactionQueue = chain.Container.Resolve<TransactionQueue>();
-
-        ArbitrumExecutionEngine engine = new(
-            chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
-            chain.BlockTree,
-            chain.BlockProductionTrigger,
-            chain.ChainSpec,
-            chain.SpecHelper,
-            chain.LogManager,
-            chain.CachedL1PriceData,
-            chain.Container.Resolve<IArbitrumConfig>(),
-            chain.Container.Resolve<ArbitrumBlockFactory>(),
-            chain.Container.Resolve<ArbitrumSequencerEngine>(),
-            expressLaneService,
-            auctionResolutionQueue);
-
-        ethRpcModule = ArbitrumRpcTestBlockchain.CreateEthRpcModule(chain, transactionQueue, sequencerState);
-
-        return engine;
-    }
 }

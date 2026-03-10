@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Blockchain;
 using Nethermind.Core;
+using Nethermind.Core.Extensions;
 using Nethermind.Facade;
 using Nethermind.Logging;
 
@@ -103,7 +104,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
             // AllSeen retains entries even after they are drained, mirroring Go's msgBySequenceNumber.
             if (roundInfo.AllSeen.TryGetValue(seqNum, out ExpressLaneSubmission? existing))
             {
-                if (existing.Signature.AsSpan().SequenceEqual(submission.Signature))
+                if (Bytes.AreEqual(existing.Signature, submission.Signature))
                     return; // exact duplicate (same sig) → idempotent no-op
 
                 if (seqNum < nextSeq)
