@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
+using Nethermind.Crypto;
 using Nethermind.Facade;
 using Nethermind.Logging;
 
@@ -23,6 +24,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
     private readonly TransactionQueue _transactionQueue;
     private readonly IBlockTree _blockTree;
     private readonly IBlockchainBridge _bridge;
+    private readonly IEthereumEcdsa _ecdsa;
     private readonly TimeSpan _earlySubmissionGrace;
     private readonly ILogger _logger;
 
@@ -44,6 +46,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
         TransactionQueue transactionQueue,
         IBlockTree blockTree,
         IBlockchainBridgeFactory bridgeFactory,
+        IEthereumEcdsa ethereumEcdsa,
         ILogManager logManager,
         TimeSpan? pollInterval = null)
     {
@@ -52,6 +55,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
         _transactionQueue = transactionQueue;
         _blockTree = blockTree;
         _bridge = bridgeFactory.CreateBlockchainBridge();
+        _ecdsa = ethereumEcdsa;
         _earlySubmissionGrace = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostEarlySubmissionGraceMs);
         _logger = logManager.GetClassLogger<ExpressLaneService>();
         _pollInterval = pollInterval ?? TimeSpan.FromSeconds(1);
@@ -87,7 +91,7 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
             if (!_roundControllers.TryGetValue(round, out Address? controller))
                 throw new InvalidOperationException($"No controller for round {round}");
 
-            Address sender = submission.RecoverSender();
+            Address sender = submission.RecoverSender(_ecdsa);
             if (sender != controller)
                 throw new InvalidOperationException("Sender is not the express lane controller");
 

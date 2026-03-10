@@ -19,6 +19,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
@@ -114,7 +115,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
-                new DisabledAuctionResolutionQueue());
+                new DisabledAuctionResolutionQueue(),
+                new EthereumEcdsa(_chainSpec.ChainId));
 
             _rpcModule = new ArbitrumRpcModule(engine);
         }
@@ -301,7 +303,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
-                new DisabledAuctionResolutionQueue());
+                new DisabledAuctionResolutionQueue(),
+                new EthereumEcdsa(_chainSpec.ChainId));
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -357,7 +360,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
-                new DisabledAuctionResolutionQueue());
+                new DisabledAuctionResolutionQueue(),
+                new EthereumEcdsa(_chainSpec.ChainId));
 
             _rpcModule = new ArbitrumRpcModule(engine);
 
@@ -419,7 +423,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
-                new DisabledAuctionResolutionQueue());
+                new DisabledAuctionResolutionQueue(),
+                new EthereumEcdsa(_chainSpec.ChainId));
 
             _rpcModule = new ArbitrumRpcModule(engine);
 

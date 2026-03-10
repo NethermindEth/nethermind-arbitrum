@@ -65,7 +65,7 @@ public sealed class ExpressLaneSubmission
     }
 
     // Recovers the signer address from the Ethereum personal-sign signature; caches the result.
-    public Address RecoverSender()
+    public Address RecoverSender(IEthereumEcdsa ecdsa)
     {
         if (_cachedSender is not null)
             return _cachedSender;
@@ -79,7 +79,7 @@ public sealed class ExpressLaneSubmission
         int recoveryId = Signature[64] >= 27 ? Signature[64] - 27 : Signature[64];
         Signature sig = new(Signature.AsSpan(0, 64), recoveryId);
 
-        _cachedSender = new EthereumEcdsa(ChainId).RecoverAddress(sig, msgHash)
+        _cachedSender = ecdsa.RecoverAddress(sig, msgHash)
             ?? throw new InvalidOperationException("Could not recover signer from express lane submission signature");
 
         return _cachedSender;

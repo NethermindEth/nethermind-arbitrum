@@ -474,6 +474,7 @@ public class ExpressLaneServiceTests
             txQueue,
             blockTree,
             bridgeFactory,
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
             LimboLogs.Instance,
             pollInterval: TimeSpan.FromHours(1));
     }
@@ -498,6 +499,7 @@ public class ExpressLaneServiceTests
             txQueue,
             blockTree,
             bridgeFactory,
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
             LimboLogs.Instance,
             pollInterval: TimeSpan.FromHours(1));
     }
@@ -522,6 +524,7 @@ public class ExpressLaneServiceTests
             txQueue,
             blockTree,
             bridgeFactory,
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
             LimboLogs.Instance,
             pollInterval: TimeSpan.FromHours(1));
     }

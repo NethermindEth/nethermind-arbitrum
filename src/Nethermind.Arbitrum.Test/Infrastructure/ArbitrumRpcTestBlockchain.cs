@@ -309,7 +309,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<ArbitrumBlockFactory>(),
             chain.Container.Resolve<ArbitrumSequencerEngine>(),
             chain.Container.Resolve<IExpressLaneService>(),
-            chain.Container.Resolve<IAuctionResolutionQueue>());
+            chain.Container.Resolve<IAuctionResolutionQueue>(),
+            chain.Container.Resolve<IEthereumEcdsa>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 

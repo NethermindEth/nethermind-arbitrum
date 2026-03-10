@@ -12,6 +12,8 @@ namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 [TestFixture]
 public class ExpressLaneSubmissionTests
 {
+    private static readonly EthereumEcdsa Ecdsa = new(TimeboostTestHelpers.TestChainId);
+
     [Test]
     public void RecoverSender_ValidSignature_ReturnsSignerAddress()
     {
@@ -19,7 +21,7 @@ public class ExpressLaneSubmissionTests
         Transaction tx = TimeboostTestHelpers.MakeTx(nonce: 0, signer: controller);
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(tx, round: 5, seqNum: 0, signerKey: controller);
 
-        submission.RecoverSender().Should().Be(controller.Address);
+        submission.RecoverSender(Ecdsa).Should().Be(controller.Address);
     }
 
     [Test]
@@ -29,8 +31,8 @@ public class ExpressLaneSubmissionTests
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
             TimeboostTestHelpers.MakeTx(), round: 1, seqNum: 0, signerKey: controller);
 
-        Address first = submission.RecoverSender();
-        Address second = submission.RecoverSender();
+        Address first = submission.RecoverSender(Ecdsa);
+        Address second = submission.RecoverSender(Ecdsa);
 
         first.Should().BeSameAs(second, "second call must return the cached reference");
     }
@@ -48,7 +50,7 @@ public class ExpressLaneSubmissionTests
             AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
         };
 
-        Action act = () => submission.RecoverSender();
+        Action act = () => submission.RecoverSender(Ecdsa);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*65 bytes*");
     }

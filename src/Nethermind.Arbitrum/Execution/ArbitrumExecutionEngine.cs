@@ -39,7 +39,8 @@ public sealed class ArbitrumExecutionEngine(
     ArbitrumBlockFactory arbitrumBlockFactory,
     ArbitrumSequencerEngine sequencerEngine,
     IExpressLaneService expressLaneService,
-    IAuctionResolutionQueue auctionResolutionQueue)
+    IAuctionResolutionQueue auctionResolutionQueue,
+    IEthereumEcdsa ethereumEcdsa)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -363,7 +364,7 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<bool>.Fail("TimeboostAuctioneerAddress is not configured");
 
         Address expectedAuctioneer = new(arbitrumConfig.TimeboostAuctioneerAddress);
-        Address? sender = new EthereumEcdsa(chainSpec.ChainId).RecoverAddress(tx);
+        Address? sender = ethereumEcdsa.RecoverAddress(tx);
         if (sender != expectedAuctioneer)
             return ResultWrapper<bool>.Fail($"Transaction sender {sender} is not the authorized auctioneer {expectedAuctioneer}");
 
