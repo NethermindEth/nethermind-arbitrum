@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
@@ -8,18 +8,14 @@ public sealed class RoundTimingInfo(
     TimeSpan round,
     TimeSpan auctionClosing)
 {
-    public DateTime Offset { get; } = offset;
-    public TimeSpan Round { get; } = round;
-    public TimeSpan AuctionClosing { get; } = auctionClosing;
-
     public ulong RoundNumber() => RoundNumberAt(DateTime.UtcNow);
 
     public ulong RoundNumberAt(DateTime t)
     {
-        TimeSpan elapsed = t - Offset;
+        TimeSpan elapsed = t - offset;
         if (elapsed < TimeSpan.Zero)
             return 0;
-        return (ulong)(elapsed / Round);
+        return (ulong)(elapsed / round);
     }
 
     public TimeSpan TimeTilNextRound() => TimeTilNextRoundAt(DateTime.UtcNow);
@@ -27,10 +23,10 @@ public sealed class RoundTimingInfo(
     public TimeSpan TimeTilNextRoundAt(DateTime t)
     {
         ulong roundNum = RoundNumberAt(t);
-        DateTime nextRoundStart = Offset + Round * (long)(roundNum + 1);
+        DateTime nextRoundStart = offset + round * (long)(roundNum + 1);
         return nextRoundStart - t;
     }
 
     public bool IsWithinAuctionCloseWindow(DateTime t)
-        => TimeTilNextRoundAt(t) <= AuctionClosing;
+        => TimeTilNextRoundAt(t) <= auctionClosing;
 }
