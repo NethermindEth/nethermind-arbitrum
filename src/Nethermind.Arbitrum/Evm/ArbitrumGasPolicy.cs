@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.GasPolicy;
@@ -115,20 +116,18 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Consume gas for SelfDestruct operation.
+    /// Based on observed Nitro behavior: the EIP150 cost (5000) is split as
+    /// 100 Computation (warm read) + 4900 StorageAccess.
     /// </summary>
     public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
-        // Note from Nitro:
-        // SELFDESTRUCT is a special case because it charges for storage access, but it isn't
-        // dependent on any input data. We charge a small computational cost for warm access like
-        // other multidimensional gas opcodes, and the rest is storage access to delete the
-        // contract from the database.
-        // Note we only need to cover EIP150 because it is the current cost, and SELFDESTRUCT cost was
-        // zero previously.
+        try { System.IO.File.AppendAllText("/tmp/arb-selfdestruct-debug.txt", $"[{DateTime.UtcNow:HH:mm:ss.fff}] ConsumeSelfDestructGas CALLED\n"); } catch { }
         if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
             return false;
+        // Split EIP150 cost: 100 Computation + 4900 StorageAccess (matching Nitro behavior)
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
+        try { System.IO.File.AppendAllText("/tmp/arb-selfdestruct-debug.txt", $"[{DateTime.UtcNow:HH:mm:ss.fff}] Added 100 Comp + 4900 SA\n"); } catch { }
         return true;
     }
 
@@ -443,11 +442,17 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             gas._accumulated.Increment(ResourceKind.Computation, (ulong)initCodeCost);
         }
 
-        // 3. L2Calldata: Transaction data bytes
+        // 3. L2Calldata: Transaction data bytes (matching Nitro state_transition.go:127,132)
         if (tx.Data.Length > 0)
         {
-            ulong dataCost = (ulong)tokensInCallData * GasCostOf.TxDataZero;
-            gas._accumulated.Increment(ResourceKind.L2Calldata, dataCost);
+            ReadOnlySpan<byte> data = tx.Data.Span;
+            int zeroCount = data.CountZeros();
+            int nonZeroCount = data.Length - zeroCount;
+
+            // Charge separately for zero and non-zero bytes as L2Calldata
+            ulong nonZeroGas = (ulong)(spec.IsEip2028Enabled ? GasCostOf.TxDataNonZeroEip2028 : GasCostOf.TxDataNonZero);
+            gas._accumulated.Increment(ResourceKind.L2Calldata, (ulong)nonZeroCount * nonZeroGas);
+            gas._accumulated.Increment(ResourceKind.L2Calldata, (ulong)zeroCount * (ulong)GasCostOf.TxDataZero);
         }
 
         // 4. StorageAccess: Access list costs (EIP-2930)
