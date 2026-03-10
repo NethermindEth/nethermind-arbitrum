@@ -168,7 +168,7 @@ public class ArbitrumWitnessGenerationTests
             l1BaseFee,
             sender,
             sender,
-            100.Ether());
+            100.Ether);
         ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
         depositResult.Result.Should().Be(Result.Success);
 
@@ -196,7 +196,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(null) // Contract creation
                 .WithData(targetInitCode)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -236,7 +236,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(null) // Contract creation
                 .WithData(callerInitCode)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -258,7 +258,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(callerAddress)
                 .WithData([])
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -321,7 +321,7 @@ public class ArbitrumWitnessGenerationTests
             l1BaseFee,
             sender,
             sender,
-            100.Ether());
+            100.Ether);
         ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
         depositResult.Result.Should().Be(Result.Success);
 
@@ -344,7 +344,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(arbSysAddress)
                 .WithData(arbBlockNumberCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -356,7 +356,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(ecrecoverAddress)
                 .WithData(new byte[128]) // ecrecover expects 128 bytes (hash, v, r, s)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender) + 1)
@@ -424,7 +424,7 @@ public class ArbitrumWitnessGenerationTests
             l1BaseFee,
             sender,
             sender,
-            100.Ether());
+            100.Ether);
         ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
         depositResult.Result.Should().Be(Result.Success);
 
@@ -458,7 +458,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(null) // Contract creation
                 .WithData(blockhashCallerInitCode)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -480,7 +480,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(contractAddress)
                 .WithData([])
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -539,7 +539,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(ArbSys.Address)
                 .WithData(calldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -604,9 +604,9 @@ public class ArbitrumWitnessGenerationTests
             sender,
             receiver,
             beneficiary,
-            DepositValue: 10.Ether(),
-            RetryValue: 1.Ether(),
-            GasFee: 1.GWei(),
+            DepositValue: 10.Ether,
+            RetryValue: 1.Ether,
+            GasFee: 1.GWei,
             GasLimit: 0,
             MaxSubmissionFee: 128800);
 
@@ -703,9 +703,9 @@ public class ArbitrumWitnessGenerationTests
             sender,
             TestItem.AddressA,
             TestItem.AddressB,
-            DepositValue: 10.Ether(),
-            RetryValue: 1.Ether(),
-            GasFee: 1.GWei(),
+            DepositValue: 10.Ether,
+            RetryValue: 1.Ether,
+            GasFee: 1.GWei,
             GasLimit: 0,
             MaxSubmissionFee: 128800);
 
@@ -764,7 +764,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(TestItem.AddressC)
                 .WithData([])
-                .WithMaxFeePerGas(1.GWei())
+                .WithMaxFeePerGas(1.GWei)
                 .WithGasLimit(21_000)
                 .WithValue(1)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -844,7 +844,7 @@ public class ArbitrumWitnessGenerationTests
 
         // Fund the sender account
         ResultWrapper<MessageResult> depositResult = await chain.Digest(new TestEthDeposit(
-            Keccak.Compute("deposit"), l1BaseFee, sender, sender, 100.Ether()));
+            Keccak.Compute("deposit"), l1BaseFee, sender, sender, 100.Ether));
         depositResult.Result.Should().Be(Result.Success);
 
         // Deploy a simple setter contract: SSTORE(slot=0, value=CALLDATALOAD(0))
@@ -873,7 +873,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(null) // contract creation
                 .WithData(setterInitCode)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -906,7 +906,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(contractAddress)
                 .WithData(setTo2)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000)
                 .WithValue(0)
                 .WithNonce(nonce)
@@ -917,7 +917,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(contractAddress)
                 .WithData(setToInitialValue)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000)
                 .WithValue(0)
                 .WithNonce(nonce + 1)
@@ -988,7 +988,7 @@ public class ArbitrumWitnessGenerationTests
             l1BaseFee,
             sender,
             sender,
-            100.Ether());
+            100.Ether);
         ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
         depositResult.Result.Should().Be(Result.Success);
 
@@ -1027,7 +1027,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(ArbosAddresses.ArbOwnerAddress)
                 .WithData(setToNewCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(nonce)
@@ -1038,7 +1038,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(ArbosAddresses.ArbOwnerAddress)
                 .WithData(resetToOriginalCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500_000)
                 .WithValue(0)
                 .WithNonce(nonce + 1)
@@ -1122,7 +1122,7 @@ public class ArbitrumWitnessGenerationTests
             l1BaseFee,
             sender,
             sender,
-            100.Ether());
+            100.Ether);
         ResultWrapper<MessageResult> depositResult = await chain.Digest(deposit);
         depositResult.Result.Should().Be(Result.Success);
 
@@ -1169,7 +1169,7 @@ public class ArbitrumWitnessGenerationTests
                 .WithType(TxType.EIP1559)
                 .WithTo(ArbosAddresses.ArbAddressTableAddress)
                 .WithData(calldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(gasLimit) // Not enough gas, causing revert
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
