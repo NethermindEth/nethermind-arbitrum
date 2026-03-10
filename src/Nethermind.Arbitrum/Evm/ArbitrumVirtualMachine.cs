@@ -308,8 +308,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Check for contract address collision. If the contract already exists and contains code or non-zero state,
         // then the creation should be aborted.
-        bool accountExists = state.AccountExists(contractAddress);
-        if (accountExists && contractAddress.IsNonZeroAccount(Spec, CodeInfoRepository, state))
+        if (state.IsNonZeroAccount(contractAddress, out bool accountExists))
         {
             ReturnDataBuffer = Array.Empty<byte>();
             return new StylusEvmResult([], (ulong)(gasAvailable), EvmExceptionType.None, contractAddress);
