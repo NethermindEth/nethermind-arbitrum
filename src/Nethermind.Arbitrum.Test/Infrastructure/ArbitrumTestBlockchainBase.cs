@@ -90,10 +90,14 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
     public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
+    public IArbitrumConfig ArbitrumConfig => arbitrumConfig;
 
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
     public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+
+    public IWasmStore WasmStore => Dependencies.WasmStore;
+    public IArbosVersionProvider ArbosVersionProvider => Dependencies.ArbosVersionProvider;
 
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
@@ -132,6 +136,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
+
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
         Timestamper = new ManualTimestamper(InitialTimestamp);
@@ -316,6 +321,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
+        IWasmStore WasmStore,
+        IArbosVersionProvider ArbosVersionProvider,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)

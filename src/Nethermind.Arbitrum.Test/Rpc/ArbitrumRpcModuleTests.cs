@@ -21,6 +21,7 @@ using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -41,7 +42,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
-
+        private Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
         [SetUp]
         public void Setup()
         {
@@ -55,6 +56,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
+            _witnessGeneratingBlockProcessingEnvFactory = new Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
             ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
@@ -87,6 +89,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
             _rpcModule = new ArbitrumRpcModule(engine);
@@ -250,6 +253,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
             _rpcModule = new ArbitrumRpcModule(engine);
@@ -282,6 +286,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
             _rpcModule = new ArbitrumRpcModule(engine);
@@ -320,6 +325,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 cachedL1PriceData,
                 _blockProcessingQueue.Object,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 _blockConfig);
 
             _rpcModule = new ArbitrumRpcModule(engine);

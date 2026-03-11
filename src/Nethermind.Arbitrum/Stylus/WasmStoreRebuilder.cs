@@ -14,12 +14,12 @@ public class WasmStoreRebuilder(
     ILogger logger)
 {
     public void RebuildWasmStore(
-    IDb codeDb,
-    Hash256 position,
-    ulong latestBlockTime,
-    ulong rebuildStartBlockTime,
-    bool debugMode,
-    CancellationToken cancellationToken)
+        IDb codeDb,
+        Hash256 position,
+        ulong latestBlockTime,
+        ulong rebuildStartBlockTime,
+        bool debugMode,
+        CancellationToken cancellationToken)
     {
         IReadOnlyCollection<string> targets = targetConfig.GetWasmTargets();
         DateTime lastStatusUpdate = DateTime.UtcNow;
