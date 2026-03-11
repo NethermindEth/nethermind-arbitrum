@@ -1,6 +1,3 @@
-# Coverage upload workflow
-# Runs after the Test workflow completes so it has access to repository secrets
-# (workflow_run has full secret access regardless of PR origin, unlike pull_request)
 name: Coverage
 
 on:
