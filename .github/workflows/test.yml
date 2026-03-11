@@ -13,8 +13,24 @@ permissions:
   pull-requests: write
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.filter.outputs.src }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            src:
+              - 'src/**'
+
   test:
     name: Test
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -44,6 +60,32 @@ jobs:
           name: coverage
           path: ./coverage
           retention-days: 1
+
+  codecov_status:
+    name: Codecov Status
+    needs: [changes, test]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fail if tests failed
+        if: needs.test.result == 'failure'
+        run: exit 1
+
+      - name: Download coverage artifact
+        if: needs.test.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: ./coverage
+
+      - name: Upload to Codecov
+        if: needs.test.result == 'success'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage
+          fail_ci_if_error: false
 
   # Notify on failure for automated submodule update PRs
   notify-submodule-failure:
