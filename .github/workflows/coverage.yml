@@ -1,0 +1,61 @@
+name: Coverage
+
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  codecov_status:
+    name: Codecov Status
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check test job result
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          result=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs \
+            --jq '.jobs[] | select(.name == "Test") | .conclusion // "skipped"')
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if tests failed
+        if: steps.check.outputs.result == 'failure'
+        run: exit 1
+
+      - name: Pass codecov checks — no source changes
+        if: steps.check.outputs.result == 'skipped'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          for context in "codecov/patch" "codecov/project"; do
+            gh api "repos/$REPO/statuses/$SHA" \
+              -f state=success \
+              -f context="$context" \
+              -f description="No source changes"
+          done
+
+      - name: Download coverage artifact
+        if: steps.check.outputs.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: ./coverage
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Upload to Codecov
+        if: steps.check.outputs.result == 'success'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage
+          fail_ci_if_error: false
+          override_commit: ${{ github.event.workflow_run.head_sha }}

@@ -11,7 +11,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  statuses: write
 
 jobs:
   changes:
@@ -61,46 +60,6 @@ jobs:
           name: coverage
           path: ./coverage
           retention-days: 1
-
-  codecov_status:
-    name: Codecov Status
-    needs: [changes, test]
-    if: always()
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Fail if tests failed
-        if: needs.test.result == 'failure'
-        run: exit 1
-
-      - name: Pass codecov checks — no source changes
-        if: needs.test.result == 'skipped'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          REPO: ${{ github.repository }}
-        run: |
-          for context in "codecov/patch" "codecov/project"; do
-            gh api "repos/$REPO/statuses/$SHA" \
-              -f state=success \
-              -f context="$context" \
-              -f description="No source changes"
-          done
-
-      - name: Download coverage artifact
-        if: needs.test.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage
-          path: ./coverage
-
-      - name: Upload to Codecov
-        if: needs.test.result == 'success'
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage
-          fail_ci_if_error: false
 
   # Notify on failure for automated submodule update PRs
   notify-submodule-failure:
