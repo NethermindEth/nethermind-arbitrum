@@ -51,7 +51,7 @@ jobs:
           df -h
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -138,7 +138,7 @@ jobs:
       PACKAGE_PREFIX: ${{ needs.build.outputs.package-prefix }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -234,7 +234,7 @@ jobs:
       PRERELEASE: ${{ needs.build.outputs.prerelease }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
