@@ -38,12 +38,12 @@ jobs:
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include=[Nethermind.Arbitrum*]*
 
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage
-          fail_ci_if_error: false
+          name: coverage
+          path: ./coverage
+          retention-days: 1
 
   # Notify on failure for automated submodule update PRs
   notify-submodule-failure:
