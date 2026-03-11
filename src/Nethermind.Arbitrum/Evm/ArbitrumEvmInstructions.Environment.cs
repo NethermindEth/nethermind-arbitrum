@@ -185,7 +185,7 @@ internal static class ArbitrumEvmInstructions
             stack.PushUInt32<TTracingInst>((uint)accountCode.Length);
         }
         return EvmExceptionType.None;
-    // Jump forward to be unpredicted by the branch predictor.
+        // Jump forward to be unpredicted by the branch predictor.
     OutOfGas:
         return EvmExceptionType.OutOfGas;
     StackUnderflow:
