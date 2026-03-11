@@ -279,4 +279,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
             });
         }
     }
+
+    public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+        => innerEngine.RecordBlockCreation(parameters);
 }

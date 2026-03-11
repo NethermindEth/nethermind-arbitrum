@@ -476,7 +476,7 @@ public class NitroL2MessageParserTests
             InitialArbOSVersion = 10,
             InitialChainOwner = Address.Zero,
             GenesisBlockNum = 100,
-            AllowDebugPrecompiles = true,
+            AllowDebugPrecompiles = false,
             DataAvailabilityCommittee = false,
             MaxCodeSize = null,
             MaxInitCodeSize = null,

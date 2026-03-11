@@ -5,8 +5,10 @@ using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Receipts;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
@@ -25,9 +27,9 @@ namespace Nethermind.Arbitrum.Test.Execution;
 public class ArbitrumBlockProcessorTests
 {
     [Test]
-    public void FirstUserTransaction_WhenBlockGasLimitExceeded_IsAlwaysIncluded()
+    public void FirstUserTx_WhenBlockGasLimitIsGreaterOrEqualTo21000AndIsExceededByTx_UserTxGetsBypassAndAlwaysGetsIncluded()
     {
-        TestContext ctx = new(blockGasLimit: 25_000);
+        TestContext ctx = new(blockGasLimit: GasCostOf.Transaction + 1);
 
         Transaction tx = ctx.CreateTransaction(gasLimit: 50_000, nonce: 0);
 
@@ -39,11 +41,57 @@ public class ArbitrumBlockProcessorTests
     }
 
     [Test]
-    public void SecondUserTransaction_WhenBlockGasLimitExceeded_IsRejected()
+    public void UserTxFirstOrNot_WhenBlockGasLimitIsLowerThan21000_IsNotIncluded()
+    {
+        TestContext ctx = new(blockGasLimit: GasCostOf.Transaction - 1);
+
+        Transaction tx = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0);
+
+        BlockToProduce block = ctx.ExecuteBlock(tx);
+
+        block.Transactions.Count().Should().Be(0,
+            "if block gas left is lower than 21000, no user transaction must be included");
+    }
+
+    [Test]
+    public void FirstUserTx_WhenInternalTxProcessedFirstAndBlockGasLeftIsGreaterThanOrEqualTo21000ButLowerThanTxGas_StillGetsFirstUserTxBypass()
+    {
+        // StartBlock tx costs 21k gas, so, leave >= 21k gas in block for user tx to trigger the bypass afterwards
+        // even though the user tx gas limit is higher than the remaining block gas
+        TestContext ctx = new(blockGasLimit: GasCostOf.Transaction * 2);
+
+        Transaction userTx = ctx.CreateTransaction(gasLimit: 35_000, nonce: 0);
+
+        BlockToProduce block = ctx.ExecuteBlock(withInternalTx: true, userTx);
+
+        block.Transactions.Count().Should().Be(2,
+            "user transaction should be included even though internal block start transaction " +
+            "was processed first - internal transactions must not count toward user transaction counter");
+    }
+
+    [Test]
+    public void FirstUserTx_WhenInternalTxProcessedFirstAndBlockGasLeftIsLowerThan21000_IsNotIncluded()
+    {
+        // StartBlock tx costs 21k gas, so, leave < 21k gas in block for user tx to not get included
+        TestContext ctx = new(blockGasLimit: GasCostOf.Transaction * 2 - 1);
+
+        Transaction userTx = ctx.CreateTransaction(gasLimit: 35_000, nonce: 0);
+
+        BlockToProduce block = ctx.ExecuteBlock(withInternalTx: true, userTx);
+
+        block.Transactions.Count().Should().Be(1,
+            "user transaction should not get included as block gas left is not even >= 21k, independently of user tx counter");
+        block.Transactions.First().Type.Should().Be((TxType)ArbitrumTxType.ArbitrumInternal);
+    }
+
+    [Test]
+    public void SecondUserTx_WhenBlockGasLeftIsGreaterOrEqualTo21000ButLowerThanTxGas_DoesNotGetBypassAsNotFirstUserTxAndGetsRejected()
     {
         TestContext ctx = new(blockGasLimit: 50_000);
 
         Transaction tx1 = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0, to: TestItem.AddressB);
+        // When tx2 is executed, block gas left is 29k (50-21 and not -25 because first tx real compute cost is 21k)
+        // So, first check of block gas left >= 21k passes, but second check tx computeGas > blockGasLeft also passes (skipping tx inclusion)
         Transaction tx2 = ctx.CreateTransaction(gasLimit: 40_000, nonce: 1, to: TestItem.AddressC);
 
         BlockToProduce block = ctx.ExecuteBlock(tx1, tx2);
@@ -52,20 +100,6 @@ public class ArbitrumBlockProcessorTests
             "only first user transaction should be included when second would exceed block gas limit");
         block.Transactions.First().Nonce.Should().Be(0,
             "the included transaction should be the first one");
-    }
-
-    [Test]
-    public void FirstUserTransaction_WhenInternalTransactionProcessedFirst_StillGetsFirstUserTxBypass()
-    {
-        TestContext ctx = new(blockGasLimit: 30_000);
-
-        Transaction userTx = ctx.CreateTransaction(gasLimit: 35_000, nonce: 0);
-
-        BlockToProduce block = ctx.ExecuteBlock(userTx);
-
-        block.Transactions.Count().Should().Be(1,
-            "user transaction should be included even though internal block start transaction " +
-            "was processed first - internal transactions must not count toward user transaction counter");
     }
 
     [Test]
@@ -80,20 +114,6 @@ public class ArbitrumBlockProcessorTests
 
         block.Transactions.Count().Should().BeGreaterThanOrEqualTo(2,
             "both user transactions should be included when there is sufficient block gas");
-    }
-
-    [Test]
-    public void FirstUserTransaction_WhenZeroBlockGasLimit_IsStillIncluded()
-    {
-        TestContext ctx = new(blockGasLimit: 0);
-
-        Transaction tx = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0);
-
-        BlockToProduce block = ctx.ExecuteBlock(tx);
-
-        block.Transactions.Count().Should().Be(1,
-            "even with zero block gas limit, first user transaction must be included " +
-            "to guarantee block liveness and prevent empty blocks");
     }
 
     [Test]
@@ -289,7 +309,10 @@ public class ArbitrumBlockProcessorTests
                 .TestObject;
         }
 
-        public BlockToProduce ExecuteBlock(params Transaction[] transactions)
+        public BlockToProduce ExecuteBlock(params Transaction[] transactions) =>
+            ExecuteBlock(withInternalTx: false, transactions);
+
+        public BlockToProduce ExecuteBlock(bool withInternalTx, params Transaction[] transactions)
         {
             Block block = Build.A.Block
                 .WithNumber(_chain.BlockTree.Head!.Number + 1)
@@ -300,7 +323,24 @@ public class ArbitrumBlockProcessorTests
                 .WithTransactions(transactions)
                 .TestObject;
 
-            BlockToProduce blockToProduce = new(block.Header, block.Transactions, block.Uncles);
+            Transaction[] allTransactions = block.Transactions;
+            if (withInternalTx)
+            {
+                L1IncomingMessageHeader l1Header = new(
+                    ArbitrumL1MessageKind.L2Message,
+                    Address.Zero,
+                    BlockNumber: 0,
+                    Timestamp: block.Timestamp,
+                    RequestId: null,
+                    BaseFeeL1: 0);
+
+                Transaction internalTx = ArbitrumBlockProducer.CreateInternalTransaction(
+                    l1Header, block.Header, _chain.BlockTree.Head!.Header, _chain.SpecProvider);
+
+                allTransactions = allTransactions.Prepend(internalTx).ToArray();
+            }
+
+            BlockToProduce blockToProduce = new(block.Header, allTransactions, block.Uncles);
 
             ArbitrumChainSpecEngineParameters chainSpecParams = _chain.ChainSpec
                 .EngineChainSpecParametersProvider
