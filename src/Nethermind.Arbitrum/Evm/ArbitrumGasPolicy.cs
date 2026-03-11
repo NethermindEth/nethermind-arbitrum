@@ -215,6 +215,37 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     }
 
     /// <summary>
+    /// Charges gas for accessing the SELFDESTRUCT beneficiary account.
+    /// Unlike regular ConsumeAccountAccessGas, cold access is charged as FULL StorageAccess (no Computation split).
+    /// This matches Nitro's makeSelfdestructGasFn in operations_acl.go which charges ColdAccountAccessCostEIP2929
+    /// entirely to ResourceKindStorageAccess.
+    /// </summary>
+    public static bool ConsumeSelfDestructBeneficiaryAccessGas(ref ArbitrumGasPolicy gas,
+        IReleaseSpec spec,
+        ref readonly StackAccessTracker accessTracker,
+        bool isTracingAccess,
+        Address address)
+    {
+        if (!spec.UseHotAndColdStorage)
+            return true;
+        if (isTracingAccess)
+            accessTracker.WarmUp(address);
+
+        if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
+        {
+            // SELFDESTRUCT beneficiary cold access: FULL cost to StorageAccess (no Computation split)
+            // This matches Nitro's makeSelfdestructGasFn:
+            //   multiGas = multiGas.SaturatingIncrement(multigas.ResourceKindStorageAccess, params.ColdAccountAccessCostEIP2929)
+            if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdAccountAccess))
+                return false;
+            gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess);
+            return true;
+        }
+        // Warm access: no gas charged (matches Nitro - only cold access adds to multiGas in makeSelfdestructGasFn)
+        return true;
+    }
+
+    /// <summary>
     /// Charges gas for accessing a storage cell based on a cold / warm state (interface implementation).
     /// For SLOAD: Cold access splits cost into StorageAccess + Computation (matching Nitro gasSLoadEIP2929).
     /// For SSTORE: Cold access charges full cost to StorageAccess only (matching Nitro gasSStoreEIP2929).
