@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout Nitro
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.nitro_repo }}
           ref: ${{ inputs.nitro_branch }}
