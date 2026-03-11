@@ -71,9 +71,36 @@ public record PrepareForRecordParameters(
     [property: JsonPropertyName("end")] ulong End
 );
 
+public record MarkValidParameters(
+    [property: JsonPropertyName("pos")] ulong Pos,
+    [property: JsonPropertyName("resultHash")] Hash256 ResultHash
+);
+
 public record EnqueueDelayedMessagesParams(
     [property: JsonPropertyName("messages")] L1IncomingMessage[] Messages,
     [property: JsonPropertyName("firstMsgIdx")] ulong FirstMsgIdx
+);
+
+public record StartSequencingResult(
+    [property: JsonPropertyName("sequencedMsg")] SequencedMsg? SequencedMsg,
+    [property: JsonPropertyName("waitDurationMs")] long WaitDurationMs
+);
+
+public record SequencedMsg(
+    [property: JsonPropertyName("msgIdx")] ulong MsgIdx,
+    [property: JsonPropertyName("msgWithMeta")] MessageWithMetadata MsgWithMeta,
+    [property: JsonPropertyName("msgResult")] MessageResultForRpc? MsgResult,
+    [property: JsonPropertyName("blockMetadata"), JsonConverter(typeof(Base64Converter))] byte[] BlockMetadata
+);
+
+public record EndSequencingParams(
+    [property: JsonPropertyName("error")] string? Error
+);
+
+public record StartSequencingParams(
+    [property: JsonPropertyName("l1BlockNumber"), JsonConverter(typeof(GoCompatULongConverter))] ulong L1BlockNumber,
+    [property: JsonPropertyName("l1Timestamp"), JsonConverter(typeof(GoCompatULongConverter))] ulong L1Timestamp,
+    [property: JsonPropertyName("timestamp"), JsonConverter(typeof(GoCompatULongConverter))] ulong Timestamp
 );
 
 public record StartSequencingResult(

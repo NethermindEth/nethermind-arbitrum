@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Config;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
@@ -318,4 +319,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
 
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
         => innerEngine.PrepareForRecord(parameters);
+
+    public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
+        => innerEngine.MarkValid(parameters);
 }

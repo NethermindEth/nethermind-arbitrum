@@ -514,6 +514,11 @@ public sealed class ArbitrumExecutionEngine(
                 if (canonicalHash != builtBlock.Hash)
                     return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
+                // Mirrors Nitro: updateValidCandidateHdr then Dereference after successful block validation.
+                // temporary references to parent trie are now removed
+                stateReconstructor.UpdateValidCandidateHdr(parent);
+                stateReconstructor.DereferenceRoot(parent.StateRoot!);
+
                 RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
                 return ResultWrapper<RecordResult>.Success(result);
             }
@@ -555,6 +560,7 @@ public sealed class ArbitrumExecutionEngine(
             try
             {
                 stateReconstructor.EnsureStateAvailable(header);
+                stateReconstructor.UpdateValidCandidateHdr(header);
                 referencedStateRoots.Add(header.StateRoot!);
             }
             catch (Exception ex)
@@ -566,6 +572,43 @@ public sealed class ArbitrumExecutionEngine(
 
         stateReconstructor.PreparedAddTrim(referencedStateRoots);
 
+        return ResultWrapper<EmptyResponse>.Success(default);
+    }
+
+    public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
+    {
+        ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
+        if (blockNumberResult.Result != Result.Success)
+            return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
+
+        long validBlockNumber = blockNumberResult.Data;
+
+        Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
+
+        // Verify the canonical block at validBlockNumber matches the expected hash.
+        // Mirrors Nitro: GetCanonicalHash(validNum) must equal resultHash before promoting.
+        Hash256? canonicalHash = BlockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
+        if (canonicalHash != parameters.ResultHash)
+        {
+            if (_logger.IsError)
+                _logger.Error($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
+            return ResultWrapper<EmptyResponse>.Success(default);
+        }
+
+        // Promote the candidate (its block number may be ≤ validBlockNumber).
+        BlockHeader? validHdr = stateReconstructor.TryPromoteValidCandidate(validBlockNumber);
+
+        if (validHdr is null)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn($"MarkValid: no candidate to promote for block {validBlockNumber}");
+        }
+        else if (_logger.IsDebug)
+        {
+            _logger.Debug($"MarkValid: promoted candidate block {validHdr.Number} hash {validHdr.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
+        }
+
+        Console.WriteLine($"--- header marked as valid: number {validHdr?.Number} (state root {validHdr?.StateRoot})");
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 

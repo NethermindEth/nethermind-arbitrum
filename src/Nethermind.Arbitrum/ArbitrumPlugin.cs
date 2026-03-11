@@ -33,13 +33,13 @@ using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
-using Nethermind.Crypto;
 using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
+using Nethermind.Init;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
@@ -168,6 +168,17 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 blockhashCache,
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);
+        }
+
+        // On shutdown, persist any MemDb-resident trie nodes for the last confirmed valid block
+        // into the main state DB so they survive restart. Nodes already on disk are not re-written.
+        // This mirrors Nitro's WriteValidStateToDb and runs before TrieStore flushes the WAL.
+        MainPruningTrieStoreFactory? trieStoreFactory = _api.Context.ResolveOptional<MainPruningTrieStoreFactory>();
+        if (trieStoreFactory?.PruningTrieStore is TrieStore trieStore)
+        {
+            IDbProvider dbProvider = _api.Context.Resolve<IDbProvider>();
+            IStateReconstructor stateReconstructor = _api.Context.Resolve<IStateReconstructor>();
+            trieStore.OnPersistShutdown = () => stateReconstructor.PersistValidStateTo(dbProvider.StateDb);
         }
 
         return Task.CompletedTask;

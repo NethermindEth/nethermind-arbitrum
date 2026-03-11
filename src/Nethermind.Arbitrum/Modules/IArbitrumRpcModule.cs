@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Data;
+using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 
@@ -61,6 +62,9 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters);

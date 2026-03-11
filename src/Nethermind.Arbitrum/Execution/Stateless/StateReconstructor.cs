@@ -16,7 +16,7 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor
+public class StateReconstructor: IStateReconstructor
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly IBlockTree _blockTree;
@@ -35,6 +35,17 @@ public class StateReconstructor
 
     /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
+
+    private readonly object _validHdrLock = new();
+
+    /// <summary>
+    /// The oldest eligible candidate header whose MemDb nodes are pinned with an extra reference.
+    /// Promoted to <see cref="_validHdr"/> by <see cref="TryPromoteValidCandidate"/>.
+    /// </summary>
+    private BlockHeader? _validHdrCandidate;
+
+    /// <summary>Last confirmed valid header, used to prevent regression in candidate selection.</summary>
+    private BlockHeader? _validHdr;
 
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
@@ -191,10 +202,111 @@ public class StateReconstructor
             _logger.Info($"State reconstruction complete: re-executed {endBlock - startBlock + 1} blocks ({startBlock} to {endBlock})");
     }
 
+    /// <inheritdoc/>
+    public void UpdateValidCandidateHdr(BlockHeader header)
+    {
+        lock (_validHdrLock)
+        {
+            // Keep the oldest candidate — it will be validated first by the consensus layer.
+            // Mirrors Nitro: don't need a candidate that's newer than the current one.
+            if (_validHdrCandidate is not null && _validHdrCandidate.Number <= header.Number)
+                return;
+
+            // Don't set a candidate older than the already-confirmed valid header.
+            if (_validHdr is not null && _validHdr.Number >= header.Number)
+                return;
+
+            // Pin the new candidate in the MemDb overlay; warn if nodes are unavailable.
+            if (_trieStore.HasRoot(header.StateRoot!))
+            {
+                _trieStore.Reference(header.StateRoot!);
+            }
+            else if (_logger.IsWarn)
+            {
+                _logger.Warn($"UpdateValidCandidateHdr: state for block {header.Number} (root {header.StateRoot}) not available");
+                return;
+            }
+
+            // Release the previous candidate's extra pin.
+            if (_validHdrCandidate is not null)
+                _trieStore.Dereference(_validHdrCandidate.StateRoot!);
+
+            _validHdrCandidate = header;
+        }
+    }
+
+    /// <inheritdoc/>
+    public BlockHeader? TryPromoteValidCandidate(long validBlockNumber)
+    {
+        lock (_validHdrLock)
+        {
+            if (_validHdrCandidate is null)
+                return null;
+
+            // Candidate must not be ahead of the validated position.
+            if (_validHdrCandidate.Number > validBlockNumber)
+                return null;
+
+            // Explicit regression guard: only advance _validHdr forward.
+            // Nitro relies on UpdateValidCandidateHdr never setting a candidate older than _validHdr
+            // to achieve this implicitly; we keep the check here for safety.
+            // Not sure it's a good idea for reorgs -- to make sure
+            // if (_validHdr is not null && _validHdr.Number >= validBlockNumber)
+            //     return null;
+
+            // Verify the candidate is still canonical. If not, clear it.
+            Hash256? canonicalHash = _blockTree
+                .FindHeader(_validHdrCandidate.Number, BlockTreeLookupOptions.RequireCanonical)?.Hash;
+            if (canonicalHash != _validHdrCandidate.Hash)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"MarkValid: candidate at block {_validHdrCandidate.Number} is no longer canonical " +
+                                  $"(candidate={_validHdrCandidate.Hash}, canonical={canonicalHash}), clearing");
+                _trieStore.Dereference(_validHdrCandidate.StateRoot!);
+                _validHdrCandidate = null;
+                return null;
+            }
+
+            // Release the OLD valid header's MemDb pin before replacing it.
+            // The candidate's reference is transferred to _validHdr — do NOT dereference it.
+            // Mirrors Nitro: Dereference(r.validHdr); r.validHdr = r.validHdrCandidate
+            if (_validHdr is not null)
+                _trieStore.Dereference(_validHdr.StateRoot!);
+
+            _validHdr = _validHdrCandidate;
+            _validHdrCandidate = null;
+
+            return _validHdr;
+        }
+    }
+
     public void DereferenceRoot(Hash256 parentStateRoot)
     {
         lock (_reconstructionLock)
             _trieStore.Dereference(parentStateRoot);
+    }
+
+    /// <inheritdoc/>
+    public void PersistValidStateTo(IWriteOnlyKeyValueStore db)
+    {
+        BlockHeader? validHdr;
+        lock (_validHdrLock)
+            validHdr = _validHdr;
+
+        Console.WriteLine($"--- PersistValidStateTo called and storing: number {validHdr?.Number} (state root {validHdr?.StateRoot})");
+
+        if (validHdr is null)
+        {
+            if (_logger.IsDebug)
+                _logger.Debug("PersistValidStateTo: no confirmed valid header, skipping");
+            return;
+        }
+
+        if (_logger.IsInfo)
+            _logger.Info($"PersistValidStateTo: persisting MemDb nodes for valid block {validHdr.Number} (root {validHdr.StateRoot})");
+
+        _trieStore.TraverseAndWriteTo(validHdr.StateRoot!, db);
+        // No need to dereference validHdr's nodes as client is shutting down anyway
     }
 
     public void PreparedAddTrim(List<Hash256> stateRoots)

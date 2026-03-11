@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core;
-using Nethermind.Core.Buffers;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Db;
@@ -128,6 +127,28 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                         stack.Push(childKey);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Traverses all MemDb-resident trie nodes reachable from the given state root and writes them
+    /// to the provided key-value store using the same half-path key format. Used to persist
+    /// reconstructed nodes to the main state DB on shutdown.
+    /// </summary>
+    public void TraverseAndWriteTo(Hash256 stateRoot, IWriteOnlyKeyValueStore store)
+    {
+        Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
+        stack.Push((null, TreePath.Empty, stateRoot));
+
+        while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
+        {
+            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(item.addr, item.p, item.h);
+            byte[]? rlp = _memDb[key];
+            if (rlp is null)
+                continue;
+
+            PushChildren(rlp, item.addr, item.p, stack);
+            store.PutSpan(key, rlp);
         }
     }
 
