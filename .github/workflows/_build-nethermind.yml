@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout Nethermind-Arbitrum
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: true
           persist-credentials: false
