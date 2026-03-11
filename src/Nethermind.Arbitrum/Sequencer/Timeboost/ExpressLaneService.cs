@@ -1,78 +1,27 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Buffers.Binary;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer.Queues;
-using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Extensions;
 using Nethermind.Crypto;
-using Nethermind.Facade;
-using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
-public sealed class ExpressLaneService : IExpressLaneService, IDisposable
+public sealed class ExpressLaneService(
+    RoundTimingInfo roundTimingInfo,
+    IExpressLaneTracker tracker,
+    IArbitrumConfig arbitrumConfig,
+    TransactionQueue transactionQueue,
+    IEthereumEcdsa ethereumEcdsa) : IExpressLaneService
 {
-    // resolvedRounds() function selector = keccak256("resolvedRounds()")[:4] = 0x0d253fbe
-    private static readonly byte[] ResolvedRoundsSelector = [0x0d, 0x25, 0x3f, 0xbe];
-
     private const uint MaxFutureSequenceDistance = 1000;
 
-    private readonly RoundTimingInfo _roundTimingInfo;
-    private readonly Address _auctionContractAddress;
-    private readonly TransactionQueue _transactionQueue;
-    private readonly IBlockTree _blockTree;
-    private readonly IBlockchainBridge _bridge;
-    private readonly IEthereumEcdsa _ecdsa;
-    private readonly TimeSpan _earlySubmissionGrace;
-    private readonly ILogger _logger;
+    private readonly TimeSpan _earlySubmissionGrace = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostEarlySubmissionGraceMs);
 
     private readonly Lock _roundLock = new();
-
-    private readonly Dictionary<ulong, Address> _roundControllers = new();
-
     private readonly Dictionary<ulong, RoundInfo> _roundInfos = new();
-
-    private readonly TimeSpan _pollInterval;
-    private readonly CancellationTokenSource _cts = new();
-    private readonly Task _pollingTask;
-
-    public Address AuctionContractAddress => _auctionContractAddress;
-
-    public ExpressLaneService(
-        RoundTimingInfo roundTimingInfo,
-        IArbitrumConfig arbitrumConfig,
-        TransactionQueue transactionQueue,
-        IBlockTree blockTree,
-        IBlockchainBridgeFactory bridgeFactory,
-        IEthereumEcdsa ethereumEcdsa,
-        ILogManager logManager,
-        TimeSpan? pollInterval = null)
-    {
-        _roundTimingInfo = roundTimingInfo;
-        _auctionContractAddress = new Address(arbitrumConfig.TimeboostAuctionContractAddress);
-        _transactionQueue = transactionQueue;
-        _blockTree = blockTree;
-        _bridge = bridgeFactory.CreateBlockchainBridge();
-        _ecdsa = ethereumEcdsa;
-        _earlySubmissionGrace = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostEarlySubmissionGraceMs);
-        _logger = logManager.GetClassLogger<ExpressLaneService>();
-        _pollInterval = pollInterval ?? TimeSpan.FromSeconds(1);
-
-        _pollingTask = Task.Run(PollContractLoopAsync);
-    }
-
-    public bool CurrentRoundHasController()
-    {
-        ulong round = _roundTimingInfo.RoundNumber();
-        lock (_roundLock)
-            return _roundControllers.ContainsKey(round);
-    }
-
-    public bool IsWithinAuctionCloseWindow(DateTime t)
-        => _roundTimingInfo.IsWithinAuctionCloseWindow(t);
 
     public async Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber)
     {
@@ -89,10 +38,11 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
         {
             // Re-validate sender inside the lock to prevent stale control after round transfer
             ulong round = submission.Round;
-            if (!_roundControllers.TryGetValue(round, out Address? controller))
+            Address? controller = tracker.GetController(round);
+            if (controller is null)
                 throw new InvalidOperationException($"No controller for round {round}");
 
-            Address sender = submission.RecoverSender(_ecdsa);
+            Address sender = submission.RecoverSender(ethereumEcdsa);
             if (sender != controller)
                 throw new InvalidOperationException("Sender is not the express lane controller");
 
@@ -100,6 +50,24 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
             {
                 roundInfo = new RoundInfo();
                 _roundInfos[round] = roundInfo;
+
+                // Evict round infos older than 2 behind current
+                ulong currentRound = roundTimingInfo.RoundNumber();
+                if (currentRound > 2)
+                {
+                    ulong oldest = currentRound - 2;
+                    List<ulong>? toRemove = null;
+                    foreach (ulong key in _roundInfos.Keys)
+                    {
+                        if (key < oldest)
+                            (toRemove ??= new()).Add(key);
+                    }
+                    if (toRemove is not null)
+                    {
+                        foreach (ulong key in toRemove)
+                            _roundInfos.Remove(key);
+                    }
+                }
             }
 
             ulong seqNum = submission.SequenceNumber;
@@ -139,17 +107,17 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
         if (submission.Transaction is null || submission.Signature is null)
             throw new InvalidOperationException("Malformed express lane submission");
 
-        if (submission.AuctionContractAddress != _auctionContractAddress)
+        if (submission.AuctionContractAddress != tracker.AuctionContractAddress)
             throw new InvalidOperationException($"Wrong auction contract address: {submission.AuctionContractAddress}");
 
-        ulong currentRound = _roundTimingInfo.RoundNumber();
+        ulong currentRound = roundTimingInfo.RoundNumber();
         if (submission.Round == currentRound)
             return;
 
         if (submission.Round != currentRound + 1)
             throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRound}");
 
-        TimeSpan timeTilNext = _roundTimingInfo.TimeTilNextRound();
+        TimeSpan timeTilNext = roundTimingInfo.TimeTilNextRound();
         if (timeTilNext > _earlySubmissionGrace)
             throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRound}");
 
@@ -158,111 +126,15 @@ public sealed class ExpressLaneService : IExpressLaneService, IDisposable
             await Task.Delay(timeTilNext);
 
         // Verify the round has not advanced past the expected round (mitigates late-wake edge case)
-        if (_roundTimingInfo.RoundNumber() > submission.Round)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {_roundTimingInfo.RoundNumber()}");
+        if (roundTimingInfo.RoundNumber() > submission.Round)
+            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
     }
 
     private async Task PublishAsync(Transaction tx, ulong currentBlockNumber)
     {
         TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, currentBlockNumber);
-        await _transactionQueue.EnqueueAsync(item);
+        await transactionQueue.EnqueueAsync(item);
     }
-
-    private async Task PollContractLoopAsync()
-    {
-        using PeriodicTimer timer = new(_pollInterval);
-        while (!_cts.IsCancellationRequested)
-        {
-            try
-            {
-                await timer.WaitForNextTickAsync(_cts.Token);
-                PollResolvedRounds();
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsDebug)
-                    _logger.Debug($"ExpressLaneService: poll failed: {ex.Message}");
-            }
-        }
-    }
-
-    private void PollResolvedRounds()
-    {
-        BlockHeader? head = _blockTree.Head?.Header;
-        if (head is null)
-            return;
-
-        Transaction callTx = new()
-        {
-            To = _auctionContractAddress,
-            Data = ResolvedRoundsSelector,
-            GasLimit = 200_000,
-            SenderAddress = Address.Zero,
-        };
-
-        CallOutput result = _bridge.Call(head, callTx);
-        if (result.Error is not null || result.ExecutionReverted)
-            return;
-
-        byte[] output = result.OutputData;
-        // resolvedRounds() returns (ELCRound current, ELCRound upcoming).
-        // ABI encodes each ELCRound = (address controller, uint64 round) as two 32-byte slots:
-        //   [0..31]  = controller (address right-justified in [12..31])
-        //   [32..63] = round      (uint64 right-justified in [56..63])
-        // Nitro only uses the first (current) resolved round.
-        if (output.Length < 128)
-            return;
-
-        Address controller = new(output.AsSpan(12, 20));
-        ulong round = BinaryPrimitives.ReadUInt64BigEndian(output.AsSpan(56, 8));
-
-        if (controller == Address.Zero || round == 0)
-            return;
-
-        ulong currentRound = _roundTimingInfo.RoundNumber();
-        lock (_roundLock)
-        {
-            _roundControllers[round] = controller;
-
-            // Clean up rounds older than 2 behind current
-            if (currentRound > 2)
-            {
-                ulong oldest = currentRound - 2;
-                foreach (ulong key in _roundControllers.Keys.Where(k => k < oldest).ToList())
-                    _roundControllers.Remove(key);
-                foreach (ulong key in _roundInfos.Keys.Where(k => k < oldest).ToList())
-                    _roundInfos.Remove(key);
-            }
-        }
-
-        if (_logger.IsDebug)
-            _logger.Debug($"ExpressLaneService: round {round} controller = {controller}");
-    }
-
-    public void Dispose()
-    {
-        _cts.Cancel();
-        _pollingTask.GetAwaiter().GetResult();
-        _cts.Dispose();
-    }
-
-    internal void ForceSetController(ulong round, Address controller)
-    {
-        lock (_roundLock)
-            _roundControllers[round] = controller;
-    }
-
-    internal bool HasControllerForRound(ulong round)
-    {
-        lock (_roundLock)
-            return _roundControllers.ContainsKey(round);
-    }
-
-    internal void TriggerPoll() => PollResolvedRounds();
 
     private sealed class RoundInfo
     {

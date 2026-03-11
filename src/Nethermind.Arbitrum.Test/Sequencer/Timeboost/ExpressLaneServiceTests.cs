@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Buffers.Binary;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
-using Nethermind.Facade;
-using Nethermind.Logging;
 using NSubstitute;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
@@ -27,8 +23,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_InOrderSubmission_EnqueuesTransaction()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 5);
-        service.ForceSetController(5, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 5);
+        tracker.ForceSetController(5, ControllerAddress);
         Transaction tx = TimeboostTestHelpers.MakeTx();
 
         await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(tx, round: 5, seqNum: 0), currentBlockNumber: 100);
@@ -43,8 +39,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_MultipleInOrderSubmissions_EnqueuesEachImmediately()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
         Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 0);
         Transaction tx1 = TimeboostTestHelpers.MakeTx(nonce: 1);
 
@@ -61,8 +57,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_OutOfOrderSubmissions_BuffersUntilGapFilled()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 3);
-        service.ForceSetController(3, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 3);
+        tracker.ForceSetController(3, ControllerAddress);
         Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 0);
         Transaction tx1 = TimeboostTestHelpers.MakeTx(nonce: 1);
         Transaction tx2 = TimeboostTestHelpers.MakeTx(nonce: 2);
@@ -86,8 +82,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_GapWithLaterBatch_DrainsBatchWhenGapFilled()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
         Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 0);
         Transaction tx1 = TimeboostTestHelpers.MakeTx(nonce: 1);
         Transaction tx2 = TimeboostTestHelpers.MakeTx(nonce: 2);
@@ -113,7 +109,7 @@ public class ExpressLaneServiceTests
     public async Task SequenceAsync_DontCareSequenceNumber_EnqueuesImmediatelyWithoutController()
     {
         // DontCare bypasses the controller check (validation only checks round + auction contract)
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out _, currentRound: 1);
         Transaction tx = TimeboostTestHelpers.MakeTx();
 
         await service.SequenceAsync(
@@ -129,8 +125,8 @@ public class ExpressLaneServiceTests
     {
         // Exact re-submission of a buffered entry (same seq, same sig) is idempotent.
         // Mirrors Go's msgBySequenceNumber check: bytes.Equal(prev.Signature, msg.Signature) → return nil.
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 2);
-        service.ForceSetController(2, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 2);
+        tracker.ForceSetController(2, ControllerAddress);
 
         // seq=1 goes into buffer (waiting for seq=0)
         ExpressLaneSubmission sub1 = TimeboostTestHelpers.MakeSubmission(TimeboostTestHelpers.MakeTx(nonce: 1), round: 2, seqNum: 1);
@@ -148,8 +144,8 @@ public class ExpressLaneServiceTests
     {
         // A second submission for a still-buffered sequence number with a different signature is rejected.
         // Mirrors Go's ErrDuplicateSequenceNumber path.
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 2);
-        service.ForceSetController(2, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 2);
+        tracker.ForceSetController(2, ControllerAddress);
 
         // seq=1 goes into buffer (waiting for seq=0)
         await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(TimeboostTestHelpers.MakeTx(nonce: 1), round: 2, seqNum: 1), 100);
@@ -168,8 +164,8 @@ public class ExpressLaneServiceTests
     {
         // A submission that was already drained (seq below nextSeq) is kept in AllSeen.
         // Re-sending with the same signature is still a no-op (idempotent), matching Go behaviour.
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 2);
-        service.ForceSetController(2, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 2);
+        tracker.ForceSetController(2, ControllerAddress);
 
         // seq=0 submitted and drained (nextSeq advances to 1)
         ExpressLaneSubmission sub0 = TimeboostTestHelpers.MakeSubmission(TimeboostTestHelpers.MakeTx(nonce: 0), round: 2, seqNum: 0);
@@ -185,8 +181,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_StaleSequenceNumber_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 2);
-        service.ForceSetController(2, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out ExpressLaneTracker tracker, currentRound: 2);
+        tracker.ForceSetController(2, ControllerAddress);
 
         // Advance nextSeq to 1 by sending seq=0
         await service.SequenceAsync(TimeboostTestHelpers.MakeSubmission(TimeboostTestHelpers.MakeTx(nonce: 0), round: 2, seqNum: 0), 100);
@@ -203,10 +199,10 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_SequenceNumberTooFarAhead_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
 
-        // MaxFutureSequenceDistance = 4096; anything beyond should be rejected
+        // MaxFutureSequenceDistance = 1000; anything beyond should be rejected
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
             TimeboostTestHelpers.MakeTx(), round: 1, seqNum: 5000);
 
@@ -218,8 +214,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_NonControllerSigner_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
 
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
             TimeboostTestHelpers.MakeTx(), round: 1, seqNum: 0, signerKey: AttackerKey);
@@ -232,8 +228,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_NoControllerRegisteredForRound_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
-        // ForceSetController intentionally not called
+        ExpressLaneService service = CreateService(out TransactionQueue _, out _, currentRound: 1);
+        // ForceSetController intentionally not called on tracker
 
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
             TimeboostTestHelpers.MakeTx(), round: 1, seqNum: 0);
@@ -246,8 +242,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_WrongAuctionContract_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
         Address wrongContract = TestItem.AddressD;
 
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
@@ -261,8 +257,8 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_RoundMismatch_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 5);
-        service.ForceSetController(10, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out ExpressLaneTracker tracker, currentRound: 5);
+        tracker.ForceSetController(10, ControllerAddress);
 
         // round=10 is several rounds ahead of current round=5
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
@@ -273,67 +269,10 @@ public class ExpressLaneServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not match current round*");
     }
 
-    // --- Controller polling tests (use TriggerPoll, no background timer) ---
-
-    [Test]
-    public void CurrentRoundHasController_BeforePolling_ReturnsFalse()
-    {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
-
-        service.CurrentRoundHasController().Should().BeFalse();
-    }
-
-    [Test]
-    public void TriggerPoll_ValidContractOutput_RegistersController()
-    {
-        using ExpressLaneService service = CreateServiceWithBridge(
-            out TransactionQueue _,
-            currentRound: 1,
-            contractOutput: BuildAbiOutput(ControllerAddress, round: 1));
-
-        service.TriggerPoll();
-
-        service.CurrentRoundHasController().Should().BeTrue();
-    }
-
-    [Test]
-    public void TriggerPoll_OutputTooShort_DoesNotRegisterController()
-    {
-        using ExpressLaneService service = CreateServiceWithBridge(
-            out TransactionQueue _,
-            currentRound: 1,
-            contractOutput: new byte[127]); // minimum is 128
-
-        service.TriggerPoll();
-
-        service.CurrentRoundHasController().Should().BeFalse();
-    }
-
-    [Test]
-    public void TriggerPoll_ZeroControllerAddress_DoesNotRegisterController()
-    {
-        using ExpressLaneService service = CreateServiceWithBridge(
-            out TransactionQueue _,
-            currentRound: 1,
-            contractOutput: BuildAbiOutput(Address.Zero, round: 1));
-
-        service.TriggerPoll();
-
-        service.CurrentRoundHasController().Should().BeFalse();
-    }
-
-    [Test]
-    public void AuctionContractAddress_Always_ReturnsConfiguredValue()
-    {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
-
-        service.AuctionContractAddress.Should().Be(TimeboostTestHelpers.TestAuctionContract);
-    }
-
     [Test]
     public async Task SequenceAsync_NullTransaction_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out _, currentRound: 1);
         ExpressLaneSubmission submission = new()
         {
             Transaction = null!,
@@ -352,7 +291,7 @@ public class ExpressLaneServiceTests
     [Test]
     public async Task SequenceAsync_NullSignature_Throws()
     {
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out _, currentRound: 1);
         ExpressLaneSubmission submission = new()
         {
             Transaction = TimeboostTestHelpers.MakeTx(),
@@ -372,7 +311,7 @@ public class ExpressLaneServiceTests
     public async Task SequenceAsync_NextRoundOutsideGracePeriod_Throws()
     {
         // 30s remaining in round, 2s grace → outside grace window → immediate rejection.
-        using ExpressLaneService service = CreateService(out TransactionQueue _, currentRound: 1);
+        ExpressLaneService service = CreateService(out TransactionQueue _, out _, currentRound: 1);
 
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(
             TimeboostTestHelpers.MakeTx(), round: 2, seqNum: ulong.MaxValue);
@@ -387,7 +326,7 @@ public class ExpressLaneServiceTests
     {
         // ~1s remaining in a 60s round, 2s grace → within grace window.
         // Service waits for the round boundary then publishes the DontCare tx.
-        using ExpressLaneService service = CreateServiceNearRoundEnd(out TransactionQueue txQueue, currentRound: 1);
+        ExpressLaneService service = CreateServiceNearRoundEnd(out TransactionQueue txQueue, currentRound: 1);
         Transaction tx = TimeboostTestHelpers.MakeTx();
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(tx, round: 2, seqNum: ulong.MaxValue);
 
@@ -400,8 +339,8 @@ public class ExpressLaneServiceTests
     public async Task SequenceAsync_DontCareSequenceNumber_DoesNotInterfereWithNormalSequence()
     {
         // DontCare and normal seq=0 coexist in the same round without interfering.
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
         Transaction txDontCare = TimeboostTestHelpers.MakeTx(nonce: 0);
         Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 1);
 
@@ -418,8 +357,8 @@ public class ExpressLaneServiceTests
     public async Task SequenceAsync_DontCareWithBufferedNormalSequence_DoesNotUnblockBuffer()
     {
         // DontCare publishes immediately and does not fill the gap for buffered normal sequences.
-        using ExpressLaneService service = CreateService(out TransactionQueue txQueue, currentRound: 1);
-        service.ForceSetController(1, ControllerAddress);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, currentRound: 1);
+        tracker.ForceSetController(1, ControllerAddress);
         Transaction tx1 = TimeboostTestHelpers.MakeTx(nonce: 1);
         Transaction txDontCare = TimeboostTestHelpers.MakeTx(nonce: 2);
         Transaction tx0 = TimeboostTestHelpers.MakeTx(nonce: 0);
@@ -442,67 +381,16 @@ public class ExpressLaneServiceTests
         drained[1].Tx.Should().BeSameAs(tx1);
     }
 
-    [Test]
-    public void TriggerPoll_OldRoundControllers_AreCleanedUp()
-    {
-        // At round 4, controllers from rounds < (4 - 2) = 2 are evicted.
-        using ExpressLaneService service = CreateServiceWithBridge(
-            out TransactionQueue _,
-            currentRound: 4,
-            contractOutput: BuildAbiOutput(ControllerAddress, round: 4));
-
-        service.ForceSetController(1, ControllerAddress);
-        service.HasControllerForRound(1).Should().BeTrue();
-
-        service.TriggerPoll();
-
-        service.HasControllerForRound(1).Should().BeFalse("round 1 is more than 2 behind round 4 and must be evicted");
-        service.HasControllerForRound(4).Should().BeTrue("round 4 controller should be registered from the poll");
-    }
-
-    private static ExpressLaneService CreateService(out TransactionQueue txQueue, ulong currentRound = 1)
+    private static ExpressLaneService CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, ulong currentRound = 1)
     {
         txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
-        IBlockTree blockTree = Substitute.For<IBlockTree>();
-        blockTree.Head.Returns((Block?)null);
-        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
-        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput());
-        IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
-        bridgeFactory.CreateBlockchainBridge().Returns(bridge);
+        tracker = CreateTracker(currentRound);
         return new ExpressLaneService(
-            MakeRoundTiming(currentRound),
+            TimeboostTestHelpers.MakeRoundTiming(currentRound),
+            tracker,
             MakeArbitrumConfig(),
             txQueue,
-            blockTree,
-            bridgeFactory,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
-            LimboLogs.Instance,
-            pollInterval: TimeSpan.FromHours(1));
-    }
-
-    private static ExpressLaneService CreateServiceWithBridge(
-        out TransactionQueue txQueue,
-        ulong currentRound,
-        byte[] contractOutput)
-    {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
-        BlockHeader header = Build.A.BlockHeader.WithNumber(1).TestObject;
-        Block headBlock = new Block(header);
-        IBlockTree blockTree = Substitute.For<IBlockTree>();
-        blockTree.Head.Returns(headBlock);
-        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
-        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput { OutputData = contractOutput });
-        IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
-        bridgeFactory.CreateBlockchainBridge().Returns(bridge);
-        return new ExpressLaneService(
-            MakeRoundTiming(currentRound),
-            MakeArbitrumConfig(),
-            txQueue,
-            blockTree,
-            bridgeFactory,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
-            LimboLogs.Instance,
-            pollInterval: TimeSpan.FromHours(1));
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId));
     }
 
     private static ExpressLaneService CreateServiceNearRoundEnd(out TransactionQueue txQueue, ulong currentRound)
@@ -513,22 +401,17 @@ public class ExpressLaneServiceTests
             - TimeSpan.FromMinutes(1) * (long)currentRound
             - TimeSpan.FromSeconds(59);
         RoundTimingInfo timing = new(offset, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(15));
-        IBlockTree blockTree = Substitute.For<IBlockTree>();
-        blockTree.Head.Returns((Block?)null);
-        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
-        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput());
-        IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
-        bridgeFactory.CreateBlockchainBridge().Returns(bridge);
+        ExpressLaneTracker tracker = CreateTracker(currentRound);
         return new ExpressLaneService(
             timing,
+            tracker,
             MakeArbitrumConfig(),
             txQueue,
-            blockTree,
-            bridgeFactory,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
-            LimboLogs.Instance,
-            pollInterval: TimeSpan.FromHours(1));
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId));
     }
+
+    private static ExpressLaneTracker CreateTracker(ulong currentRound)
+        => TimeboostTestHelpers.CreateTracker(currentRound);
 
     private static IArbitrumConfig MakeArbitrumConfig()
     {
@@ -536,24 +419,5 @@ public class ExpressLaneServiceTests
         config.TimeboostAuctionContractAddress.Returns(TimeboostTestHelpers.TestAuctionContract.ToString());
         config.TimeboostEarlySubmissionGraceMs.Returns(2000);
         return config;
-    }
-
-    private static RoundTimingInfo MakeRoundTiming(ulong currentRound)
-    {
-        // Place UtcNow 30s into round N by setting offset = now - N*60s - 30s
-        DateTime offset = DateTime.UtcNow
-            - TimeSpan.FromMinutes(1) * (long)currentRound
-            - TimeSpan.FromSeconds(30);
-        return new RoundTimingInfo(offset, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(15));
-    }
-
-    // Builds the 128-byte ABI output for resolvedRounds() with only the current round filled.
-    // Upcoming round slot is left zero (no upcoming controller).
-    private static byte[] BuildAbiOutput(Address controller, ulong round)
-    {
-        byte[] output = new byte[128];
-        controller.Bytes.CopyTo(output.AsSpan(12, 20));
-        BinaryPrimitives.WriteUInt64BigEndian(output.AsSpan(56, 8), round);
-        return output;
     }
 }

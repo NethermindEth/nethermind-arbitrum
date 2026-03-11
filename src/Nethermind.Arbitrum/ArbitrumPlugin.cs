@@ -49,7 +49,6 @@ using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
@@ -245,6 +244,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
+            .AddStep(typeof(StartExpressLaneTracker))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -353,10 +353,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             if (arbitrumConfig.TimeboostEnabled)
                 builder
+                    .AddSingleton<IExpressLaneTracker, ExpressLaneTracker>()
                     .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
                     .AddSingleton<IExpressLaneService, ExpressLaneService>();
             else
                 builder
+                    .AddSingleton<IExpressLaneTracker, DisabledExpressLaneTracker>()
                     .AddSingleton<IAuctionResolutionQueue, DisabledAuctionResolutionQueue>()
                     .AddSingleton<IExpressLaneService, DisabledExpressLaneService>();
         }

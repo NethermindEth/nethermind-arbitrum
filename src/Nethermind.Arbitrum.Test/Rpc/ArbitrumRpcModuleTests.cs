@@ -101,7 +101,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
                 new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -116,6 +116,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue(),
                 new EthereumEcdsa(_chainSpec.ChainId));
 
@@ -289,7 +290,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
                 new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -304,6 +305,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue(),
                 new EthereumEcdsa(_chainSpec.ChainId));
 
@@ -346,7 +348,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
                 new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -361,6 +363,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue(),
                 new EthereumEcdsa(_chainSpec.ChainId));
 
@@ -409,7 +412,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
                 new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -424,6 +427,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
+                new DisabledExpressLaneTracker(),
                 new DisabledAuctionResolutionQueue(),
                 new EthereumEcdsa(_chainSpec.ChainId));
 

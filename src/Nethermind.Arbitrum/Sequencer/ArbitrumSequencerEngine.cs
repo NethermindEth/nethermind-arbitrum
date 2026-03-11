@@ -28,7 +28,7 @@ public class ArbitrumSequencerEngine(
     IArbitrumConfig arbitrumConfig,
     IStateReader stateReader,
     TransactionQueue transactionQueue,
-    IExpressLaneService expressLaneService,
+    IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
@@ -267,7 +267,7 @@ public class ArbitrumSequencerEngine(
     {
         // Timeboost: if a controller exists for the current round, delay regular txs
         // to give express lane transactions time to arrive first.
-        if (arbitrumConfig.TimeboostEnabled && expressLaneService.CurrentRoundHasController())
+        if (arbitrumConfig.TimeboostEnabled && expressLaneTracker.CurrentRoundHasController())
             await Task.Delay(arbitrumConfig.TimeboostExpressLaneAdvantageMs);
 
         List<TxQueueItem> queueItems = transactionQueue.DrainBatch();

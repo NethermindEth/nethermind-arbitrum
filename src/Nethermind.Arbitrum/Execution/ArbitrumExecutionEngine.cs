@@ -40,6 +40,7 @@ public sealed class ArbitrumExecutionEngine(
     ArbitrumBlockFactory arbitrumBlockFactory,
     ArbitrumSequencerEngine sequencerEngine,
     IExpressLaneService expressLaneService,
+    IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
     IEthereumEcdsa ethereumEcdsa)
     : IArbitrumExecutionEngine
@@ -358,8 +359,8 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<bool>.Fail($"Failed to decode transaction: {ex.Message}");
         }
 
-        if (tx.To != expressLaneService.AuctionContractAddress)
-            return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {expressLaneService.AuctionContractAddress}");
+        if (tx.To != expressLaneTracker.AuctionContractAddress)
+            return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {expressLaneTracker.AuctionContractAddress}");
 
         if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctioneerAddress))
             return ResultWrapper<bool>.Fail("TimeboostAuctioneerAddress is not configured");
@@ -369,7 +370,7 @@ public sealed class ArbitrumExecutionEngine(
         if (sender != expectedAuctioneer)
             return ResultWrapper<bool>.Fail($"Transaction sender {sender} is not the authorized auctioneer {expectedAuctioneer}");
 
-        if (!expressLaneService.IsWithinAuctionCloseWindow(DateTime.UtcNow))
+        if (!expressLaneTracker.IsWithinAuctionCloseWindow(DateTime.UtcNow))
             return ResultWrapper<bool>.Fail("Not within the auction close window");
 
         TxQueueItem item = new(tx, CancellationToken.None);
