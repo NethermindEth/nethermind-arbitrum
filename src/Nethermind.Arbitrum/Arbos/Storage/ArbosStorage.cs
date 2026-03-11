@@ -212,7 +212,8 @@ public class ArbosStorage
     public ValueHash256 ComputeKeccakHash(ReadOnlySpan<byte> memory)
     {
         ulong words = Math.Utils.Div32Ceiling((ulong)memory.Length);
-        Burner.Burn(KeccakBaseCost + KeccakWordCost * words);
+        // Keccak gas is charged as Computation (matches Nitro storage/storage.go:354)
+        Burner.Burn(ResourceKind.Computation, KeccakBaseCost + KeccakWordCost * words);
         return ValueKeccak.Compute(memory);
     }
 }

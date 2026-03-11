@@ -4,6 +4,7 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -260,7 +261,8 @@ public static class ArbRetryableTx
             ThrowOldNotFoundError(context, ticketId);
 
         ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
-        context.Burn(updateCost);
+        // Matches Nitro: precompiles/ArbRetryableTx.go:194 - burns as StorageAccess
+        context.Burn(ResourceKind.StorageAccess, updateCost);
 
         ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime);
 
