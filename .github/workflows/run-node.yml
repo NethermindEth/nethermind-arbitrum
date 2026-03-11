@@ -3,9 +3,13 @@ name: Run Node in Chain
 on:
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   run-node:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       # Mock workflow
       - name: Checkout repository

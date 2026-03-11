@@ -186,20 +186,16 @@ namespace Nethermind.Arbitrum.Execution
                             : 0;
 
                         //only pickup scheduled transactions when producing block - otherwise already included in block
-                        IEnumerable<Transaction> scheduledTransactions;
                         if (blockToProduce is not null && receiptsTracer.TxReceipts.Length > 0)
                         {
-                            scheduledTransactions = GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, specProvider.ChainId);
+                            List<Transaction> scheduledTransactions = GetScheduledTransactions(arbosState, receiptsTracer.LastReceipt, block.Header, specProvider.ChainId);
 
-                            // Adjust gas used for scheduled redeems (if ArbOS version supports it)
-                            IEnumerable<Transaction> transactions = scheduledTransactions.ToList();
                             if (updatedArbosVersion >= ArbosVersion.FixRedeemGas)
                             {
-                                txGasUsed = AdjustGasForScheduledRedeems(txGasUsed, transactions);
+                                txGasUsed = AdjustGasForScheduledRedeems(txGasUsed, scheduledTransactions);
                             }
 
-                            // Queue scheduled transactions for processing
-                            foreach (Transaction tx in transactions)
+                            foreach (Transaction tx in scheduledTransactions)
                             {
                                 scheduledRedeems.Enqueue(tx);
                             }
@@ -470,11 +466,11 @@ namespace Nethermind.Arbitrum.Execution
                 return txPicker.CanAddTransaction(block, currentTx, transactionsInBlock, stateProvider);
             }
 
-            private IEnumerable<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong chainId)
+            private List<Transaction> GetScheduledTransactions(ArbosState arbosState, TxReceipt lastTxReceipt, BlockHeader header, ulong chainId)
             {
                 if ((lastTxReceipt.Logs?.Length ?? 0) == 0)
                 {
-                    return Array.Empty<Transaction>();
+                    return [];
                 }
 
                 List<Transaction> addedTransactions = new();

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.GasPolicy;
@@ -23,7 +23,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     private EthereumGasPolicy _ethereum;
     private MultiGas _accumulated;
     private MultiGas _retained;
-    private ulong _initialGas;
+    private ulong _allocatedByParent; // Total gas allocated by parent (includes stipend if value transfer)
     private IArbitrumTxTracer? _tracer;
 
     /// <summary>
@@ -37,6 +37,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public readonly MultiGas GetTotalAccumulated()
     {
         (MultiGas result, bool underflow) = _accumulated.SafeSub(_retained);
+        Debug.Assert(!underflow, "MultiGas underflow: retained > accumulated");
         return underflow ? _accumulated.SaturatingSub(_retained) : result;
     }
 
@@ -62,14 +63,25 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Creates a new ArbitrumGasPolicy instance from a long value.
-    /// Stores the initial gas for retained gas tracking in nested calls.
+    /// Stores the allocated gas for retained gas tracking in nested calls.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ArbitrumGasPolicy FromLong(long value) => new()
     {
         _ethereum = EthereumGasPolicy.FromLong(value),
-        _initialGas = (ulong)value
+        _allocatedByParent = (ulong)value // Default: assume all gas was allocated
     };
+
+    /// <summary>
+    /// Consume gas for code deposit during CREATE/CREATE2.
+    /// Tracks as StorageGrowth.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ConsumeCodeDeposit(ref ArbitrumGasPolicy gas, long cost)
+    {
+        EthereumGasPolicy.ConsumeCodeDeposit(ref gas._ethereum, cost);
+        gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)cost);
+    }
 
     /// <summary>
     /// Creates a new ArbitrumGasPolicy with specified available gas while preserving
@@ -80,7 +92,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public static ArbitrumGasPolicy FromLongWithAccumulated(long value, in MultiGas accumulated) => new()
     {
         _ethereum = EthereumGasPolicy.FromLong(value),
-        _initialGas = (ulong)value,
+        _allocatedByParent = (ulong)value,
         _accumulated = accumulated
     };
 
@@ -104,7 +116,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// <summary>
     /// Consume gas for SelfDestruct operation.
     /// </summary>
-    public static void ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
+    public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
         // Note from Nitro:
         // SELFDESTRUCT is a special case because it charges for storage access, but it isn't
@@ -113,15 +125,17 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // contract from the database.
         // Note we only need to cover EIP150 because it is the current cost, and SELFDESTRUCT cost was
         // zero previously.
-        EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum);
+        if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
+            return false;
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
+        return true;
     }
 
     /// <summary>
     /// Refund gas from a child call frame.
     /// Merges the child's NET gas usage (accumulated - retained) into the parent.
-    /// Tracks the child's initial gas allocation
+    /// Tracks the TOTAL gas allocated by the parent (includes stipend for value transfers).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Refund(ref ArbitrumGasPolicy gas, in ArbitrumGasPolicy childGas)
@@ -130,9 +144,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // Add child's NET usage (already excludes child's retained from nested calls)
         MultiGas childNet = childGas.GetTotalAccumulated();
         gas._accumulated.Add(in childNet);
-        // Track gas allocated to this child. UpdateGas already added initialGas to
-        // _accumulated, so we track it as retained to prevent double-counting.
-        gas._retained.Increment(ResourceKind.Computation, childGas._initialGas);
+        // Track TOTAL gas allocated to the child (including stipend for value transfers).
+        // The stipend accounts for the difference between single-dim refund and multigas accounting.
+        gas._retained.Increment(ResourceKind.Computation, childGas._allocatedByParent);
     }
 
     /// <summary>
