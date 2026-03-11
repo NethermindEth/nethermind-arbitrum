@@ -176,9 +176,10 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         MainPruningTrieStoreFactory? trieStoreFactory = _api.Context.ResolveOptional<MainPruningTrieStoreFactory>();
         if (trieStoreFactory?.PruningTrieStore is TrieStore trieStore)
         {
-            IDbProvider dbProvider = _api.Context.Resolve<IDbProvider>();
+            // Resolve StateDb eagerly — the Autofac container is disposed before the lambda runs at shutdown.
+            IDb stateDb = _api.Context.Resolve<IDbProvider>().StateDb;
             IStateReconstructor stateReconstructor = _api.Context.Resolve<IStateReconstructor>();
-            trieStore.OnPersistShutdown = () => stateReconstructor.PersistValidStateTo(dbProvider.StateDb);
+            trieStore.OnPersistShutdown = () => stateReconstructor.PersistValidStateTo(stateDb);
         }
 
         return Task.CompletedTask;
