@@ -39,6 +39,7 @@ jobs:
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include=[Nethermind.Arbitrum*]*
 
       - name: Upload to Codecov
+        if: github.actor != 'dependabot[bot]'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
