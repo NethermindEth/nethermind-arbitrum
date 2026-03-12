@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
@@ -34,7 +35,7 @@ public class ExpressLanePriorityTests
     [Test]
     public async Task RegularTx_DelayedBeforeQueue_WhenControllerExists()
     {
-        TransactionQueue queue = new(10, 95000, false, 200, CreateTrackerWithController());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithController());
         TxQueueItem item = new(Build.A.Transaction.TestObject, CancellationToken.None);
 
         Stopwatch sw = Stopwatch.StartNew();
@@ -50,7 +51,7 @@ public class ExpressLanePriorityTests
     [Test]
     public async Task RegularTx_NotDelayed_WhenNoController()
     {
-        TransactionQueue queue = new(10, 95000, false, 200, CreateTrackerWithoutController());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithoutController());
         TxQueueItem item = new(Build.A.Transaction.TestObject, CancellationToken.None);
 
         Stopwatch sw = Stopwatch.StartNew();
@@ -63,7 +64,7 @@ public class ExpressLanePriorityTests
     [Test]
     public async Task ExpressLaneTx_WhenControllerExists_NeverDelayed()
     {
-        TransactionQueue queue = new(10, 95000, false, 200, CreateTrackerWithController());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithController());
         TxQueueItem item = TxQueueItem.CreateTimeboosted(Build.A.Transaction.TestObject, CancellationToken.None, blockStamp: 1);
 
         Stopwatch sw = Stopwatch.StartNew();
@@ -76,7 +77,7 @@ public class ExpressLanePriorityTests
     [Test]
     public async Task ExpressLaneTx_EnqueuedAfterRegularTx_DrainedFirst()
     {
-        TransactionQueue queue = new(10, 95000, false, 200, CreateTrackerWithController());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithController());
 
         Transaction regularTx = Build.A.Transaction.WithNonce(0).TestObject;
         Transaction expressLaneTx = Build.A.Transaction.WithNonce(1).TestObject;

@@ -5,6 +5,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
@@ -92,7 +93,7 @@ public class UserTxSequencingTests
     [Test]
     public async Task TransactionQueue_Full_BlocksUntilTimeout()
     {
-        TransactionQueue queue = new(1, 95000, false, 0, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
 
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
@@ -119,7 +120,7 @@ public class UserTxSequencingTests
     [Test]
     public async Task TransactionQueue_OversizedTx_RejectsImmediately()
     {
-        TransactionQueue queue = new(10, 100, false, 0, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 100 }, new DisabledExpressLaneTracker());
 
         Transaction tx = Build.A.Transaction
             .WithNonce(0)

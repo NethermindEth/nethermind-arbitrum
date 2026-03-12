@@ -3,6 +3,7 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
@@ -107,7 +108,7 @@ public class FeeAndTimeoutTests
     [Test]
     public async Task Tx_QueueFull_BlocksUntilSpace()
     {
-        TransactionQueue queue = new(1, 95000, false, 0, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
 
         // Fill the queue
         TxQueueItem item1 = new(Build.A.Transaction.TestObject, CancellationToken.None);
@@ -133,7 +134,7 @@ public class FeeAndTimeoutTests
     [Test]
     public async Task Tx_QueueFull_TimesOut()
     {
-        TransactionQueue queue = new(1, 95000, false, 0, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
 
         // Fill the queue
         TxQueueItem item1 = new(Build.A.Transaction.TestObject, CancellationToken.None);

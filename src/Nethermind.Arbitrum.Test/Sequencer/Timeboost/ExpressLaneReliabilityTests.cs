@@ -101,7 +101,7 @@ public class ExpressLaneReliabilityTests
 
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, ulong currentRound = 1)
     {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: false, expressLaneAdvantageMs: 0, new DisabledExpressLaneTracker());
+        txQueue = new TransactionQueue(new ArbitrumConfig(), new DisabledExpressLaneTracker());
         tracker = TimeboostTestHelpers.CreateTracker(currentRound);
 
         IArbitrumConfig config = Substitute.For<IArbitrumConfig>();

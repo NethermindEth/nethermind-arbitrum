@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
@@ -12,9 +13,11 @@ namespace Nethermind.Arbitrum.Sequencer.Queues;
 /// <summary>
 /// Bounded channel-based user transaction queue with per-tx result notification.
 /// </summary>
-public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResult, int expressLaneAdvantageMs, IExpressLaneTracker expressLaneTracker)
+public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expressLaneTracker)
 {
-    private readonly Channel<TxQueueItem> _channel = Channel.CreateBounded<TxQueueItem>(new BoundedChannelOptions(capacity)
+    private readonly int _expressLaneAdvantageMs = config.TimeboostEnabled ? config.TimeboostExpressLaneAdvantageMs : 0;
+
+    private readonly Channel<TxQueueItem> _channel = Channel.CreateBounded<TxQueueItem>(new BoundedChannelOptions(config.SequencerMaxTxQueueSize)
     {
         FullMode = BoundedChannelFullMode.Wait,
         SingleReader = true
@@ -27,11 +30,11 @@ public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResul
     /// </summary>
     public async Task<ResultWrapper<Hash256>> EnqueueAsync(TxQueueItem item)
     {
-        if (item.RlpEncoded.Length > maxTxDataSize)
-            return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {maxTxDataSize}", ErrorCodes.TransactionRejected);
+        if (item.RlpEncoded.Length > config.SequencerMaxTxDataSize)
+            return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {config.SequencerMaxTxDataSize}", ErrorCodes.TransactionRejected);
 
-        if (!item.IsTimeboosted && expressLaneAdvantageMs > 0 && expressLaneTracker.CurrentRoundHasController())
-            await Task.Delay(expressLaneAdvantageMs, item.CancellationToken);
+        if (!item.IsTimeboosted && _expressLaneAdvantageMs > 0 && expressLaneTracker.CurrentRoundHasController())
+            await Task.Delay(_expressLaneAdvantageMs, item.CancellationToken);
 
         try
         {
@@ -42,7 +45,7 @@ public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResul
             return ResultWrapper<Hash256>.Fail("Transaction queue timeout", ErrorCodes.TransactionRejected);
         }
 
-        if (awaitTxResult)
+        if (config.SequencerAwaitTxResult)
         {
             Exception? err = await item.ResultChannel.Task;
             if (err is not null)
@@ -57,8 +60,8 @@ public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResul
     /// </summary>
     public async Task<ResultWrapper<Hash256>> WriteChannelAsync(TxQueueItem item)
     {
-        if (item.RlpEncoded.Length > maxTxDataSize)
-            return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {maxTxDataSize}", ErrorCodes.TransactionRejected);
+        if (item.RlpEncoded.Length > config.SequencerMaxTxDataSize)
+            return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {config.SequencerMaxTxDataSize}", ErrorCodes.TransactionRejected);
 
         try
         {
@@ -77,7 +80,7 @@ public class TransactionQueue(int capacity, int maxTxDataSize, bool awaitTxResul
     /// </summary>
     public List<TxQueueItem> DrainBatch()
     {
-        List<TxQueueItem> items = new(capacity);
+        List<TxQueueItem> items = new(config.SequencerMaxTxQueueSize);
 
         while (_retryQueue.TryDequeue(out TxQueueItem? retryItem))
             items.Add(retryItem);

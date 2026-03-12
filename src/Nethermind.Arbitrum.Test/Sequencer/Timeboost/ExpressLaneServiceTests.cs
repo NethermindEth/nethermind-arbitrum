@@ -384,7 +384,7 @@ public class ExpressLaneServiceTests
 
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, ulong currentRound = 1)
     {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true, expressLaneAdvantageMs: 0, new DisabledExpressLaneTracker());
+        txQueue = new TransactionQueue(new ArbitrumConfig { SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
         tracker = CreateTracker(currentRound);
         return new ExpressLaneService(
             TimeboostTestHelpers.MakeRoundTiming(currentRound),
@@ -398,12 +398,13 @@ public class ExpressLaneServiceTests
 
     private static ExpressLaneService CreateServiceNearRoundEnd(out TransactionQueue txQueue, ulong currentRound)
     {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true, expressLaneAdvantageMs: 0, new DisabledExpressLaneTracker());
+        txQueue = new TransactionQueue(new ArbitrumConfig { SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
         // Place UtcNow ~1s before the end of the current round so timeTilNext ≈ 1s < 2s grace.
         DateTime offset = DateTime.UtcNow
             - TimeSpan.FromMinutes(1) * (long)currentRound
             - TimeSpan.FromSeconds(59);
-        RoundTimingInfo timing = new(offset, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(15));
+        ArbitrumConfig timingConfig = new() { TimeboostRoundDurationSeconds = 60, TimeboostAuctionClosingWindowSeconds = 15 };
+        RoundTimingInfo timing = new(timingConfig, offset);
         ExpressLaneTracker tracker = CreateTracker(currentRound);
         return new ExpressLaneService(
             timing,

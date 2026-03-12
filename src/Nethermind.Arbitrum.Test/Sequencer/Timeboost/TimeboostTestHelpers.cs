@@ -59,7 +59,8 @@ internal static class TimeboostTestHelpers
         DateTime offset = DateTime.UtcNow
             - TimeSpan.FromMinutes(1) * (long)currentRound
             - TimeSpan.FromSeconds(30);
-        return new RoundTimingInfo(offset, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(15));
+        ArbitrumConfig config = new() { TimeboostRoundDurationSeconds = 60, TimeboostAuctionClosingWindowSeconds = 15 };
+        return new RoundTimingInfo(config, offset);
     }
 
     // Builds the 128-byte ABI output for resolvedRounds() with only the current round filled.

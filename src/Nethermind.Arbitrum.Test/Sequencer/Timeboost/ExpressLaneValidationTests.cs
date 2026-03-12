@@ -104,7 +104,7 @@ public class ExpressLaneValidationTests
 
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, int maxTxDataSize = 95_000, ulong currentRound = 1)
     {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true, expressLaneAdvantageMs: 0, new DisabledExpressLaneTracker());
+        txQueue = new TransactionQueue(new ArbitrumConfig { SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
         tracker = TimeboostTestHelpers.CreateTracker(currentRound);
 
         IArbitrumConfig config = Substitute.For<IArbitrumConfig>();

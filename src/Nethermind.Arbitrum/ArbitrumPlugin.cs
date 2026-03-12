@@ -343,16 +343,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             builder.AddSingleton<ArbitrumSequencerEngine>()
                 .AddSingleton<SequencerState>()
                 .AddSingleton<DelayedMessageQueue>()
-                .AddSingleton<TransactionQueue>(sp => new TransactionQueue(
-                    arbitrumConfig.SequencerMaxTxQueueSize,
-                    arbitrumConfig.SequencerMaxTxDataSize,
-                    arbitrumConfig.SequencerAwaitTxResult,
-                    arbitrumConfig.TimeboostEnabled ? arbitrumConfig.TimeboostExpressLaneAdvantageMs : 0,
-                    sp.Resolve<IExpressLaneTracker>()))
-                .AddSingleton<RoundTimingInfo>(_ => new RoundTimingInfo(
-                    offset: DateTime.UnixEpoch,
-                    round: TimeSpan.FromSeconds(arbitrumConfig.TimeboostRoundDurationSeconds),
-                    auctionClosing: TimeSpan.FromSeconds(arbitrumConfig.TimeboostAuctionClosingWindowSeconds)));
+                .AddSingleton<TransactionQueue>()
+                .AddSingleton<RoundTimingInfo>();
 
             if (arbitrumConfig.TimeboostEnabled)
                 builder
