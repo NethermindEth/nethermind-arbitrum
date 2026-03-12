@@ -29,6 +29,7 @@ public class ArbitrumSequencerEngine(
     IStateReader stateReader,
     TransactionQueue transactionQueue,
     IAuctionResolutionQueue auctionResolutionQueue)
+    : IArbitrumSequencerEngine
 {
     private const int MaxAuctionResolutionRetries = 3;
 
@@ -149,20 +150,22 @@ public class ArbitrumSequencerEngine(
         return Task.FromResult(ResultWrapper<EmptyResponse>.Success(default));
     }
 
-    public void EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
+    public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
     {
         delayedMessageQueue.Enqueue(messages, firstMsgIdx);
 
         if (_logger.IsDebug)
             _logger.Debug($"Enqueued {messages.Length} delayed messages starting at index {firstMsgIdx}");
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    public ulong NextDelayedMessageNumber()
+    public ResultWrapper<ulong> NextDelayedMessageNumber()
     {
         if (delayedMessageQueue.TryPeekTail(out DelayedMessage? tail))
-            return tail!.MessageIndex + 1;
+            return ResultWrapper<ulong>.Success(tail!.MessageIndex + 1);
 
-        return blockTree.Head!.Header.Nonce;
+        return ResultWrapper<ulong>.Success(blockTree.Head!.Header.Nonce);
     }
 
     public async Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
@@ -198,28 +201,34 @@ public class ArbitrumSequencerEngine(
         return ResultWrapper<SequencedMsg?>.Success(resequencedMessage.Data);
     }
 
-    public void Pause()
+    public ResultWrapper<EmptyResponse> Pause()
     {
         sequencerState.Pause();
 
         if (_logger.IsInfo)
             _logger.Info("Sequencer paused");
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    public void Activate()
+    public ResultWrapper<EmptyResponse> Activate()
     {
         sequencerState.Activate();
 
         if (_logger.IsInfo)
             _logger.Info("Sequencer activated");
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    public void ForwardTo(string url)
+    public ResultWrapper<EmptyResponse> ForwardTo(string url)
     {
         sequencerState.ForwardTo(url);
 
         if (_logger.IsInfo)
             _logger.Info($"Sequencer forwarding to {url}");
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
     private static void OnNonceFailureEvict(SequencerState sequencerState, TxQueueItem item, string errorMessage)

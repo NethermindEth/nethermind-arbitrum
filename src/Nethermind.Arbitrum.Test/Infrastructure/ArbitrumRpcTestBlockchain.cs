@@ -308,7 +308,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.Container.Resolve<IArbitrumConfig>(),
             chain.Container.Resolve<ArbitrumBlockFactory>(),
-            chain.Container.Resolve<ArbitrumSequencerEngine>(),
+            chain.Container.Resolve<IArbitrumSequencerEngine>(),
             chain.Container.Resolve<IExpressLaneService>(),
             chain.Container.Resolve<IExpressLaneTracker>(),
             chain.Container.Resolve<IAuctionResolutionQueue>(),

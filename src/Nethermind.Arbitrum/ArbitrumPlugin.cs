@@ -340,11 +340,15 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                     "Timeboost is enabled but TimeboostAuctionContractAddress is not configured. " +
                     "Please set Arbitrum.TimeboostAuctionContractAddress or disable Timeboost.");
 
-            builder.AddSingleton<ArbitrumSequencerEngine>()
-                .AddSingleton<SequencerState>()
+            builder.AddSingleton<SequencerState>()
                 .AddSingleton<DelayedMessageQueue>()
                 .AddSingleton<TransactionQueue>()
                 .AddSingleton<IRoundTimingInfo, RoundTimingInfo>();
+
+            if (arbitrumConfig.SequencerEnabled)
+                builder.AddSingleton<IArbitrumSequencerEngine, ArbitrumSequencerEngine>();
+            else
+                builder.AddSingleton<IArbitrumSequencerEngine, DisabledArbitrumSequencerEngine>();
 
             if (arbitrumConfig.TimeboostEnabled)
                 builder
