@@ -115,8 +115,8 @@ public class ExpressLaneReliabilityTests
             tracker,
             config,
             txQueue,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
-            TimeboostTestHelpers.TestChainId,
+            new EthereumEcdsa(FullChainSimulationChainSpecProvider.ChainId),
+            FullChainSimulationChainSpecProvider.Create(),
             LimboLogs.Instance);
     }
 }

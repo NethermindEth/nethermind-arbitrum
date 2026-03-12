@@ -264,7 +264,7 @@ public class ExpressLaneServiceTests
             Round = 1,
             SequenceNumber = 0,
             Signature = new byte[65],
-            ChainId = TimeboostTestHelpers.TestChainId,
+            ChainId = FullChainSimulationChainSpecProvider.ChainId,
             AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
         };
 
@@ -283,7 +283,7 @@ public class ExpressLaneServiceTests
             Round = 1,
             SequenceNumber = 0,
             Signature = null!,
-            ChainId = TimeboostTestHelpers.TestChainId,
+            ChainId = FullChainSimulationChainSpecProvider.ChainId,
             AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
         };
 
@@ -402,8 +402,8 @@ public class ExpressLaneServiceTests
             tracker,
             config,
             txQueue,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
-            TimeboostTestHelpers.TestChainId,
+            new EthereumEcdsa(FullChainSimulationChainSpecProvider.ChainId),
+            FullChainSimulationChainSpecProvider.Create(),
             LimboLogs.Instance);
     }
 }

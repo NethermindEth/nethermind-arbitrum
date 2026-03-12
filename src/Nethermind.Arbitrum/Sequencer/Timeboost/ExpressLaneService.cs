@@ -10,6 +10,7 @@ using Nethermind.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
+using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
@@ -19,7 +20,7 @@ public sealed class ExpressLaneService(
     IArbitrumConfig arbitrumConfig,
     TransactionQueue transactionQueue,
     IEthereumEcdsa ethereumEcdsa,
-    ulong chainId,
+    ChainSpec chainSpec,
     ILogManager logManager) : IExpressLaneService
 {
     private const uint MaxFutureSequenceDistance = 1000;
@@ -166,8 +167,8 @@ public sealed class ExpressLaneService(
         if (txSize > _maxTxDataSize)
             throw new InvalidOperationException($"Express lane tx size {txSize} exceeds maximum allowed size {_maxTxDataSize}");
 
-        if (submission.ChainId != chainId)
-            throw new InvalidOperationException($"Express lane tx chain ID {submission.ChainId} does not match current chain ID {chainId}");
+        if (submission.ChainId != chainSpec.ChainId)
+            throw new InvalidOperationException($"Express lane tx chain ID {submission.ChainId} does not match current chain ID {chainSpec.ChainId}");
 
         if (submission.AuctionContractAddress != tracker.AuctionContractAddress)
             throw new InvalidOperationException($"Wrong auction contract address: {submission.AuctionContractAddress}");

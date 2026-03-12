@@ -312,7 +312,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
         builder
-            .AddModule(new SequencerModule(arbitrumConfig, chainSpec.ChainId));
+            .AddModule(new SequencerModule(arbitrumConfig));
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -331,7 +331,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             });
     }
 
-    private class SequencerModule(IArbitrumConfig arbitrumConfig, ulong chainId) : Module
+    private class SequencerModule(IArbitrumConfig arbitrumConfig) : Module
     {
         protected override void Load(ContainerBuilder builder)
         {
@@ -350,14 +350,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 builder
                     .AddSingleton<IExpressLaneTracker, ExpressLaneTracker>()
                     .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
-                    .AddSingleton<IExpressLaneService>(sp => new ExpressLaneService(
-                        sp.Resolve<IRoundTimingInfo>(),
-                        sp.Resolve<IExpressLaneTracker>(),
-                        arbitrumConfig,
-                        sp.Resolve<TransactionQueue>(),
-                        sp.Resolve<IEthereumEcdsa>(),
-                        chainId,
-                        sp.Resolve<ILogManager>()));
+                    .AddSingleton<IExpressLaneService, ExpressLaneService>();
             else
                 builder
                     .AddSingleton<IExpressLaneTracker, DisabledExpressLaneTracker>()

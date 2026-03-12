@@ -12,7 +12,7 @@ namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 [TestFixture]
 public class ExpressLaneSubmissionTests
 {
-    private static readonly EthereumEcdsa Ecdsa = new(TimeboostTestHelpers.TestChainId);
+    private static readonly EthereumEcdsa Ecdsa = new(FullChainSimulationChainSpecProvider.ChainId);
 
     [Test]
     public void RecoverSender_ValidSignature_ReturnsSignerAddress()
@@ -46,7 +46,7 @@ public class ExpressLaneSubmissionTests
             Round = 1,
             SequenceNumber = 0,
             Signature = new byte[64],
-            ChainId = TimeboostTestHelpers.TestChainId,
+            ChainId = FullChainSimulationChainSpecProvider.ChainId,
             AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
         };
 
@@ -82,7 +82,7 @@ public class ExpressLaneSubmissionTests
             Round = round,
             SequenceNumber = seqNum,
             Signature = new byte[65],
-            ChainId = TimeboostTestHelpers.TestChainId,
+            ChainId = FullChainSimulationChainSpecProvider.ChainId,
             AuctionContractAddress = TimeboostTestHelpers.TestAuctionContract,
         };
 }

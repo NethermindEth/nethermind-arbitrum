@@ -19,7 +19,6 @@ namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 
 internal static class TimeboostTestHelpers
 {
-    internal const ulong TestChainId = 412346;
     internal static readonly Address TestAuctionContract = TestItem.AddressA;
 
     internal static Transaction MakeTx(ulong nonce = 0, PrivateKey? signer = null)
@@ -28,7 +27,7 @@ internal static class TimeboostTestHelpers
             .WithGasLimit(21000)
             .WithGasPrice(1.GWei)
             .WithTo(TestItem.AddressC)
-            .WithChainId(TestChainId)
+            .WithChainId(FullChainSimulationChainSpecProvider.ChainId)
             .SignedAndResolved(signer ?? FullChainSimulationAccounts.AccountA)
             .TestObject;
 
@@ -41,14 +40,14 @@ internal static class TimeboostTestHelpers
     {
         Address contract = auctionContract ?? TestAuctionContract;
         PrivateKey key = signerKey ?? FullChainSimulationAccounts.AccountA;
-        byte[] sig = SignSubmission(tx, round, seqNum, TestChainId, contract, key);
+        byte[] sig = SignSubmission(tx, round, seqNum, FullChainSimulationChainSpecProvider.ChainId, contract, key);
         return new ExpressLaneSubmission
         {
             Transaction = tx,
             Round = round,
             SequenceNumber = seqNum,
             Signature = sig,
-            ChainId = TestChainId,
+            ChainId = FullChainSimulationChainSpecProvider.ChainId,
             AuctionContractAddress = contract,
         };
     }
