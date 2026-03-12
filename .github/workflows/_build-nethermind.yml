@@ -46,7 +46,7 @@ jobs:
         run: ./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         env:
           CONFIG_LOWER: ${{ inputs.configuration == 'Release' && 'release' || 'debug' }}
         with:
