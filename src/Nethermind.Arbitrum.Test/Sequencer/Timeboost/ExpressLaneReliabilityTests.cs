@@ -29,7 +29,7 @@ public class ExpressLaneReliabilityTests
 
         Func<Task> act = () => service.SequenceAsync(submission, currentBlockNumber: 100);
         await act.Should().ThrowExactlyAsync<InvalidOperationException>()
-            .WithMessage("*does not match current round*");
+            .WithMessage("*does not match the current*");
     }
 
     [Test]

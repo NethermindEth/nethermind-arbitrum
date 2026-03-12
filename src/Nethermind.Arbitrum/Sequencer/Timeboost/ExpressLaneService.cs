@@ -176,17 +176,20 @@ public sealed class ExpressLaneService(
             return;
 
         if (submission.Round != currentRound + 1)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRound}");
+            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match the current {currentRound} " +
+                                                $"and next {currentRound + 1} rounds");
 
         TimeSpan timeTilNext = roundTimingInfo.TimeTilNextRound();
         if (timeTilNext > _earlySubmissionGrace)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRound}");
+            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRound} " +
+                                                $"and time til next round {timeTilNext} exceeds early submission grace {_earlySubmissionGrace}");
 
         if (timeTilNext > TimeSpan.Zero)
             await Task.Delay(timeTilNext);
 
-        if (roundTimingInfo.RoundNumber() > submission.Round)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
+        ulong currentRoundAfterWait = roundTimingInfo.RoundNumber();
+        if (currentRoundAfterWait > submission.Round)
+            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRoundAfterWait} after waiting");
     }
 
     private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ulong currentBlockNumber, CancellationToken ct)

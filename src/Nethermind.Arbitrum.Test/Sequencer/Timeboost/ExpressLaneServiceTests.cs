@@ -267,7 +267,7 @@ public class ExpressLaneServiceTests
 
         Func<Task> act = () => service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not match current round*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not match the current*");
     }
 
     [Test]
