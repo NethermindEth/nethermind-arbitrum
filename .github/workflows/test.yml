@@ -1,37 +1,20 @@
 # Test and coverage workflow
-# Uses XPlat Code Coverage (built-in) + Codecov for reporting
 name: Test
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: write
   statuses: write
+  pull-requests: write
 
 jobs:
-  changes:
-    name: Detect Changes
-    runs-on: ubuntu-latest
-    outputs:
-      src: ${{ steps.filter.outputs.src }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            src:
-              - 'src/**'
-
   test:
     name: Test
-    needs: changes
-    if: github.event_name == 'push' || needs.changes.outputs.src == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -55,26 +38,17 @@ jobs:
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
           DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include=[Nethermind.Arbitrum*]*
 
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload to Codecov
+        if: github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@v5
         with:
-          name: coverage
-          path: ./coverage
-          retention-days: 1
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage
+          fail_ci_if_error: false
 
-  codecov_status:
-    name: Codecov Status
-    needs: [changes, test]
-    if: always()
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Fail if tests failed
-        if: needs.test.result == 'failure'
-        run: exit 1
-
-      - name: Pass codecov checks — no source changes
-        if: needs.test.result == 'skipped'
+      # Dependabot cannot access CODECOV_TOKEN — set statuses manually so required checks pass
+      - name: Set codecov statuses (dependabot)
+        if: github.actor == 'dependabot[bot]'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -84,25 +58,9 @@ jobs:
             gh api "repos/$REPO/statuses/$SHA" \
               -f state=success \
               -f context="$context" \
-              -f description="No source changes"
+              -f description="Coverage skipped for dependabot"
           done
 
-      - name: Download coverage artifact
-        if: needs.test.result == 'success'
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage
-          path: ./coverage
-
-      - name: Upload to Codecov
-        if: needs.test.result == 'success'
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage
-          fail_ci_if_error: false
-
-  # Notify on failure for automated submodule update PRs
   notify-submodule-failure:
     name: Notify Submodule Update Failure
     needs: test
