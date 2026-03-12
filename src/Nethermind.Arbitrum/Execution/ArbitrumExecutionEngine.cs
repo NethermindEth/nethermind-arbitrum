@@ -317,14 +317,26 @@ public sealed class ArbitrumExecutionEngine(
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
         => Task.FromResult(ResultWrapper<string>.Success("OK"));
 
-    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
-        => RunSequencerOpAsync(seq => seq.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp), nameof(StartSequencingAsync));
+    public async Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+    {
+        if (!arbitrumConfig.SequencerEnabled)
+            return ResultWrapper<StartSequencingResult>.Fail("Sequencer not enabled");
+        return await sequencerEngine.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp);
+    }
 
     public ResultWrapper<EmptyResponse> EndSequencing(string? error)
-        => RunSequencerAction(seq => seq.EndSequencing(error), nameof(EndSequencing));
+    {
+        if (!arbitrumConfig.SequencerEnabled)
+            return ResultWrapper<EmptyResponse>.Fail("Sequencer not enabled");
+        return sequencerEngine.EndSequencing(error);
+    }
 
-    public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
-        => RunSequencerActionAsync(seq => seq.AppendLastSequencedBlockAsync(), nameof(AppendLastSequencedBlockAsync));
+    public async Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
+    {
+        if (!arbitrumConfig.SequencerEnabled)
+            return ResultWrapper<EmptyResponse>.Fail("Sequencer not enabled");
+        return await sequencerEngine.AppendLastSequencedBlockAsync();
+    }
 
     public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
         => RunSequencerAction(seq => seq.EnqueueDelayedMessages(messages, firstMsgIdx), nameof(EnqueueDelayedMessages));
@@ -332,8 +344,12 @@ public sealed class ArbitrumExecutionEngine(
     public ResultWrapper<ulong> NextDelayedMessageNumber()
         => RunSequencerOp(seq => seq.NextDelayedMessageNumber(), nameof(NextDelayedMessageNumber));
 
-    public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
-        => RunSequencerOpAsync(seq => seq.ResequenceReorgedMessageAsync(msg), nameof(ResequenceReorgedMessageAsync));
+    public async Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
+    {
+        if (!arbitrumConfig.SequencerEnabled)
+            return ResultWrapper<SequencedMsg?>.Fail("Sequencer not enabled");
+        return await sequencerEngine.ResequenceReorgedMessageAsync(msg);
+    }
 
     public ResultWrapper<EmptyResponse> Pause()
         => RunSequencerAction(seq => seq.Pause(), nameof(Pause));

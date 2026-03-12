@@ -46,7 +46,7 @@ public class ArbitrumSequencerEngine(
     private SequencedBlockInfo? _lastCreatedBlockWithRegularTxsInfo;
     private List<TxQueueItem>? _lastRegularTxQueueItems;
 
-    public async Task<StartSequencingResult> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+    public async Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
         SequencerStateSnapshot state = sequencerState.Current;
         if (state.Mode != SequencerMode.Active)
@@ -58,34 +58,36 @@ public class ArbitrumSequencerEngine(
                     await HandleInactiveAsync(pendingItems, state.Forwarder);
             }
 
-            return new StartSequencingResult(null, arbitrumConfig.SequencerInactiveWaitMs);
+            return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(null, arbitrumConfig.SequencerInactiveWaitMs));
         }
 
-        SequencedMsg? result = await SequenceDelayedMessageAsync();
-        if (result is not null)
-            return new StartSequencingResult(result, 0);
+        ResultWrapper<SequencedMsg?> delayedResult = await SequenceDelayedMessageAsync();
+        if (delayedResult.Result != Result.Success)
+            return ResultWrapper<StartSequencingResult>.Fail(delayedResult.Result.Error!, delayedResult.ErrorCode);
+        if (delayedResult.Data is not null)
+            return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(delayedResult.Data, 0));
 
         // Timeboost: give auction resolution transactions priority over all other work
         if (auctionResolutionQueue.TryRead(out TxQueueItem? auctionItem))
         {
-            result = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, timestamp);
-            if (result is not null)
-                return new StartSequencingResult(result, 0);
+            SequencedMsg? auctionResult = await CreateBlockWithSingleTxAsync(auctionItem, l1BlockNumber, timestamp);
+            if (auctionResult is not null)
+                return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(auctionResult, 0));
         }
 
-        result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, l1Timestamp, timestamp);
+        SequencedMsg? result = await CreateBlockWithRegularTxsAsync(l1BlockNumber, l1Timestamp, timestamp);
         if (result is not null)
-            return new StartSequencingResult(result, 0);
+            return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(result, 0));
 
         _logger.Warn("Nothing to sequence, waiting...");
 
-        return new StartSequencingResult(null, arbitrumConfig.SequencerMaxBlockSpeedMs);
+        return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(null, arbitrumConfig.SequencerMaxBlockSpeedMs));
     }
 
-    public void EndSequencing(string? error)
+    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
     {
         if (_lastCreatedBlockWithRegularTxsInfo is null)
-            return;
+            return ResultWrapper<EmptyResponse>.Success(default);
 
         List<TxQueueItem>? queueItems = _lastRegularTxQueueItems;
         Block block = _lastCreatedBlockWithRegularTxsInfo.Block;
@@ -94,7 +96,7 @@ public class ArbitrumSequencerEngine(
         _lastRegularTxQueueItems = null;
 
         if (queueItems is null)
-            return;
+            return ResultWrapper<EmptyResponse>.Success(default);
 
         // Retry-sequencer error: forward to backup if available, else re-queue locally
         if (IsRetrySequencerError(error))
@@ -103,12 +105,12 @@ public class ArbitrumSequencerEngine(
             if (state.Forwarder is not null)
             {
                 _ = HandleInactiveAsync(queueItems, state.Forwarder);
-                return;
+                return ResultWrapper<EmptyResponse>.Success(default);
             }
 
             foreach (TxQueueItem item in queueItems)
                 transactionQueue.PushRetry(item);
-            return;
+            return ResultWrapper<EmptyResponse>.Success(default);
         }
 
         // Non-retry error: return error to callers (don't re-queue)
@@ -116,7 +118,7 @@ public class ArbitrumSequencerEngine(
         {
             foreach (TxQueueItem item in queueItems)
                 item.ReturnResult(new Exception(error));
-            return;
+            return ResultWrapper<EmptyResponse>.Success(default);
         }
 
         _nonceCache.Finalize(block);
@@ -124,15 +126,17 @@ public class ArbitrumSequencerEngine(
         // Arbitrum includes all sequenced txs in the block; execution failures are visible via receipt StatusCode
         foreach (TxQueueItem item in queueItems)
             item.ReturnResult(null);
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    public async Task AppendLastSequencedBlockAsync()
+    public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
     {
         if (_lastSequencedBlockInfo is null)
         {
             if (_logger.IsWarn)
                 _logger.Warn("AppendLastSequencedBlock called but no sequenced block info available");
-            return;
+            return Task.FromResult(ResultWrapper<EmptyResponse>.Success(default));
         }
 
         cachedL1PriceData.CacheL1PriceDataOfMsg(
@@ -142,6 +146,7 @@ public class ArbitrumSequencerEngine(
             blockBuiltUsingDelayedMessage: true);
 
         _lastSequencedBlockInfo = null;
+        return Task.FromResult(ResultWrapper<EmptyResponse>.Success(default));
     }
 
     public void EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
@@ -160,10 +165,10 @@ public class ArbitrumSequencerEngine(
         return blockTree.Head!.Header.Nonce;
     }
 
-    public async Task<SequencedMsg?> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
+    public async Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
     {
         if (msg?.Message.Header is null)
-            return null;
+            return ResultWrapper<SequencedMsg?>.Success(null);
 
         BlockHeader currentHeader = blockTree.Head!.Header;
 
@@ -176,31 +181,21 @@ public class ArbitrumSequencerEngine(
                 if (_logger.IsInfo)
                     _logger.Info($"Not resequencing delayed message due to unexpected index, expected {currentHeader.Nonce} found {delayedMsgIdx}");
 
-                return null;
+                return ResultWrapper<SequencedMsg?>.Success(null);
             }
 
             ResultWrapper<SequencedMsg> resequencedDelayedMessage = await SequenceDelayedMessageWithBlockMutexAsync(msg.Message, delayedMsgIdx);
             if (resequencedDelayedMessage.Result != Result.Success)
-            {
-                if (_logger.IsError)
-                    _logger.Error($"Failed to resequence delayed message: {resequencedDelayedMessage.Result.Error}");
+                return ResultWrapper<SequencedMsg?>.Fail(resequencedDelayedMessage.Result.Error!, resequencedDelayedMessage.ErrorCode);
 
-                return null;
-            }
-
-            return resequencedDelayedMessage.Data;
+            return ResultWrapper<SequencedMsg?>.Success(resequencedDelayedMessage.Data);
         }
 
         ResultWrapper<SequencedMsg> resequencedMessage = await ResequenceRegularMessageWithBlockMutexAsync(msg);
         if (resequencedMessage.Result != Result.Success)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Failed to resequence regular message: {resequencedMessage.Result.Error}");
+            return ResultWrapper<SequencedMsg?>.Fail(resequencedMessage.Result.Error!, resequencedMessage.ErrorCode);
 
-            return null;
-        }
-
-        return resequencedMessage.Data;
+        return ResultWrapper<SequencedMsg?>.Success(resequencedMessage.Data);
     }
 
     public void Pause()
@@ -532,19 +527,19 @@ public class ArbitrumSequencerEngine(
         return ResultWrapper<SequencedMsg>.Success(sequencedMessage);
     }
 
-    private async Task<SequencedMsg?> SequenceDelayedMessageAsync()
+    private async Task<ResultWrapper<SequencedMsg?>> SequenceDelayedMessageAsync()
     {
         if (!delayedMessageQueue.TryDequeue(out DelayedMessage? delayedMessage))
-            return null;
+            return ResultWrapper<SequencedMsg?>.Success(null);
 
         ResultWrapper<SequencedMsg> sequencedMessage = await SequenceDelayedMessageWithBlockMutexAsync(delayedMessage!.Message, delayedMessage.MessageIndex);
         if (sequencedMessage.Result != Result.Success)
         {
             delayedMessageQueue.Clear();
-            throw new InvalidOperationException($"Error sequencing delayed message at index {delayedMessage.MessageIndex}: {sequencedMessage.Result.Error}");
+            return ResultWrapper<SequencedMsg?>.Fail($"Error sequencing delayed message at index {delayedMessage.MessageIndex}: {sequencedMessage.Result.Error}");
         }
 
-        return sequencedMessage.Data;
+        return ResultWrapper<SequencedMsg?>.Success(sequencedMessage.Data);
     }
 
     private async Task<ResultWrapper<SequencedMsg>> SequenceDelayedMessageWithBlockMutexAsync(L1IncomingMessage message, ulong delayedMsgIdx)
