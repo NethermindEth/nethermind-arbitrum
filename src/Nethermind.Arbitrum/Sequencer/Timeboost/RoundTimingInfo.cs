@@ -5,22 +5,42 @@ using Nethermind.Arbitrum.Config;
 
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
-public sealed class RoundTimingInfo
+public interface IRoundTimingInfo
+{
+    TimeProvider TimeProvider { get; }
+
+    ulong RoundNumber();
+
+    ulong RoundNumberAt(DateTime t);
+
+    TimeSpan TimeTilNextRound();
+
+    TimeSpan TimeTilNextRoundAt(DateTime t);
+
+    bool IsWithinAuctionCloseWindow(DateTime t);
+}
+
+public sealed class RoundTimingInfo : IRoundTimingInfo
 {
     private readonly DateTime _offset;
     private readonly TimeSpan _round;
     private readonly TimeSpan _auctionClosing;
 
+    public TimeProvider TimeProvider { get; }
+
     public RoundTimingInfo(IArbitrumConfig config) : this(config, DateTime.UnixEpoch) { }
 
-    public RoundTimingInfo(IArbitrumConfig config, DateTime offset)
+    public RoundTimingInfo(IArbitrumConfig config, DateTime offset) : this(config, offset, TimeProvider.System) { }
+
+    public RoundTimingInfo(IArbitrumConfig config, DateTime offset, TimeProvider timeProvider)
     {
         _offset = offset;
         _round = TimeSpan.FromSeconds(config.TimeboostRoundDurationSeconds);
         _auctionClosing = TimeSpan.FromSeconds(config.TimeboostAuctionClosingWindowSeconds);
+        TimeProvider = timeProvider;
     }
 
-    public ulong RoundNumber() => RoundNumberAt(DateTime.UtcNow);
+    public ulong RoundNumber() => RoundNumberAt(TimeProvider.GetUtcNow().UtcDateTime);
 
     public ulong RoundNumberAt(DateTime t)
     {
@@ -30,7 +50,7 @@ public sealed class RoundTimingInfo
         return (ulong)(elapsed / _round);
     }
 
-    public TimeSpan TimeTilNextRound() => TimeTilNextRoundAt(DateTime.UtcNow);
+    public TimeSpan TimeTilNextRound() => TimeTilNextRoundAt(TimeProvider.GetUtcNow().UtcDateTime);
 
     public TimeSpan TimeTilNextRoundAt(DateTime t)
     {

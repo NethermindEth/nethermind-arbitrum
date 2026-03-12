@@ -344,14 +344,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 .AddSingleton<SequencerState>()
                 .AddSingleton<DelayedMessageQueue>()
                 .AddSingleton<TransactionQueue>()
-                .AddSingleton<RoundTimingInfo>();
+                .AddSingleton<IRoundTimingInfo, RoundTimingInfo>();
 
             if (arbitrumConfig.TimeboostEnabled)
                 builder
                     .AddSingleton<IExpressLaneTracker, ExpressLaneTracker>()
                     .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
                     .AddSingleton<IExpressLaneService>(sp => new ExpressLaneService(
-                        sp.Resolve<RoundTimingInfo>(),
+                        sp.Resolve<IRoundTimingInfo>(),
                         sp.Resolve<IExpressLaneTracker>(),
                         arbitrumConfig,
                         sp.Resolve<TransactionQueue>(),

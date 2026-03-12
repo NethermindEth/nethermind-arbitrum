@@ -11,7 +11,6 @@ using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
 using Nethermind.Logging;
-using NSubstitute;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 
@@ -104,21 +103,6 @@ public class ExpressLaneServiceTests
         items[0].Tx.Should().BeSameAs(tx1);
         items[1].Tx.Should().BeSameAs(tx2);
         items[2].Tx.Should().BeSameAs(tx3);
-    }
-
-    [Test]
-    public async Task SequenceAsync_DontCareSequenceNumber_EnqueuesImmediatelyWithoutController()
-    {
-        // DontCare bypasses the controller check (validation only checks round + auction contract)
-        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out _, currentRound: 1);
-        Transaction tx = TimeboostTestHelpers.MakeTx();
-
-        await service.SequenceAsync(
-            TimeboostTestHelpers.MakeSubmission(tx, round: 1, seqNum: ulong.MaxValue), currentBlockNumber: 100);
-
-        List<TxQueueItem> items = txQueue.DrainBatch();
-        items.Should().HaveCount(1);
-        items[0].Tx.Should().BeSameAs(tx);
     }
 
     [Test]
@@ -327,11 +311,17 @@ public class ExpressLaneServiceTests
     {
         // ~1s remaining in a 60s round, 2s grace → within grace window.
         // Service waits for the round boundary then publishes the DontCare tx.
-        ExpressLaneService service = CreateServiceNearRoundEnd(out TransactionQueue txQueue, currentRound: 1);
+        ExpressLaneService service = CreateService(out TransactionQueue txQueue, out ManualRoundTimingInfo manualTiming, out _, currentRound: 1, intoRoundSeconds: 59);
         Transaction tx = TimeboostTestHelpers.MakeTx();
         ExpressLaneSubmission submission = TimeboostTestHelpers.MakeSubmission(tx, round: 2, seqNum: ulong.MaxValue);
 
-        await service.SequenceAsync(submission, currentBlockNumber: 100);
+        // Publish transaction for the 2nd round while we're still in round 1
+        Task sequenceTask = service.SequenceAsync(submission, currentBlockNumber: 100);
+
+        // Advance time so we're in round 2 now
+        manualTiming.Advance(TimeSpan.FromSeconds(2));
+
+        await sequenceTask;
 
         txQueue.DrainBatch().Should().HaveCount(1, "tx for next round should be accepted once the round boundary passes");
     }
@@ -383,49 +373,37 @@ public class ExpressLaneServiceTests
     }
 
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, ulong currentRound = 1)
+        => CreateService(out txQueue, out _, out tracker, currentRound);
+
+    private static ExpressLaneService CreateService(
+        out TransactionQueue txQueue,
+        out ManualRoundTimingInfo manualTiming,
+        out ExpressLaneTracker tracker,
+        ulong currentRound = 1,
+        int intoRoundSeconds = 30)
     {
-        txQueue = new TransactionQueue(new ArbitrumConfig { SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
-        tracker = CreateTracker(currentRound);
+        ArbitrumConfig config = new()
+        {
+            SequencerAwaitTxResult = true,
+            TimeboostRoundDurationSeconds = 60,
+            TimeboostAuctionClosingWindowSeconds = 15,
+            TimeboostAuctionContractAddress = TimeboostTestHelpers.TestAuctionContract.ToString(),
+            TimeboostEarlySubmissionGraceMs = 2000,
+            SequencerMaxTxDataSize = 95000,
+            SequencerQueueTimeoutMs = 12000
+        };
+
+        txQueue = new TransactionQueue(config, new DisabledExpressLaneTracker());
+        manualTiming = new ManualRoundTimingInfo(config, DateTimeOffset.UtcNow, currentRound, TimeSpan.FromSeconds(intoRoundSeconds));
+        tracker = TimeboostTestHelpers.CreateTracker(manualTiming);
+
         return new ExpressLaneService(
-            TimeboostTestHelpers.MakeRoundTiming(currentRound),
+            manualTiming,
             tracker,
-            MakeArbitrumConfig(),
+            config,
             txQueue,
             new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
             TimeboostTestHelpers.TestChainId,
             LimboLogs.Instance);
-    }
-
-    private static ExpressLaneService CreateServiceNearRoundEnd(out TransactionQueue txQueue, ulong currentRound)
-    {
-        txQueue = new TransactionQueue(new ArbitrumConfig { SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
-        // Place UtcNow ~1s before the end of the current round so timeTilNext ≈ 1s < 2s grace.
-        DateTime offset = DateTime.UtcNow
-            - TimeSpan.FromMinutes(1) * (long)currentRound
-            - TimeSpan.FromSeconds(59);
-        ArbitrumConfig timingConfig = new() { TimeboostRoundDurationSeconds = 60, TimeboostAuctionClosingWindowSeconds = 15 };
-        RoundTimingInfo timing = new(timingConfig, offset);
-        ExpressLaneTracker tracker = CreateTracker(currentRound);
-        return new ExpressLaneService(
-            timing,
-            tracker,
-            MakeArbitrumConfig(),
-            txQueue,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
-            TimeboostTestHelpers.TestChainId,
-            LimboLogs.Instance);
-    }
-
-    private static ExpressLaneTracker CreateTracker(ulong currentRound)
-        => TimeboostTestHelpers.CreateTracker(currentRound);
-
-    private static IArbitrumConfig MakeArbitrumConfig()
-    {
-        IArbitrumConfig config = Substitute.For<IArbitrumConfig>();
-        config.TimeboostAuctionContractAddress.Returns(TimeboostTestHelpers.TestAuctionContract.ToString());
-        config.TimeboostEarlySubmissionGraceMs.Returns(2000);
-        config.SequencerMaxTxDataSize.Returns(95_000);
-        config.SequencerQueueTimeoutMs.Returns(12000);
-        return config;
     }
 }

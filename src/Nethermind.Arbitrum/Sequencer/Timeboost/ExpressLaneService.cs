@@ -14,7 +14,7 @@ using Nethermind.Serialization.Rlp;
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
 public sealed class ExpressLaneService(
-    RoundTimingInfo roundTimingInfo,
+    IRoundTimingInfo roundTimingInfo,
     IExpressLaneTracker tracker,
     IArbitrumConfig arbitrumConfig,
     TransactionQueue transactionQueue,
@@ -44,10 +44,11 @@ public sealed class ExpressLaneService(
                 throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
 
             TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
-            using CancellationTokenSource cts = new(timeout);
+            using CancellationTokenSource cts = new(timeout, roundTimingInfo.TimeProvider);
             ResultWrapper<Hash256> result = await PublishAsync(submission.Transaction, currentBlockNumber, cts.Token);
             if (result.Result != Result.Success)
                 throw new InvalidOperationException(result.Result.Error ?? "Failed to publish DontCareSequence tx");
+
             return;
         }
 
@@ -129,7 +130,7 @@ public sealed class ExpressLaneService(
                     break;
 
                 TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
-                using CancellationTokenSource cts = new(timeout);
+                using CancellationTokenSource cts = new(timeout, roundTimingInfo.TimeProvider);
 
                 ResultWrapper<Hash256> result = await PublishAsync(tx, currentBlockNumber, cts.Token);
                 if (result.Result != Result.Success)
@@ -185,7 +186,7 @@ public sealed class ExpressLaneService(
                                                 $"and time til next round {timeTilNext} exceeds early submission grace {_earlySubmissionGrace}");
 
         if (timeTilNext > TimeSpan.Zero)
-            await Task.Delay(timeTilNext);
+            await Task.Delay(timeTilNext, roundTimingInfo.TimeProvider);
 
         ulong currentRoundAfterWait = roundTimingInfo.RoundNumber();
         if (currentRoundAfterWait > submission.Round)

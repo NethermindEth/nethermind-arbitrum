@@ -11,7 +11,7 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
 public sealed class ExpressLaneTracker(
-    RoundTimingInfo roundTimingInfo,
+    IRoundTimingInfo roundTimingInfo,
     IBlockTree blockTree,
     IBlockchainBridgeFactory bridgeFactory,
     IArbitrumConfig arbitrumConfig,

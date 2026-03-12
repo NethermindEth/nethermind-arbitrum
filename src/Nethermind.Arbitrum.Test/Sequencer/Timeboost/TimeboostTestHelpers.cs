@@ -53,7 +53,7 @@ internal static class TimeboostTestHelpers
         };
     }
 
-    internal static RoundTimingInfo MakeRoundTiming(ulong currentRound)
+    internal static IRoundTimingInfo MakeRoundTiming(ulong currentRound)
     {
         // Place UtcNow 30s into round N by setting offset = now - N*60s - 30s
         DateTime offset = DateTime.UtcNow
@@ -73,6 +73,9 @@ internal static class TimeboostTestHelpers
     }
 
     internal static ExpressLaneTracker CreateTracker(ulong currentRound)
+        => CreateTracker(MakeRoundTiming(currentRound));
+
+    internal static ExpressLaneTracker CreateTracker(IRoundTimingInfo roundTiming)
     {
         IBlockTree blockTree = Substitute.For<IBlockTree>();
         blockTree.Head.Returns((Block?)null);
@@ -81,7 +84,7 @@ internal static class TimeboostTestHelpers
         IBlockchainBridgeFactory bridgeFactory = Substitute.For<IBlockchainBridgeFactory>();
         bridgeFactory.CreateBlockchainBridge().Returns(bridge);
         return new ExpressLaneTracker(
-            MakeRoundTiming(currentRound),
+            roundTiming,
             blockTree,
             bridgeFactory,
             new ArbitrumConfig { TimeboostAuctionContractAddress = TestAuctionContract.ToString() },
