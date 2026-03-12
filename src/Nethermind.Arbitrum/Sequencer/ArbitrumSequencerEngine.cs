@@ -246,7 +246,6 @@ public class ArbitrumSequencerEngine(
 
     /// <summary>
     /// Handles the inactive (forwarding) state by forwarding queued transactions to the backup sequencer.
-    /// Mirrors Go handleInactive in sequencer.go.
     /// </summary>
     private async Task HandleInactiveAsync(List<TxQueueItem> queueItems, TransactionForwarder forwarder)
     {

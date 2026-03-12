@@ -4,6 +4,7 @@
 using System.Text;
 using System.Text.Json;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 
@@ -43,13 +44,11 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
 
         try
         {
-            string rawTxHex = "0x" + Convert.ToHexString(rlpEncoded).ToLowerInvariant();
-
             JsonRpcRequest request = new()
             {
                 JsonRpc = "2.0",
                 Method = "eth_sendRawTransaction",
-                Params = [rawTxHex],
+                Params = [rlpEncoded.ToHexString(withZeroX: true)],
                 Id = 1
             };
 
