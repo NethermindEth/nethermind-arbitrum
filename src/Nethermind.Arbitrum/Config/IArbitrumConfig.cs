@@ -41,7 +41,7 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Maximum acceptable time difference between local time and L1 block timestamp in seconds", DefaultValue = "3600")]
     int SequencerMaxAcceptableTimestampDelta { get; set; }
 
-    [ConfigItem(Description = "Maximum wait time in ms when there is nothing to sequence", DefaultValue = "5000")]
+    [ConfigItem(Description = "Maximum wait time in ms when there is nothing to sequence", DefaultValue = "250")]
     int SequencerMaxBlockSpeedMs { get; set; }
 
     [ConfigItem(Description = "Wait time in ms returned when sequencer is inactive (paused/forwarding)", DefaultValue = "50")]
@@ -49,6 +49,12 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Whether eth_sendRawTransaction should block until the transaction is sequenced", DefaultValue = "false")]
     bool SequencerAwaitTxResult { get; set; }
+
+    [ConfigItem(Description = "Maximum time in milliseconds a transaction can wait in the sequencer queue before timing out", DefaultValue = "12000")]
+    int SequencerQueueTimeoutMs { get; set; }
+
+    [ConfigItem(Description = "Comma-separated list of addresses allowed to submit transactions. Empty means all senders are allowed.", DefaultValue = "")]
+    string SequencerSenderWhitelist { get; set; }
 
     [ConfigItem(Description = "Whether to enable Timeboost express lane auction priority", DefaultValue = "false")]
     bool TimeboostEnabled { get; set; }

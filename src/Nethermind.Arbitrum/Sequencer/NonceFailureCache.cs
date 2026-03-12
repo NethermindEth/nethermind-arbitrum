@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Sequencer;
 /// Uses insertion-ordered linked list for O(1) capacity eviction — since all entries
 /// share the same expiry duration, insertion order equals expiry order.
 /// </summary>
-public class NonceFailureCache(int maxSize, TimeSpan? expiry = null)
+public class NonceFailureCache(int maxSize, TimeSpan? expiry = null, Action<TxQueueItem, string>? onEvict = null)
 {
     private static readonly TimeSpan DefaultExpiry = TimeSpan.FromSeconds(1);
 
@@ -60,7 +60,7 @@ public class NonceFailureCache(int maxSize, TimeSpan? expiry = null)
             if (now <= entry.Expiry)
                 break;
 
-            entry.Item.ReturnResult(new InvalidOperationException($"Nonce failure expired: sender={entry.Key.Sender}, nonce={entry.Key.Nonce}"));
+            HandleEviction(entry.Item, $"Nonce failure expired: sender={entry.Key.Sender}, nonce={entry.Key.Nonce}");
             _map.Remove(entry.Key);
             _list.RemoveFirst();
         }
@@ -69,7 +69,7 @@ public class NonceFailureCache(int maxSize, TimeSpan? expiry = null)
     public void Clear()
     {
         foreach (CacheEntry entry in _list)
-            entry.Item.ReturnResult(new InvalidOperationException("Nonce failure cache cleared"));
+            HandleEviction(entry.Item, "Nonce failure cache cleared");
 
         _map.Clear();
         _list.Clear();
@@ -78,9 +78,23 @@ public class NonceFailureCache(int maxSize, TimeSpan? expiry = null)
     private void EvictOldest()
     {
         LinkedListNode<CacheEntry> oldest = _list.First!;
-        oldest.Value.Item.ReturnResult(new InvalidOperationException("Nonce failure cache overflow"));
+        HandleEviction(oldest.Value.Item, "Nonce failure cache overflow");
         _map.Remove(oldest.Value.Key);
         _list.RemoveFirst();
+    }
+
+    private void HandleEviction(TxQueueItem item, string errorMessage)
+    {
+        if (item.CancellationToken.IsCancellationRequested)
+        {
+            item.ReturnResult(new OperationCanceledException());
+            return;
+        }
+
+        if (onEvict is not null)
+            onEvict(item, errorMessage);
+        else
+            item.ReturnResult(new InvalidOperationException(errorMessage));
     }
 
     private record CacheEntry((Address Sender, ulong Nonce) Key, TxQueueItem Item, DateTime Expiry);

@@ -7,10 +7,10 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Sequencer.Queues;
-using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.State;
@@ -28,12 +28,15 @@ public class ArbitrumSequencerEngine(
     IArbitrumConfig arbitrumConfig,
     IStateReader stateReader,
     TransactionQueue transactionQueue,
-    IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue)
 {
+    private const int MaxAuctionResolutionRetries = 3;
+
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumSequencerEngine>();
     private readonly NonceCache _nonceCache = new(arbitrumConfig.SequencerNonceCacheSize);
-    private readonly NonceFailureCache _nonceFailureCache = new(arbitrumConfig.SequencerNonceCacheSize);
+    private readonly NonceFailureCache _nonceFailureCache = new(
+        arbitrumConfig.SequencerNonceCacheSize,
+        onEvict: (item, errorMessage) => OnNonceFailureEvict(sequencerState, item, errorMessage));
 
     // Pooled collections reused across PrecheckNonces calls to avoid per-block hash table/queue allocations.
     private readonly Dictionary<Address, ulong> _pendingNonces = new();
@@ -93,10 +96,26 @@ public class ArbitrumSequencerEngine(
         if (queueItems is null)
             return;
 
+        // Retry-sequencer error: forward to backup if available, else re-queue locally
+        if (IsRetrySequencerError(error))
+        {
+            SequencerStateSnapshot state = sequencerState.Current;
+            if (state.Forwarder is not null)
+            {
+                _ = HandleInactiveAsync(queueItems, state.Forwarder);
+                return;
+            }
+
+            foreach (TxQueueItem item in queueItems)
+                transactionQueue.PushRetry(item);
+            return;
+        }
+
+        // Non-retry error: return error to callers (don't re-queue)
         if (error is not null)
         {
             foreach (TxQueueItem item in queueItems)
-                transactionQueue.PushRetry(item);
+                item.ReturnResult(new Exception(error));
             return;
         }
 
@@ -208,6 +227,28 @@ public class ArbitrumSequencerEngine(
             _logger.Info($"Sequencer forwarding to {url}");
     }
 
+    private static void OnNonceFailureEvict(SequencerState sequencerState, TxQueueItem item, string errorMessage)
+    {
+        TransactionForwarder? forwarder = sequencerState.Forwarder;
+        if (forwarder is null)
+        {
+            item.ReturnResult(new InvalidOperationException(errorMessage));
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(
+                item.RlpEncoded, item.Tx.Hash!, item.CancellationToken);
+            item.ReturnResult(result.Result != Result.Success
+                ? new Exception(result.Result.Error!)
+                : null);
+        });
+    }
+
+    private static bool IsRetrySequencerError(string? error)
+        => error is not null && error.Contains("retry sequencer", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Handles the inactive (forwarding) state by forwarding queued transactions to the backup sequencer.
     /// Mirrors Go handleInactive in sequencer.go.
@@ -248,34 +289,35 @@ public class ArbitrumSequencerEngine(
         if (sequencedMessage.Result == Result.Success)
             return sequencedMessage.Data;
 
-        if (sequencedMessage.ErrorCode == ArbitrumBlockFactoryErrors.CreateBlockMutexHeld)
+        // Re-queue on any transient error if retries remain
+        if (item.RetryCount < MaxAuctionResolutionRetries)
         {
+            item.RetryCount++;
             await auctionResolutionQueue.WriteAsync(item);
+
+            if (_logger.IsDebug)
+                _logger.Debug($"Re-queued auction resolution tx (retry {item.RetryCount}/{MaxAuctionResolutionRetries}): {sequencedMessage.Result.Error}");
+
             return null;
         }
 
         item.ReturnResult(new Exception(sequencedMessage.Result.Error!));
 
         if (_logger.IsError)
-            _logger.Error($"Failed to create block with auction resolution tx: {sequencedMessage.Result.Error}");
+            _logger.Error($"Failed to create block with auction resolution tx after {MaxAuctionResolutionRetries} retries: {sequencedMessage.Result.Error}");
 
         return null;
-
     }
 
     private async Task<SequencedMsg?> CreateBlockWithRegularTxsAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
     {
-        // Timeboost: if a controller exists for the current round, delay regular txs
-        // to give express lane transactions time to arrive first.
-        if (arbitrumConfig.TimeboostEnabled && expressLaneTracker.CurrentRoundHasController())
-            await Task.Delay(arbitrumConfig.TimeboostExpressLaneAdvantageMs);
-
         List<TxQueueItem> queueItems = transactionQueue.DrainBatch();
 
         if (queueItems.Count == 0)
             return null;
 
-        ulong currentBlock = (ulong)blockTree.Head!.Header.Number;
+        BlockHeader currentHead = blockTree.Head!.Header;
+        ulong currentBlock = (ulong)currentHead.Number;
 
         // Timeboost: evict expired timeboosted txs before nonce check
         if (arbitrumConfig.TimeboostEnabled)
@@ -304,6 +346,22 @@ public class ArbitrumSequencerEngine(
                 queueItems[cancelWriteIdx++] = queueItems[i];
         }
         queueItems.RemoveRange(cancelWriteIdx, queueItems.Count - cancelWriteIdx);
+
+        if (queueItems.Count == 0)
+            return null;
+
+        // GasFeeCap validation: reject transactions whose MaxFeePerGas is below the current BaseFee
+        UInt256 baseFee = currentHead.BaseFeePerGas;
+        int feeWriteIdx = 0;
+        for (int i = 0; i < queueItems.Count; i++)
+        {
+            if (queueItems[i].Tx.MaxFeePerGas < baseFee)
+                queueItems[i].ReturnResult(new InvalidOperationException(
+                    $"maxFeePerGas {queueItems[i].Tx.MaxFeePerGas} less than block baseFee {baseFee}"));
+            else
+                queueItems[feeWriteIdx++] = queueItems[i];
+        }
+        queueItems.RemoveRange(feeWriteIdx, queueItems.Count - feeWriteIdx);
 
         if (queueItems.Count == 0)
             return null;

@@ -31,6 +31,7 @@ using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
@@ -311,7 +312,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
         builder
-            .AddModule(new SequencerModule(arbitrumConfig));
+            .AddModule(new SequencerModule(arbitrumConfig, chainSpec.ChainId));
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -330,7 +331,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             });
     }
 
-    private class SequencerModule(IArbitrumConfig arbitrumConfig) : Module
+    private class SequencerModule(IArbitrumConfig arbitrumConfig, ulong chainId) : Module
     {
         protected override void Load(ContainerBuilder builder)
         {
@@ -342,10 +343,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             builder.AddSingleton<ArbitrumSequencerEngine>()
                 .AddSingleton<SequencerState>()
                 .AddSingleton<DelayedMessageQueue>()
-                .AddSingleton<TransactionQueue>(_ => new TransactionQueue(
+                .AddSingleton<TransactionQueue>(sp => new TransactionQueue(
                     arbitrumConfig.SequencerMaxTxQueueSize,
                     arbitrumConfig.SequencerMaxTxDataSize,
-                    arbitrumConfig.SequencerAwaitTxResult))
+                    arbitrumConfig.SequencerAwaitTxResult,
+                    arbitrumConfig.TimeboostEnabled ? arbitrumConfig.TimeboostExpressLaneAdvantageMs : 0,
+                    sp.Resolve<IExpressLaneTracker>()))
                 .AddSingleton<RoundTimingInfo>(_ => new RoundTimingInfo(
                     offset: DateTime.UnixEpoch,
                     round: TimeSpan.FromSeconds(arbitrumConfig.TimeboostRoundDurationSeconds),
@@ -355,7 +358,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 builder
                     .AddSingleton<IExpressLaneTracker, ExpressLaneTracker>()
                     .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
-                    .AddSingleton<IExpressLaneService, ExpressLaneService>();
+                    .AddSingleton<IExpressLaneService>(sp => new ExpressLaneService(
+                        sp.Resolve<RoundTimingInfo>(),
+                        sp.Resolve<IExpressLaneTracker>(),
+                        arbitrumConfig,
+                        sp.Resolve<TransactionQueue>(),
+                        sp.Resolve<IEthereumEcdsa>(),
+                        chainId,
+                        sp.Resolve<ILogManager>()));
             else
                 builder
                     .AddSingleton<IExpressLaneTracker, DisabledExpressLaneTracker>()

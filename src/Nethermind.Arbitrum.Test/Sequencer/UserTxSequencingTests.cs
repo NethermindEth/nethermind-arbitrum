@@ -5,9 +5,9 @@ using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -90,9 +90,9 @@ public class UserTxSequencingTests
     }
 
     [Test]
-    public async Task TransactionQueue_Full_RejectsNew()
+    public async Task TransactionQueue_Full_BlocksUntilTimeout()
     {
-        TransactionQueue queue = new(1, 95000, false);
+        TransactionQueue queue = new(1, 95000, false, 0, new DisabledExpressLaneTracker());
 
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
@@ -111,14 +111,15 @@ public class UserTxSequencingTests
         ResultWrapper<Hash256> result1 = await queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
         result1.Should().RequestSucceed();
 
-        ResultWrapper<Hash256> result2 = await queue.EnqueueAsync(new TxQueueItem(tx2, CancellationToken.None));
-        result2.Should().RequestFail("queue is full");
+        using CancellationTokenSource cts = new(100);
+        ResultWrapper<Hash256> result2 = await queue.EnqueueAsync(new TxQueueItem(tx2, cts.Token));
+        result2.Should().RequestFail("timeout");
     }
 
     [Test]
     public async Task TransactionQueue_OversizedTx_RejectsImmediately()
     {
-        TransactionQueue queue = new(10, 100, false);
+        TransactionQueue queue = new(10, 100, false, 0, new DisabledExpressLaneTracker());
 
         Transaction tx = Build.A.Transaction
             .WithNonce(0)
@@ -367,13 +368,14 @@ public class UserTxSequencingTests
     }
 
     [Test]
-    public void SendRawTransaction_QueueFull_ReturnsError()
+    public void SendRawTransaction_QueueFull_TimesOutWhenNoSpace()
     {
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain
             .CreateDefault(configureArbitrum: c =>
             {
                 c.SequencerEnabled = true;
                 c.SequencerMaxTxQueueSize = 1;
+                c.SequencerQueueTimeoutMs = 100;
             });
 
         byte[] tx1Bytes = Rlp.Encode(Build.A.Transaction
@@ -399,8 +401,8 @@ public class UserTxSequencingTests
         // First tx fills the queue (capacity=1)
         chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx1Bytes).ShouldAsync().RequestSucceed();
 
-        // Second tx should be rejected
-        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx2Bytes).ShouldAsync().RequestFail("queue is full");
+        // Second tx blocks then times out
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(tx2Bytes).ShouldAsync().RequestFail("timeout");
     }
 
     [Test]

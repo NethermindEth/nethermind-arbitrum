@@ -352,7 +352,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
             transactionQueue ?? chain.Container.Resolve<TransactionQueue>(),
             sequencerState ?? chain.Container.Resolve<SequencerState>(),
-            chain.Container.Resolve<IEthereumEcdsa>()
+            chain.Container.Resolve<IEthereumEcdsa>(),
+            chain.Container.Resolve<IArbitrumConfig>()
         );
     }
 

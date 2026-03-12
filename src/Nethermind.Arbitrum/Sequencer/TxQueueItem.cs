@@ -20,6 +20,9 @@ public class TxQueueItem(Transaction tx, CancellationToken cancellationToken)
     /// <summary>Whether this transaction was submitted via the express lane.</summary>
     public bool IsTimeboosted { get; init; }
 
+    /// <summary>Retry counter for transient failures (used by auction resolution).</summary>
+    public int RetryCount { get; set; }
+
     /// <summary>
     /// Block number when this item entered the timeboost queue; 0 means not timeboosted.
     /// Used for block-based expiry of express lane transactions.

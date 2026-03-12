@@ -100,8 +100,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
-                new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneTracker(),
+                new TransactionQueue(100, 1000, false, 0, new DisabledExpressLaneTracker()),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -289,8 +288,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
-                new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneTracker(),
+                new TransactionQueue(100, 1000, false, 0, new DisabledExpressLaneTracker()),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -347,8 +345,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
-                new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneTracker(),
+                new TransactionQueue(100, 1000, false, 0, new DisabledExpressLaneTracker()),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(
@@ -411,8 +408,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 _arbitrumConfig,
                 new Mock<IStateReader>().Object,
-                new TransactionQueue(100, 1000, false),
-                new DisabledExpressLaneTracker(),
+                new TransactionQueue(100, 1000, false, 0, new DisabledExpressLaneTracker()),
                 new DisabledAuctionResolutionQueue());
 
             ArbitrumExecutionEngine engine = new(

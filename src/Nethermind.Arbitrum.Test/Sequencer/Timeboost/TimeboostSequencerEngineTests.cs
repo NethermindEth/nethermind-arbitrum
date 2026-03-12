@@ -203,7 +203,7 @@ public class TimeboostSequencerEngineTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
-        result.Should().BeEquivalentTo(new StartSequencingResult(null, 5000),
+        result.Should().BeEquivalentTo(new StartSequencingResult(null, 250),
             "expired timeboosted tx should be evicted, leaving nothing to sequence");
 
         Exception? error = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));

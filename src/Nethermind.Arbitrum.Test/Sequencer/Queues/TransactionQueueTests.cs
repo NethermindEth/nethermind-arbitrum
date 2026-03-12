@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -18,7 +19,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterSingleEnqueue_ReturnsThatItem()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem item = CreateItem();
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
@@ -32,7 +33,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterMultipleEnqueues_ReturnsAllInFifoOrder()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem item1 = CreateItem();
         TxQueueItem item2 = CreateItem();
         TxQueueItem item3 = CreateItem();
@@ -51,7 +52,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenTxExceedsMaxSize_ReturnsError()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 10, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 10, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem item = CreateItem();
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
@@ -60,20 +61,23 @@ public class TransactionQueueTests
     }
 
     [Test]
-    public async Task EnqueueAsync_WhenQueueFull_ReturnsError()
+    public async Task EnqueueAsync_WhenQueueFull_BlocksUntilTimeout()
     {
-        TransactionQueue queue = new(capacity: 1, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 1, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
 
         await queue.EnqueueAsync(CreateItem());
-        ResultWrapper<Hash256> result = await queue.EnqueueAsync(CreateItem());
 
-        result.Should().RequestFail("full");
+        using CancellationTokenSource cts = new(100);
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(
+            new TxQueueItem(Build.A.Transaction.TestObject, cts.Token));
+
+        result.Should().RequestFail("timeout");
     }
 
     [Test]
     public void DrainBatch_WhenQueueEmpty_ReturnsEmptyList()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
 
         List<TxQueueItem> drained = queue.DrainBatch();
 
@@ -83,7 +87,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterPreviousDrain_ReturnsEmpty()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         await queue.EnqueueAsync(CreateItem());
 
         queue.DrainBatch().Should().HaveCount(1);
@@ -93,7 +97,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_WithRetryAndChannelItems_ReturnsRetryFirst()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem channelItem = CreateItem();
         TxQueueItem retryItem = CreateItem();
 
@@ -109,7 +113,7 @@ public class TransactionQueueTests
     [Test]
     public void DrainBatch_WithOnlyRetryItems_ReturnsAll()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem retry1 = CreateItem();
         TxQueueItem retry2 = CreateItem();
 
@@ -125,7 +129,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_WithMultipleRetryAndChannelItems_ReturnsRetryBeforeChannel()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem channel1 = CreateItem();
         TxQueueItem channel2 = CreateItem();
         TxQueueItem retry1 = CreateItem();
@@ -147,7 +151,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenAwaitTxResultEnabled_BlocksUntilResultSet()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: true);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: true, 0, new DisabledExpressLaneTracker());
         TxQueueItem item = CreateItem();
 
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
@@ -164,7 +168,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenAwaitTxResultEnabledAndResultIsError_PropagatesError()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: true);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: true, 0, new DisabledExpressLaneTracker());
         TxQueueItem item = CreateItem();
 
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
@@ -177,7 +181,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenAwaitTxResultDisabled_ReturnsImmediately()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem item = CreateItem();
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
@@ -191,7 +195,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterOversizedEnqueue_ReturnsEmpty()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 10, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 10, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
 
         await queue.EnqueueAsync(CreateItem());
 
@@ -203,7 +207,7 @@ public class TransactionQueueTests
     {
         // When retry items exist, the channel's first-read branch is skipped,
         // but remaining channel items are still drained.
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         TxQueueItem retryItem = CreateItem();
 
         queue.PushRetry(retryItem);
@@ -219,7 +223,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_WithTimeboostedItem_PreservesTimeboostProperties()
     {
-        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false);
+        TransactionQueue queue = new(capacity: 10, maxTxDataSize: 95000, awaitTxResult: false, 0, new DisabledExpressLaneTracker());
         Transaction tx = Build.A.Transaction.TestObject;
         TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, blockStamp: 42);
 

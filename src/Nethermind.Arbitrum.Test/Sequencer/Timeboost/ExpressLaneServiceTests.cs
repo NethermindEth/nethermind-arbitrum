@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
+using Nethermind.Logging;
 using NSubstitute;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
@@ -383,19 +384,21 @@ public class ExpressLaneServiceTests
 
     private static ExpressLaneService CreateService(out TransactionQueue txQueue, out ExpressLaneTracker tracker, ulong currentRound = 1)
     {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
+        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true, expressLaneAdvantageMs: 0, new DisabledExpressLaneTracker());
         tracker = CreateTracker(currentRound);
         return new ExpressLaneService(
             TimeboostTestHelpers.MakeRoundTiming(currentRound),
             tracker,
             MakeArbitrumConfig(),
             txQueue,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId));
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
+            TimeboostTestHelpers.TestChainId,
+            LimboLogs.Instance);
     }
 
     private static ExpressLaneService CreateServiceNearRoundEnd(out TransactionQueue txQueue, ulong currentRound)
     {
-        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true);
+        txQueue = new TransactionQueue(1024, 95_000, awaitTxResult: true, expressLaneAdvantageMs: 0, new DisabledExpressLaneTracker());
         // Place UtcNow ~1s before the end of the current round so timeTilNext ≈ 1s < 2s grace.
         DateTime offset = DateTime.UtcNow
             - TimeSpan.FromMinutes(1) * (long)currentRound
@@ -407,7 +410,9 @@ public class ExpressLaneServiceTests
             tracker,
             MakeArbitrumConfig(),
             txQueue,
-            new EthereumEcdsa(TimeboostTestHelpers.TestChainId));
+            new EthereumEcdsa(TimeboostTestHelpers.TestChainId),
+            TimeboostTestHelpers.TestChainId,
+            LimboLogs.Instance);
     }
 
     private static ExpressLaneTracker CreateTracker(ulong currentRound)
@@ -418,6 +423,8 @@ public class ExpressLaneServiceTests
         IArbitrumConfig config = Substitute.For<IArbitrumConfig>();
         config.TimeboostAuctionContractAddress.Returns(TimeboostTestHelpers.TestAuctionContract.ToString());
         config.TimeboostEarlySubmissionGraceMs.Returns(2000);
+        config.SequencerMaxTxDataSize.Returns(95_000);
+        config.SequencerQueueTimeoutMs.Returns(12000);
         return config;
     }
 }

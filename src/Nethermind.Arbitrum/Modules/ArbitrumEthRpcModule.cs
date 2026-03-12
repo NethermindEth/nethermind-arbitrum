@@ -4,6 +4,7 @@
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
@@ -43,6 +44,8 @@ namespace Nethermind.Arbitrum.Modules
         private readonly TransactionQueue _transactionQueue;
         private readonly SequencerState _sequencerState;
         private readonly IEthereumEcdsa _ecdsa;
+        private readonly HashSet<Address>? _senderWhitelist;
+        private readonly int _queueTimeoutMs;
 
         public ArbitrumEthRpcModule(
             IJsonRpcConfig rpcConfig,
@@ -65,13 +68,17 @@ namespace Nethermind.Arbitrum.Modules
             ArbitrumChainSpecEngineParameters chainSpecParams,
             TransactionQueue transactionQueue,
             SequencerState sequencerState,
-            IEthereumEcdsa ecdsa)
+            IEthereumEcdsa ecdsa,
+            IArbitrumConfig arbitrumConfig)
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
             _transactionQueue = transactionQueue;
             _sequencerState = sequencerState;
             _ecdsa = ecdsa;
+            _senderWhitelist = ParseSenderWhitelist(arbitrumConfig.SequencerSenderWhitelist);
+            _queueTimeoutMs = arbitrumConfig.SequencerQueueTimeoutMs
+                + (arbitrumConfig.TimeboostEnabled ? arbitrumConfig.TimeboostExpressLaneAdvantageMs : 0);
         }
 
         public override async Task<ResultWrapper<Hash256>> eth_sendRawTransaction(byte[] transaction)
@@ -91,16 +98,25 @@ namespace Nethermind.Arbitrum.Modules
             // Force hash computation before enqueuing so tx.Hash is available for the response
             _ = tx.Hash;
 
+            if (tx.Type >= (TxType)ArbitrumTxType.ArbitrumDeposit || tx.Type == TxType.Blob)
+                return ResultWrapper<Hash256>.Fail("transaction type not supported", ErrorCodes.TransactionRejected);
+
+            if (_senderWhitelist is not null && tx.SenderAddress is not null
+                && !_senderWhitelist.Contains(tx.SenderAddress))
+                return ResultWrapper<Hash256>.Fail("transaction sender is not on the whitelist", ErrorCodes.TransactionRejected);
+
+            using CancellationTokenSource cts = new(_queueTimeoutMs);
+
             SequencerStateSnapshot state = _sequencerState.Current;
             switch (state.Mode)
             {
                 case SequencerMode.Active:
-                    return await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
+                    return await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, cts.Token));
                 case SequencerMode.Forwarding:
                     if (state.Forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 
-                    return await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, tx.Hash!, CancellationToken.None);
+                    return await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, tx.Hash!, cts.Token);
                 default:
                     return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
             }
@@ -255,6 +271,21 @@ namespace Nethermind.Arbitrum.Modules
                 .ToArray();
 
             return ResultWrapper<ReceiptForRpc[]?>.Success(result);
+        }
+
+        private static HashSet<Address>? ParseSenderWhitelist(string whitelist)
+        {
+            if (string.IsNullOrWhiteSpace(whitelist))
+                return null;
+
+            string[] parts = whitelist.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
+                return null;
+
+            HashSet<Address> set = new(parts.Length);
+            foreach (string part in parts)
+                set.Add(new Address(part));
+            return set;
         }
 
         private abstract class ArbitrumTxExecutor<TResult>(
