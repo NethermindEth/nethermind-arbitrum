@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Collections.Concurrent;
 using Nethermind.Core;
 using Nethermind.Core.Buffers;
@@ -15,11 +18,11 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 /// and fall back to the base store (main TrieStore dirty cache + disk) for reads.
 /// BeginScope is a no-op to avoid acquiring the main TrieStore's scope/pruning locks during
 /// potentially long-running state reconstruction.
-///
-/// Additional notes:
-/// - Only PrepareForRecord should write to the overlay to reconstruct the needed state,
-/// witness generation is read only against the overlay.
 /// </summary>
+/// <remarks>
+/// Only PrepareForRecord should write to the overlay to reconstruct the needed state,
+/// witness generation is read only against the overlay.
+/// </remarks>
 public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseStore) : ITrieStore, IReadOnlyTrieStore
 {
     private readonly INodeStorage _nodeStorage = new NodeStorage(memDb);
