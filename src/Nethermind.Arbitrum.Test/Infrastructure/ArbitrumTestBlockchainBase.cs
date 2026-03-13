@@ -324,7 +324,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         CachedL1PriceData CachedL1PriceData,
         IWasmStore WasmStore,
         IArbosVersionProvider ArbosVersionProvider,
-        StateReconstructor StateReconstructor,
+        IStateReconstructor StateReconstructor,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)
