@@ -409,7 +409,7 @@ public class StateReconstructorTests
             new PrepareForRecordParameters(start1, end1));
         firstPrepare.Result.Should().Be(Result.Success);
 
-        DigestMessageParameters lastDigestMsg =  GetLastDigestedMessage();
+        DigestMessageParameters lastDigestMsg = GetLastDigestedMessage();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
             if (blockNum == (long)chain.GenesisBlockNumber || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
