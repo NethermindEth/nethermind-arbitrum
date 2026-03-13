@@ -109,11 +109,10 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        ResultWrapper<Hash256> result1 = await queue.EnqueueAsync(new TxQueueItem(tx1, CancellationToken.None));
+        ResultWrapper<Hash256> result1 = await queue.EnqueueAsync(TxQueueItem.CreateRegular(tx1));
         result1.Should().RequestSucceed();
 
-        using CancellationTokenSource cts = new(100);
-        ResultWrapper<Hash256> result2 = await queue.EnqueueAsync(new TxQueueItem(tx2, cts.Token));
+        ResultWrapper<Hash256> result2 = await queue.EnqueueAsync(TxQueueItem.CreateRegular(tx2, TimeSpan.FromMilliseconds(100)));
         result2.Should().RequestFail("timeout");
     }
 
@@ -130,7 +129,7 @@ public class UserTxSequencingTests
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
 
-        ResultWrapper<Hash256> result = await queue.EnqueueAsync(new TxQueueItem(tx, CancellationToken.None));
+        ResultWrapper<Hash256> result = await queue.EnqueueAsync(TxQueueItem.CreateRegular(tx));
 
         result.Should().RequestFail("exceeds maximum");
     }

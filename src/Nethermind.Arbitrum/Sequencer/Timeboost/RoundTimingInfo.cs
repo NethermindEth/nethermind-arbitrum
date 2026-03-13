@@ -11,13 +11,13 @@ public interface IRoundTimingInfo
 
     ulong RoundNumber();
 
-    ulong RoundNumberAt(DateTime t);
+    ulong RoundNumberAt(DateTime now);
 
     TimeSpan TimeTilNextRound();
 
-    TimeSpan TimeTilNextRoundAt(DateTime t);
+    TimeSpan TimeTilNextRoundAt(DateTime now);
 
-    bool IsWithinAuctionCloseWindow(DateTime t);
+    bool IsWithinAuctionCloseWindow(DateTime now);
 }
 
 public sealed class RoundTimingInfo : IRoundTimingInfo
@@ -28,7 +28,7 @@ public sealed class RoundTimingInfo : IRoundTimingInfo
 
     public TimeProvider TimeProvider { get; }
 
-    public RoundTimingInfo(IArbitrumConfig config) : this(config, DateTime.UnixEpoch) { }
+    // public RoundTimingInfo(IArbitrumConfig config) : this(config, DateTime.UnixEpoch) { }
 
     public RoundTimingInfo(IArbitrumConfig config, DateTime offset) : this(config, offset, TimeProvider.System) { }
 
@@ -42,9 +42,9 @@ public sealed class RoundTimingInfo : IRoundTimingInfo
 
     public ulong RoundNumber() => RoundNumberAt(TimeProvider.GetUtcNow().UtcDateTime);
 
-    public ulong RoundNumberAt(DateTime t)
+    public ulong RoundNumberAt(DateTime now)
     {
-        TimeSpan elapsed = t - _offset;
+        TimeSpan elapsed = now - _offset;
         if (elapsed < TimeSpan.Zero)
             return 0;
         return (ulong)(elapsed / _round);
@@ -52,13 +52,13 @@ public sealed class RoundTimingInfo : IRoundTimingInfo
 
     public TimeSpan TimeTilNextRound() => TimeTilNextRoundAt(TimeProvider.GetUtcNow().UtcDateTime);
 
-    public TimeSpan TimeTilNextRoundAt(DateTime t)
+    public TimeSpan TimeTilNextRoundAt(DateTime now)
     {
-        ulong roundNum = RoundNumberAt(t);
+        ulong roundNum = RoundNumberAt(now);
         DateTime nextRoundStart = _offset + _round * (long)(roundNum + 1);
-        return nextRoundStart - t;
+        return nextRoundStart - now;
     }
 
-    public bool IsWithinAuctionCloseWindow(DateTime t)
-        => TimeTilNextRoundAt(t) <= _auctionClosing;
+    public bool IsWithinAuctionCloseWindow(DateTime now)
+        => TimeTilNextRoundAt(now) <= _auctionClosing;
 }

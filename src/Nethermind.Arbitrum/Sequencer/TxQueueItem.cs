@@ -15,19 +15,14 @@ public class TxQueueItem
 {
     private readonly CancellationTokenSource? _ownedCts;
 
-    public TxQueueItem(Transaction tx, CancellationToken cancellationToken)
+    private TxQueueItem(Transaction tx, TimeSpan? timeout, bool isTimeboosted, ulong blockStamp)
     {
         Tx = tx;
         RlpEncoded = Rlp.Encode(tx).Bytes;
-        CancellationToken = cancellationToken;
-    }
-
-    public TxQueueItem(Transaction tx, TimeSpan timeout)
-    {
-        Tx = tx;
-        RlpEncoded = Rlp.Encode(tx).Bytes;
-        _ownedCts = new CancellationTokenSource(timeout);
-        CancellationToken = _ownedCts.Token;
+        _ownedCts = timeout.HasValue ? new CancellationTokenSource(timeout.Value) : null;
+        CancellationToken = _ownedCts?.Token ?? CancellationToken.None;
+        IsTimeboosted = isTimeboosted;
+        BlockStamp = blockStamp;
     }
 
     public Transaction Tx { get; }
@@ -37,7 +32,7 @@ public class TxQueueItem
     public DateTime FirstAppearance { get; } = DateTime.UtcNow;
 
     /// <summary>Whether this transaction was submitted via the express lane.</summary>
-    public bool IsTimeboosted { get; init; }
+    public bool IsTimeboosted { get; }
 
     /// <summary>Retry counter for transient failures (used by auction resolution).</summary>
     public int RetryCount { get; set; }
@@ -46,7 +41,7 @@ public class TxQueueItem
     /// Block number when this item entered the timeboost queue; 0 means not timeboosted.
     /// Used for block-based expiry of express lane transactions.
     /// </summary>
-    public ulong BlockStamp { get; init; }
+    public ulong BlockStamp { get; }
 
     /// <summary>
     /// Returns the result to the caller exactly once. Subsequent calls are no-ops.
@@ -58,11 +53,9 @@ public class TxQueueItem
         _ownedCts?.Dispose();
     }
 
-    /// <summary>Creates a timeboosted queue item with the current block number as the stamp.</summary>
-    public static TxQueueItem CreateTimeboosted(Transaction tx, CancellationToken ct, ulong blockStamp)
-        => new(tx, ct) { IsTimeboosted = true, BlockStamp = blockStamp };
+    public static TxQueueItem CreateRegular(Transaction tx, TimeSpan? timeout = null)
+        => new(tx, timeout, isTimeboosted: false, blockStamp: 0);
 
-    /// <summary>Creates a timeboosted queue item that owns its CTS with the given timeout.</summary>
-    public static TxQueueItem CreateTimeboosted(Transaction tx, TimeSpan timeout, ulong blockStamp)
-        => new(tx, timeout) { IsTimeboosted = true, BlockStamp = blockStamp };
+    public static TxQueueItem CreateTimeboosted(Transaction tx, ulong blockStamp, TimeSpan? timeout = null)
+        => new(tx, timeout, isTimeboosted: true, blockStamp: blockStamp);
 }

@@ -343,7 +343,10 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             builder.AddSingleton<SequencerState>()
                 .AddSingleton<DelayedMessageQueue>()
                 .AddSingleton<TransactionQueue>()
-                .AddSingleton<IRoundTimingInfo, RoundTimingInfo>();
+                .AddSingleton<IRoundTimingInfo>(c => new RoundTimingInfo(
+                    c.Resolve<IArbitrumConfig>(),
+                    offset: DateTime.UnixEpoch,
+                    timeProvider: TimeProvider.System));
 
             if (arbitrumConfig.SequencerEnabled)
                 builder.AddSingleton<IArbitrumSequencerEngine, ArbitrumSequencerEngine>();

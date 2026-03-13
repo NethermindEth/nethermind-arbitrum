@@ -12,7 +12,6 @@ namespace Nethermind.Arbitrum.Sequencer;
 
 /// <summary>
 /// HTTP client that forwards eth_sendRawTransaction to a backup sequencer URL.
-/// Mirrors Go TxForwarder concept from sequencer.go.
 /// </summary>
 public class TransactionForwarder(string targetUrl, ILogManager logManager, TimeSpan? timeout = null) : IDisposable
 {
@@ -24,7 +23,7 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
     private readonly HttpClient _httpClient = new()
     {
         BaseAddress = new Uri(targetUrl),
-        Timeout = timeout ?? TimeSpan.FromSeconds(30)
+        Timeout = timeout ?? TimeSpan.FromSeconds(120)
     };
 
     private readonly CancellationTokenSource _cts = new();

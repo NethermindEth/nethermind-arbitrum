@@ -373,7 +373,7 @@ public sealed class ArbitrumExecutionEngine(
         if (!expressLaneTracker.IsWithinAuctionCloseWindow(DateTime.UtcNow))
             return ResultWrapper<bool>.Fail("Not within the auction close window");
 
-        TxQueueItem item = new(tx, CancellationToken.None);
+        TxQueueItem item = TxQueueItem.CreateRegular(tx);
         await auctionResolutionQueue.WriteAsync(item);
         return ResultWrapper<bool>.Success(true);
     }

@@ -186,7 +186,7 @@ public class ErrorRecoveryTests
             .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
-        TxQueueItem item = new(tx, CancellationToken.None);
+        TxQueueItem item = TxQueueItem.CreateRegular(tx);
 
         cache.Add(FullChainSimulationAccounts.AccountA.Address, 5, item);
 
@@ -220,7 +220,7 @@ public class ErrorRecoveryTests
             .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
-        TxQueueItem item1 = new(tx1, CancellationToken.None);
+        TxQueueItem item1 = TxQueueItem.CreateRegular(tx1);
         cache.Add(FullChainSimulationAccounts.AccountA.Address, 5, item1);
 
         // Add another item — capacity is 1, so item1 should be evicted via callback
@@ -230,7 +230,7 @@ public class ErrorRecoveryTests
             .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
-        TxQueueItem item2 = new(tx2, CancellationToken.None);
+        TxQueueItem item2 = TxQueueItem.CreateRegular(tx2);
         cache.Add(FullChainSimulationAccounts.AccountA.Address, 6, item2);
 
         evictedItem.Should().BeSameAs(item1, "first item should have been evicted");
@@ -246,9 +246,6 @@ public class ErrorRecoveryTests
     {
         TxQueueItem? evictedItem = null;
 
-        using CancellationTokenSource cts = new();
-        cts.Cancel(); // Pre-cancel
-
         NonceFailureCache cache = new(1, TimeSpan.FromSeconds(10), onEvict: (item, msg) =>
         {
             evictedItem = item;
@@ -261,7 +258,7 @@ public class ErrorRecoveryTests
             .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
-        TxQueueItem item1 = new(tx1, cts.Token);
+        TxQueueItem item1 = TxQueueItem.CreateRegular(tx1, TimeSpan.Zero);
         cache.Add(FullChainSimulationAccounts.AccountA.Address, 5, item1);
 
         // Add another item — capacity is 1, so item1 should be evicted
@@ -271,7 +268,7 @@ public class ErrorRecoveryTests
             .WithGasPrice(1.GWei)
             .SignedAndResolved(FullChainSimulationAccounts.AccountA)
             .TestObject;
-        TxQueueItem item2 = new(tx2, CancellationToken.None);
+        TxQueueItem item2 = TxQueueItem.CreateRegular(tx2);
         cache.Add(FullChainSimulationAccounts.AccountA.Address, 6, item2);
 
         // Cancelled token should bypass callback and return OperationCanceledException

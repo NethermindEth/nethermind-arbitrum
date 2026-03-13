@@ -68,9 +68,8 @@ public class TransactionQueueTests
 
         await queue.EnqueueAsync(CreateItem());
 
-        using CancellationTokenSource cts = new(100);
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(
-            new TxQueueItem(Build.A.Transaction.TestObject, cts.Token));
+            TxQueueItem.CreateRegular(Build.A.Transaction.TestObject, TimeSpan.FromMilliseconds(100)));
 
         result.Should().RequestFail("timeout");
     }
@@ -226,7 +225,7 @@ public class TransactionQueueTests
     {
         TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
         Transaction tx = Build.A.Transaction.TestObject;
-        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, blockStamp: 42);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, blockStamp: 42);
 
         await queue.EnqueueAsync(item);
 
@@ -239,6 +238,6 @@ public class TransactionQueueTests
 
     private static TxQueueItem CreateItem(Transaction? tx = null)
     {
-        return new TxQueueItem(tx ?? Build.A.Transaction.TestObject, CancellationToken.None);
+        return TxQueueItem.CreateRegular(tx ?? Build.A.Transaction.TestObject);
     }
 }

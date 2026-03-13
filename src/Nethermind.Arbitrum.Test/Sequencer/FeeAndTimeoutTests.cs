@@ -111,12 +111,11 @@ public class FeeAndTimeoutTests
         TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
 
         // Fill the queue
-        TxQueueItem item1 = new(Build.A.Transaction.TestObject, CancellationToken.None);
+        TxQueueItem item1 = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
         await queue.EnqueueAsync(item1);
 
         // Second enqueue should block, not fail immediately
-        using CancellationTokenSource cts = new(500);
-        TxQueueItem item2 = new(Build.A.Transaction.WithNonce(1).TestObject, cts.Token);
+        TxQueueItem item2 = TxQueueItem.CreateRegular(Build.A.Transaction.WithNonce(1).TestObject, TimeSpan.FromMilliseconds(500));
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item2);
 
         // Verify the task is not completed immediately (blocking)
@@ -137,12 +136,11 @@ public class FeeAndTimeoutTests
         TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
 
         // Fill the queue
-        TxQueueItem item1 = new(Build.A.Transaction.TestObject, CancellationToken.None);
+        TxQueueItem item1 = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
         await queue.EnqueueAsync(item1);
 
         // Second enqueue should block then timeout
-        using CancellationTokenSource cts = new(100);
-        TxQueueItem item2 = new(Build.A.Transaction.WithNonce(1).TestObject, cts.Token);
+        TxQueueItem item2 = TxQueueItem.CreateRegular(Build.A.Transaction.WithNonce(1).TestObject, TimeSpan.FromMilliseconds(100));
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item2);
 

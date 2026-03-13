@@ -25,13 +25,13 @@ internal sealed class ManualRoundTimingInfo : IRoundTimingInfo
 
     public ulong RoundNumber() => _inner.RoundNumber();
 
-    public ulong RoundNumberAt(DateTime t) => _inner.RoundNumberAt(t);
+    public ulong RoundNumberAt(DateTime now) => _inner.RoundNumberAt(now);
 
     public TimeSpan TimeTilNextRound() => _inner.TimeTilNextRound();
 
-    public TimeSpan TimeTilNextRoundAt(DateTime t) => _inner.TimeTilNextRoundAt(t);
+    public TimeSpan TimeTilNextRoundAt(DateTime now) => _inner.TimeTilNextRoundAt(now);
 
-    public bool IsWithinAuctionCloseWindow(DateTime t) => _inner.IsWithinAuctionCloseWindow(t);
+    public bool IsWithinAuctionCloseWindow(DateTime now) => _inner.IsWithinAuctionCloseWindow(now);
 
     public void Advance(TimeSpan delta) => _manualTimeProvider.Advance(delta);
 }

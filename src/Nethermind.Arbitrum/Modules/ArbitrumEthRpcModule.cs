@@ -109,7 +109,7 @@ namespace Nethermind.Arbitrum.Modules
             switch (state.Mode)
             {
                 case SequencerMode.Active:
-                    return await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, TimeSpan.FromMilliseconds(_queueTimeoutMs)));
+                    return await _transactionQueue.EnqueueAsync(TxQueueItem.CreateRegular(tx, TimeSpan.FromMilliseconds(_queueTimeoutMs)));
                 case SequencerMode.Forwarding:
                     if (state.Forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);

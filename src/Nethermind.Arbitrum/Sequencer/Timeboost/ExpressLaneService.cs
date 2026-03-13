@@ -193,7 +193,7 @@ public sealed class ExpressLaneService(
 
     private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ulong currentBlockNumber, TimeSpan timeout)
     {
-        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, timeout, currentBlockNumber);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, currentBlockNumber, timeout);
         return await transactionQueue.EnqueueAsync(item, awaitForCompletion: false);
     }
 

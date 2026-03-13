@@ -36,7 +36,7 @@ public class ExpressLanePriorityTests
     public async Task RegularTx_DelayedBeforeQueue_WhenControllerExists()
     {
         TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithController());
-        TxQueueItem item = new(Build.A.Transaction.TestObject, CancellationToken.None);
+        TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
 
         Stopwatch sw = Stopwatch.StartNew();
         await queue.EnqueueAsync(item);
@@ -52,7 +52,7 @@ public class ExpressLanePriorityTests
     public async Task RegularTx_NotDelayed_WhenNoController()
     {
         TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithoutController());
-        TxQueueItem item = new(Build.A.Transaction.TestObject, CancellationToken.None);
+        TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
 
         Stopwatch sw = Stopwatch.StartNew();
         await queue.EnqueueAsync(item);
@@ -65,7 +65,7 @@ public class ExpressLanePriorityTests
     public async Task ExpressLaneTx_WhenControllerExists_NeverDelayed()
     {
         TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, CreateTrackerWithController());
-        TxQueueItem item = TxQueueItem.CreateTimeboosted(Build.A.Transaction.TestObject, CancellationToken.None, blockStamp: 1);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(Build.A.Transaction.TestObject, blockStamp: 1);
 
         Stopwatch sw = Stopwatch.StartNew();
         await queue.EnqueueAsync(item);
@@ -82,8 +82,8 @@ public class ExpressLanePriorityTests
         Transaction regularTx = Build.A.Transaction.WithNonce(0).TestObject;
         Transaction expressLaneTx = Build.A.Transaction.WithNonce(1).TestObject;
 
-        TxQueueItem regularItem = new(regularTx, CancellationToken.None);
-        TxQueueItem expressItem = TxQueueItem.CreateTimeboosted(expressLaneTx, CancellationToken.None, blockStamp: 1);
+        TxQueueItem regularItem = TxQueueItem.CreateRegular(regularTx);
+        TxQueueItem expressItem = TxQueueItem.CreateTimeboosted(expressLaneTx, blockStamp: 1);
 
         // Enqueue regular tx first — it will be delayed 200ms
         Task<ResultWrapper<Hash256>> regularTask = queue.EnqueueAsync(regularItem);

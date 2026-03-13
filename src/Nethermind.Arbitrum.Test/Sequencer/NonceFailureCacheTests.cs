@@ -186,6 +186,6 @@ public class NonceFailureCacheTests
 
     private static TxQueueItem CreateItem()
     {
-        return new TxQueueItem(Build.A.Transaction.TestObject, CancellationToken.None);
+        return TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
     }
 }

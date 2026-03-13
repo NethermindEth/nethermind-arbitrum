@@ -60,7 +60,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         IAuctionResolutionQueue auctionResolutionQueue = chain.Container.Resolve<IAuctionResolutionQueue>();
-        await auctionResolutionQueue.WriteAsync(new TxQueueItem(auctionTx, CancellationToken.None));
+        await auctionResolutionQueue.WriteAsync(TxQueueItem.CreateRegular(auctionTx));
 
         // First sequencing: auction queue is drained before the regular queue
         StartSequencingEnvironment env1 = StartSequencingEnvironment.FromNowUtc();
@@ -146,7 +146,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        TxQueueItem timeboostedItem = TxQueueItem.CreateTimeboosted(timeboostedTx, CancellationToken.None, blockStamp: headBlock);
+        TxQueueItem timeboostedItem = TxQueueItem.CreateTimeboosted(timeboostedTx, blockStamp: headBlock);
         await transactionQueue.EnqueueAsync(timeboostedItem);
 
         StartSequencingEnvironment env2 = StartSequencingEnvironment.FromNowUtc();
@@ -193,7 +193,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        TxQueueItem expiredItem = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, blockStamp: currentHead);
+        TxQueueItem expiredItem = TxQueueItem.CreateTimeboosted(tx, blockStamp: currentHead);
         Task<Exception?> resultTask = expiredItem.ResultChannel.Task;
         await transactionQueue.EnqueueAsync(expiredItem);
 
@@ -239,7 +239,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, CancellationToken.None, blockStamp: headBlock);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, blockStamp: headBlock);
         await transactionQueue.EnqueueAsync(item);
 
         StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
@@ -287,7 +287,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        TxQueueItem expiredItem = TxQueueItem.CreateTimeboosted(expiredTx, CancellationToken.None, blockStamp: currentHead);
+        TxQueueItem expiredItem = TxQueueItem.CreateTimeboosted(expiredTx, blockStamp: currentHead);
         Task<Exception?> expiredResultTask = expiredItem.ResultChannel.Task;
         await transactionQueue.EnqueueAsync(expiredItem);
 
@@ -362,8 +362,8 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(txA, CancellationToken.None, blockStamp: headBlock));
-        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(txB, CancellationToken.None, blockStamp: headBlock));
+        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(txA, blockStamp: headBlock));
+        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(txB, blockStamp: headBlock));
 
         StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
         StartSequencingResult result = chain.NitroExecutionRpcModule
@@ -424,7 +424,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(timeboostedTx, CancellationToken.None, blockStamp: headBlock));
+        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(timeboostedTx, blockStamp: headBlock));
 
         StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
         StartSequencingResult result = chain.NitroExecutionRpcModule
@@ -479,7 +479,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         IAuctionResolutionQueue auctionResolutionQueue = chain.Container.Resolve<IAuctionResolutionQueue>();
-        await auctionResolutionQueue.WriteAsync(new TxQueueItem(auctionTx, CancellationToken.None));
+        await auctionResolutionQueue.WriteAsync(TxQueueItem.CreateRegular(auctionTx));
 
         // Round 1: delayed message has highest priority
         StartSequencingEnvironment env1 = StartSequencingEnvironment.FromNowUtc();
@@ -539,7 +539,7 @@ public class TimeboostSequencerEngineTests
 
         // BlockStamp=0 should bypass eviction even with timeout=0
         TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
-        TxQueueItem item = new(tx, CancellationToken.None) { IsTimeboosted = true, BlockStamp = 0 };
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, blockStamp: 0);
         await transactionQueue.EnqueueAsync(item);
 
         StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
@@ -583,7 +583,7 @@ public class TimeboostSequencerEngineTests
             .TestObject;
 
         IAuctionResolutionQueue auctionResolutionQueue = chain.Container.Resolve<IAuctionResolutionQueue>();
-        await auctionResolutionQueue.WriteAsync(new TxQueueItem(auctionTx, CancellationToken.None));
+        await auctionResolutionQueue.WriteAsync(TxQueueItem.CreateRegular(auctionTx));
 
         StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
         StartSequencingResult result = chain.NitroExecutionRpcModule

@@ -13,14 +13,14 @@ public class AuctionResolutionTests
     [Test]
     public void TxQueueItem_NewInstance_HasRetryCountZero()
     {
-        TxQueueItem item = new(Build.A.Transaction.TestObject, CancellationToken.None);
+        TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
         item.RetryCount.Should().Be(0);
     }
 
     [Test]
     public void TxQueueItem_IncrementRetryCount_TracksRetries()
     {
-        TxQueueItem item = new(Build.A.Transaction.TestObject, CancellationToken.None);
+        TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
         item.RetryCount++;
         item.RetryCount.Should().Be(1);
 
