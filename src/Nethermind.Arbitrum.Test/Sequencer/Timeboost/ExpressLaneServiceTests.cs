@@ -393,7 +393,7 @@ public class ExpressLaneServiceTests
             SequencerQueueTimeoutMs = 12000
         };
 
-        txQueue = new TransactionQueue(config, new DisabledExpressLaneTracker());
+        txQueue = new TransactionQueue(config, new DisabledExpressLaneTracker(), TimeProvider.System);
         manualTiming = new ManualRoundTimingInfo(config, DateTimeOffset.UtcNow, currentRound, TimeSpan.FromSeconds(intoRoundSeconds));
         tracker = TimeboostTestHelpers.CreateTracker(manualTiming);
 

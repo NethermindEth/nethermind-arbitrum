@@ -260,7 +260,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         }
 
         builder
-
             .AddSingleton<IWasmDb, WasmDb>()
             .AddScoped<IWasmStore>(context =>
             {
@@ -340,9 +339,13 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                     "Timeboost is enabled but TimeboostAuctionContractAddress is not configured. " +
                     "Please set Arbitrum.TimeboostAuctionContractAddress or disable Timeboost.");
 
-            builder.AddSingleton<SequencerState>()
+            builder
+                .AddSingleton<SequencerState>()
                 .AddSingleton<DelayedMessageQueue>()
-                .AddSingleton<TransactionQueue>()
+                .AddSingleton<TransactionQueue>(c => new TransactionQueue(
+                    c.Resolve<IArbitrumConfig>(),
+                    c.Resolve<IExpressLaneTracker>(),
+                    timeProvider: TimeProvider.System))
                 .AddSingleton<IRoundTimingInfo>(c => new RoundTimingInfo(
                     c.Resolve<IArbitrumConfig>(),
                     offset: DateTime.UnixEpoch,

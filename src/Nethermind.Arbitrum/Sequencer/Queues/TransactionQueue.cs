@@ -13,7 +13,7 @@ namespace Nethermind.Arbitrum.Sequencer.Queues;
 /// <summary>
 /// Bounded channel-based user transaction queue with per-tx result notification.
 /// </summary>
-public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expressLaneTracker)
+public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expressLaneTracker, TimeProvider timeProvider)
 {
     private readonly int _expressLaneAdvantageMs = config.TimeboostEnabled ? config.TimeboostExpressLaneAdvantageMs : 0;
 
@@ -34,7 +34,7 @@ public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expres
             return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {config.SequencerMaxTxDataSize}", ErrorCodes.TransactionRejected);
 
         if (!item.IsTimeboosted && _expressLaneAdvantageMs > 0 && expressLaneTracker.CurrentRoundHasController())
-            await Task.Delay(_expressLaneAdvantageMs, item.CancellationToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(_expressLaneAdvantageMs), timeProvider, item.CancellationToken);
 
         try
         {

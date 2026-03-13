@@ -108,7 +108,7 @@ public class FeeAndTimeoutTests
     [Test]
     public async Task Tx_QueueFull_BlocksUntilSpace()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         // Fill the queue
         TxQueueItem item1 = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
@@ -133,7 +133,7 @@ public class FeeAndTimeoutTests
     [Test]
     public async Task Tx_QueueFull_TimesOut()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         // Fill the queue
         TxQueueItem item1 = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);

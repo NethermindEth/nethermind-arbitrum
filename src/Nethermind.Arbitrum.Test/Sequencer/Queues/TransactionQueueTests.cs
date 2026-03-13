@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
@@ -20,7 +21,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterSingleEnqueue_ReturnsThatItem()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem item = CreateItem();
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
@@ -34,7 +35,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterMultipleEnqueues_ReturnsAllInFifoOrder()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem item1 = CreateItem();
         TxQueueItem item2 = CreateItem();
         TxQueueItem item3 = CreateItem();
@@ -53,7 +54,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenTxExceedsMaxSize_ReturnsError()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem item = CreateItem();
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
@@ -64,7 +65,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenQueueFull_BlocksUntilTimeout()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         await queue.EnqueueAsync(CreateItem());
 
@@ -77,7 +78,7 @@ public class TransactionQueueTests
     [Test]
     public void DrainBatch_WhenQueueEmpty_ReturnsEmptyList()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         List<TxQueueItem> drained = queue.DrainBatch();
 
@@ -87,7 +88,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterPreviousDrain_ReturnsEmpty()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         await queue.EnqueueAsync(CreateItem());
 
         queue.DrainBatch().Should().HaveCount(1);
@@ -97,7 +98,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_WithRetryAndChannelItems_ReturnsRetryFirst()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem channelItem = CreateItem();
         TxQueueItem retryItem = CreateItem();
 
@@ -113,7 +114,7 @@ public class TransactionQueueTests
     [Test]
     public void DrainBatch_WithOnlyRetryItems_ReturnsAll()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem retry1 = CreateItem();
         TxQueueItem retry2 = CreateItem();
 
@@ -129,7 +130,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_WithMultipleRetryAndChannelItems_ReturnsRetryBeforeChannel()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem channel1 = CreateItem();
         TxQueueItem channel2 = CreateItem();
         TxQueueItem retry1 = CreateItem();
@@ -151,7 +152,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenAwaitTxResultEnabled_BlocksUntilResultSet()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem item = CreateItem();
 
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
@@ -168,7 +169,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenAwaitTxResultEnabledAndResultIsError_PropagatesError()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerAwaitTxResult = true }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem item = CreateItem();
 
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
@@ -181,7 +182,7 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_WhenAwaitTxResultDisabled_ReturnsImmediately()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem item = CreateItem();
 
         ResultWrapper<Hash256> result = await queue.EnqueueAsync(item);
@@ -195,7 +196,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_AfterOversizedEnqueue_ReturnsEmpty()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         await queue.EnqueueAsync(CreateItem());
 
@@ -207,7 +208,7 @@ public class TransactionQueueTests
     {
         // When retry items exist, the channel's first-read branch is skipped,
         // but remaining channel items are still drained.
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         TxQueueItem retryItem = CreateItem();
 
         queue.PushRetry(retryItem);
@@ -223,7 +224,7 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_WithTimeboostedItem_PreservesTimeboostProperties()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10 }, new DisabledExpressLaneTracker(), TimeProvider.System);
         Transaction tx = Build.A.Transaction.TestObject;
         TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, blockStamp: 42);
 
@@ -234,6 +235,81 @@ public class TransactionQueueTests
         drained[0].IsTimeboosted.Should().BeTrue();
         drained[0].BlockStamp.Should().Be(42UL);
         drained[0].Tx.Should().BeSameAs(tx);
+    }
+
+    [Test]
+    public async Task EnqueueAsync_RegularTxWithController_DelayedBeforeEnqueue()
+    {
+        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
+        using ExpressLaneTracker tracker = TimeboostTestHelpers.CreateTracker(currentRound: 5);
+        tracker.ForceSetController(5, TestItem.AddressB);
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, tracker, timeProvider);
+        TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
+
+        Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
+
+        enqueueTask.IsCompleted.Should().BeFalse("regular tx should be delayed when controller exists");
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+        ResultWrapper<Hash256> result = await enqueueTask;
+
+        result.Should().RequestSucceed();
+        List<TxQueueItem> drained = queue.DrainBatch();
+        drained.Should().HaveCount(1);
+        drained[0].Should().BeSameAs(item);
+    }
+
+    [Test]
+    public async Task EnqueueAsync_RegularTxWithNoController_NotDelayed()
+    {
+        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, new DisabledExpressLaneTracker(), timeProvider);
+        TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
+
+        Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
+
+        enqueueTask.IsCompleted.Should().BeTrue("no controller means no delay");
+        ResultWrapper<Hash256> result = await enqueueTask;
+        result.Should().RequestSucceed();
+    }
+
+    [Test]
+    public async Task EnqueueAsync_TimeboostedTxWithController_NotDelayed()
+    {
+        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
+        using ExpressLaneTracker tracker = TimeboostTestHelpers.CreateTracker(currentRound: 5);
+        tracker.ForceSetController(5, TestItem.AddressB);
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, tracker, timeProvider);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(Build.A.Transaction.TestObject, blockStamp: 1);
+
+        Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
+
+        enqueueTask.IsCompleted.Should().BeTrue("timeboosted tx should never be delayed");
+        ResultWrapper<Hash256> result = await enqueueTask;
+        result.Should().RequestSucceed();
+    }
+
+    [Test]
+    public async Task DrainBatch_TimeboostedAfterRegularWithController_TimeboostedFirst()
+    {
+        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
+        using ExpressLaneTracker tracker = TimeboostTestHelpers.CreateTracker(currentRound: 5);
+        tracker.ForceSetController(5, TestItem.AddressB);
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, tracker, timeProvider);
+
+        TxQueueItem regularItem = TxQueueItem.CreateRegular(Build.A.Transaction.WithNonce(0).TestObject);
+        TxQueueItem expressItem = TxQueueItem.CreateTimeboosted(Build.A.Transaction.WithNonce(1).TestObject, blockStamp: 1);
+
+        Task<ResultWrapper<Hash256>> regularTask = queue.EnqueueAsync(regularItem);
+        await queue.EnqueueAsync(expressItem);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+        await regularTask;
+
+        List<TxQueueItem> drained = queue.DrainBatch();
+        drained.Should().HaveCount(2);
+        drained[0].Should().BeSameAs(expressItem, "timeboosted tx should be first despite being enqueued later");
+        drained[1].Should().BeSameAs(regularItem, "regular tx should be second due to delay");
     }
 
     private static TxQueueItem CreateItem(Transaction? tx = null)

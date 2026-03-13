@@ -93,7 +93,7 @@ public class UserTxSequencingTests
     [Test]
     public async Task TransactionQueue_Full_BlocksUntilTimeout()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 1 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         Transaction tx1 = Build.A.Transaction
             .WithNonce(0)
@@ -119,7 +119,7 @@ public class UserTxSequencingTests
     [Test]
     public async Task TransactionQueue_OversizedTx_RejectsImmediately()
     {
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 100 }, new DisabledExpressLaneTracker());
+        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, SequencerMaxTxDataSize = 100 }, new DisabledExpressLaneTracker(), TimeProvider.System);
 
         Transaction tx = Build.A.Transaction
             .WithNonce(0)
