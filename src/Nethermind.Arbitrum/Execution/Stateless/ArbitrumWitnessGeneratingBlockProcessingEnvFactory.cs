@@ -68,7 +68,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope(string[]? wasmTargets)
     {
         IReadOnlyDbProvider readOnlyDbProvider = new ReadOnlyDbProvider(dbProvider, true);
-        WitnessCapturingTrieStore trieStore = new(new ReadOnlyReconstructedStateTrieStore(reconstructedStateTrieStore));
+        WitnessCapturingTrieStore trieStore = new(reconstructedStateTrieStore);
         IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
         WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
