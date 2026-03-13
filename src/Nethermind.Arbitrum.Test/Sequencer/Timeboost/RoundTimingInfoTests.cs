@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
+using Nethermind.Arbitrum.Test.Infrastructure;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 
@@ -15,94 +16,97 @@ public class RoundTimingInfoTests
     private static readonly ArbitrumConfig DefaultConfig = new() { TimeboostRoundDurationSeconds = 60, TimeboostAuctionClosingWindowSeconds = 15 };
 
     [Test]
-    public void RoundNumberAt_TimeBeforeOffset_ReturnsZero()
+    public void RoundNumber_TimeBeforeOffset_ReturnsZero()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch - TimeSpan.FromSeconds(1));
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.RoundNumberAt(Epoch - TimeSpan.FromSeconds(1)).Should().Be(0);
+        timing.RoundNumber().Should().Be(0);
     }
 
     [Test]
-    public void RoundNumberAt_TimeAtOffset_ReturnsZero()
+    public void RoundNumber_TimeAtOffset_ReturnsZero()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.RoundNumberAt(Epoch).Should().Be(0);
+        timing.RoundNumber().Should().Be(0);
     }
 
     [Test]
-    public void RoundNumberAt_TimeAtStartOfSecondRound_ReturnsOne()
+    public void RoundNumber_TimeAtStartOfSecondRound_ReturnsOne()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch + OneMinute);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.RoundNumberAt(Epoch + OneMinute).Should().Be(1);
+        timing.RoundNumber().Should().Be(1);
     }
 
     [Test]
-    public void RoundNumberAt_TimeOneSecondBeforeSecondRound_ReturnsZero()
+    public void RoundNumber_TimeOneSecondBeforeSecondRound_ReturnsZero()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch + TimeSpan.FromSeconds(59));
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.RoundNumberAt(Epoch + TimeSpan.FromSeconds(59)).Should().Be(0);
+        timing.RoundNumber().Should().Be(0);
     }
 
     [Test]
-    public void RoundNumberAt_ManyRoundsElapsed_ReturnsCorrectRound()
+    public void RoundNumber_ManyRoundsElapsed_ReturnsCorrectRound()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch + OneMinute * 100);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.RoundNumberAt(Epoch + OneMinute * 100).Should().Be(100);
+        timing.RoundNumber().Should().Be(100);
     }
 
     [Test]
-    public void TimeTilNextRoundAt_AtRoundStart_ReturnsFullRoundDuration()
+    public void TimeTilNextRound_AtRoundStart_ReturnsFullRoundDuration()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.TimeTilNextRoundAt(Epoch).Should().Be(OneMinute);
+        timing.TimeTilNextRound().Should().Be(OneMinute);
     }
 
     [Test]
-    public void TimeTilNextRoundAt_HalfwayThroughRound_ReturnsHalfRoundDuration()
+    public void TimeTilNextRound_HalfwayThroughRound_ReturnsHalfRoundDuration()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        ManualTimeProvider time = new(Epoch + TimeSpan.FromSeconds(30));
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, time);
 
-        timing.TimeTilNextRoundAt(Epoch + TimeSpan.FromSeconds(30)).Should().Be(TimeSpan.FromSeconds(30));
+        timing.TimeTilNextRound().Should().Be(TimeSpan.FromSeconds(30));
     }
 
     [Test]
     public void IsWithinAuctionCloseWindow_EarlyInRound_ReturnsFalse()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, new ManualTimeProvider(Epoch));
 
-        // 5s elapsed, 55s remain — well outside the 15s window
         timing.IsWithinAuctionCloseWindow(Epoch + TimeSpan.FromSeconds(5)).Should().BeFalse();
     }
 
     [Test]
     public void IsWithinAuctionCloseWindow_ExactlyAtWindowBoundary_ReturnsTrue()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, new ManualTimeProvider(Epoch));
 
-        // 45s elapsed, exactly 15s remain — on the boundary
         timing.IsWithinAuctionCloseWindow(Epoch + TimeSpan.FromSeconds(45)).Should().BeTrue();
     }
 
     [Test]
     public void IsWithinAuctionCloseWindow_InsideWindow_ReturnsTrue()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, new ManualTimeProvider(Epoch));
 
-        // 50s elapsed, 10s remain — inside window
         timing.IsWithinAuctionCloseWindow(Epoch + TimeSpan.FromSeconds(50)).Should().BeTrue();
     }
 
     [Test]
     public void IsWithinAuctionCloseWindow_OneSecondBeforeWindow_ReturnsFalse()
     {
-        RoundTimingInfo timing = new(DefaultConfig, Epoch);
+        RoundTimingInfo timing = new(DefaultConfig, Epoch, new ManualTimeProvider(Epoch));
 
-        // 44s elapsed, 16s remain — just outside window
         timing.IsWithinAuctionCloseWindow(Epoch + TimeSpan.FromSeconds(44)).Should().BeFalse();
     }
 }

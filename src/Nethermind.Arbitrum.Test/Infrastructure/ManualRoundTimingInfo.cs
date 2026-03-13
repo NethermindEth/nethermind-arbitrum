@@ -25,11 +25,7 @@ internal sealed class ManualRoundTimingInfo : IRoundTimingInfo
 
     public ulong RoundNumber() => _inner.RoundNumber();
 
-    public ulong RoundNumberAt(DateTime now) => _inner.RoundNumberAt(now);
-
     public TimeSpan TimeTilNextRound() => _inner.TimeTilNextRound();
-
-    public TimeSpan TimeTilNextRoundAt(DateTime now) => _inner.TimeTilNextRoundAt(now);
 
     public bool IsWithinAuctionCloseWindow(DateTime now) => _inner.IsWithinAuctionCloseWindow(now);
 

@@ -11,51 +11,32 @@ public interface IRoundTimingInfo
 
     ulong RoundNumber();
 
-    ulong RoundNumberAt(DateTime now);
-
     TimeSpan TimeTilNextRound();
-
-    TimeSpan TimeTilNextRoundAt(DateTime now);
 
     bool IsWithinAuctionCloseWindow(DateTime now);
 }
 
-public sealed class RoundTimingInfo : IRoundTimingInfo
+public sealed class RoundTimingInfo(IArbitrumConfig config, DateTime offset, TimeProvider timeProvider) : IRoundTimingInfo
 {
-    private readonly DateTime _offset;
-    private readonly TimeSpan _round;
-    private readonly TimeSpan _auctionClosing;
+    private readonly TimeSpan _round = TimeSpan.FromSeconds(config.TimeboostRoundDurationSeconds);
+    private readonly TimeSpan _auctionClosing = TimeSpan.FromSeconds(config.TimeboostAuctionClosingWindowSeconds);
 
-    public TimeProvider TimeProvider { get; }
-
-    // public RoundTimingInfo(IArbitrumConfig config) : this(config, DateTime.UnixEpoch) { }
-
-    public RoundTimingInfo(IArbitrumConfig config, DateTime offset) : this(config, offset, TimeProvider.System) { }
-
-    public RoundTimingInfo(IArbitrumConfig config, DateTime offset, TimeProvider timeProvider)
-    {
-        _offset = offset;
-        _round = TimeSpan.FromSeconds(config.TimeboostRoundDurationSeconds);
-        _auctionClosing = TimeSpan.FromSeconds(config.TimeboostAuctionClosingWindowSeconds);
-        TimeProvider = timeProvider;
-    }
+    public TimeProvider TimeProvider { get; } = timeProvider;
 
     public ulong RoundNumber() => RoundNumberAt(TimeProvider.GetUtcNow().UtcDateTime);
 
-    public ulong RoundNumberAt(DateTime now)
-    {
-        TimeSpan elapsed = now - _offset;
-        if (elapsed < TimeSpan.Zero)
-            return 0;
-        return (ulong)(elapsed / _round);
-    }
-
     public TimeSpan TimeTilNextRound() => TimeTilNextRoundAt(TimeProvider.GetUtcNow().UtcDateTime);
 
-    public TimeSpan TimeTilNextRoundAt(DateTime now)
+    private ulong RoundNumberAt(DateTime now)
+    {
+        TimeSpan elapsed = now - offset;
+        return elapsed < TimeSpan.Zero ? 0 : (ulong)(elapsed / _round);
+    }
+
+    private TimeSpan TimeTilNextRoundAt(DateTime now)
     {
         ulong roundNum = RoundNumberAt(now);
-        DateTime nextRoundStart = _offset + _round * (long)(roundNum + 1);
+        DateTime nextRoundStart = offset + _round * (long)(roundNum + 1);
         return nextRoundStart - now;
     }
 
