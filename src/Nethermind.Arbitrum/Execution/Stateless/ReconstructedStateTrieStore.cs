@@ -134,8 +134,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         TreePath path,
         Stack<(Hash256? address, TreePath path, Hash256 hash)> stack)
     {
-        SpanSource span = new SpanSource(rlp);
-        ValueRlpStream stream = new ValueRlpStream(span);
+        ValueRlpStream stream = new ValueRlpStream(rlp);
         stream.ReadSequenceLength();
         int items = stream.PeekNumberOfItemsRemaining(null, 3);
 
