@@ -10,8 +10,5 @@ public interface IExpressLaneService
 
 public class DisabledExpressLaneService : IExpressLaneService
 {
-    public Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber)
-    {
-        return Task.CompletedTask;
-    }
+    public Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber) => Task.CompletedTask;
 }

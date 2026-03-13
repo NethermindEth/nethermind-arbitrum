@@ -15,16 +15,15 @@ public sealed class ExpressLaneTracker(
     IBlockTree blockTree,
     IBlockchainBridgeFactory bridgeFactory,
     IArbitrumConfig arbitrumConfig,
-    ILogManager logManager,
-    TimeSpan? pollInterval = null) : IExpressLaneTracker, IDisposable
+    ILogManager logManager) : IExpressLaneTracker, IDisposable
 {
     // resolvedRounds() function selector = keccak256("resolvedRounds()")[:4] = 0x0d253fbe
     private static readonly byte[] ResolvedRoundsSelector = [0x0d, 0x25, 0x3f, 0xbe];
 
-    private readonly Address _auctionContractAddress = new(arbitrumConfig.TimeboostAuctionContractAddress);
-    private readonly IBlockchainBridge _bridge = bridgeFactory.CreateBlockchainBridge();
-    private readonly TimeSpan _pollInterval = pollInterval ?? TimeSpan.FromSeconds(1);
     private readonly ILogger _logger = logManager.GetClassLogger<ExpressLaneTracker>();
+    private readonly Address _auctionContractAddress = new(arbitrumConfig.TimeboostAuctionContractAddress);
+    private readonly TimeSpan _pollInterval = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostAuctionContractPollIntervalMs);
+    private readonly IBlockchainBridge _bridge = bridgeFactory.CreateBlockchainBridge();
 
     private readonly Lock _roundLock = new();
     private readonly Dictionary<ulong, Address> _roundControllers = new();

@@ -105,18 +105,19 @@ namespace Nethermind.Arbitrum.Modules
                 && !_senderWhitelist.Contains(tx.SenderAddress))
                 return ResultWrapper<Hash256>.Fail("transaction sender is not on the whitelist", ErrorCodes.TransactionRejected);
 
-            using CancellationTokenSource cts = new(_queueTimeoutMs);
-
             SequencerStateSnapshot state = _sequencerState.Current;
             switch (state.Mode)
             {
                 case SequencerMode.Active:
-                    return await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, cts.Token));
+                    return await _transactionQueue.EnqueueAsync(new TxQueueItem(tx, TimeSpan.FromMilliseconds(_queueTimeoutMs)));
                 case SequencerMode.Forwarding:
                     if (state.Forwarder is null)
                         return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 
-                    return await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, tx.Hash!, cts.Token);
+                    using (CancellationTokenSource cts = new(_queueTimeoutMs))
+                    {
+                        return await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, tx.Hash!, cts.Token);
+                    }
                 default:
                     return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
             }

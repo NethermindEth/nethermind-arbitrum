@@ -28,7 +28,7 @@ public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expres
     /// Enqueues an item and returns a task that completes when the tx is included in a block
     /// or rejected.
     /// </summary>
-    public async Task<ResultWrapper<Hash256>> EnqueueAsync(TxQueueItem item)
+    public async Task<ResultWrapper<Hash256>> EnqueueAsync(TxQueueItem item, bool awaitForCompletion = true)
     {
         if (item.RlpEncoded.Length > config.SequencerMaxTxDataSize)
             return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {config.SequencerMaxTxDataSize}", ErrorCodes.TransactionRejected);
@@ -45,31 +45,11 @@ public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expres
             return ResultWrapper<Hash256>.Fail("Transaction queue timeout", ErrorCodes.TransactionRejected);
         }
 
-        if (config.SequencerAwaitTxResult)
+        if (awaitForCompletion && config.SequencerAwaitTxResult)
         {
             Exception? err = await item.ResultChannel.Task;
             if (err is not null)
                 return ResultWrapper<Hash256>.Fail(err.Message, ErrorCodes.TransactionRejected);
-        }
-
-        return ResultWrapper<Hash256>.Success(item.Tx.Hash!);
-    }
-
-    /// <summary>
-    /// Writes an item to the channel without awaiting block inclusion.
-    /// </summary>
-    public async Task<ResultWrapper<Hash256>> WriteChannelAsync(TxQueueItem item)
-    {
-        if (item.RlpEncoded.Length > config.SequencerMaxTxDataSize)
-            return ResultWrapper<Hash256>.Fail($"Transaction data size {item.RlpEncoded.Length} exceeds maximum {config.SequencerMaxTxDataSize}", ErrorCodes.TransactionRejected);
-
-        try
-        {
-            await _channel.Writer.WriteAsync(item, item.CancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            return ResultWrapper<Hash256>.Fail("Transaction queue timeout", ErrorCodes.TransactionRejected);
         }
 
         return ResultWrapper<Hash256>.Success(item.Tx.Hash!);

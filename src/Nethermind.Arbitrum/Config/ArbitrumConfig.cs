@@ -28,6 +28,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public int TimeboostExpressLaneAdvantageMs { get; set; } = 200;
     public ulong TimeboostQueueTimeoutInBlocks { get; set; } = 5;
     public string TimeboostAuctionContractAddress { get; set; } = "";
+    public int TimeboostAuctionContractPollIntervalMs { get; set; } = 1000;
     public string TimeboostAuctioneerAddress { get; set; } = "";
     public int TimeboostEarlySubmissionGraceMs { get; set; } = 2000;
     public int TimeboostRoundDurationSeconds { get; set; } = 60;

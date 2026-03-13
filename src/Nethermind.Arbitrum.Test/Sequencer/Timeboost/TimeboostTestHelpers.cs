@@ -86,9 +86,8 @@ internal static class TimeboostTestHelpers
             roundTiming,
             blockTree,
             bridgeFactory,
-            new ArbitrumConfig { TimeboostAuctionContractAddress = TestAuctionContract.ToString() },
-            LimboLogs.Instance,
-            pollInterval: TimeSpan.FromHours(1));
+            new ArbitrumConfig { TimeboostAuctionContractAddress = TestAuctionContract.ToString(), TimeboostAuctionContractPollIntervalMs = 3_600_000 },
+            LimboLogs.Instance);
     }
 
     // Signs an ExpressLaneSubmission; returns a 65-byte array: r (32) | s (32) | v (recoveryId + 27).

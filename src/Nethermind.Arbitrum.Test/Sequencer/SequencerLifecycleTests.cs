@@ -194,7 +194,6 @@ public class SequencerLifecycleTests
     }
 
     [Test]
-    [Ignore("Flacky")]
     public async Task HandleInactive_ForwardsAndRequeues_OnNoSequencer()
     {
         using TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();

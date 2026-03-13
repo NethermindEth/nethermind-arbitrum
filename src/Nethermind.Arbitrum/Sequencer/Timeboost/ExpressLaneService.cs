@@ -45,8 +45,7 @@ public sealed class ExpressLaneService(
                 throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
 
             TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
-            using CancellationTokenSource cts = new(timeout, roundTimingInfo.TimeProvider);
-            ResultWrapper<Hash256> result = await PublishAsync(submission.Transaction, currentBlockNumber, cts.Token);
+            ResultWrapper<Hash256> result = await PublishAsync(submission.Transaction, currentBlockNumber, timeout);
             if (result.Result != Result.Success)
                 throw new InvalidOperationException(result.Result.Error ?? "Failed to publish DontCareSequence tx");
 
@@ -131,9 +130,7 @@ public sealed class ExpressLaneService(
                     break;
 
                 TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
-                using CancellationTokenSource cts = new(timeout, roundTimingInfo.TimeProvider);
-
-                ResultWrapper<Hash256> result = await PublishAsync(tx, currentBlockNumber, cts.Token);
+                ResultWrapper<Hash256> result = await PublishAsync(tx, currentBlockNumber, timeout);
                 if (result.Result != Result.Success)
                 {
                     bool isNearRoundBoundary = timeout < TimeSpan.FromSeconds(1);
@@ -194,10 +191,10 @@ public sealed class ExpressLaneService(
             throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRoundAfterWait} after waiting");
     }
 
-    private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ulong currentBlockNumber, CancellationToken ct)
+    private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ulong currentBlockNumber, TimeSpan timeout)
     {
-        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, ct, currentBlockNumber);
-        return await transactionQueue.WriteChannelAsync(item);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, timeout, currentBlockNumber);
+        return await transactionQueue.EnqueueAsync(item, awaitForCompletion: false);
     }
 
     private static TimeSpan TimeSpanMin(TimeSpan a, TimeSpan b) => a < b ? a : b;

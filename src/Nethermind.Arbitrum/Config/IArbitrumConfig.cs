@@ -68,6 +68,9 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Address of the ExpressLaneAuction contract", DefaultValue = "")]
     string TimeboostAuctionContractAddress { get; set; }
 
+    [ConfigItem(Description = "Auction contract winning controller poll interval in milliseconds", DefaultValue = "1000")]
+    int TimeboostAuctionContractPollIntervalMs { get; set; }
+
     [ConfigItem(Description = "Address of the Timeboost autonomous auctioneer", DefaultValue = "")]
     string TimeboostAuctioneerAddress { get; set; }
 

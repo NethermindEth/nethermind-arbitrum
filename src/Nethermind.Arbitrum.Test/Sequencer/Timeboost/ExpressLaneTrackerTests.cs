@@ -177,8 +177,7 @@ public class ExpressLaneTrackerTests
             TimeboostTestHelpers.MakeRoundTiming(currentRound),
             blockTree,
             bridgeFactory,
-            new ArbitrumConfig { TimeboostAuctionContractAddress = TestItem.AddressD.ToString() },
-            LimboLogs.Instance,
-            pollInterval: TimeSpan.FromHours(1));
+            new ArbitrumConfig { TimeboostAuctionContractAddress = TestItem.AddressD.ToString(), TimeboostAuctionContractPollIntervalMs = 3_600_000 },
+            LimboLogs.Instance);
     }
 }
