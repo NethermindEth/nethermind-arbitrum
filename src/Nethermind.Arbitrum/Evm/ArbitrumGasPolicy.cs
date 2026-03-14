@@ -267,20 +267,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     }
 
     /// <summary>
-    /// Charges gas for SSTORE write operation (after cold/warm access cost).
-    /// Tracks as StorageGrowth for slot creation, StorageAccess for modification.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ConsumeStorageWrite(ref ArbitrumGasPolicy gas, bool isSlotCreation, IReleaseSpec spec)
-    {
-        if (!EthereumGasPolicy.ConsumeStorageWrite(ref gas._ethereum, isSlotCreation, spec))
-            return false;
-        long cost = isSlotCreation ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
-        gas._accumulated.Increment(isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess, (ulong)cost);
-        return true;
-    }
-
-    /// <summary>
     /// Charges gas for CALL value transfer.
     /// Tracks as Computation resource.
     /// </summary>
@@ -433,6 +419,23 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// The accumulated breakdown from intrinsic gas is preserved for tracking.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ArbitrumGasPolicy CreateAvailableFromIntrinsic(long gasLimit, in ArbitrumGasPolicy intrinsicGas)
-        => intrinsicGas with { _ethereum = EthereumGasPolicy.CreateAvailableFromIntrinsic(gasLimit, in intrinsicGas._ethereum) };
+    public static ArbitrumGasPolicy CreateAvailableFromIntrinsic(long gasLimit, in ArbitrumGasPolicy intrinsicGas, IReleaseSpec spec)
+        => intrinsicGas with { _ethereum = EthereumGasPolicy.CreateAvailableFromIntrinsic(gasLimit, in intrinsicGas._ethereum, spec) };
+
+    /// <summary>
+    /// Consumes state and regular gas for code deposit operations.
+    /// Tracks both components as StorageGrowth since code deposit stores bytecode in the state trie.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool TryConsumeStateAndRegularGas(ref ArbitrumGasPolicy gas, long stateGasCost, long regularGasCost)
+    {
+        if (regularGasCost > 0 && !EthereumGasPolicy.UpdateGas(ref gas._ethereum, regularGasCost))
+            return false;
+        if (stateGasCost > 0 && !EthereumGasPolicy.ConsumeStateGas(ref gas._ethereum, stateGasCost))
+            return false;
+        long totalCost = regularGasCost + stateGasCost;
+        if (totalCost > 0)
+            gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)totalCost);
+        return true;
+    }
 }

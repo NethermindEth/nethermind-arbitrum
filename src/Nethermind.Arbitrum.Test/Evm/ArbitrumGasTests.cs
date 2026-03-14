@@ -162,29 +162,6 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeStorageWrite_SlotCreation_TracksStorageGrowth()
-    {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
-
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.SSet);
-        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.SSet);
-    }
-
-    [Test]
-    public void ConsumeStorageWrite_SlotUpdate_TracksStorageAccess()
-    {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
-
-        long expectedCost = Cancun.Instance.GasCosts.SStoreResetCost;
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be((ulong)expectedCost);
-    }
-
-    [Test]
     public void ConsumeCallValueTransfer_Called_TracksComputation()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
@@ -198,11 +175,16 @@ public class ArbitrumGasPolicyTests
     [Test]
     public void ConsumeNewAccountCreation_Called_TracksStorageGrowth()
     {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
+        // ConsumeNewAccountCreation is the EIP-8037 path for new account gas.
+        // It uses state gas (GasCostOf.NewAccountState) rather than the legacy GasCostOf.NewAccount.
+        // StateReservoir is 0 here, so the full NewAccountState cost spills into regular gas.
+        // The MultiGas tracking still records it as StorageGrowth = GasCostOf.NewAccount.
+        long newAccountStateCost = GasCostOf.NewAccountState;
+        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(newAccountStateCost + 10_000);
 
         ArbitrumGasPolicy.ConsumeNewAccountCreation(ref gas);
 
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.NewAccount);
+        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(10_000);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.NewAccount);
     }
 
@@ -592,24 +574,14 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeStorageWrite_OutOfGas_ReturnsFalse()
-    {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100);
-
-        bool result = ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
-
-        result.Should().BeFalse();
-    }
-
-    [Test]
     public void ApplyRefund_StorageClear_TrackedInMultiGas()
     {
         // When SSTORE clears a slot (non-zero → zero), EIP-3529 provides a refund
         // This refund should be tracked in MultiGas.Refund
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        // Simulate storage write (slot clearing triggers refund calculation at tx end)
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
+        // Simulate storage access cost (as the EVM now charges via UpdateGas)
+        ArbitrumGasPolicy.UpdateGas(ref gas, Cancun.Instance.GasCosts.SStoreResetCost);
 
         // At the transaction end, apply a calculated refund (EIP-3529: SstoreClearsScheduleRefundEIP3529 = 4800)
         const ulong expectedRefund = 4800;
@@ -662,7 +634,7 @@ public class ArbitrumGasPolicyTests
             .TestObject;
 
         ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
-        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas);
+        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas, Cancun.Instance);
 
         // Accumulated breakdown should be preserved
         availableGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);

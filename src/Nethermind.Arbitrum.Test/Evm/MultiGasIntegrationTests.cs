@@ -55,15 +55,15 @@ public class MultiGasIntegrationTests
         ulong gasSpent = (ulong)tracer.GasSpent;
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
-        // SSTORE new slot (cold): StorageAccess = 2100, StorageGrowth = 20000
-        // ColdSloadCostEIP2929 = 2100, SstoreSetGasEIP2200 = 20000
+        // SSTORE new slot (cold): only the cold storage access is tracked as StorageAccess.
+        // ColdSloadCostEIP2929 = 2100. SSet-related costs flow through UpdateGas → Computation.
         gas.Get(ResourceKind.StorageAccess).Should().Be(2100, "SSTORE cold access = ColdSloadCostEIP2929");
-        gas.Get(ResourceKind.StorageGrowth).Should().Be(20000, "SSTORE new slot = SstoreSetGasEIP2200");
+        gas.Get(ResourceKind.StorageGrowth).Should().Be(0, "SSTORE write costs go through UpdateGas → Computation");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 
-        // Computation = Total - StorageAccess - StorageGrowth - HistoryGrowth (invariant)
-        ulong expectedComputation = gasSpent - 2100 - 20000 - 0;
-        gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation = SingleGas - storage dimensions");
+        // Computation = Total - StorageAccess (invariant)
+        ulong expectedComputation = gasSpent - 2100;
+        gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation = SingleGas - StorageAccess");
     }
 
     [Test]
@@ -104,15 +104,15 @@ public class MultiGasIntegrationTests
         ulong gasSpent = (ulong)tracer.GasSpent;
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
-        // SSTORE existing slot (cold): StorageAccess = 2100 + (5000 - 2100) = 5000, StorageGrowth = 0
-        // ColdSloadCostEIP2929 = 2100, SstoreResetGasEIP2200 = 5000
-        gas.Get(ResourceKind.StorageAccess).Should().Be(5000, "SSTORE cold + reset = ColdSloadCost + (ResetGas - ColdSloadCost)");
+        // SSTORE existing slot (cold): only cold storage access is tracked as StorageAccess = 2100.
+        // ColdSloadCostEIP2929 = 2100. SStoreReset cost (5000) flows through UpdateGas → Computation.
+        gas.Get(ResourceKind.StorageAccess).Should().Be(2100, "SSTORE cold access = ColdSloadCostEIP2929");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0, "SSTORE existing slot has no StorageGrowth");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 
-        // Computation = Total - StorageAccess - StorageGrowth - HistoryGrowth (invariant)
-        ulong expectedComputation = gasSpent - 5000 - 0 - 0;
-        gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation = SingleGas - storage dimensions");
+        // Computation = Total - StorageAccess (invariant)
+        ulong expectedComputation = gasSpent - 2100;
+        gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation = SingleGas - StorageAccess");
     }
 
     #endregion
@@ -405,11 +405,11 @@ public class MultiGasIntegrationTests
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
         // Cold accesses: only target (2600) - caller (tx.to) is pre-warmed by EIP-2929
-        // New account creation: 25000 → StorageGrowth (per gas_table.go:431)
+        // New account creation: 25000 goes through UpdateGas (non-EIP-8037 path) → Computation
         // Value transfer: 9000 → Computation (per gas_table.go:440)
         AssertMultiGasBreakdown(gas, gasSpent,
             expectedStorageAccess: GasCostOf.ColdAccountAccess,
-            expectedStorageGrowth: GasCostOf.NewAccount); // 25,000 for a new account
+            expectedStorageGrowth: 0);
     }
 
     [Test]
