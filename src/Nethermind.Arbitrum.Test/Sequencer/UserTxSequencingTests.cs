@@ -237,7 +237,7 @@ public class UserTxSequencingTests
         chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         // Enqueue a delayed message (ETH deposit to AccountB)
-        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(
+        L1IncomingMessage depositMsg = TestL1IncomingMessage.CreateEthDepositMessage(
             TestItem.KeccakA, chain.InitialL1BaseFee, FullChainSimulationAccounts.AccountA.Address,
             FullChainSimulationAccounts.AccountB.Address, 5.Ether);
 

@@ -7,7 +7,6 @@ using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
@@ -240,17 +239,18 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_RegularTxWithController_DelayedBeforeEnqueue()
     {
-        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
-        using ExpressLaneTracker tracker = TimeboostTestHelpers.CreateTracker(currentRound: 5);
-        tracker.ForceSetController(5, TestItem.AddressB);
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, tracker, timeProvider);
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
+            out TestExpressLaneTrackerContext trackerContext,
+            setup: c => { c.SequencerMaxTxQueueSize = 10; c.TimeboostEnabled = true; });
+        await trackerContext.AdvanceLoop(new ResolvedRound(TestItem.AddressB, trackerContext.CurrentRound));
+        TransactionQueue queue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
         TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
 
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
 
         enqueueTask.IsCompleted.Should().BeFalse("regular tx should be delayed when controller exists");
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+        trackerContext.AdvanceTime(TimeSpan.FromMilliseconds(200));
         ResultWrapper<Hash256> result = await enqueueTask;
 
         result.Should().RequestSucceed();
@@ -276,10 +276,11 @@ public class TransactionQueueTests
     [Test]
     public async Task EnqueueAsync_TimeboostedTxWithController_NotDelayed()
     {
-        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
-        using ExpressLaneTracker tracker = TimeboostTestHelpers.CreateTracker(currentRound: 5);
-        tracker.ForceSetController(5, TestItem.AddressB);
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, tracker, timeProvider);
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
+            out TestExpressLaneTrackerContext trackerContext,
+            setup: c => { c.SequencerMaxTxQueueSize = 10; c.TimeboostEnabled = true; });
+        await trackerContext.AdvanceLoop(new ResolvedRound(TestItem.AddressB, trackerContext.CurrentRound));
+        TransactionQueue queue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
         TxQueueItem item = TxQueueItem.CreateTimeboosted(Build.A.Transaction.TestObject, blockStamp: 1);
 
         Task<ResultWrapper<Hash256>> enqueueTask = queue.EnqueueAsync(item);
@@ -292,10 +293,11 @@ public class TransactionQueueTests
     [Test]
     public async Task DrainBatch_TimeboostedAfterRegularWithController_TimeboostedFirst()
     {
-        ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
-        using ExpressLaneTracker tracker = TimeboostTestHelpers.CreateTracker(currentRound: 5);
-        tracker.ForceSetController(5, TestItem.AddressB);
-        TransactionQueue queue = new(new ArbitrumConfig { SequencerMaxTxQueueSize = 10, TimeboostEnabled = true }, tracker, timeProvider);
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
+            out TestExpressLaneTrackerContext trackerContext,
+            setup: c => { c.SequencerMaxTxQueueSize = 10; c.TimeboostEnabled = true; });
+        await trackerContext.AdvanceLoop(new ResolvedRound(TestItem.AddressB, trackerContext.CurrentRound));
+        TransactionQueue queue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
 
         TxQueueItem regularItem = TxQueueItem.CreateRegular(Build.A.Transaction.WithNonce(0).TestObject);
         TxQueueItem expressItem = TxQueueItem.CreateTimeboosted(Build.A.Transaction.WithNonce(1).TestObject, blockStamp: 1);
@@ -303,7 +305,7 @@ public class TransactionQueueTests
         Task<ResultWrapper<Hash256>> regularTask = queue.EnqueueAsync(regularItem);
         await queue.EnqueueAsync(expressItem);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+        trackerContext.AdvanceTime(TimeSpan.FromMilliseconds(200));
         await regularTask;
 
         List<TxQueueItem> drained = queue.DrainBatch();

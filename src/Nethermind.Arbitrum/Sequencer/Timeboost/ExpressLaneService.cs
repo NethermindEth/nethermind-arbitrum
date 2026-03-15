@@ -23,8 +23,8 @@ public sealed class ExpressLaneService(
     ChainSpec chainSpec,
     ILogManager logManager) : IExpressLaneService
 {
-    private const uint MaxFutureSequenceDistance = 1000;
-    private const ulong DontCareSequenceNumber = ulong.MaxValue;
+    public const uint MaxFutureSequenceDistance = 1000;
+    public const ulong DontCareSequenceNumber = ulong.MaxValue;
 
     private readonly ILogger _logger = logManager.GetClassLogger<ExpressLaneService>();
     private readonly int _maxTxDataSize = arbitrumConfig.SequencerMaxTxDataSize;

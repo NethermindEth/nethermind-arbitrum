@@ -17,7 +17,7 @@ public interface IExpressLaneTracker
 
     event EventHandler<RoundControllerResolvedEventArgs>? ControllerResolved;
 
-    void Start(CancellationToken ct);
+    Task Start(CancellationToken ct);
 }
 
 public sealed class RoundControllerResolvedEventArgs : EventArgs
@@ -42,5 +42,5 @@ public sealed class DisabledExpressLaneTracker : IExpressLaneTracker
 
     public Address AuctionContractAddress => Address.Zero;
 
-    public void Start(CancellationToken ct) { }
+    public Task Start(CancellationToken ct) => Task.CompletedTask;
 }

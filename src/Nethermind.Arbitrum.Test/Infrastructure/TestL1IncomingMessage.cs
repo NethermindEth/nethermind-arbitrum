@@ -9,7 +9,7 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
-public static class SequencerTestHelpers
+public static class TestL1IncomingMessage
 {
     public static L1IncomingMessage CreateEthDepositMessage(
         Hash256 requestId, UInt256 l1BaseFee, Address sender, Address receiver, UInt256 value)
@@ -85,5 +85,4 @@ public static class SequencerTestHelpers
 
         return new L1IncomingMessage(header, l2Msg, null, null);
     }
-
 }

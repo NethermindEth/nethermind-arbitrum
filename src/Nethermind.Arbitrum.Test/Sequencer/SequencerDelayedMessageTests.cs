@@ -10,7 +10,7 @@ using Nethermind.Core.Test.Builders;
 namespace Nethermind.Arbitrum.Test.Sequencer;
 
 [TestFixture]
-public class DelayedMessageSequencingTests
+public class SequencerDelayedMessageTests
 {
     [Test]
     public void StartSequencing_WithDelayedDeposit_ProducesBlockWithDeposit()
@@ -20,7 +20,7 @@ public class DelayedMessageSequencingTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(
+        L1IncomingMessage depositMsg = TestL1IncomingMessage.CreateEthDepositMessage(
             TestItem.KeccakA, chain.InitialL1BaseFee,
             FullChainSimulationAccounts.AccountA.Address, FullChainSimulationAccounts.AccountB.Address, 1.Ether);
 
@@ -53,7 +53,7 @@ public class DelayedMessageSequencingTests
             .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
             .Build();
 
-        L1IncomingMessage retryableMsg = SequencerTestHelpers.CreateSubmitRetryableMessage(
+        L1IncomingMessage retryableMsg = TestL1IncomingMessage.CreateSubmitRetryableMessage(
             TestItem.KeccakA, chain.InitialL1BaseFee,
             FullChainSimulationAccounts.AccountA.Address, FullChainSimulationAccounts.AccountB.Address,
             FullChainSimulationAccounts.AccountC.Address,

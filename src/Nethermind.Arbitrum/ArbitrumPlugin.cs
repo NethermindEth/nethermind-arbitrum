@@ -358,6 +358,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             if (arbitrumConfig.TimeboostEnabled)
                 builder
+                    .AddSingleton<IAuctionContract, AuctionContract>()
                     .AddSingleton<IExpressLaneTracker, ExpressLaneTracker>()
                     .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
                     .AddSingleton<IExpressLaneService, ExpressLaneService>();

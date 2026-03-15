@@ -15,7 +15,7 @@ using Nethermind.Serialization.Rlp;
 namespace Nethermind.Arbitrum.Test.Sequencer;
 
 [TestFixture]
-public class ErrorRecoveryTests
+public class SequencerErrorRecoveryTests
 {
     [Test]
     public async Task EndSequencing_NonRetryError_ReturnsErrorToCallers()

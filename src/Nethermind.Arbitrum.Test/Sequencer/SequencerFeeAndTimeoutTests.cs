@@ -17,7 +17,7 @@ using Nethermind.Serialization.Rlp;
 namespace Nethermind.Arbitrum.Test.Sequencer;
 
 [TestFixture]
-public class FeeAndTimeoutTests
+public class SequencerFeeAndTimeoutTests
 {
     [Test]
     public void Tx_GasFeeCapBelowBaseFee_RejectedAtDequeue()

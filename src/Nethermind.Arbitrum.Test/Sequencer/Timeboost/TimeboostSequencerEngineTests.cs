@@ -8,7 +8,6 @@ using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Serialization.Rlp;
@@ -459,7 +458,7 @@ public class TimeboostSequencerEngineTests
         chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
 
         // Enqueue delayed message
-        L1IncomingMessage depositMsg = SequencerTestHelpers.CreateEthDepositMessage(
+        L1IncomingMessage depositMsg = TestL1IncomingMessage.CreateEthDepositMessage(
             TestItem.KeccakA, chain.InitialL1BaseFee, FullChainSimulationAccounts.AccountA.Address,
             FullChainSimulationAccounts.AccountB.Address, 5.Ether);
 

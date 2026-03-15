@@ -3,15 +3,37 @@
 
 using System.Net;
 using System.Net.Sockets;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Core;
+using Nethermind.Core.Test.Builders;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class TestSequencer
 {
+    public static readonly Address TestAuctionContract = TestItem.AddressF;
+
+    public static ArbitrumConfig DefaultConfig(Action<ArbitrumConfig>? setup = null)
+    {
+        ArbitrumConfig config = new()
+        {
+            SequencerMaxTxDataSize = 95_000,
+            SequencerQueueTimeoutMs = 12000,
+            TimeboostRoundDurationSeconds = 60,
+            TimeboostAuctionClosingWindowSeconds = 15,
+            TimeboostAuctionContractPollIntervalMs = 100,
+            TimeboostAuctionContractAddress = TestAuctionContract.ToString(),
+            TimeboostEarlySubmissionGraceMs = 2000,
+        };
+
+        setup?.Invoke(config);
+
+        return config;
+    }
+
     public static SequencedMsg ExpectedSequencedMessage(BlockHeader header, StartSequencingEnvironment env, byte[][] transactionRlps, byte[] timeboostBlockMetadata)
     {
         MessageWithMetadata messageWithMetadata =

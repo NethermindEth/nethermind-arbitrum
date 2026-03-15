@@ -1,29 +1,20 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Buffers.Binary;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Blockchain;
 using Nethermind.Core;
-using Nethermind.Facade;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
 public sealed class ExpressLaneTracker(
     IRoundTimingInfo roundTimingInfo,
-    IBlockTree blockTree,
-    IBlockchainBridgeFactory bridgeFactory,
+    IAuctionContract auctionContract,
     IArbitrumConfig arbitrumConfig,
     ILogManager logManager) : IExpressLaneTracker, IDisposable
 {
-    // resolvedRounds() function selector = keccak256("resolvedRounds()")[:4] = 0x0d253fbe
-    private static readonly byte[] ResolvedRoundsSelector = [0x0d, 0x25, 0x3f, 0xbe];
-
     private readonly ILogger _logger = logManager.GetClassLogger<ExpressLaneTracker>();
-    private readonly Address _auctionContractAddress = new(arbitrumConfig.TimeboostAuctionContractAddress);
     private readonly TimeSpan _pollInterval = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostAuctionContractPollIntervalMs);
-    private readonly IBlockchainBridge _bridge = bridgeFactory.CreateBlockchainBridge();
 
     private readonly Lock _roundLock = new();
     private readonly Dictionary<ulong, Address> _roundControllers = new();
@@ -33,12 +24,22 @@ public sealed class ExpressLaneTracker(
 
     public event EventHandler<RoundControllerResolvedEventArgs>? ControllerResolved;
 
-    public Address AuctionContractAddress => _auctionContractAddress;
+    public Address AuctionContractAddress => auctionContract.Address;
 
-    public void Start(CancellationToken ct)
+    public Task Start(CancellationToken ct)
     {
+        if (_pollingTask is not null)
+            return Task.CompletedTask;
+
+        TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _pollingTask = Task.Run(() => PollContractLoopAsync(_cts.Token));
+        _pollingTask = Task.Run(async () =>
+        {
+            started.TrySetResult();
+            await PollContractLoopAsync(_cts.Token);
+        });
+
+        return started.Task;
     }
 
     public Address? GetController(ulong round)
@@ -65,28 +66,13 @@ public sealed class ExpressLaneTracker(
         _cts?.Dispose();
     }
 
-    internal void ForceSetController(ulong round, Address controller)
-    {
-        lock (_roundLock)
-            _roundControllers[round] = controller;
-    }
-
-    internal bool HasControllerForRound(ulong round)
-    {
-        lock (_roundLock)
-            return _roundControllers.ContainsKey(round);
-    }
-
-    internal void TriggerPoll() => PollResolvedRounds();
-
     private async Task PollContractLoopAsync(CancellationToken ct)
     {
-        using PeriodicTimer timer = new(_pollInterval);
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                await timer.WaitForNextTickAsync(ct);
+                await Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
                 PollResolvedRounds();
             }
             catch (OperationCanceledException)
@@ -103,38 +89,17 @@ public sealed class ExpressLaneTracker(
 
     private void PollResolvedRounds()
     {
-        BlockHeader? head = blockTree.Head?.Header;
-        if (head is null)
-            return;
+        ResolvedRound resolved = auctionContract.ResolveRounds();
 
-        Transaction callTx = new()
-        {
-            To = _auctionContractAddress,
-            Data = ResolvedRoundsSelector,
-            GasLimit = 200_000,
-            SenderAddress = Address.Zero,
-        };
-
-        CallOutput result = _bridge.Call(head, callTx);
-        if (result.Error is not null || result.ExecutionReverted)
-            return;
-
-        byte[] output = result.OutputData;
-        if (output.Length < 128)
-            return;
-
-        Address controller = new(output.AsSpan(12, 20));
-        ulong round = BinaryPrimitives.ReadUInt64BigEndian(output.AsSpan(56, 8));
-
-        if (controller == Address.Zero || round == 0)
+        if (resolved.Controller == Address.Zero || resolved.Round == 0)
             return;
 
         ulong currentRound = roundTimingInfo.RoundNumber();
         bool isNewDiscovery;
         lock (_roundLock)
         {
-            isNewDiscovery = !_roundControllers.ContainsKey(round);
-            _roundControllers[round] = controller;
+            isNewDiscovery = !_roundControllers.ContainsKey(resolved.Round);
+            _roundControllers[resolved.Round] = resolved.Controller;
 
             // Clean up rounds older than 2 behind current
             if (currentRound > 2)
@@ -155,9 +120,9 @@ public sealed class ExpressLaneTracker(
         }
 
         if (isNewDiscovery)
-            ControllerResolved?.Invoke(this, new RoundControllerResolvedEventArgs { Round = round, Controller = controller });
+            ControllerResolved?.Invoke(this, new RoundControllerResolvedEventArgs { Round = resolved.Round, Controller = resolved.Controller });
 
         if (_logger.IsDebug)
-            _logger.Debug($"ExpressLaneTracker: round {round} controller = {controller}");
+            _logger.Debug($"ExpressLaneTracker: round {resolved.Round} controller = {resolved.Controller}");
     }
 }
