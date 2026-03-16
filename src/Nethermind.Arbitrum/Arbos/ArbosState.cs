@@ -9,6 +9,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos;
@@ -32,6 +33,7 @@ public class ArbosState
         AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
         NativeTokenOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace));
+        TransactionFilterers = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
         SendMerkleAccumulator = new MerkleAccumulator(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
         Programs = new StylusPrograms(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
         Features = new Features(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
@@ -41,6 +43,8 @@ public class ArbosState
         GenesisBlockNum = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.GenesisBlockNumOffset);
         InfraFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
         NativeTokenEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
+        TransactionFilteringEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.TransactionFilteringEnabledTimeOffset);
+        FilteredFundsRecipient = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.FilteredFundsRecipientOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
@@ -64,9 +68,15 @@ public class ArbosState
     public ArbosStorageBackedULong GenesisBlockNum { get; }
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
     public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
+    public AddressSet TransactionFilterers { get; }
+    public ArbosStorageBackedULong TransactionFilteringEnabledTime { get; }
+    public ArbosStorageBackedAddress FilteredFundsRecipient { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
+        => UpgradeArbosVersionWithLog(targetVersion, isFirstTime, worldState, genesisSpec, null);
+
+    public void UpgradeArbosVersionWithLog(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec, GenesisDebugLogger? debugLog)
     {
         while (CurrentArbosVersion < targetVersion)
         {
@@ -209,6 +219,32 @@ public class ArbosState
                         // No state changes needed
                         break;
 
+                    // Versions 52-59 are reserved for Orbit chains
+                    case 52:
+                    case 53:
+                    case 54:
+                    case 55:
+                    case 56:
+                    case 57:
+                    case 58:
+                    case 59:
+                        break;
+
+                    case 60: // StylusContractLimit + TransactionFiltering + MultiGasConstraints
+                        debugLog?.LogStep("v60_a_before_params");
+                        StylusParams stylusParamsV60 = Programs.GetParams();
+                        debugLog?.LogStep("v60_b_after_get_params");
+                        stylusParamsV60.UpgradeToArbosVersion(nextArbosVersion);
+                        debugLog?.LogStep("v60_c_after_upgrade_params");
+                        stylusParamsV60.Save();
+                        debugLog?.LogStep("v60_d_after_save_params");
+                        // Initialize TransactionFilterers storage (matches Nitro's ArbosVersion_TransactionFiltering)
+                        AddressSet.Initialize(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
+                        debugLog?.LogStep("v60_e_after_txfilter_init");
+                        // filteredFundsRecipient defaults to zero address (falls back to networkFeeAccount)
+                        // No explicit initialization needed - uninitialized storage reads as zero
+                        break;
+
                     default:
                         throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
                 }
@@ -219,19 +255,32 @@ public class ArbosState
                 throw;
             }
 
+            if (nextArbosVersion == 1)
+            {
+                debugLog?.LogStepWithValue("precompile_map_size", "count", Precompiles.PrecompileMinArbOSVersions.Count);
+                foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
+                {
+                    debugLog?.LogStepWithValue($"precompile_entry_{address}", "minVersion", minVersion);
+                }
+            }
             foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
             {
                 if (minVersion == nextArbosVersion)
                 {
+                    debugLog?.LogStepWithValue($"installing_precompile_{address}", "version", minVersion);
                     worldState.CreateAccountIfNotExists(address, UInt256.Zero);
                     worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, genesisSpec, true);
                 }
             }
+            debugLog?.LogStep("v60_g_after_precompiles");
 
             CurrentArbosVersion = nextArbosVersion;
             Programs.ArbosVersion = nextArbosVersion;
             L1PricingState.CurrentArbosVersion = nextArbosVersion;
             L2PricingState.CurrentArbosVersion = nextArbosVersion;
+
+            // Log state after each version upgrade for comparison debugging
+            debugLog?.LogStepWithValue($"upgrade_to_v{nextArbosVersion}", "version", nextArbosVersion);
         }
 
         if (isFirstTime && targetVersion >= ArbosVersion.Six)
@@ -272,6 +321,14 @@ public class ArbosState
         if (arbosVersion == ArbosVersion.Zero)
         {
             throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
+        }
+
+        // Create FilteredTransactionsState storage if version >= TransactionFiltering (60)
+        // This matches Nitro's openFilteredTransactions() behavior which creates a separate
+        // storage account at FilteredTransactionsStateAddress
+        if (arbosVersion >= ArbosVersion.TransactionFiltering)
+        {
+            _ = new FilteredTransactionsState(worldState, burner);
         }
 
         return new ArbosState(backingStorage, arbosVersion, logger);

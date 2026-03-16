@@ -152,12 +152,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             // Resolve optional caches not managed by IClearableCache
             IBlockhashCache? blockhashCache = _api.Context.ResolveOptional<IBlockhashCache>();
             PreBlockCaches? preBlockCaches = _api.Context.ResolveOptional<PreBlockCaches>();
+            IArbOSVersionOverride arbosVersionOverride = _api.Context.Resolve<IArbOSVersionOverride>();
 
             IArbitrumDebugRpcModule debugModule = new ArbitrumDebugRpcModule(
                 dbProvider,
                 resettableBlockTree,
                 cacheAwareServices,
                 _api.LogManager,
+                arbosVersionOverride,
                 blockhashCache,
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);
@@ -237,6 +239,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
         builder
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
+            .AddSingleton<IArbOSVersionOverride, ArbOSVersionOverride>()
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
             .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()

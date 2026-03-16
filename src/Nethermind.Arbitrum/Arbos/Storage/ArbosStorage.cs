@@ -32,6 +32,32 @@ public class ArbosStorage
         _burner = burner ?? throw new ArgumentNullException(nameof(burner));
         _account = accountAddress ?? throw new ArgumentNullException(nameof(accountAddress));
         _storageKey = storageKey ?? []; // TODO: Fix to be ValueHash256
+
+        // Match Nitro's KVStorage behavior (storage/storage.go:73):
+        // Set nonce to 1 to ensure the account is not treated as empty.
+        // This marks the account as "touched" which affects state root computation.
+        // Only do this for root storage (empty storageKey), not sub-storages.
+        if (storageKey is null or { Length: 0 })
+        {
+            Execution.BlockDebugLogger.LogValueStatic("arbos_storage_account", _account);
+            Execution.BlockDebugLogger.LogValueStatic("arbos_storage_nonce_before", _db.GetNonce(_account));
+
+            // Geth's SetNonce creates the account if it doesn't exist.
+            // Nethermind's SetNonce throws if account is null, so we must create first.
+            // Use CreateAccountIfNotExists with nonce=1 to match Geth's behavior.
+            if (!_db.AccountExists(_account))
+            {
+                _db.CreateAccount(_account, UInt256.Zero, UInt256.One);
+            }
+            else
+            {
+                _db.SetNonce(_account, UInt256.One);
+            }
+
+            Execution.BlockDebugLogger.LogValueStatic("arbos_storage_nonce_after_set", _db.GetNonce(_account));
+
+            Execution.BlockDebugLogger.LogValueStatic("arbos_storage_force_touch_done", _account);
+        }
     }
 
     public IBurner Burner => _burner;
