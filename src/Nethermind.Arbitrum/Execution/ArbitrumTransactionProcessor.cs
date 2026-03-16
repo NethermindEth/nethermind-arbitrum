@@ -115,12 +115,6 @@ namespace Nethermind.Arbitrum.Execution
             ExecutionOptions filteredOpts = opts & ~(ExecutionOptions.Restore | ExecutionOptions.Commit);
             TransactionResult evmResult = base.Execute(tx, tracer, filteredOpts);
 
-            if (!evmResult)
-            {
-                Console.WriteLine($"FAIL!!: {evmResult}");
-                Console.WriteLine($"BlockNumber: {VirtualMachine.BlockExecutionContext.Number}, TxType: {TxExecContext.TopLevelTxType}");
-            }
-
             // Post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)
             {
