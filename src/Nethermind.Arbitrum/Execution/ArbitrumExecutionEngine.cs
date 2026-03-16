@@ -6,6 +6,7 @@ using System.Text.Json;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
@@ -15,6 +16,7 @@ using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Int256;
 using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
@@ -22,6 +24,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -37,6 +40,7 @@ public sealed class ArbitrumExecutionEngine(
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
     IArbitrumConfig arbitrumConfig,
+    IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     ArbitrumBlockFactory arbitrumBlockFactory,
     IArbitrumSequencerEngine sequencerEngine,
     IExpressLaneService expressLaneService,
@@ -46,8 +50,6 @@ public sealed class ArbitrumExecutionEngine(
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
-
-    public IBlockTree BlockTree { get; } = blockTree;
 
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
 
@@ -129,7 +131,7 @@ public sealed class ArbitrumExecutionEngine(
             if (blockNumberResult.Result != Result.Success)
                 return Task.FromResult(ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Unknown error converting message index"));
 
-            BlockHeader? blockHeader = BlockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
             if (blockHeader == null)
                 return Task.FromResult(ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data)));
 
@@ -153,7 +155,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public Task<ResultWrapper<ulong>> HeadMessageIndexAsync()
     {
-        BlockHeader? header = BlockTree.FindLatestHeader();
+        BlockHeader? header = blockTree.FindLatestHeader();
 
         return header is null
             ? Task.FromResult(ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError))
@@ -289,7 +291,7 @@ public sealed class ArbitrumExecutionEngine(
                 return Task.FromResult(ResultWrapper<ulong>.Fail(
                     blockNumberResult.Result.Error ?? "Failed to convert message index to block number"));
 
-            BlockHeader? blockHeader = BlockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
             if (blockHeader == null)
                 return Task.FromResult(ResultWrapper<ulong>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data)));
 
@@ -403,7 +405,7 @@ public sealed class ArbitrumExecutionEngine(
             AuctionContractAddress = rpcSubmission.AuctionContractAddress
         };
 
-        ulong currentBlock = (ulong)BlockTree.Head!.Header.Number;
+        ulong currentBlock = (ulong)blockTree.Head!.Header.Number;
 
         try
         {
@@ -443,6 +445,79 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
+    public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+    {
+        long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
+        if (blockNumber == 0)
+        {
+            // Cannot generate witness for genesis block as the block itself does not contain any transaction
+            // responsible for the state setup. It is the weak subjectivity starting point to trust.
+            return ResultWrapper<RecordResult>.Fail($"Cannot generate witness for genesis block");
+        }
+
+        BlockHeader? parent = blockTree.FindHeader(blockNumber - 1);
+        if (parent is null)
+        {
+            return ResultWrapper<RecordResult>.Fail($"Unable to find parent for block {blockNumber}");
+        }
+
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+
+        using (witness)
+        {
+            if (builtBlock.Hash is null)
+                return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
+
+            TaskCompletionSource<Hash256> blockAddedTcs = new();
+
+            void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
+            {
+                if (e.Block.Number == blockNumber)
+                    blockAddedTcs.TrySetResult(e.Block.Hash!);
+            }
+
+            blockTree.BlockAddedToMain += OnBlockAddedToMain;
+
+            try
+            {
+                // Check immediately in case the block was committed before we subscribed
+                Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+                if (canonicalHash is null)
+                {
+                    using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+                    canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
+                }
+
+                if (canonicalHash != builtBlock.Hash)
+                    return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+                RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+                return ResultWrapper<RecordResult>.Success(result);
+            }
+            catch (OperationCanceledException)
+            {
+                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+            }
+            finally
+            {
+                blockTree.BlockAddedToMain -= OnBlockAddedToMain;
+            }
+        }
+    }
+
     private Hash256 GetSendRootFromBlock(Block block)
     {
         ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
@@ -472,7 +547,7 @@ public sealed class ArbitrumExecutionEngine(
     private ResultWrapper<MessageResult> HandleInitMessageFromDigest(DigestMessageParameters parameters)
     {
         ResultWrapper<MessageResult>? existingGenesisResult = TryGetExistingGenesisResult(
-            $"Genesis already initialized, returning existing hash: {BlockTree.Genesis?.Hash}");
+            $"Genesis already initialized, returning existing hash: {blockTree.Genesis?.Hash}");
         if (existingGenesisResult is not null)
             return existingGenesisResult;
 
@@ -527,7 +602,7 @@ public sealed class ArbitrumExecutionEngine(
 
     private ResultWrapper<MessageResult>? TryGetExistingGenesisResult(string debugMessage)
     {
-        BlockHeader? existingGenesis = BlockTree.Genesis;
+        BlockHeader? existingGenesis = blockTree.Genesis;
         if (existingGenesis is null)
             return null;
 

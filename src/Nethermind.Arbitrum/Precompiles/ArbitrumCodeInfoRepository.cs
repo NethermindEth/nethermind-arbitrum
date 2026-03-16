@@ -9,10 +9,11 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
+using Nethermind.Consensus.Stateless;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, IArbosVersionProvider arbosVersionProvider) : ICodeInfoRepository
+public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, IArbosVersionProvider arbosVersionProvider, WitnessGeneratingWorldState? witnessGeneratingWorldState = null) : ICodeInfoRepository
 {
     private readonly Dictionary<Address, CodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
@@ -62,6 +63,11 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
 
             return result;
         }
+
+        // For witness generation, nitro traverses state trie (effectively capturing intermediate nodes) looking for precompile account for retrieving bytecode.
+        // Ensure trie traversal and recording of arbitrum precompile bytecode (0xfe stored) and nothing for ethereum precompiles (as no bytecode stored).
+        // Both arb and eth precompiles account exist but arb's have Arbos.Precompiles.InvalidCodeHash codehash while eth's have Keccak.OfAnEmptyString codehash.
+        witnessGeneratingWorldState?.GetCode(codeSource);
 
         // It's a precompile according to spec
         // Check if it's an Arbitrum precompile we handle

@@ -60,6 +60,12 @@ public record ReorgParameters(
     [property: JsonPropertyName("messageForPrefetch")] MessageWithMetadata[] OldMessages
 );
 
+public record RecordBlockCreationParameters(
+    [property: JsonPropertyName("index")] ulong Index,
+    [property: JsonPropertyName("message")] MessageWithMetadata Message,
+    [property: JsonPropertyName("wasmTargets")] string[] WasmTargets
+);
+
 public record EnqueueDelayedMessagesParams(
     [property: JsonPropertyName("messages")] L1IncomingMessage[] Messages,
     [property: JsonPropertyName("firstMsgIdx")] ulong FirstMsgIdx

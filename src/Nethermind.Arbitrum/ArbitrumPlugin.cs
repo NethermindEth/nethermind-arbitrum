@@ -12,6 +12,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
@@ -27,6 +28,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Arbitrum.Processing;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Consensus.Validators;
+using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
@@ -261,12 +263,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
         builder
             .AddSingleton<IWasmDb, WasmDb>()
-            .AddScoped<IWasmStore>(context =>
-            {
-                IWasmDb wasmDb = context.Resolve<IWasmDb>();
-                return new WasmStore(wasmDb, new StylusTargetConfig(), cacheTag: 1);
-            })
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
+            .AddScoped<IWasmStore, IWasmDb, IStylusTargetConfig>((db, config) => new WasmStore(db, config, cacheTag: 1))
 
             .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
@@ -308,7 +306,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
             .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
             .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+
+            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+
+            .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
 
         builder
             .AddModule(new SequencerModule(arbitrumConfig));

@@ -871,6 +871,7 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
+            ulong windowsLeft = retryable.TimeoutWindowsLeft.Get();
             if (timeout >= currentTimestamp)
             {
                 // Not expired yet — return without popping
@@ -879,7 +880,6 @@ namespace Nethermind.Arbitrum.Execution
 
             // Expired — pop from queue
             _ = arbosState.RetryableState.TimeoutQueue.Pop();
-            ulong windowsLeft = retryable.TimeoutWindowsLeft.Get();
 
             if (windowsLeft == 0)
             {

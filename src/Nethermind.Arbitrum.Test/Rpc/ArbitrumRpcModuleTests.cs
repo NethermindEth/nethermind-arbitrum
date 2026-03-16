@@ -26,6 +26,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Rpc
 {
@@ -46,7 +47,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private IArbitrumConfig _arbitrumConfig = null!;
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
-
+        private Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
         [SetUp]
         public void Setup()
         {
@@ -60,6 +61,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _specHelper = new Mock<IArbitrumSpecHelper>();
             _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
             _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
+            _witnessGeneratingBlockProcessingEnvFactory = new Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
             ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
                 .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
@@ -112,6 +114,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
@@ -300,6 +303,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
@@ -357,6 +361,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),
@@ -420,6 +425,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
                 _logManager,
                 cachedL1PriceData,
                 _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
                 blockFactory,
                 sequencer,
                 new DisabledExpressLaneService(),

@@ -27,6 +27,7 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<bool> Synced();
     ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
     Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex);
+    Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
 
     Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
     ResultWrapper<EmptyResponse> EndSequencing(string? error);
