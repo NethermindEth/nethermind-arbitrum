@@ -71,7 +71,7 @@
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
     "RebuildLocalWasm": "auto",
-    "ValidatorMaxStatesPrepared": 1000
+    "ValidatorMaxStateRootsInMem": 1000
   },
   "VerifyBlockHash": {
     "Enabled": false,

@@ -27,5 +27,5 @@ public interface IArbitrumConfig : IConfig
     bool ExposeMultiGas { get; set; }
 
     [ConfigItem(Description = "Maximum number of state roots to keep pinned in the MemDb overlay simultaneously", DefaultValue = "1000")]
-    int ValidatorMaxStatesPrepared { get; set; }
+    int ValidatorMaxStateRootsInMem { get; set; }
 }

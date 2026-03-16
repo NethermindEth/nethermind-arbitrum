@@ -69,7 +69,7 @@
     "Enabled": true
   },
   "Arbitrum": {
-    "ValidatorMaxStatesPrepared": 1000
+    "ValidatorMaxStateRootsInMem": 1000
   },
   "Snapshot": {
     "Enabled": true,

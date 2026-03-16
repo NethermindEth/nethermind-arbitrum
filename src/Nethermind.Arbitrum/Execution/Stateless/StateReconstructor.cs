@@ -31,9 +31,9 @@ public class StateReconstructor : IStateReconstructor
     /// Maximum number of state roots to keep pinned in the MemDb overlay simultaneously.
     /// When exceeded, the oldest entries are evicted (their nodes dereferenced and potentially deleted).
     /// </summary>
-    private readonly int _maxStatesPrepared;
+    private readonly int _maxStateRootsInMem;
 
-    /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStatesPrepared"/>.</summary>
+    /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
 
     public StateReconstructor(
@@ -53,7 +53,7 @@ public class StateReconstructor : IStateReconstructor
         _ecdsa = ecdsa;
         _logger = logManager.GetClassLogger();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
-        _maxStatesPrepared = arbitrumConfig.ValidatorMaxStatesPrepared;
+        _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
     }
 
     /// <summary>
@@ -196,9 +196,9 @@ public class StateReconstructor : IStateReconstructor
             foreach (Hash256 stateRoot in stateRoots)
                 _preparedQueue.Enqueue(stateRoot);
 
-            if (_preparedQueue.Count > _maxStatesPrepared)
+            if (_preparedQueue.Count > _maxStateRootsInMem)
             {
-                int toEvict = _preparedQueue.Count - _maxStatesPrepared;
+                int toEvict = _preparedQueue.Count - _maxStateRootsInMem;
                 for (int i = 0; i < toEvict; i++)
                 {
                     if (_preparedQueue.TryDequeue(out Hash256? oldStateRoot))
