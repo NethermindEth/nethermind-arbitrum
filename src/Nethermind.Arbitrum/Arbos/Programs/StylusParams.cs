@@ -29,7 +29,8 @@ public class StylusParams(
     ushort expiryDays,
     ushort keepaliveDays,
     ushort blockCacheSize,
-    uint maxWasmSize)
+    uint maxWasmSize,
+    byte maxFragmentCount = 0)
 {
     public const uint MaxInkPrice = 0xFFFFFF; // 24 bits
 
@@ -56,6 +57,7 @@ public class StylusParams(
 
     private const ulong MaxWasmSizeArbosVersion = 40;
     private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
+    private const byte InitialMaxFragmentCount = 2; // Initial max fragment count for Stylus contract limit
 
     private ulong _arbosVersion = arbosVersion;
 
@@ -74,6 +76,7 @@ public class StylusParams(
     public ushort KeepaliveDays { get; private set; } = keepaliveDays;
     public ushort BlockCacheSize { get; private set; } = blockCacheSize;
     public uint MaxWasmSize { get; private set; } = maxWasmSize;
+    public byte MaxFragmentCount { get; private set; } = maxFragmentCount;
 
     [SuppressMessage("Reliability", "CA2014:Do not use stackalloc in loops")]
     [SuppressMessage("ReSharper", "StackAllocInsideLoop")]
@@ -97,7 +100,10 @@ public class StylusParams(
         int baseSerializationSize = 7 * sizeof(short) + 3 + sizeof(uint) + 4 * sizeof(byte);
 
         bool includeMaxWasmSize = _arbosVersion >= MaxWasmSizeArbosVersion;
-        int totalSerializationSize = baseSerializationSize + (includeMaxWasmSize ? sizeof(uint) : 0);
+        bool includeMaxFragmentCount = _arbosVersion >= ArbosVersion.StylusContractLimit;
+        int totalSerializationSize = baseSerializationSize
+            + (includeMaxWasmSize ? sizeof(uint) : 0)
+            + (includeMaxFragmentCount ? sizeof(byte) : 0);
 
         Span<byte> buffer = stackalloc byte[totalSerializationSize];
         int currentOffset = 0;
@@ -137,7 +143,13 @@ public class StylusParams(
         currentOffset += sizeof(ushort);
 
         if (includeMaxWasmSize)
+        {
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Slice(currentOffset), MaxWasmSize);
+            currentOffset += sizeof(uint);
+        }
+
+        if (includeMaxFragmentCount)
+            buffer[currentOffset] = MaxFragmentCount;
 
         ulong currentSlot = 0;
         ReadOnlySpan<byte> remainingDataToStore = buffer;
@@ -191,6 +203,11 @@ public class StylusParams(
             MaxWasmSize = InitialMaxWasmSize;
         }
 
+        if (newArbosVersion == ArbosVersion.StylusContractLimit)
+        {
+            MaxFragmentCount = InitialMaxFragmentCount;
+        }
+
         _arbosVersion = newArbosVersion;
     }
 
@@ -213,7 +230,8 @@ public class StylusParams(
             InitialExpiryDays,
             InitialKeepaliveDays,
             InitialRecentCacheSize,
-            arbosVersion >= MaxWasmSizeArbosVersion ? InitialMaxWasmSize : 0);
+            arbosVersion >= MaxWasmSizeArbosVersion ? InitialMaxWasmSize : 0,
+            arbosVersion >= ArbosVersion.StylusContractLimit ? InitialMaxFragmentCount : (byte)0);
 
         parameters.Save();
     }
@@ -245,7 +263,10 @@ public class StylusParams(
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
             arbosVersion >= MaxWasmSizeArbosVersion
                 ? BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4))
-                : InitialMaxWasmSize);
+                : InitialMaxWasmSize,
+            arbosVersion >= ArbosVersion.StylusContractLimit
+                ? ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0]
+                : (byte)0);
 
         static uint ReadUInt24BigEndian(ReadOnlySpan<byte> source)
         {
@@ -315,6 +336,11 @@ public class StylusParams(
     public void SetWasmMaxSize(uint maxWasmSize)
     {
         MaxWasmSize = maxWasmSize;
+    }
+
+    public void SetMaxFragmentCount(byte maxFragmentCount)
+    {
+        MaxFragmentCount = maxFragmentCount;
     }
 
     private static ReadOnlySpan<byte> ReadFromStorage(ArbosStorage storage, ref ReadOnlySpan<byte> buffer, ref ulong currentSlot, int count)

@@ -94,7 +94,8 @@ namespace Nethermind.Arbitrum.Data
                 };
             }
 
-            // Create canonical parameters from L1 data with specHelper fallbacks
+            // Create canonical parameters from L1 init message (source of truth for comparison mode)
+            // The init message contains the test's actual ArbOS version via WithArbOSVersion()
             var canonicalParams = new ArbitrumChainSpecEngineParameters
             {
                 Enabled = l1Params.EnableArbOS,

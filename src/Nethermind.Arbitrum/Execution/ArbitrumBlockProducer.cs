@@ -51,7 +51,7 @@ namespace Nethermind.Arbitrum.Execution
             _worldState = worldState;
         }
 
-        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
+        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState, IReleaseSpec spec)
         {
             long newBlockNumber = parent.Number + 1;
             if (payloadAttributes.Number != newBlockNumber)
@@ -60,12 +60,27 @@ namespace Nethermind.Arbitrum.Execution
             if (payloadAttributes.MessageWithMetadata == null)
                 throw new ArgumentException("MessageWithMetadata is null");
 
+            // Block debug logging
+            var blockLog = BlockDebugLogger.GetOrCreate(_worldState, spec);
+            blockLog.LogStepWithValue("block_start", "parentNumber", parent.Number);
+            blockLog.LogValue("parentHash", parent.Hash);
+            blockLog.LogValue("parentStateRoot", parent.StateRoot);
 
             ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
             if (timestamp < parent.Timestamp)
                 timestamp = parent.Timestamp;
 
             Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
+
+            // Log before CommitMultiGasFees
+            UInt256 baseFeeBeforeCommit = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            blockLog.LogStepWithValue("before_commit_multigas", "baseFee", baseFeeBeforeCommit);
+
+            // Commit multi-gas fees before getting base fee (matches Nitro's block_processor.go)
+            arbosState.L2PricingState.CommitMultiGasFees();
+
+            UInt256 baseFeeAfterCommit = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+            blockLog.LogStepWithValue("after_commit_multigas", "baseFee", baseFeeAfterCommit);
 
             BlockHeader header = new(
                 parent.Hash!,
@@ -79,9 +94,14 @@ namespace Nethermind.Arbitrum.Execution
             {
                 MixHash = parent.MixHash,
                 TotalDifficulty = parent.TotalDifficulty + 1,
-                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
+                BaseFeePerGas = baseFeeAfterCommit,
                 Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
             };
+
+            blockLog.LogStepWithValue("header_created", "number", header.Number);
+            blockLog.LogValue("timestamp", header.Timestamp);
+            blockLog.LogValue("baseFee", header.BaseFeePerGas);
+            blockLog.LogValue("gasLimit", header.GasLimit);
 
             return header;
         }
@@ -97,10 +117,25 @@ namespace Nethermind.Arbitrum.Execution
 
             using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
 
+            // Block debug logging - BEFORE OpenArbosState
+            IReleaseSpec spec = _specProvider.GetSpec(parent.Number + 1, parent.Timestamp);
+            var blockLog = BlockDebugLogger.GetOrCreate(_worldState, spec);
+            blockLog.LogStepWithValue("before_open_arbos", "parentNumber", parent.Number);
+
+            // Log ArbOS account state BEFORE OpenArbosState
+            var arbosAccount = ArbosAddresses.ArbosSystemAccount;
+            blockLog.LogValue("arbos_nonce_before", _worldState.GetNonce(arbosAccount));
+            blockLog.LogValue("arbos_balance_before", _worldState.GetBalance(arbosAccount));
+            blockLog.LogValue("arbos_codehash_before", _worldState.GetCodeHash(arbosAccount));
+
             ArbosState arbosState =
                 ArbosState.OpenArbosState(_worldState, burner, Logger);
 
-            BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState);
+            // Log ArbOS account state AFTER OpenArbosState
+            blockLog.LogValue("arbos_nonce_after", _worldState.GetNonce(arbosAccount));
+            blockLog.LogStep("after_open_arbos");
+
+            BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState, spec);
 
             IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
 

@@ -8,14 +8,18 @@ Features:
 - Proper subprocess management with signal handling
 - Log file handling with ld warning suppression
 - Interrupt support via threading.Event
+- Smart rebuild detection for Go and .NET projects
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event
@@ -32,6 +36,134 @@ GO_TEST_PARALLEL: Final[int] = 1
 """Parallelism within a single Go test (always 1 for comparison mode)."""
 
 _logger = get_logger()
+
+# Build state tracking
+BUILD_STATE_FILE = ".comparison-build-state.json"
+
+
+def _get_git_hash(project_path: Path, paths: list[str] | None = None) -> str | None:
+    """Get combined hash of git state for specified paths.
+
+    Uses git to compute a hash that changes when any tracked files change.
+    This is more reliable than file modification times.
+
+    Args:
+        project_path: Root path of the git repository
+        paths: Specific paths to check (relative to project_path), or None for all
+
+    Returns:
+        Hash string if successful, None if git command fails
+    """
+    try:
+        # Get the tree hash which changes when any file content changes
+        cmd = ["git", "rev-parse", "HEAD"]
+        result = subprocess.run(
+            cmd,
+            cwd=str(project_path),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        head_hash = result.stdout.strip()
+
+        # Also include uncommitted changes in the hash
+        cmd = ["git", "status", "--porcelain"]
+        if paths:
+            cmd.extend(["--"] + paths)
+        result = subprocess.run(
+            cmd,
+            cwd=str(project_path),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+
+        # Combine HEAD hash with status of working tree
+        status_hash = hashlib.md5(result.stdout.encode()).hexdigest()[:8]
+        return f"{head_hash[:12]}_{status_hash}"
+    except Exception:
+        return None
+
+
+def _load_build_state(state_file: Path) -> dict:
+    """Load build state from JSON file."""
+    if state_file.exists():
+        try:
+            return json.loads(state_file.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def _save_build_state(state_file: Path, state: dict) -> None:
+    """Save build state to JSON file."""
+    try:
+        state_file.write_text(json.dumps(state, indent=2))
+    except Exception as e:
+        _logger.warning(f"Failed to save build state: {e}")
+
+
+def _needs_rebuild(
+    project_path: Path,
+    binary_path: Path,
+    state_file: Path,
+    project_key: str,
+    check_paths: list[str] | None = None,
+) -> bool:
+    """Check if a project needs to be rebuilt.
+
+    Args:
+        project_path: Path to the project root
+        binary_path: Path to the output binary
+        state_file: Path to build state JSON file
+        project_key: Key to identify this project in state file
+        check_paths: Specific paths to check for changes (relative to project_path)
+
+    Returns:
+        True if rebuild is needed, False otherwise
+    """
+    # Always rebuild if binary doesn't exist
+    if not binary_path.exists():
+        _logger.info(f"Binary not found: {binary_path}")
+        return True
+
+    # Get current git hash
+    current_hash = _get_git_hash(project_path, check_paths)
+    if current_hash is None:
+        _logger.warning("Could not get git hash, forcing rebuild")
+        return True
+
+    # Load previous build state
+    state = _load_build_state(state_file)
+    previous_hash = state.get(project_key, {}).get("hash")
+
+    if previous_hash != current_hash:
+        _logger.info(f"Project changed: {project_key} ({previous_hash} -> {current_hash})")
+        return True
+
+    _logger.info(f"Project unchanged: {project_key} (hash: {current_hash})")
+    return False
+
+
+def _record_build(
+    state_file: Path,
+    project_key: str,
+    project_path: Path,
+    check_paths: list[str] | None = None,
+) -> None:
+    """Record successful build in state file."""
+    current_hash = _get_git_hash(project_path, check_paths)
+    if current_hash is None:
+        return
+
+    state = _load_build_state(state_file)
+    state[project_key] = {
+        "hash": current_hash,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    _save_build_state(state_file, state)
 
 
 def clean_test_cache(nitro_path: Path) -> bool:
@@ -67,28 +199,48 @@ def clean_test_cache(nitro_path: Path) -> bool:
     return True
 
 
-def compile_test_binary(nitro_path: Path, output_path: Path | None = None) -> Path | None:
-    """Pre-compile the Go test binary once at startup.
+def compile_test_binary(
+    nitro_path: Path,
+    output_path: Path | None = None,
+    force: bool = False,
+) -> Path | None:
+    """Pre-compile the Go test binary if project has changed.
 
-    This separates compilation time from test execution time, providing
-    accurate timing for individual tests. The compiled binary can be
-    reused by all workers.
+    Uses git to detect changes and only rebuilds when necessary.
+    This provides fast startup when code hasn't changed.
 
     Args:
         nitro_path: Path to Nitro repository
         output_path: Where to write the binary (default: nitro_path/system_tests.test)
+        force: Force rebuild even if no changes detected
 
     Returns:
         Path to compiled binary, or None if compilation failed
     """
-    import time
-
     if not nitro_path.exists():
         _logger.warning(f"NITRO_PATH not found, skipping compilation: {nitro_path}")
         return None
 
     if output_path is None:
         output_path = nitro_path / "system_tests.test"
+
+    state_file = nitro_path / BUILD_STATE_FILE
+
+    # Check if rebuild is needed
+    if not force and not _needs_rebuild(
+        project_path=nitro_path,
+        binary_path=output_path,
+        state_file=state_file,
+        project_key="nitro",
+        check_paths=["execution/", "arbos/", "arbnode/", "system_tests/", "go-ethereum/"],
+    ):
+        _logger.info("Nitro binary up-to-date, skipping rebuild")
+        return output_path
+
+    # Delete old binary to force full recompilation
+    if output_path.exists():
+        _logger.info(f"Removing old test binary: {output_path}")
+        output_path.unlink()
 
     _logger.info("Pre-compiling Go test binary (this may take several minutes)...")
     start_time = time.time()
@@ -103,6 +255,7 @@ def compile_test_binary(nitro_path: Path, output_path: Path | None = None) -> Pa
             "go",
             "test",
             "-c",  # Compile but don't run
+            "-a",  # Force rebuild all packages
             "./system_tests",
             "-o",
             str(output_path),
@@ -120,7 +273,105 @@ def compile_test_binary(nitro_path: Path, output_path: Path | None = None) -> Pa
         return None
 
     _logger.info(f"Go test binary compiled successfully in {compile_time:.1f}s")
+
+    # Record successful build
+    _record_build(state_file, "nitro", nitro_path,
+                  ["execution/", "arbos/", "arbnode/", "system_tests/", "go-ethereum/"])
+
     return output_path
+
+
+def build_nethermind(
+    nethermind_path: Path,
+    build_dir: Path | None = None,
+    force: bool = False,
+) -> bool:
+    """Build Nethermind if project has changed.
+
+    Uses git to detect changes and only rebuilds when necessary.
+
+    Args:
+        nethermind_path: Path to Nethermind repository root
+        build_dir: Build output directory (for state tracking)
+        force: Force rebuild even if no changes detected
+
+    Returns:
+        True if build succeeded (or was skipped), False on failure
+    """
+    if not nethermind_path.exists():
+        _logger.warning(f"Nethermind path not found: {nethermind_path}")
+        return False
+
+    # Use a marker file in build dir to track build state
+    if build_dir is None:
+        build_dir = nethermind_path / "src" / "Nethermind" / "artifacts"
+
+    state_file = nethermind_path / BUILD_STATE_FILE
+    marker_file = build_dir / ".build-complete"
+
+    # Check if rebuild is needed
+    if not force and not _needs_rebuild(
+        project_path=nethermind_path,
+        binary_path=marker_file,
+        state_file=state_file,
+        project_key="nethermind",
+        check_paths=["src/Nethermind.Arbitrum/", "src/Nethermind/"],
+    ):
+        _logger.info("Nethermind build up-to-date, skipping rebuild")
+        return True
+
+    _logger.info("Building Nethermind (this may take a few minutes)...")
+    start_time = time.time()
+
+    # Find the solution file (try .slnx first, then .sln)
+    sln_candidates = [
+        nethermind_path / "src" / "Nethermind.Arbitrum.slnx",
+        nethermind_path / "src" / "Nethermind" / "Nethermind.sln",
+        nethermind_path / "Nethermind.sln",
+    ]
+    sln_file = None
+    for candidate in sln_candidates:
+        if candidate.exists():
+            sln_file = candidate
+            break
+
+    if sln_file is None:
+        _logger.error("Nethermind solution file not found")
+        return False
+
+    # Build only the Runner project (not tests) to avoid test compilation errors
+    runner_project = nethermind_path / "src" / "Nethermind" / "src" / "Nethermind" / "Nethermind.Runner" / "Nethermind.Runner.csproj"
+    if not runner_project.exists():
+        # Fallback to solution if project not found
+        runner_project = sln_file
+
+    result = subprocess.run(
+        [
+            "dotnet",
+            "build",
+            str(runner_project),
+            "-c", "Debug",
+        ],
+        cwd=str(nethermind_path),
+        capture_output=True,
+        text=True,
+    )
+
+    build_time = time.time() - start_time
+
+    if result.returncode != 0:
+        _logger.error(f"Failed to build Nethermind: {result.stderr}")
+        return False
+
+    _logger.info(f"Nethermind built successfully in {build_time:.1f}s")
+
+    # Create marker file and record build
+    build_dir.mkdir(parents=True, exist_ok=True)
+    marker_file.touch()
+    _record_build(state_file, "nethermind", nethermind_path,
+                  ["src/Nethermind.Arbitrum/", "src/Nethermind/"])
+
+    return True
 
 
 @dataclass(slots=True)

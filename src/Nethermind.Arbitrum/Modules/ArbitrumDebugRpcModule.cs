@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Blockchain;
 using Nethermind.Core.Caching;
@@ -23,6 +24,7 @@ public class ArbitrumDebugRpcModule(
     IArbitrumResettableBlockTree blockTree,
     IEnumerable<IClearableCache> cacheAwareServices,
     ILogManager logManager,
+    IArbOSVersionOverride arbosVersionOverride,
     IBlockhashCache? blockhashCache = null,
     PreBlockCaches? preBlockCaches = null)
     : IArbitrumDebugRpcModule
@@ -30,6 +32,7 @@ public class ArbitrumDebugRpcModule(
     private readonly IDbProvider _dbProvider = dbProvider ?? throw new ArgumentNullException(nameof(dbProvider));
     private readonly IArbitrumResettableBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
     private readonly IEnumerable<IClearableCache> _cacheAwareServices = cacheAwareServices ?? throw new ArgumentNullException(nameof(cacheAwareServices));
+    private readonly IArbOSVersionOverride _arbosVersionOverride = arbosVersionOverride ?? throw new ArgumentNullException(nameof(arbosVersionOverride));
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumDebugRpcModule>();
 
     public Task<ResultWrapper<bool>> debug_reinitialize(
@@ -48,8 +51,12 @@ public class ArbitrumDebugRpcModule(
                     _logger.Warn("debug_reinitialize: accountsJson parameter provided but not yet implemented; accounts will NOT be pre-funded. This is expected for comparison mode.");
             }
 
-            if (arbosVersion != 0 && _logger.IsDebug)
-                _logger.Debug($"debug_reinitialize: arbosVersion={arbosVersion} ignored (chainspec determines version)");
+            if (arbosVersion > 0)
+            {
+                _arbosVersionOverride.OverrideVersion = (ulong)arbosVersion;
+                if (_logger.IsInfo)
+                    _logger.Info($"debug_reinitialize: ArbOS version override set to {arbosVersion}");
+            }
 
             if (!string.IsNullOrWhiteSpace(maxCodeSize) && _logger.IsDebug)
                 _logger.Debug($"debug_reinitialize: maxCodeSize={maxCodeSize} ignored (chainspec determines limit)");
