@@ -356,10 +356,10 @@ public class StateReconstructorTests
     }
 
     [Test]
-    public void PrepareForRecord_WithSmallMaxStatesPrepared_EvictsOldStates()
+    public void PrepareForRecord_WithSmallMaxStateRootsInMem_EvictsOldStates()
     {
         SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStatesPrepared: 3);
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStateRootsInMem: 3);
 
         Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
         switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
@@ -398,7 +398,7 @@ public class StateReconstructorTests
     {
         SwitchableReadOnlyTrieStore switchableStore = new();
         // max=5 so the first PrepareForRecord [3,4,5,6,7] fits exactly without eviction
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStatesPrepared: 5);
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStateRootsInMem: 5);
 
         Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
         switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
@@ -483,7 +483,7 @@ public class StateReconstructorTests
 
     private static ArbitrumRpcTestBlockchain BuildChainWithRecording(
         SwitchableReadOnlyTrieStore? switchableStore = null,
-        int? maxStatesPrepared = null)
+        int? maxStateRootsInMem = null)
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
 
@@ -494,8 +494,8 @@ public class StateReconstructorTests
             builder.WithContainerConfigurer(b => b.AddSingleton<ReconstructedStateTrieStore>(ctx =>
                 new ReconstructedStateTrieStore(new MemDb(), switchableStore.Wrap(ctx.Resolve<IReadOnlyTrieStore>()))));
 
-        if (maxStatesPrepared.HasValue)
-            builder.WithArbitrumConfig(cfg => cfg.ValidatorMaxStatesPrepared = maxStatesPrepared.Value);
+        if (maxStateRootsInMem.HasValue)
+            builder.WithArbitrumConfig(cfg => cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem.Value);
 
         // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore
         return builder.Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
