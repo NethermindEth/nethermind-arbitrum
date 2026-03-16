@@ -154,19 +154,9 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.AddToBalance(address, in balanceChange, spec);
     }
 
-    public void AddToBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec, out UInt256 oldBalance)
-    {
-        worldState.AddToBalance(address, in balanceChange, spec, out oldBalance);
-    }
-
     public bool AddToBalanceAndCreateIfNotExists(Address address, in UInt256 balanceChange, IReleaseSpec spec)
     {
         return worldState.AddToBalanceAndCreateIfNotExists(address, in balanceChange, spec);
-    }
-
-    public bool AddToBalanceAndCreateIfNotExists(Address address, in UInt256 balanceChange, IReleaseSpec spec, out UInt256 oldBalance)
-    {
-        return worldState.AddToBalanceAndCreateIfNotExists(address, in balanceChange, spec, out oldBalance);
     }
 
     public void SubtractFromBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec)
@@ -174,19 +164,9 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         worldState.SubtractFromBalance(address, in balanceChange, spec);
     }
 
-    public void SubtractFromBalance(Address address, in UInt256 balanceChange, IReleaseSpec spec, out UInt256 oldBalance)
-    {
-        worldState.SubtractFromBalance(address, in balanceChange, spec, out oldBalance);
-    }
-
     public void IncrementNonce(Address address, UInt256 delta)
     {
         worldState.IncrementNonce(address, delta);
-    }
-
-    public void IncrementNonce(Address address, UInt256 delta, out UInt256 oldNonce)
-    {
-        worldState.IncrementNonce(address, delta, out oldNonce);
     }
 
     public void DecrementNonce(Address address, UInt256 delta)

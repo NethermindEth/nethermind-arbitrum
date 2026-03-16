@@ -107,7 +107,6 @@ namespace Nethermind.Arbitrum.Modules
         public override ResultWrapper<AccessListResultForRpc?> eth_createAccessList(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
-            Dictionary<Address, AccountOverride>? stateOverride = null,
             bool optimize = true)
         {
             var searchResult = _blockFinder.SearchForHeader(blockParameter);
@@ -124,7 +123,7 @@ namespace Nethermind.Arbitrum.Modules
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumCreateAccessListTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams, optimize)
-                .Execute(transactionCall, blockParameter, stateOverride, searchResult);
+                .Execute(transactionCall, blockParameter, null, searchResult);
         }
 
         public override ResultWrapper<ReceiptForRpc?> eth_getTransactionReceipt(Hash256 txHash)
@@ -282,7 +281,7 @@ namespace Nethermind.Arbitrum.Modules
         {
             protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, stateOverride, token, optimize);
+                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, token, optimize);
 
                 AccessListResultForRpc rpcAccessListResult = new(
                     accessList: AccessListForRpc.FromAccessList(result.AccessList ?? tx.AccessList),

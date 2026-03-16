@@ -15,7 +15,7 @@ public class ArbitrumBlockReceiptTracer(
     ArbitrumTxExecutionContext txExecContext,
     IArbitrumConfig arbitrumConfig) : BlockReceiptsTracer
 {
-    protected override TxReceipt BuildReceipt(Address recipient, in GasConsumed gasConsumed, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
+    protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
     {
         Transaction transaction = CurrentTx!;
         ArbitrumTxReceipt txReceipt = new()
@@ -29,7 +29,7 @@ public class ArbitrumBlockReceiptTracer(
             BlockHash = Block.Hash,
             BlockNumber = Block.Number,
             Index = _currentIndex,
-            GasUsed = gasConsumed.SpentGas,
+            GasUsed = spentGas,
             Sender = transaction.SenderAddress,
             ContractAddress = transaction.IsContractCreation ? recipient : null,
             TxHash = transaction.Hash,

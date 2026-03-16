@@ -6,7 +6,6 @@ using Nethermind.Blockchain;
 using Nethermind.Core.Caching;
 using Nethermind.Core;
 using Nethermind.Db;
-using Nethermind.Evm.State;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.State;

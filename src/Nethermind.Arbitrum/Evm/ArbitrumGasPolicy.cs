@@ -73,17 +73,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     };
 
     /// <summary>
-    /// Consume gas for code deposit during CREATE/CREATE2.
-    /// Tracks as StorageGrowth.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void ConsumeCodeDeposit(ref ArbitrumGasPolicy gas, long cost)
-    {
-        EthereumGasPolicy.ConsumeCodeDeposit(ref gas._ethereum, cost);
-        gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)cost);
-    }
-
-    /// <summary>
     /// Creates a new ArbitrumGasPolicy with specified available gas while preserving
     /// an existing MultiGas breakdown. Used by GasChargingHook to preserve intrinsic
     /// gas breakdown when creating available gas for EVM execution.
@@ -116,7 +105,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// <summary>
     /// Consume gas for SelfDestruct operation.
     /// </summary>
-    public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
+    public static void ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
         // Note from Nitro:
         // SELFDESTRUCT is a special case because it charges for storage access, but it isn't
@@ -125,11 +114,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // contract from the database.
         // Note we only need to cover EIP150 because it is the current cost, and SELFDESTRUCT cost was
         // zero previously.
-        if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
-            return false;
+        EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum);
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
-        return true;
     }
 
     /// <summary>

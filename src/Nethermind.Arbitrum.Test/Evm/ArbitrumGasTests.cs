@@ -867,42 +867,4 @@ public class ArbitrumGasPolicyTests
         // Gas goes negative (like old Consume behavior) - detected later in VM
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(50 - 116);
     }
-
-    [Test]
-    public void ConsumeCodeDeposit_Called_TracksStorageGrowth()
-    {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-        const int codeLength = 500;
-        const long codeDepositCost = GasCostOf.CodeDeposit * codeLength; // 200 * 500 = 100_000
-
-        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, codeDepositCost);
-
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - codeDepositCost);
-        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(codeDepositCost);
-        gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(0);
-    }
-
-    [Test]
-    public void ConsumeCodeDeposit_ZeroCost_NoGasCharged()
-    {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
-
-        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, cost: 0);
-
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000);
-        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(0);
-    }
-
-    [Test]
-    public void ConsumeCodeDeposit_MaxCodeSize_TracksFullCost()
-    {
-        ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(10_000_000);
-        const int maxCodeSize = 24576; // EIP-170 max code size
-        const long codeDepositCost = GasCostOf.CodeDeposit * maxCodeSize; // 200 * 24576 = 4,915,200
-
-        ArbitrumGasPolicy.ConsumeCodeDeposit(ref gas, codeDepositCost);
-
-        ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(10_000_000 - codeDepositCost);
-        gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(codeDepositCost);
-    }
 }
