@@ -241,7 +241,12 @@ public class TransactionQueueTests
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
             out TestExpressLaneTrackerContext trackerContext,
-            setup: c => { c.SequencerMaxTxQueueSize = 10; c.TimeboostEnabled = true; });
+            setup: c =>
+            {
+                c.SequencerMaxTxQueueSize = 10;
+                c.TimeboostEnabled = true;
+            });
+
         await trackerContext.AdvanceLoop(new ResolvedRound(TestItem.AddressB, trackerContext.CurrentRound));
         TransactionQueue queue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
         TxQueueItem item = TxQueueItem.CreateRegular(Build.A.Transaction.TestObject);
@@ -278,7 +283,12 @@ public class TransactionQueueTests
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
             out TestExpressLaneTrackerContext trackerContext,
-            setup: c => { c.SequencerMaxTxQueueSize = 10; c.TimeboostEnabled = true; });
+            setup: c =>
+            {
+                c.SequencerMaxTxQueueSize = 10;
+                c.TimeboostEnabled = true;
+            });
+
         await trackerContext.AdvanceLoop(new ResolvedRound(TestItem.AddressB, trackerContext.CurrentRound));
         TransactionQueue queue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
         TxQueueItem item = TxQueueItem.CreateTimeboosted(Build.A.Transaction.TestObject, blockStamp: 1);
@@ -295,7 +305,12 @@ public class TransactionQueueTests
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
             out TestExpressLaneTrackerContext trackerContext,
-            setup: c => { c.SequencerMaxTxQueueSize = 10; c.TimeboostEnabled = true; });
+            setup: c =>
+            {
+                c.SequencerMaxTxQueueSize = 10;
+                c.TimeboostEnabled = true;
+            });
+
         await trackerContext.AdvanceLoop(new ResolvedRound(TestItem.AddressB, trackerContext.CurrentRound));
         TransactionQueue queue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
 
