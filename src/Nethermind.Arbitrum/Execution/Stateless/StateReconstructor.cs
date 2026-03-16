@@ -2,28 +2,17 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Collections.Concurrent;
-using Autofac;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Arbitrum.Evm;
-using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
-using Nethermind.Blockchain.Headers;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Blockchain.Tracing;
-using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
-using Nethermind.Db;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
-using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Logging;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -31,10 +20,9 @@ public class StateReconstructor : IStateReconstructor
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly IBlockTree _blockTree;
-    private readonly ILifetimeScope _rootLifetimeScope;
+    private readonly ArbitrumStateReconstructionBlockProcessingEnvFactory _envFactory;
     private readonly IReceiptStorage _receiptStorage;
     private readonly IEthereumEcdsa _ecdsa;
-    private readonly ILogManager _logManager;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
     private readonly object _reconstructionLock = new();
@@ -51,7 +39,7 @@ public class StateReconstructor : IStateReconstructor
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
         IBlockTree blockTree,
-        ILifetimeScope rootLifetimeScope,
+        ArbitrumStateReconstructionBlockProcessingEnvFactory envFactory,
         IReceiptStorage receiptStorage,
         IEthereumEcdsa ecdsa,
         IArbitrumSpecHelper specHelper,
@@ -60,10 +48,9 @@ public class StateReconstructor : IStateReconstructor
     {
         _trieStore = trieStore;
         _blockTree = blockTree;
-        _rootLifetimeScope = rootLifetimeScope;
+        _envFactory = envFactory;
         _receiptStorage = receiptStorage;
         _ecdsa = ecdsa;
-        _logManager = logManager;
         _logger = logManager.GetClassLogger();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStatesPrepared = arbitrumConfig.ValidatorMaxStatesPrepared;
@@ -139,37 +126,11 @@ public class StateReconstructor : IStateReconstructor
         long startBlock = lastAvailable.Number + 1;
         long endBlock = targetParent.Number;
 
-        IBlocksConfig blocksConfig = _rootLifetimeScope.Resolve<IBlocksConfig>();
         // Not necessary to write codeDB in read only given writes to it are idempotent
-        WorldState worldState = new(
-            new TrieStoreScopeProvider(_trieStore, _rootLifetimeScope.Resolve<IDbProvider>().CodeDb, _logManager),
-            _logManager);
-
-        using ILifetimeScope scope = _rootLifetimeScope.BeginLifetimeScope(builder =>
-        {
-            builder
-                .AddScoped<IWorldState>(_ => worldState)
-                .AddScoped<IBlocksConfig>(_ => CreateReconstructionBlocksConfig(blocksConfig))
-
-                .AddScoped<ITransactionProcessor>(ctx => CreateTransactionProcessor(
-                    ctx.Resolve<IArbitrumSpecHelper>(),
-                    ctx.Resolve<IWasmStore>(),
-                    ctx.Resolve<ISpecProvider>(),
-                    ctx.Resolve<IArbosVersionProvider>(),
-                    worldState,
-                    ctx.Resolve<IHeaderFinder>()))
-
-                .AddScoped<IBlockProcessor.IBlockTransactionsExecutor>(ctx => new BlockProcessor.BlockValidationTransactionsExecutor(
-                    new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
-                    worldState))
-
-                .AddScoped<IReceiptStorage>(NullReceiptStorage.Instance)
-                .AddScoped(BlockchainProcessor.Options.NoReceipts)
-                .AddScoped<IBlockProcessor, ArbitrumBlockProcessor>();
-        });
-
-        IBlockProcessor blockProcessor = scope.Resolve<IBlockProcessor>();
-        ISpecProvider specProvider = scope.Resolve<ISpecProvider>();
+        using ArbitrumStateReconstructionBlockProcessingEnvScope env = _envFactory.CreateScope();
+        IBlockProcessor blockProcessor = env.BlockProcessor;
+        IWorldState worldState = env.WorldState;
+        ISpecProvider specProvider = env.SpecProvider;
 
         using (worldState.BeginScope(lastAvailable))
         {
@@ -262,39 +223,4 @@ public class StateReconstructor : IStateReconstructor
         }
     }
 
-    private ITransactionProcessor CreateTransactionProcessor(
-        IArbitrumSpecHelper arbitrumSpecHelper,
-        IWasmStore wasmStore,
-        ISpecProvider specProvider,
-        IArbosVersionProvider arbosVersionProvider,
-        IWorldState state,
-        IHeaderFinder headerFinder)
-    {
-        BlockhashProvider blockhashProvider = new(new BlockhashCache(headerFinder, _logManager), state, _logManager);
-        ArbitrumVirtualMachine vm = new(arbitrumSpecHelper, blockhashProvider, wasmStore, specProvider, _logManager);
-
-        return new ArbitrumTransactionProcessor(
-            BlobBaseFeeCalculator.Instance, specProvider, state, wasmStore, vm, _logManager,
-            new ArbitrumCodeInfoRepository(new CodeInfoRepository(state, new EthereumPrecompileProvider()), arbosVersionProvider));
-    }
-
-    private static BlocksConfig CreateReconstructionBlocksConfig(IBlocksConfig blocksConfig)
-        => new()
-        {
-            TargetBlockGasLimit = blocksConfig.TargetBlockGasLimit,
-            MinGasPrice = blocksConfig.MinGasPrice,
-            RandomizedBlocks = blocksConfig.RandomizedBlocks,
-            ExtraData = blocksConfig.ExtraData,
-            SecondsPerSlot = blocksConfig.SecondsPerSlot,
-            SingleBlockImprovementOfSlot = blocksConfig.SingleBlockImprovementOfSlot,
-            PreWarmStateOnBlockProcessing = false,
-            CachePrecompilesOnBlockProcessing = blocksConfig.CachePrecompilesOnBlockProcessing,
-            PreWarmStateConcurrency = blocksConfig.PreWarmStateConcurrency,
-            BlockProductionTimeoutMs = blocksConfig.BlockProductionTimeoutMs,
-            GenesisTimeoutMs = blocksConfig.GenesisTimeoutMs,
-            BlockProductionMaxTxKilobytes = blocksConfig.BlockProductionMaxTxKilobytes,
-            GasToken = blocksConfig.GasToken,
-            BlockProductionBlobLimit = blocksConfig.BlockProductionBlobLimit,
-            BuildBlocksOnMainState = false,
-        };
 }

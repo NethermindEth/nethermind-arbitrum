@@ -41,27 +41,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     IDbProvider dbProvider,
     ILogManager logManager) : IArbitrumWitnessGeneratingBlockProcessingEnvFactory
 {
-    // To force processing in BlockchainProcessor even though block is not better than head (already existing block)
-    private static BlocksConfig CreateWitnessBlocksConfig(IBlocksConfig blocksConfig)
-        => new()
-        {
-            TargetBlockGasLimit = blocksConfig.TargetBlockGasLimit,
-            MinGasPrice = blocksConfig.MinGasPrice,
-            RandomizedBlocks = blocksConfig.RandomizedBlocks,
-            ExtraData = blocksConfig.ExtraData,
-            SecondsPerSlot = blocksConfig.SecondsPerSlot,
-            SingleBlockImprovementOfSlot = blocksConfig.SingleBlockImprovementOfSlot,
-            PreWarmStateOnBlockProcessing = blocksConfig.PreWarmStateOnBlockProcessing,
-            CachePrecompilesOnBlockProcessing = blocksConfig.CachePrecompilesOnBlockProcessing,
-            PreWarmStateConcurrency = blocksConfig.PreWarmStateConcurrency,
-            BlockProductionTimeoutMs = blocksConfig.BlockProductionTimeoutMs,
-            GenesisTimeoutMs = blocksConfig.GenesisTimeoutMs,
-            BlockProductionMaxTxKilobytes = blocksConfig.BlockProductionMaxTxKilobytes,
-            GasToken = blocksConfig.GasToken,
-            BlockProductionBlobLimit = blocksConfig.BlockProductionBlobLimit,
-            BuildBlocksOnMainState = false,
-        };
-
     // TODO: check debug endpoint exec later (compare with nitro) -- Not priority for now
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope() => CreateScope(null);
 
@@ -92,7 +71,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                     new WitnessGeneratingWorldState(worldState, stateReader, trieStore, headerFinder))
                 .BindScoped<IWorldState, WitnessGeneratingWorldState>()
 
-                .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
+                .AddScoped<IBlocksConfig>(_ => ArbitrumStateReconstructionBlockProcessingEnvFactory.CreateReplayBlocksConfig(blocksConfig))
 
                 // We give a NoOp l1BlockCache to the vm so that it forces querying
                 // the world state to record state accesses.
