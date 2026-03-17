@@ -1403,7 +1403,13 @@ namespace Nethermind.Arbitrum.Execution
                         $"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
 
-            _arbosState!.L2PricingState.GrowBacklog(computeGas, txContext.AccumulatedMultiGas);
+            // Poster gas was added to multiGas in GasChargingHook as L1Calldata.
+            // Remove it before growing backlog since L1 costs shouldn't affect L2 pricing backlog.
+            MultiGas posterGasToRemove = default;
+            posterGasToRemove.Increment(ResourceKind.L1Calldata, txContext.PosterGas);
+            MultiGas usedMultiGas = txContext.AccumulatedMultiGas.SaturatingSub(posterGasToRemove);
+
+            _arbosState!.L2PricingState.GrowBacklog(computeGas, usedMultiGas);
         }
     }
 }
