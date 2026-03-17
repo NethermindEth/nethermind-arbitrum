@@ -80,8 +80,6 @@ public class ArbitrumSequencerEngine(
         if (result is not null)
             return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(result, 0));
 
-        _logger.Warn("Nothing to sequence, waiting...");
-
         return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(null, arbitrumConfig.SequencerMaxBlockSpeedMs));
     }
 
@@ -438,14 +436,12 @@ public class ArbitrumSequencerEngine(
         if (blockResult.Result != Result.Success)
             return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for message: {blockResult.Result.Error}", blockResult.ErrorCode);
 
-        _logger.Warn($"Created block with regular {queueItems.Count} transactions");
-
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
         _lastCreatedBlockWithRegularTxsInfo = new SequencedBlockInfo(blockResult.Data, msgIdx);
         _lastRegularTxQueueItems = queueItems;
 
-        if (_logger.IsInfo)
-            _logger.Info($"Created block with {queueItems.Count} user txs, msgIdx={msgIdx}, blockNumber={blockResult.Data.Number}");
+        if (_logger.IsDebug)
+            _logger.Debug($"Created block {blockResult.Data.Hash} with {queueItems.Count} user txs, msgIdx={msgIdx}, blockNumber={blockResult.Data.Number}");
 
         SequencedMsg sequencedMessage = BuildSequencedMsg(blockResult.Data, msgIdx, messageWithMetadata, timeboostedTxHashes);
 
@@ -570,10 +566,8 @@ public class ArbitrumSequencerEngine(
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
         _lastSequencedBlockInfo = new SequencedBlockInfo(blockResult.Data, msgIdx);
 
-        _logger.Warn($"Sequenced block with delayed message {msgIdx}");
-
-        if (_logger.IsInfo)
-            _logger.Info($"Added DelayedMessage, msgIdx={msgIdx}, delayedMsgIdx={delayedMsgIdx}, blockNumber={blockResult.Data.Number}");
+        if (_logger.IsDebug)
+            _logger.Debug($"Added DelayedMessage, msgIdx={msgIdx}, delayedMsgIdx={delayedMsgIdx}, blockNumber={blockResult.Data.Number}");
 
         SequencedMsg sequencedDelayedMessage = BuildSequencedMsg(blockResult.Data, msgIdx, messageWithMetadata, null);
 
