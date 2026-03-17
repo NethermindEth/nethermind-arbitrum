@@ -585,8 +585,7 @@ public sealed class ArbitrumExecutionEngine(
 
         Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
 
-        // Verify the canonical block at validBlockNumber matches the expected hash.
-        // Mirrors Nitro: GetCanonicalHash(validNum) must equal resultHash before promoting.
+        // Verify the canonical block at validBlockNumber is canonical
         Hash256? canonicalHash = BlockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
         if (canonicalHash != parameters.ResultHash)
         {
@@ -595,7 +594,7 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<EmptyResponse>.Success(default);
         }
 
-        // Promote the candidate (its block number may be ≤ validBlockNumber).
+        // Promote the candidate (its block number must be ≤ validBlockNumber)
         BlockHeader? validHdr = stateReconstructor.TryPromoteValidCandidate(validBlockNumber);
 
         if (validHdr is null)

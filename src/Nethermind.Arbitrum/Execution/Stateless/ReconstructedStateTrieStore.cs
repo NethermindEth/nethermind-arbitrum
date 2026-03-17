@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core;
+using Nethermind.Core.Buffers;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Db;
@@ -131,24 +132,25 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     }
 
     /// <summary>
-    /// Traverses all MemDb-resident trie nodes reachable from the given state root and writes them
-    /// to the provided key-value store using the same half-path key format. Used to persist
-    /// reconstructed nodes to the main state DB on shutdown.
+    /// Traverses all trie nodes reachable from <paramref name="stateRoot"/> and writes them to
+    /// <paramref name="store"/>. Reads from the MemDb overlay first, then falls back to the base
+    /// store (disk) via <see cref="TryLoadRlp"/>. Writing nodes already present on disk is idempotent.
+    /// Used for both full pruning copy (MemDb + disk) and shutdown persistence.
     /// </summary>
-    public void TraverseAndWriteTo(Hash256 stateRoot, IWriteOnlyKeyValueStore store)
+    public void TraverseTrieAndCopyTo(Hash256 stateRoot, INodeStorage store)
     {
         Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
         stack.Push((null, TreePath.Empty, stateRoot));
 
         while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
         {
-            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(item.addr, item.p, item.h);
-            byte[]? rlp = _memDb[key];
+            byte[]? rlp = TryLoadRlp(item.addr, in item.p, item.h);
             if (rlp is null)
                 continue;
 
-            PushChildren(rlp, item.addr, item.p, stack);
-            store.PutSpan(key, rlp);
+            foreach ((Hash256? ca, TreePath cp, Hash256 ch) in EnumerateChildren(rlp, item.addr, item.p))
+                stack.Push((ca, cp, ch));
+            store.Set(item.addr, in item.p, item.h, rlp);
         }
     }
 
@@ -171,7 +173,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
 
         // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
         List<byte[]> childKeys = [];
-        PushChildren(fullRlp, address, path, childKeys);
+        foreach ((Hash256? ca, TreePath cp, Hash256 ch) in EnumerateChildren(fullRlp, address, path))
+            childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(ca, cp, ch));
 
         if (childKeys.Count == 0)
             return;
@@ -207,12 +210,13 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         }
     }
 
-    private static void PushChildren(
+    private static List<(Hash256? address, TreePath path, Hash256 hash)> EnumerateChildren(
         CappedArray<byte> rlp,
         Hash256? address,
-        TreePath path,
-        List<byte[]> childKeys)
+        TreePath path)
     {
+        List<(Hash256? address, TreePath path, Hash256 hash)> children = [];
+
         ValueRlpStream stream = new ValueRlpStream(rlp);
         stream.ReadSequenceLength();
         int items = stream.PeekNumberOfItemsRemaining(null, 3);
@@ -224,7 +228,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             {
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path.Append(i), stream.DecodeKeccak()!));
+                    children.Add((address, path.Append(i), stream.DecodeKeccak()!));
                 else
                     stream.SkipItem();
             }
@@ -248,7 +252,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                         // which is the address key used by NodeStorage for storage trie nodes.
                         TreePath fullPath = path.Append(pathNibbles);
                         Hash256 addressHash = new Hash256(in fullPath.Path);
-                        childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(addressHash, TreePath.Empty, storageRoot));
+                        children.Add((addressHash, TreePath.Empty, storageRoot));
                     }
                 }
                 // Storage trie leaf: value is a storage slot — no child nodes.
@@ -258,10 +262,12 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 // Extension node: single hash-referenced child, path extended by pathNibbles.
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path.Append(pathNibbles), stream.DecodeKeccak()!));
+                    children.Add((address, path.Append(pathNibbles), stream.DecodeKeccak()!));
                 // Inline child (< 32 bytes) is embedded in the parent — not a separate MemDb entry.
             }
         }
+
+        return children;
     }
 
     private static Hash256? DecodeAccountStorageRoot(ReadOnlySpan<byte> accountRlp)

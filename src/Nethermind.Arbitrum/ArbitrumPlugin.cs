@@ -170,16 +170,16 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             _api.RpcModuleProvider.RegisterSingle(debugModule);
         }
 
-        // On shutdown, persist any MemDb-resident trie nodes for the last confirmed valid block
-        // into the main state DB so they survive restart. Nodes already on disk are not re-written.
-        // This mirrors Nitro's WriteValidStateToDb and runs before TrieStore flushes the WAL.
+        // Wire the Arbitrum validator's IAdditionalRootsProvider into both TrieStore (shutdown persistence)
+        // and FullPruner (full pruning copy pass), so the validator's active state range survives both.
         MainPruningTrieStoreFactory? trieStoreFactory = _api.Context.ResolveOptional<MainPruningTrieStoreFactory>();
         if (trieStoreFactory?.PruningTrieStore is TrieStore trieStore)
         {
-            // Resolve StateDb eagerly — the Autofac container is disposed before the lambda runs at shutdown.
-            IDb stateDb = _api.Context.Resolve<IDbProvider>().StateDb;
-            IStateReconstructor stateReconstructor = _api.Context.Resolve<IStateReconstructor>();
-            trieStore.OnPersistShutdown = () => stateReconstructor.PersistValidStateTo(stateDb);
+            IAdditionalRootsProvider provider = (IAdditionalRootsProvider)_api.Context.Resolve<IStateReconstructor>();
+            trieStore.AdditionalRootsProvider = provider;
+
+            if (trieStoreFactory.FullPruner is not null)
+                trieStoreFactory.FullPruner.AdditionalRootsProvider = provider;
         }
 
         return Task.CompletedTask;

@@ -13,10 +13,13 @@ using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
+using Nethermind.State;
+using Nethermind.Trie;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor: IStateReconstructor
+public class StateReconstructor : IStateReconstructor, IAdditionalRootsProvider
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly IBlockTree _blockTree;
@@ -269,7 +272,6 @@ public class StateReconstructor: IStateReconstructor
 
             // Release the OLD valid header's MemDb pin before replacing it.
             // The candidate's reference is transferred to _validHdr — do NOT dereference it.
-            // Mirrors Nitro: Dereference(r.validHdr); r.validHdr = r.validHdrCandidate
             if (_validHdr is not null)
                 _trieStore.Dereference(_validHdr.StateRoot!);
 
@@ -287,26 +289,45 @@ public class StateReconstructor: IStateReconstructor
     }
 
     /// <inheritdoc/>
-    public void PersistValidStateTo(IWriteOnlyKeyValueStore db)
+    public void CopyAdditionalStatesToNodeStorage(INodeStorage target, long? upToBlockNumberExclusive = null)
     {
-        BlockHeader? validHdr;
+        long? minBlock;
         lock (_validHdrLock)
-            validHdr = _validHdr;
+            minBlock = _validHdr?.Number;
 
-        Console.WriteLine($"--- PersistValidStateTo called and storing: number {validHdr?.Number} (state root {validHdr?.StateRoot})");
-
-        if (validHdr is null)
+        if (minBlock is null)
         {
             if (_logger.IsDebug)
-                _logger.Debug("PersistValidStateTo: no confirmed valid header, skipping");
+                _logger.Debug("CopyAdditionalStatesToNodeStorage: no confirmed valid header, skipping");
             return;
         }
 
-        if (_logger.IsInfo)
-            _logger.Info($"PersistValidStateTo: persisting MemDb nodes for valid block {validHdr.Number} (root {validHdr.StateRoot})");
+        // When upToBlockNumberExclusive is null (shutdown mode), copy only the validHdr block.
+        long endBlock = upToBlockNumberExclusive ?? (minBlock.Value + 1);
 
-        _trieStore.TraverseAndWriteTo(validHdr.StateRoot!, db);
-        // No need to dereference validHdr's nodes as client is shutting down anyway
+        if (_logger.IsInfo)
+        {
+            if (endBlock <= minBlock.Value)
+                // _validHdr is newer than baseBlock: MemDb overlay nodes survive in-memory and unchanged
+                // nodes are already covered by the regular CopyTree pass at baseBlock — nothing extra to copy.
+                _logger.Info($"Full Pruning: valid block {minBlock.Value} is newer than pruning base {endBlock - 1}, no additional state copying needed.");
+            else if (endBlock == minBlock.Value + 1)
+                _logger.Info($"Persisting MemDb trie nodes for valid block {minBlock.Value}");
+            else
+                _logger.Info($"Full Pruning: preserving additional states from block {minBlock.Value} to {endBlock - 1}.");
+        }
+
+        for (long blockNum = minBlock.Value; blockNum < endBlock; blockNum++)
+        {
+            BlockHeader? header = _blockTree.FindHeader(blockNum, BlockTreeLookupOptions.RequireCanonical);
+            if (header?.StateRoot is null)
+            {
+                if (_logger.IsWarn)
+                    _logger.Warn($"CopyAdditionalStatesToNodeStorage: header or state root not found for block {blockNum}, skipping.");
+                continue;
+            }
+            _trieStore.TraverseTrieAndCopyTo(header.StateRoot, target);
+        }
     }
 
     public void PreparedAddTrim(List<Hash256> stateRoots)

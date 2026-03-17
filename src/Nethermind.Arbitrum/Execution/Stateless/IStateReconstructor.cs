@@ -26,11 +26,4 @@ public interface IStateReconstructor
     /// Mirrors Nitro's <c>MarkValid</c> candidate promotion logic.
     /// </summary>
     BlockHeader? TryPromoteValidCandidate(long validBlockNumber);
-
-    /// <summary>
-    /// Writes any MemDb-resident trie nodes reachable from the confirmed valid header's state root
-    /// into the provided key-value store. Used during shutdown to persist reconstructed nodes to the
-    /// main state DB so they survive restart. Nodes already on disk are not re-written.
-    /// </summary>
-    void PersistValidStateTo(IWriteOnlyKeyValueStore db);
 }
