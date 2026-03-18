@@ -17,7 +17,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Sequencer;
 
-public class ArbitrumSequencerEngine(
+public sealed class ArbitrumSequencerEngine(
     ArbitrumBlockFactory factory,
     IBlockTree blockTree,
     IArbitrumSpecHelper specHelper,
@@ -43,6 +43,7 @@ public class ArbitrumSequencerEngine(
     private readonly Dictionary<Address, ulong> _pendingNonces = new();
     private readonly Queue<TxQueueItem> _extraItems = new();
 
+    private Block? _pendingBlock;
     private SequencedBlockInfo? _lastSequencedBlockInfo;
     private SequencedBlockInfo? _lastCreatedBlockWithRegularTxsInfo;
     private List<TxQueueItem>? _lastRegularTxQueueItems;
@@ -86,7 +87,10 @@ public class ArbitrumSequencerEngine(
     public ResultWrapper<EmptyResponse> EndSequencing(string? error)
     {
         if (_lastCreatedBlockWithRegularTxsInfo is null)
+        {
+            _pendingBlock = null;
             return ResultWrapper<EmptyResponse>.Success(default);
+        }
 
         List<TxQueueItem>? queueItems = _lastRegularTxQueueItems;
         Block block = _lastCreatedBlockWithRegularTxsInfo.Block;
@@ -100,6 +104,8 @@ public class ArbitrumSequencerEngine(
         // Retry-sequencer error: forward to backup if available, else re-queue locally
         if (IsRetrySequencerError(error))
         {
+            _pendingBlock = null;
+
             SequencerStateSnapshot state = sequencerState.Current;
             if (state.Forwarder is not null)
             {
@@ -115,6 +121,8 @@ public class ArbitrumSequencerEngine(
         // Non-retry error: return error to callers (don't re-queue)
         if (error is not null)
         {
+            _pendingBlock = null;
+
             foreach (TxQueueItem item in queueItems)
                 item.ReturnResult(new Exception(error));
             return ResultWrapper<EmptyResponse>.Success(default);
@@ -129,23 +137,29 @@ public class ArbitrumSequencerEngine(
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
+    public async Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
     {
-        if (_lastSequencedBlockInfo is null)
+        if (_pendingBlock is not null)
         {
-            if (_logger.IsWarn)
-                _logger.Warn("AppendLastSequencedBlock called but no sequenced block info available");
-            return Task.FromResult(ResultWrapper<EmptyResponse>.Success(default));
+            ResultWrapper<Block> finalizeResult = await factory.FinalizeBlockAsync(_pendingBlock);
+            _pendingBlock = null;
+
+            if (finalizeResult.Result != Result.Success)
+                return ResultWrapper<EmptyResponse>.Fail($"Failed to finalize block: {finalizeResult.Result.Error}", finalizeResult.ErrorCode);
         }
 
-        cachedL1PriceData.CacheL1PriceDataOfMsg(
-            _lastSequencedBlockInfo.MsgIdx,
-            Array.Empty<TxReceipt>(),
-            _lastSequencedBlockInfo.Block,
-            blockBuiltUsingDelayedMessage: true);
+        if (_lastSequencedBlockInfo is not null)
+        {
+            cachedL1PriceData.CacheL1PriceDataOfMsg(
+                _lastSequencedBlockInfo.MsgIdx,
+                Array.Empty<TxReceipt>(),
+                _lastSequencedBlockInfo.Block,
+                blockBuiltUsingDelayedMessage: true);
 
-        _lastSequencedBlockInfo = null;
-        return Task.FromResult(ResultWrapper<EmptyResponse>.Success(default));
+            _lastSequencedBlockInfo = null;
+        }
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
     public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
@@ -432,11 +446,12 @@ public class ArbitrumSequencerEngine(
         MessageWithMetadata messageWithMetadata =
             L2MessageAssembler.AssembleFromSignedTransactions(rlpEncodedTxs, l1BlockNumber, timestamp, currentHead.Nonce);
 
-        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, messageWithMetadata);
+        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, messageWithMetadata, deferSuggestion: true);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for message: {blockResult.Result.Error}", blockResult.ErrorCode);
 
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
+        _pendingBlock = blockResult.Data;
         _lastCreatedBlockWithRegularTxsInfo = new SequencedBlockInfo(blockResult.Data, msgIdx);
         _lastRegularTxQueueItems = queueItems;
 
@@ -519,9 +534,11 @@ public class ArbitrumSequencerEngine(
         long blockNumber = currentHead.Number + 1;
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
 
-        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, msg);
+        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, msg, deferSuggestion: true);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for delayed message: {blockResult.Result.Error}", blockResult.ErrorCode);
+
+        _pendingBlock = blockResult.Data;
 
         if (_logger.IsInfo)
             _logger.Info($"Resequenced regular message, msgIdx={msgIdx}, blockNumber={blockResult.Data.Number}");
@@ -559,11 +576,12 @@ public class ArbitrumSequencerEngine(
         long blockNumber = currentHead.Number + 1;
         MessageWithMetadata messageWithMetadata = new(message, delayedMsgIdx + 1);
 
-        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, messageWithMetadata);
+        ResultWrapper<Block> blockResult = await factory.DigestMessageAsync(blockNumber, messageWithMetadata, deferSuggestion: true);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<SequencedMsg>.Fail($"Failed to build block for delayed message: {blockResult.Result.Error}", blockResult.ErrorCode);
 
         ulong msgIdx = MessageBlockConverter.BlockNumberToMessageIndex((ulong)blockNumber, specHelper);
+        _pendingBlock = blockResult.Data;
         _lastSequencedBlockInfo = new SequencedBlockInfo(blockResult.Data, msgIdx);
 
         if (_logger.IsDebug)

@@ -211,12 +211,13 @@ public class UserTxSequencingTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+
         SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [transferTxBytes], [0, 0]);
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
 
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
@@ -265,11 +266,12 @@ public class UserTxSequencingTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+
         SequencedMsg expectedSequencedMessage1 = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, depositMsg, 1, [0, 0]);
         StartSequencingResult expectedSequencingResult1 = new(expectedSequencedMessage1, 0);
         result1.Should().BeEquivalentTo(expectedSequencingResult1);
 
-        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
         // Second sequencing: user transaction
@@ -279,11 +281,12 @@ public class UserTxSequencingTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+
         SequencedMsg expectedSequencedMessage2 = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env2, [transferTxBytes], [0, 0]);
         StartSequencingResult expectedSequencingResult2 = new(expectedSequencedMessage2, 0);
         result2.Should().BeEquivalentTo(expectedSequencingResult2);
 
-        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
     }
 
@@ -334,11 +337,12 @@ public class UserTxSequencingTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+
         SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(chain.BlockTree.Head!.Header, env, [tx1Bytes, tx2Bytes], [0, 0]);
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
 
         (await sendTask1.WaitAsync(TimeSpan.FromSeconds(5))).Should().RequestSucceed();

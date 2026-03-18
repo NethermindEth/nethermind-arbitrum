@@ -298,6 +298,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<ArbitrumBlockFactory>()
+            .AddSingleton<ArbitrumBlockSuggester>()
+            .AddSingleton<IProducedBlockSuggester>(c => c.Resolve<ArbitrumBlockSuggester>())
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()

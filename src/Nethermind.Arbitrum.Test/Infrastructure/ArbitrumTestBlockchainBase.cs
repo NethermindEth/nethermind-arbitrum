@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Find;
@@ -169,7 +170,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        _ = new NonProcessingProducedBlockSuggester(BlockTree, BlockProducerRunner);
+        Container.Resolve<ArbitrumBlockSuggester>();
         BlockProducerRunner.Start();
 
         RegisterTransactionDecoders();
@@ -257,7 +258,12 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
             .AddSingleton<ArbitrumInitializeStylusNative>()
             .AddSingleton<ArbitrumInitializeWasmDb>()
-            .AddSingleton<IManualBlockProductionTrigger>(BlockProductionTrigger);
+            .AddSingleton<IManualBlockProductionTrigger>(BlockProductionTrigger)
+            .AddSingleton<ArbitrumBlockSuggester>(ctx => new ArbitrumBlockSuggester(
+                ctx.Resolve<IBlockTree>(),
+                BlockProducerRunner,
+                ctx.Resolve<IBlocksConfig>(),
+                NullLogManager.Instance));
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)

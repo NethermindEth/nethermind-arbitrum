@@ -34,6 +34,8 @@ public class SequencerDelayedMessageTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+
         SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(
             chain.BlockTree.Head!.Header, depositMsg, delayedMsgRead + 1, [0, 0]);
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
@@ -41,7 +43,6 @@ public class SequencerDelayedMessageTests
 
         chain.BlockTree.Head!.Header.Nonce.Should().Be(delayedMsgRead + 1);
 
-        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
     }
 
@@ -69,12 +70,13 @@ public class SequencerDelayedMessageTests
             .ShouldAsync().RequestSucceed()
             .And.Subject.Data;
 
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+
         SequencedMsg expectedSequencedMessage = TestSequencer.ExpectedSequencedMessage(
             chain.BlockTree.Head!.Header, retryableMsg, delayedMsgRead + 1, [0, 0]);
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
     }
 

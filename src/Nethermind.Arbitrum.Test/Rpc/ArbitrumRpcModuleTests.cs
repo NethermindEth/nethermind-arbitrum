@@ -14,6 +14,7 @@ using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Config;
+using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
@@ -48,6 +49,8 @@ namespace Nethermind.Arbitrum.Test.Rpc
         private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
         private ISpecProvider _specProvider = null!;
         private Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
+        private Mock<IBlockProducerRunner> _blockProducerRunnerMock = null!;
+
         [SetUp]
         public void Setup()
         {
@@ -56,6 +59,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             _blockConfig.BuildBlocksOnMainState = true;
             _blockTreeMock = new Mock<IBlockTree>();
             _triggerMock = new Mock<IManualBlockProductionTrigger>();
+            _blockProducerRunnerMock = new Mock<IBlockProducerRunner>();
             _logManager = LimboLogs.Instance;
             _chainSpec = FullChainSimulationChainSpecProvider.Create();
             _specHelper = new Mock<IArbitrumSpecHelper>();
@@ -84,12 +88,19 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             _arbitrumConfig = new ArbitrumConfig();
 
+            ArbitrumBlockSuggester blockSuggester = new(
+                _blockTreeMock.Object,
+                _blockProducerRunnerMock.Object,
+                _blockConfig,
+                _logManager);
+
             ArbitrumBlockFactory blockFactory = new(
                 _blockTreeMock.Object,
                 _blockProcessingQueue.Object,
                 _triggerMock.Object,
                 _blockConfig,
                 _arbitrumConfig,
+                blockSuggester,
                 _logManager);
 
             ArbitrumSequencerEngine sequencer = new(
@@ -273,12 +284,19 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            ArbitrumBlockSuggester localBlockSuggester = new(
+                blockTree,
+                _blockProducerRunnerMock.Object,
+                _blockConfig,
+                _logManager);
+
             ArbitrumBlockFactory blockFactory = new(
                 blockTree,
                 _blockProcessingQueue.Object,
                 _triggerMock.Object,
                 _blockConfig,
                 _arbitrumConfig,
+                localBlockSuggester,
                 _logManager);
 
             ArbitrumSequencerEngine sequencer = new(
@@ -331,12 +349,19 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            ArbitrumBlockSuggester localBlockSuggester = new(
+                blockTree,
+                _blockProducerRunnerMock.Object,
+                _blockConfig,
+                _logManager);
+
             ArbitrumBlockFactory blockFactory = new(
                 blockTree,
                 _blockProcessingQueue.Object,
                 _triggerMock.Object,
                 _blockConfig,
                 _arbitrumConfig,
+                localBlockSuggester,
                 _logManager);
 
             ArbitrumSequencerEngine sequencer = new(
@@ -395,12 +420,19 @@ namespace Nethermind.Arbitrum.Test.Rpc
 
             CachedL1PriceData cachedL1PriceData = new(_logManager);
 
+            ArbitrumBlockSuggester localBlockSuggester = new(
+                blockTree,
+                _blockProducerRunnerMock.Object,
+                _blockConfig,
+                _logManager);
+
             ArbitrumBlockFactory blockFactory = new(
                 blockTree,
                 _blockProcessingQueue.Object,
                 _triggerMock.Object,
                 _blockConfig,
                 _arbitrumConfig,
+                localBlockSuggester,
                 _logManager);
 
             ArbitrumSequencerEngine sequencer = new(

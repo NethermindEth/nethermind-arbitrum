@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
@@ -16,17 +17,18 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution;
 
-public class ArbitrumBlockFactoryErrors
+public static class ArbitrumBlockFactoryErrors
 {
     public const int CreateBlockMutexHeld = -50000;
 }
 
-public class ArbitrumBlockFactory(
+public sealed class ArbitrumBlockFactory(
     IBlockTree blockTree,
     IBlockProcessingQueue processingQueue,
     IManualBlockProductionTrigger trigger,
     IBlocksConfig blocksConfig,
     IArbitrumConfig arbitrumConfig,
+    ArbitrumBlockSuggester blockSuggester,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockFactory>();
@@ -34,14 +36,16 @@ public class ArbitrumBlockFactory(
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
     private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
 
-    public async Task<ResultWrapper<Block>> DigestMessageAsync(long blockNumber, MessageWithMetadata message)
+    public async Task<ResultWrapper<Block>> DigestMessageAsync(long blockNumber, MessageWithMetadata message, bool deferSuggestion = false)
     {
-        // Non-blocking attempt to acquire the semaphore.
         if (!await _createBlocksSemaphore.WaitAsync(0))
             return ResultWrapper<Block>.Fail("CreateBlock mutex held.", ArbitrumBlockFactoryErrors.CreateBlockMutexHeld);
 
         try
         {
+            if (deferSuggestion)
+                blockSuggester.DeferNextBlock();
+
             BlockHeader? headBlockHeader = blockTree.Head?.Header;
             if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
                 return ResultWrapper<Block>.Fail($"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
@@ -59,6 +63,32 @@ public class ArbitrumBlockFactory(
                 return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(payload, headBlockHeader);
 
             return await ProduceBlockWhileLockedAsync(payload, headBlockHeader);
+        }
+        finally
+        {
+            blockSuggester.ResetDefer();
+            _createBlocksSemaphore.Release();
+        }
+    }
+
+    public async Task<ResultWrapper<Block>> FinalizeBlockAsync(Block block)
+    {
+        if (!await _createBlocksSemaphore.WaitAsync(0))
+            return ResultWrapper<Block>.Fail("Cannot finalize block: CreateBlock mutex held.", ArbitrumBlockFactoryErrors.CreateBlockMutexHeld);
+
+        try
+        {
+            if (blocksConfig.BuildBlocksOnMainState)
+            {
+                blockSuggester.SuggestBlockImmediate(block);
+
+                if (_logger.IsDebug)
+                    _logger.Debug($"Finalized deferred block {block.Number} ({block.Hash}) — added to tree.");
+
+                return ResultWrapper<Block>.Success(block);
+            }
+
+            return await FinalizeBlockWithProcessingAsync(block);
         }
         finally
         {
@@ -156,34 +186,38 @@ public class ArbitrumBlockFactory(
 
     private async Task<ResultWrapper<Block>> ProduceBlockWhileLockedAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
-        void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
-        {
-            if (e.Block.Hash is null)
-                return;
-
-            _newBestSuggestedBlockEvents
-                .GetOrAdd(e.Block.Hash, _ => new TaskCompletionSource<Block>())
-                .TrySetResult(e.Block);
-        }
-
-        void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
-        {
-            _blockRemovedEvents
-                .GetOrAdd(e.BlockHash, _ => new TaskCompletionSource<BlockRemovedEventArgs>())
-                .TrySetResult(e);
-        }
-
-        blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
-        processingQueue.BlockRemoved += OnBlockRemoved;
-
-        try
+        return await WaitForBlockProcessingAsync(async () =>
         {
             Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
-            if (block?.Hash is null)
-                return ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
+            return block?.Hash is null
+                ? ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError)
+                : ResultWrapper<Block>.Success(block);
+        });
+    }
 
-            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
-            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
+    private async Task<ResultWrapper<Block>> FinalizeBlockWithProcessingAsync(Block block)
+    {
+        return await WaitForBlockProcessingAsync(() =>
+        {
+            blockTree.SuggestBlock(block);
+            return Task.FromResult(ResultWrapper<Block>.Success(block));
+        });
+    }
+
+    private async Task<ResultWrapper<Block>> WaitForBlockProcessingAsync(Func<Task<ResultWrapper<Block>>> produceBlockAction)
+    {
+        blockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
+        processingQueue.BlockRemoved += OnBlockRemoved;
+        try
+        {
+            ResultWrapper<Block> buildResult = await produceBlockAction();
+            if (buildResult.Result != Result.Success)
+                return buildResult;
+
+            Block block = buildResult.Data;
+
+            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash!, static _ => new TaskCompletionSource<Block>());
+            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash!, static _ => new TaskCompletionSource<BlockRemovedEventArgs>());
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
@@ -191,24 +225,12 @@ public class ArbitrumBlockFactory(
 
             BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
 
-            if (resultArgs.ProcessingResult != ProcessingResult.Exception)
-                return resultArgs.ProcessingResult switch
-                {
-                    ProcessingResult.Success => ResultWrapper<Block>.Success(block),
-                    ProcessingResult.ProcessingError => ResultWrapper<Block>.Fail(resultArgs.Message ?? "Block processing failed.",
-                        ErrorCodes.InternalError),
-                    _ => ResultWrapper<Block>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}",
-                        ErrorCodes.InternalError)
-                };
-            BlockchainException exception = new(
-                resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
-                resultArgs.Exception);
-
-            if (_logger.IsError)
-                _logger.Error($"Block processing failed for {block.Hash}", exception);
-
-            return ResultWrapper<Block>.Fail(exception.Message, ErrorCodes.InternalError);
-
+            return resultArgs.ProcessingResult switch
+            {
+                ProcessingResult.Success => ResultWrapper<Block>.Success(block),
+                ProcessingResult.ProcessingError => ResultWrapper<Block>.Fail(resultArgs.Message ?? "Block processing failed.", ErrorCodes.InternalError),
+                _ => ResultWrapper<Block>.Fail($"Block processing failed with {resultArgs.ProcessingResult}: {resultArgs.Exception?.Message ?? "unspecified exception."}", ErrorCodes.InternalError),
+            };
         }
         catch (TimeoutException)
         {
@@ -222,5 +244,20 @@ public class ArbitrumBlockFactory(
             _newBestSuggestedBlockEvents.Clear();
             _blockRemovedEvents.Clear();
         }
+    }
+
+    private void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
+    {
+        if (e.Block.Hash is null) return;
+        _newBestSuggestedBlockEvents
+            .GetOrAdd(e.Block.Hash, static _ => new TaskCompletionSource<Block>())
+            .TrySetResult(e.Block);
+    }
+
+    private void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
+    {
+        _blockRemovedEvents
+            .GetOrAdd(e.BlockHash, static _ => new TaskCompletionSource<BlockRemovedEventArgs>())
+            .TrySetResult(e);
     }
 }
