@@ -535,7 +535,7 @@ public sealed class ArbitrumExecutionEngine(
             Number = blockNumber
         };
 
-        // temporary reference to parent trie
+        // References temporarily parent trie
         stateReconstructor.EnsureStateAvailable(parent);
 
         string[] wasmTargets = parameters.WasmTargets;
@@ -543,12 +543,19 @@ public sealed class ArbitrumExecutionEngine(
         if (!wasmTargets.Contains(localTarget))
             wasmTargets = wasmTargets.Append(localTarget).ToArray();
 
-        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
-        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
-
-        // references to parent trie are now removed
-        stateReconstructor.DereferenceRoot(parent.StateRoot!);
+        Block builtBlock;
+        ArbitrumWitness witness;
+        try
+        {
+            using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
+            IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+            (builtBlock, witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        }
+        finally
+        {
+            // Removes temporary reference to parent trie
+            stateReconstructor.DereferenceRoot(parent.StateRoot!);
+        }
 
         using (witness)
         {

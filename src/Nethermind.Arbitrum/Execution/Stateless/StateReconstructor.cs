@@ -137,45 +137,53 @@ public class StateReconstructor : IStateReconstructor
             Hash256 expectedParentHash = lastAvailable.Hash!;
             Hash256 prevStateRoot = lastAvailable.StateRoot!;
 
-            for (long blockNumber = startBlock; blockNumber <= endBlock; blockNumber++)
+            try
             {
-                Block? block = _blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.RequireCanonical);
-                if (block is null)
-                    throw new InvalidOperationException($"Cannot find block {blockNumber} during state reconstruction");
+                for (long blockNumber = startBlock; blockNumber <= endBlock; blockNumber++)
+                {
+                    Block? block = _blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.RequireCanonical);
+                    if (block is null)
+                        throw new InvalidOperationException($"Cannot find block {blockNumber} during state reconstruction");
 
-                if (block.ParentHash != expectedParentHash)
-                    throw new InvalidOperationException(
-                        $"Parent hash mismatch at block {blockNumber}: expected {expectedParentHash}, got {block.ParentHash}");
+                    if (block.ParentHash != expectedParentHash)
+                        throw new InvalidOperationException(
+                            $"Parent hash mismatch at block {blockNumber}: expected {expectedParentHash}, got {block.ParentHash}");
 
-                // SenderAddress is not persisted in block RLP — recover from receipts (fast path for
-                // Arbitrum internal txs which have no ECDSA signature) or from ECDSA signature.
-                RecoverTxSenders(block);
+                    // SenderAddress is not persisted in block RLP — recover from receipts (fast path for
+                    // Arbitrum internal txs which have no ECDSA signature) or from ECDSA signature.
+                    RecoverTxSenders(block);
 
-                Hash256 expectedBlockHash = block.Hash!;
-                IReleaseSpec spec = specProvider.GetSpec(block.Header);
-                (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
+                    Hash256 expectedBlockHash = block.Hash!;
+                    IReleaseSpec spec = specProvider.GetSpec(block.Header);
+                    (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
 
-                if (processedBlock.Hash != expectedBlockHash)
-                    throw new InvalidOperationException(
-                        $"Block hash mismatch after re-execution of block {blockNumber}: expected {expectedBlockHash}, got {processedBlock.Hash}");
+                    if (processedBlock.Hash != expectedBlockHash)
+                        throw new InvalidOperationException(
+                            $"Block hash mismatch after re-execution of block {blockNumber}: expected {expectedBlockHash}, got {processedBlock.Hash}");
 
-                worldState.CommitTree(block.Number);
+                    worldState.CommitTree(block.Number);
 
-                Hash256 currentStateRoot = processedBlock.Header.StateRoot!;
+                    Hash256 currentStateRoot = processedBlock.Header.StateRoot!;
 
-                // Pin the newly reconstructed state
-                _trieStore.Reference(currentStateRoot);
-                // Dereference the previous block's state (temporary reference only)
+                    // Pin the newly reconstructed state
+                    _trieStore.Reference(currentStateRoot);
+                    // Dereference the previous block's state (temporary reference only)
+                    _trieStore.Dereference(prevStateRoot);
+
+                    prevStateRoot = currentStateRoot;
+
+                    worldState.Reset();
+
+                    expectedParentHash = processedBlock.Hash!;
+
+                    if (_logger.IsDebug && blockNumber % 100 == 0)
+                        _logger.Debug($"State reconstruction progress: {blockNumber - startBlock + 1}/{endBlock - startBlock + 1} blocks");
+                }
+            }
+            catch
+            {
                 _trieStore.Dereference(prevStateRoot);
-
-                prevStateRoot = currentStateRoot;
-
-                worldState.Reset();
-
-                expectedParentHash = processedBlock.Hash!;
-
-                if (_logger.IsDebug && blockNumber % 100 == 0)
-                    _logger.Debug($"State reconstruction progress: {blockNumber - startBlock + 1}/{endBlock - startBlock + 1} blocks");
+                throw; // Preserves stack trace
             }
         }
 
