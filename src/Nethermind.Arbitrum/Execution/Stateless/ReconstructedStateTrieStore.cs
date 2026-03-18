@@ -29,7 +29,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     private readonly MemDb _memDb = memDb;
 
     /// <summary>Per-MemDb-key reference counts for tracking which nodes are still needed by at least one alive state root.</summary>
-    private readonly ConcurrentDictionary<byte[], int> _refCounts = new(Bytes.EqualityComparer);
+    private readonly Dictionary<byte[], int> _refCounts = new(Bytes.EqualityComparer);
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
