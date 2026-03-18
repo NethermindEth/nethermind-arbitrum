@@ -318,10 +318,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
     {
         protected override void Load(ContainerBuilder builder) => builder
-            .AddScoped((ctx) =>
+            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor>((ctx) =>
             {
-                return new BlockProcessor.BlockValidationTransactionsExecutor(new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
+                return new ArbitrumBlockValidationTransactionsExecutor(
+                    new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
                     ctx.Resolve<IWorldState>(),
+                    ctx.Resolve<ILogManager>(),
                     ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
             });
     }
