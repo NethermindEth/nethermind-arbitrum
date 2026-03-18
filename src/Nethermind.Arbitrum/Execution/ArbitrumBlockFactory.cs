@@ -248,7 +248,9 @@ public sealed class ArbitrumBlockFactory(
 
     private void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
     {
-        if (e.Block.Hash is null) return;
+        if (e.Block.Hash is null)
+            return;
+
         _newBestSuggestedBlockEvents
             .GetOrAdd(e.Block.Hash, static _ => new TaskCompletionSource<Block>())
             .TrySetResult(e.Block);
