@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Evm;
 
@@ -16,15 +17,15 @@ public static class ArbInfo
 
     public static Int256.UInt256 GetBalance(ArbitrumPrecompileExecutionContext context, Address account)
     {
-        context.Burn(GasCostOf.BalanceEip1884);
+        context.Burn(ResourceKind.Computation, GasCostOf.BalanceEip1884);
         return context.WorldState.GetBalance(account);
     }
 
     public static byte[] GetCode(ArbitrumPrecompileExecutionContext context, Address account)
     {
-        context.Burn(GasCostOf.ColdSLoad);
+        context.Burn(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
         byte[] code = context.WorldState.GetCode(account)!;
-        context.Burn(GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)code.Length));
+        context.Burn(ResourceKind.StorageAccess, GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)code.Length));
         return code;
     }
 }

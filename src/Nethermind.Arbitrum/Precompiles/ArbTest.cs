@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -21,14 +22,17 @@ public static class ArbTest
         "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"gasAmount\",\"type\":\"uint256\"}],\"name\":\"burnArbGas\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"}]";
 
     /// <summary>
-    /// Unproductively burns the amount of L2 ArbGas
+    /// Unproductively burns the amount of L2 ArbGas.
+    /// Note: This burns the gas even if it's more than the user has, matching Nitro behavior.
+    /// The error from out-of-gas is intentionally ignored.
     /// </summary>
     public static void BurnArbGas(ArbitrumPrecompileExecutionContext context, UInt256 gasAmount)
     {
         if (gasAmount > ulong.MaxValue)
             throw ArbitrumPrecompileException.CreateFailureException("not a uint64");
 
-        // Burn the amount, even if it's more than the user has
-        context.Burn((ulong)gasAmount);
+        // Burn the amount as Computation gas, even if it's more than the user has.
+        // Nitro ignores the out-of-gas error (//nolint:errcheck), so we use BurnAllowingOutOfGas.
+        context.BurnAllowingOutOfGas(ResourceKind.Computation, (ulong)gasAmount);
     }
 }
