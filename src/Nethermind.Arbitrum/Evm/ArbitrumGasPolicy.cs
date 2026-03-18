@@ -98,6 +98,20 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     };
 
     /// <summary>
+    /// Creates a new ArbitrumGasPolicy with specified available gas while preserving
+    /// both the MultiGas breakdown AND the original _allocatedByParent value.
+    /// Used by precompile execution to preserve the original gas allocation when returning unused gas.
+    /// This is critical for correct Refund() behavior which uses _allocatedByParent for retained tracking.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ArbitrumGasPolicy FromLongPreservingAllocated(long value, in ArbitrumGasPolicy original) => new()
+    {
+        _ethereum = EthereumGasPolicy.FromLong(value),
+        _allocatedByParent = original._allocatedByParent,
+        _accumulated = original._accumulated
+    };
+
+    /// <summary>
     /// Get remaining gas for OOG checks.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -112,6 +126,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     {
         EthereumGasPolicy.Consume(ref gas._ethereum, cost);
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)cost);
+        Execution.BlockDebugLogger.LogValueStatic("GAS_CONSUME", $"cost={cost} totalComp={gas._accumulated.Get(ResourceKind.Computation)}");
     }
 
     /// <summary>
@@ -465,6 +480,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             ? GasCostOf.TxCreate + GasCostOf.Transaction
             : GasCostOf.Transaction;
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)baseTxGas);
+        Execution.BlockDebugLogger.LogValueStatic("INTRINSIC_GAS", $"txType={tx.Type} baseTxGas={baseTxGas} dataLen={tx.Data.Length}");
 
         // 2. Computation: Init code cost (EIP-3860)
         if (tx.IsContractCreation && spec.IsEip3860Enabled && tx.Data.Length > 0)

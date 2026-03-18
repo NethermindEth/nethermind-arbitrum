@@ -72,11 +72,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // which creates a new burner each time that doesn't flow to receipt's MultiGasUsed
         FreeArbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), Logger);
 
+        Execution.BlockDebugLogger.LogValueStatic("VM_BEFORE_EXECUTE",
+            $"vmState.Gas.Accumulated={vmState.Gas.GetAccumulated()}");
+
         TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
 
-        // Add gas burned by ArbOS storage operations (via IBurner) to the policy's accumulated,
-        // so it flows through to GetTotalAccumulated() when the transaction processor calculates the final gas.
-        ArbitrumGasPolicy.AddToAccumulated(ref vmState.Gas, _systemBurner.BurnedMultiGas);
+        Execution.BlockDebugLogger.LogValueStatic("VM_AFTER_EXECUTE",
+            $"vmState.Gas.Accumulated={vmState.Gas.GetAccumulated()}");
 
         return result;
     }
@@ -440,7 +442,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Execute the precompile operation with the current state.
+        ReadOnlySpan<byte> debugMethodId = currentState.Env.InputData.Span.Length >= 4 ? currentState.Env.InputData.Span[..4] : default;
+        Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_CALL",
+            $"precompile={precompileInfo.ArbitrumPrecompile.GetType().Name} target={currentState.Env.ExecutingAccount} methodId=0x{Convert.ToHexString(debugMethodId.ToArray()).ToLower()} gas={ArbitrumGasPolicy.GetRemainingGas(currentState.Gas)} callDepth={currentState.Env.CallDepth} isStatic={currentState.IsStatic} caller={currentState.Env.Caller}");
         CallResult callResult = RunPrecompile(currentState, precompileInfo);
+        Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_RESULT",
+            $"precompile={precompileInfo.ArbitrumPrecompile.GetType().Name} success={callResult.PrecompileSuccess} shouldRevert={callResult.ShouldRevert} outputLen={callResult.Output.Bytes.Length}");
 
         // If the precompile did not succeed without a revert, handle the failure conditions.
         if (!callResult.PrecompileSuccess!.Value && !callResult.ShouldRevert)
@@ -504,10 +511,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 ? OwnerPrecompileCall(state, context, precompile)
                 : NonOwnerPrecompileCall(state, context, precompile);
 
-        // Aggregate precompile context's burned MultiGas into systemBurner for receipt tracking
+        // Add precompile's MultiGas to child's gas policy so it flows through Refund correctly.
+        // In Nitro, precompile's usedMultiGas is returned from the call and added to parent's UsedMultiGas.
         // Skip for owner precompiles - they don't charge multigas (Nitro returns multigas.ZeroGas())
         if (!precompile.IsOwner)
-            _systemBurner.AddBurnedMultiGas(context.BurnedMultiGas);
+            ArbitrumGasPolicy.AddToAccumulated(ref state.Gas, context.BurnedMultiGas);
 
         return result;
     }
@@ -563,7 +571,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 };
             }
 
+            ReadOnlySpan<byte> methodId = state.Env.InputData.Span.Length >= 4 ? state.Env.InputData.Span[..4] : default;
+            Execution.BlockDebugLogger.LogValueStatic("OWNER_PRECOMPILE_CALL", $"method={methodId.ToHexString()} caller={context.Caller}");
+
             CallResult result = NonOwnerPrecompileCall(state, context, precompile);
+
+            Execution.BlockDebugLogger.LogValueStatic("OWNER_PRECOMPILE_RESULT", $"success={result.PrecompileSuccess} outputLen={result.Output.Bytes.Length}");
 
             ReturnSomeGas(state, context.GasSupplied);
             if (Logger.IsTrace)
@@ -572,7 +585,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (!result.PrecompileSuccess!.Value)
                 return result;
 
-            if (!context.IsCallStatic || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
+            bool willEmit = !context.IsCallStatic || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven;
+            Execution.BlockDebugLogger.LogValueStatic("OWNER_ACTS_CHECK", $"isCallStatic={context.IsCallStatic} version={context.ArbosState.CurrentArbosVersion} willEmit={willEmit}");
+            if (willEmit)
                 OwnerLogic.EmitOwnerSuccessEvent(state, context, precompile);
 
             return result;
@@ -656,9 +671,20 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         byte[] output = methodToExecute(context, calldata);
 
+        Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_METHOD_DONE",
+            $"outputLen={output.Length} gasLeftAfterMethod={context.GasLeft}");
+
         // Add logs to evm state
+        Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_LOGS_TRANSFER",
+            $"eventLogsCount={context.EventLogs.Count} stateLogsBeforeAdd={state.AccessTracker.Logs.Count}");
         foreach (LogEntry log in context.EventLogs)
+        {
+            Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_LOG_ADD",
+                $"address={log.Address} topic0={(log.Topics.Length > 0 ? log.Topics[0].ToString() : "none")}");
             state.AccessTracker.Logs.Add(log);
+        }
+        Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_LOGS_AFTER",
+            $"stateLogsAfterAdd={state.AccessTracker.Logs.Count}");
 
         // Burn gas for output data
         (shouldRevert, ulong gasToReturn, _) = PayForOutput(context, output, success: true);
@@ -680,6 +706,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
 
+        Execution.BlockDebugLogger.LogValueStatic("PAY_FOR_OUTPUT",
+            $"outputLen={executionOutput.Length} outputGasCost={outputGasCost} gasLeft={context.GasLeft} willRevert={outputGasCost > context.GasLeft}");
+
         // user cannot afford the result data returned
         if (outputGasCost > context.GasLeft)
             return new(ShouldRevert: true, GasLeft: 0L, RanOutOfGas: true);
@@ -694,6 +723,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
         ArbitrumPrecompileExecutionContext context,
         Exception exception)
     {
+        Execution.BlockDebugLogger.LogValueStatic("PRECOMPILE_EXCEPTION",
+            $"type={exception.GetType().Name} message={exception.Message} gasLeft={context.GasLeft}");
+
         (bool shouldRevert, ulong gasToReturn, bool ranOutOfGas) = exception switch
         {
             ArbitrumPrecompileException precompileException => precompileException switch
@@ -1021,14 +1053,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private static void ConsumeAllGas(VmState<ArbitrumGasPolicy> state)
     {
-        // Preserve accumulated MultiGas for receipt tracking
-        state.Gas = ArbitrumGasPolicy.FromLongWithAccumulated(0, state.Gas.GetAccumulated());
+        // Preserve accumulated MultiGas AND _allocatedByParent for correct Refund() behavior.
+        state.Gas = ArbitrumGasPolicy.FromLongPreservingAllocated(0, state.Gas);
     }
 
     private static void ReturnSomeGas(VmState<ArbitrumGasPolicy> state, ulong gasToReturn)
     {
-        // Preserve accumulated MultiGas for receipt tracking
-        state.Gas = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasToReturn, state.Gas.GetAccumulated());
+        // Preserve accumulated MultiGas AND _allocatedByParent for correct Refund() behavior.
+        // The _allocatedByParent must remain the original allocation so that when Refund() is called,
+        // it correctly tracks how much gas was allocated to this child call (used for _retained calculation).
+        state.Gas = ArbitrumGasPolicy.FromLongPreservingAllocated((long)gasToReturn, state.Gas);
     }
 
     private readonly record struct PrecompileOutcome(
