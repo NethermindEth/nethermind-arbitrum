@@ -5,6 +5,7 @@ using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -134,7 +135,7 @@ public static class ArbWasm
     public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program)
     {
         // charge a fixed cost up front to begin activation
-        context.Burn(ActivationFixedCost);
+        context.Burn(ResourceKind.Computation, ActivationFixedCost);
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
