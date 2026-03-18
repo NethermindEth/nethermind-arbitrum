@@ -46,8 +46,7 @@
   "Pruning": {
     "PruningBoundary": 192,
     "MaxUnpersistedBlockCount": 1000,
-    "TrackPastKeys": false,
-    "PersistHeadOnShutdown": true
+    "TrackPastKeys": false
   },
   "Blocks": {
     "SecondsPerSlot": 2,
