@@ -274,10 +274,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public static bool ConsumeStorageWrite(ref ArbitrumGasPolicy gas, bool isSlotCreation, IReleaseSpec spec)
     {
         long cost = isSlotCreation ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
-        if (!UpdateGas(ref gas, cost))
-            return false;
-        gas._accumulated.Increment(isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess, (ulong)cost);
-        return true;
+        return UpdateGasWithResource(ref gas, cost, isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess);
     }
 
     /// <summary>
@@ -300,7 +297,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool ConsumeNewAccountCreation(ref ArbitrumGasPolicy gas)
     {
-        if (!EthereumGasPolicy.ConsumeNewAccountCreation(ref gas._ethereum))
+        if (!EthereumGasPolicy.ConsumeStateGas(ref gas._ethereum, GasCostOf.NewAccount))
             return false;
         gas._accumulated.Increment(ResourceKind.StorageGrowth, GasCostOf.NewAccount);
         return true;
