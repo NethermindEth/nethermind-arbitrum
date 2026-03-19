@@ -3,6 +3,7 @@
 
 using Nethermind.Abi;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Nethermind.Core.Crypto;
 using System.Buffers.Binary;
 
@@ -136,23 +137,33 @@ public class AbiMetadata
 
         return abiItems!
             .Where(item => item.Type == "function")
-            .Select(item => new ArbitrumFunctionDescription(
-                new AbiFunctionDescription
-                {
-                    Name = item.Name,
-                    StateMutability = item.StateMutability ?? throw new ArgumentException($"StateMutability not found in abi for function {item.Name}"),
-                    Inputs = item.Inputs?.Select(input => new AbiParameter
+            .Select(item =>
+            {
+                var funcDesc = new ArbitrumFunctionDescription(
+                    new AbiFunctionDescription
                     {
-                        Name = input.Name,
-                        Type = input.Type,
-                    }).ToArray() ?? [],
-                    Outputs = item.Outputs?.Select(output => new AbiParameter
-                    {
-                        Name = output.Name,
-                        Type = output.Type,
-                    }).ToArray() ?? []
-                }))
-            .ToDictionary(item => BinaryPrimitives.ReadUInt32BigEndian(item.AbiFunctionDescription.GetHash().Bytes[0..4]));
+                        Name = item.Name,
+                        StateMutability = item.StateMutability ?? throw new ArgumentException($"StateMutability not found in abi for function {item.Name}"),
+                        Inputs = item.Inputs?.Select(input => new AbiParameter
+                        {
+                            Name = input.Name,
+                            Type = input.GetResolvedAbiType(),
+                        }).ToArray() ?? [],
+                        Outputs = item.Outputs?.Select(output => new AbiParameter
+                        {
+                            Name = output.Name,
+                            Type = output.GetResolvedAbiType(),
+                        }).ToArray() ?? []
+                    });
+
+                // Compute method ID using canonical signature (handles nested tuples correctly)
+                string canonicalInputs = string.Join(",", item.Inputs?.Select(i => i.GetCanonicalType()) ?? []);
+                string canonicalSignature = $"{item.Name}({canonicalInputs})";
+                uint methodId = BinaryPrimitives.ReadUInt32BigEndian(ValueKeccak.Compute(canonicalSignature).Bytes[..4]);
+
+                return (methodId, funcDesc);
+            })
+            .ToDictionary(item => item.methodId, item => item.funcDesc);
     }
 
     private class AbiItem
@@ -170,5 +181,72 @@ public class AbiMetadata
         public required string Name { get; set; }
         public required AbiType Type { get; set; }
         public bool? Indexed { get; set; } // for event parameters
+
+        [JsonPropertyName("components")]
+        public AbiParam[]? Components { get; set; } // for tuple types (nested structs)
+
+        /// <summary>
+        /// Gets the canonical type string for this parameter.
+        /// For tuple types, recursively resolves components to produce signatures like "(uint8,uint64)[]".
+        /// </summary>
+        public string GetCanonicalType()
+        {
+            string typeStr = Type.ToString();
+
+            // Handle tuple types by recursively resolving components
+            // When JSON deserializes "tuple" or "tuple[]", AbiTypeConverter creates an empty AbiTuple
+            // which produces "()" or "()[]" - we need to use Components to build the real signature
+            if (Components is { Length: > 0 } && (typeStr == "()" || typeStr.StartsWith("()")))
+            {
+                // Build the tuple signature from components
+                string componentTypes = string.Join(",", Components.Select(c => c.GetCanonicalType()));
+                string tupleSignature = $"({componentTypes})";
+
+                // Preserve array suffix if present (e.g., "()[]" -> "(...)[]")
+                if (typeStr.Length > 2) // "()" is 2 chars
+                {
+                    return tupleSignature + typeStr[2..];
+                }
+                return tupleSignature;
+            }
+
+            return typeStr;
+        }
+
+        /// <summary>
+        /// Gets the resolved AbiType, properly building tuple types from components.
+        /// For non-tuple types or tuples without components, returns the original Type.
+        /// For tuple types with components, recursively builds the correct AbiTuple structure.
+        /// </summary>
+        public AbiType GetResolvedAbiType()
+        {
+            string typeStr = Type.ToString();
+
+            // Handle tuple types by recursively resolving components
+            if (Components is { Length: > 0 } && (typeStr == "()" || typeStr.StartsWith("()")))
+            {
+                // Build AbiTuple from components
+                AbiType[] componentTypes = Components.Select(c => c.GetResolvedAbiType()).ToArray();
+                string[] componentNames = Components.Select(c => c.Name).ToArray();
+                AbiType tupleType = new AbiTuple(componentTypes, componentNames);
+
+                // Handle array suffix
+                if (typeStr.Length > 2) // "()" is 2 chars, so we have array suffix
+                {
+                    string suffix = typeStr[2..];
+                    if (suffix == "[]")
+                        return new AbiArray(tupleType);
+                    if (suffix.StartsWith('[') && suffix.EndsWith(']'))
+                    {
+                        string sizeStr = suffix[1..^1];
+                        if (int.TryParse(sizeStr, out int size))
+                            return new AbiFixedLengthArray(tupleType, size);
+                    }
+                }
+                return tupleType;
+            }
+
+            return Type;
+        }
     }
 }

@@ -179,6 +179,15 @@ public struct MultiGas
     public readonly MultiGasForJson ToJson() => new(in this);
 
     /// <summary>
+    /// Returns a debug string representation of MultiGas.
+    /// </summary>
+    public override readonly string ToString()
+    {
+        ReadOnlySpan<ulong> gas = _gas;
+        return $"[total={_total} refund={_refund} gas=[{gas[0]},{gas[1]},{gas[2]},{gas[3]},{gas[4]},{gas[5]},{gas[6]},{gas[7]}]]";
+    }
+
+    /// <summary>
     /// Encodes MultiGas as: [ total, refund, gas[0], gas[1], ..., gas[7] ]
     /// </summary>
     public readonly void Encode(RlpStream stream)
