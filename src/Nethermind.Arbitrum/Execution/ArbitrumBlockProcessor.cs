@@ -130,6 +130,10 @@ namespace Nethermind.Arbitrum.Execution
 
                 ArbosState arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
+                // Rotate next-block fees to current-block fees before processing.
+                // PrepareBlock also calls this, but in a temporary scope that gets discarded.
+                arbosState.L2PricingState.CommitMultiGasFees();
+
                 ulong blockGasLeft = arbosState.L2PricingState.PerBlockGasLimitStorage.Get();
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
                 BigInteger expectedBalanceDelta = 0;
