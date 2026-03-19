@@ -1,9 +1,3 @@
-TestAddressFilterCreate2
-TestAddressFilterDirectTransfer
-TestAddressFilterDisabled
-TestAddressFilterSelfdestruct
-TestAddressFilterStaticCall
-TestAddressFilterWithFilteredEvents
 TestArbAddressTableDoesntRevert
 TestArbAggregatorBaseFee
 TestArbAggregatorBatchPosters
@@ -46,3 +40,7 @@ TestSelfDestruct
 TestSendRawTransactionConditionalMultiRoutine
 TestSequencerBlockFilterReject
 TestTransfer
+TestSetAndGetGasPricingConstraints
+TestSetAndGetMultiGasPricingConstraints
+TestMultiGasRefundForNormalTx
+TestMultiGasRefundForRetryableTx

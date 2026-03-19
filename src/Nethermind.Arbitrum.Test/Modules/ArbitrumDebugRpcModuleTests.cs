@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Core.Caching;
@@ -23,6 +24,7 @@ public class ArbitrumDebugRpcModuleTests
     private List<IClearableCache> _cacheAwareServices = null!;
     private IClearableCache _mockCache1 = null!;
     private IClearableCache _mockCache2 = null!;
+    private IArbOSVersionOverride _arbosVersionOverride = null!;
     private ArbitrumDebugRpcModule _module = null!;
 
     [SetUp]
@@ -33,12 +35,14 @@ public class ArbitrumDebugRpcModuleTests
         _mockCache1 = Substitute.For<IClearableCache>();
         _mockCache2 = Substitute.For<IClearableCache>();
         _cacheAwareServices = [_mockCache1, _mockCache2];
+        _arbosVersionOverride = Substitute.For<IArbOSVersionOverride>();
 
         _module = new ArbitrumDebugRpcModule(
             _dbProvider,
             _blockTree,
             _cacheAwareServices,
-            LimboLogs.Instance);
+            LimboLogs.Instance,
+            _arbosVersionOverride);
     }
 
     [TearDown]
@@ -105,7 +109,8 @@ public class ArbitrumDebugRpcModuleTests
             null!,
             _blockTree,
             _cacheAwareServices,
-            LimboLogs.Instance);
+            LimboLogs.Instance,
+            _arbosVersionOverride);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("dbProvider");
@@ -118,7 +123,8 @@ public class ArbitrumDebugRpcModuleTests
             _dbProvider,
             null!,
             _cacheAwareServices,
-            LimboLogs.Instance);
+            LimboLogs.Instance,
+            _arbosVersionOverride);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("blockTree");
@@ -131,7 +137,8 @@ public class ArbitrumDebugRpcModuleTests
             _dbProvider,
             _blockTree,
             null!,
-            LimboLogs.Instance);
+            LimboLogs.Instance,
+            _arbosVersionOverride);
 
         act.Should().Throw<ArgumentNullException>()
             .WithParameterName("cacheAwareServices");
@@ -275,6 +282,7 @@ public class ArbitrumDebugRpcModuleTests
             _blockTree,
             _cacheAwareServices,
             LimboLogs.Instance,
+            _arbosVersionOverride,
             null,  // blockhashCache
             null); // preBlockCaches
 
@@ -291,7 +299,8 @@ public class ArbitrumDebugRpcModuleTests
             _dbProvider,
             _blockTree,
             [],  // empty list
-            LimboLogs.Instance);
+            LimboLogs.Instance,
+            _arbosVersionOverride);
 
         ResultWrapper<bool> result = await moduleWithEmptyCaches.debug_reinitialize(51, "{}", null);
 
