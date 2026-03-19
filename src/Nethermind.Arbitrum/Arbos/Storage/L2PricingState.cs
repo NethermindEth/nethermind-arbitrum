@@ -52,6 +52,8 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
     public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
     public const long BipsMultiplier = 10_000;
+    // MaxPricingExponentBips caps the basefee growth: exp(8.5) ~= x5,000 min base fee.
+    public const long MaxPricingExponentBips = 85_000;
 
     public const ulong InitialPerTxGasLimit = 32_000_000;
     public const int GasConstraintsMaxNum = 20;
@@ -253,7 +255,7 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
 
     public UInt256 MultiDimensionalPriceForRefund(MultiGas gasUsed)
     {
-        FeeBuffer fees = default;
+        Span<UInt256> fees = stackalloc UInt256[MultiGas.NumResourceKinds];
         GetMultiGasBaseFeePerResource(fees);
         UInt256 total = UInt256.Zero;
 
@@ -273,7 +275,8 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
 
     public void CommitMultiGasFees()
     {
-        if (GetGasModelToUse() != GasModel.MultiGasConstraints)
+        GasModel model = GetGasModelToUse();
+        if (model != GasModel.MultiGasConstraints)
             return;
         MultiGasFees.CommitNextToCurrent();
     }
