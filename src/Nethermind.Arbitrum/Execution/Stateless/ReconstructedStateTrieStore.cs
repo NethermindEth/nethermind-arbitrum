@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Collections.Concurrent;
 using Nethermind.Core;
 using Nethermind.Core.Buffers;
 using Nethermind.Core.Crypto;
@@ -28,8 +27,14 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     private readonly INodeStorage _nodeStorage = new NodeStorage(memDb);
     private readonly MemDb _memDb = memDb;
 
-    /// <summary>Per-MemDb-key reference counts for tracking which nodes are still needed by at least one alive state root.</summary>
-    private readonly Dictionary<byte[], int> _refCounts = new(Bytes.EqualityComparer);
+    /// <summary>How many references each MemDb node has: one per trie-parent that was committed referencing it, plus one per external <see cref="Reference"/> call on it (state roots only).</summary>
+    private readonly Dictionary<byte[], int> _parents = new(Bytes.EqualityComparer);
+
+    /// <summary>MemDb keys of each committed node's children that are also in MemDb. Used for cascade dereference without traversal.</summary>
+    private readonly Dictionary<byte[], List<byte[]>> _children = new(Bytes.EqualityComparer);
+
+    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="Reference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
+    private readonly object _refCountLock = new();
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
@@ -72,70 +77,120 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     public IBlockCommitter BeginBlockCommit(long blockNumber) => NullCommitter.Instance;
 
     public ICommitter BeginCommit(Hash256? address, TrieNode? root, WriteFlags writeFlags)
-        => new RawScopedTrieStore.Committer(_nodeStorage, address, writeFlags);
+        => new TrackingCommitter(this, new RawScopedTrieStore.Committer(_nodeStorage, address, writeFlags), address);
 
     /// <summary>
-    /// Traverses all MemDb-resident trie nodes reachable from the given state root and increments
-    /// their reference counts. Call when adding a state root to the alive set.
+    /// Increments the reference count for the given state root node in the MemDb overlay. O(1).
+    /// No-op if the root is not in the overlay (disk-resident roots need no tracking).
+    /// Call when adding a state root to the alive set.
     /// </summary>
     public void Reference(Hash256 stateRoot)
     {
-        Traverse(null, TreePath.Empty, stateRoot, key =>
+        byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
+        lock (_refCountLock)
         {
-            _refCounts[key] = _refCounts.TryGetValue(key, out int count) ? count + 1 : 1;
-        });
+            if (_parents.TryGetValue(key, out int count))
+                _parents[key] = count + 1;
+        }
     }
 
     /// <summary>
-    /// Traverses all MemDb-resident trie nodes reachable from the given state root and decrements
-    /// their reference counts. Nodes whose count reaches zero are evicted from the MemDb.
+    /// Decrements the reference count for the given state root and cascades through children,
+    /// evicting nodes from the MemDb whose count reaches zero.
     /// Call when removing a state root from the alive set.
     /// </summary>
     public void Dereference(Hash256 stateRoot)
     {
-        Traverse(null, TreePath.Empty, stateRoot, key =>
+        byte[] rootKey = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
+        lock (_refCountLock)
         {
-            if (!_refCounts.TryGetValue(key, out int count))
-                return;
+            Stack<byte[]> stack = new();
+            stack.Push(rootKey);
 
-            if (count <= 1)
+            while (stack.TryPop(out byte[]? key))
             {
-                _refCounts.Remove(key, out _);
+                if (!_parents.TryGetValue(key, out int count))
+                    continue;
+
+                if (count > 1)
+                {
+                    _parents[key] = count - 1;
+                    continue;
+                }
+
+                _parents.Remove(key, out _);
                 _memDb.Remove(key);
+
+                if (_children.TryGetValue(key, out List<byte[]>? childKeys))
+                {
+                    _children.Remove(key, out _);
+                    foreach (byte[] childKey in childKeys)
+                        stack.Push(childKey);
+                }
             }
-            else
-            {
-                _refCounts[key] = count - 1;
-            }
-        });
+        }
     }
 
-    private void Traverse(Hash256? address, TreePath path, Hash256 hash, Action<byte[]> onKey)
+    /// <summary>
+    /// Called by <see cref="TrackingCommitter"/> for each node written to the MemDb overlay.
+    /// Initialises this node's parent count and increments the parent count of its MemDb-resident children.
+    /// Since Patricia tries commit bottom-up (children before parents), children are already tracked
+    /// when their parent node is processed here.
+    /// </summary>
+    private void TrackCommittedNode(byte[] nodeKey, CappedArray<byte> fullRlp, Hash256? address, TreePath path)
     {
-        Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
-        stack.Push((address, path, hash));
-
-        while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
+        lock (_refCountLock)
         {
-            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(item.addr, item.p, item.h);
-            byte[]? rlp = _memDb[key];
-            // If the node is not in memDB, neither are its children. Then no need to reference them.
-            if (rlp is null)
-                continue;
+            // Node already tracked (committed during a prior reconstruction) — skip.
+            if (_parents.ContainsKey(nodeKey))
+                return;
 
-            // Push children to stack BEFORE calling onKey (which during Dereference may delete this node).
-            // Since this is a tree traversal (no intra-trie node sharing under HalfPath scheme), each key
-            // is visited at most once.
-            PushChildren(rlp, item.addr, item.p, stack);
-            onKey(key);
+            _parents[nodeKey] = 0;
+        }
+
+        // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
+        List<byte[]> childKeys = [];
+        PushChildren(fullRlp, address, path, childKeys);
+
+        if (childKeys.Count == 0)
+            return;
+
+        lock (_refCountLock)
+        {
+            _children[nodeKey] = childKeys;
+            foreach (byte[] childKey in childKeys)
+            {
+                if (_parents.TryGetValue(childKey, out int cnt))
+                    _parents[childKey] = cnt + 1;
+                // else: child is disk-resident (not in MemDb overlay) — no tracking needed.
+            }
+        }
+    }
+
+    private sealed class TrackingCommitter(
+        ReconstructedStateTrieStore store,
+        RawScopedTrieStore.Committer inner,
+        Hash256? address) : ICommitter
+    {
+        public void Dispose() => inner.Dispose();
+
+        public TrieNode CommitNode(ref TreePath path, TrieNode node)
+        {
+            TrieNode result = inner.CommitNode(ref path, node);
+            if (!node.IsBoundaryProofNode && node.Keccak is not null)
+            {
+                byte[] nodeKey = NodeStorage.GetHalfPathNodeStoragePath(address, path, node.Keccak);
+                store.TrackCommittedNode(nodeKey, node.FullRlp, address, path);
+            }
+            return result;
         }
     }
 
     private static void PushChildren(
-        byte[] rlp,
+        CappedArray<byte> rlp,
         Hash256? address,
         TreePath path,
-        Stack<(Hash256? address, TreePath path, Hash256 hash)> stack)
+        List<byte[]> childKeys)
     {
         ValueRlpStream stream = new ValueRlpStream(rlp);
         stream.ReadSequenceLength();
@@ -148,7 +203,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             {
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    stack.Push((address, path.Append(i), stream.DecodeKeccak()!));
+                    childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path.Append(i), stream.DecodeKeccak()!));
                 else
                     stream.SkipItem();
             }
@@ -172,7 +227,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                         // which is the address key used by NodeStorage for storage trie nodes.
                         TreePath fullPath = path.Append(pathNibbles);
                         Hash256 addressHash = new Hash256(in fullPath.Path);
-                        stack.Push((addressHash, TreePath.Empty, storageRoot));
+                        childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(addressHash, TreePath.Empty, storageRoot));
                     }
                 }
                 // Storage trie leaf: value is a storage slot — no child nodes.
@@ -182,7 +237,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 // Extension node: single hash-referenced child, path extended by pathNibbles.
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    stack.Push((address, path.Append(pathNibbles), stream.DecodeKeccak()!));
+                    childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path.Append(pathNibbles), stream.DecodeKeccak()!));
                 // Inline child (< 32 bytes) is embedded in the parent — not a separate MemDb entry.
             }
         }
