@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -661,8 +663,10 @@ public class ArbitrumGasPolicyTests
             .WithData([0x01, 0x02]) // 2 non-zero bytes
             .TestObject;
 
+        IReleaseSpec releaseSpec = new ArbitrumReleaseSpec();
+
         ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
-        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas);
+        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas, releaseSpec);
 
         // Accumulated breakdown should be preserved
         availableGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);

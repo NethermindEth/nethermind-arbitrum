@@ -273,9 +273,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool ConsumeStorageWrite(ref ArbitrumGasPolicy gas, bool isSlotCreation, IReleaseSpec spec)
     {
-        if (!EthereumGasPolicy.ConsumeStorageWrite(ref gas._ethereum, isSlotCreation, spec))
-            return false;
         long cost = isSlotCreation ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
+        if (!UpdateGas(ref gas, cost))
+            return false;
         gas._accumulated.Increment(isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess, (ulong)cost);
         return true;
     }
@@ -433,6 +433,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// The accumulated breakdown from intrinsic gas is preserved for tracking.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ArbitrumGasPolicy CreateAvailableFromIntrinsic(long gasLimit, in ArbitrumGasPolicy intrinsicGas)
-        => intrinsicGas with { _ethereum = EthereumGasPolicy.CreateAvailableFromIntrinsic(gasLimit, in intrinsicGas._ethereum) };
+    public static ArbitrumGasPolicy CreateAvailableFromIntrinsic(long gasLimit, in ArbitrumGasPolicy intrinsicGas, IReleaseSpec spec)
+        => intrinsicGas with { _ethereum = EthereumGasPolicy.CreateAvailableFromIntrinsic(gasLimit, in intrinsicGas._ethereum, spec) };
 }
