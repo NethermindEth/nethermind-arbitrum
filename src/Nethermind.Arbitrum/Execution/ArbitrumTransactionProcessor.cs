@@ -1189,7 +1189,14 @@ namespace Nethermind.Arbitrum.Execution
 
             HandleRetryableLifecycle(retryTx);
 
-            _arbosState!.L2PricingState.AddToGasPool(-gasUsed.ToLongSafe());
+            // Handle multi-dimensional gas refund (ArbOS version 60+)
+            UInt256 totalCost = effectiveBaseFee * gasUsed;
+            HandleMultiGasRefund(retryTx, totalCost);
+
+            // Update gas pool using multi-gas aware GrowBacklog (matches Nitro tx_processor.go:706)
+            // For retry transactions, use AccumulatedMultiGas directly - no poster gas subtraction
+            // (unlike normal transactions which subtract posterGas at line 792)
+            _arbosState!.L2PricingState.GrowBacklog(gasUsed, TxExecContext.AccumulatedMultiGas);
         }
 
         private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTransaction retryTx)
