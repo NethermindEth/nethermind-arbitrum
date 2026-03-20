@@ -30,7 +30,7 @@ public sealed class AuctionResolutionQueue : IAuctionResolutionQueue
 {
     private readonly Channel<TxQueueItem> _channel = Channel.CreateBounded<TxQueueItem>(new BoundedChannelOptions(10)
     {
-        FullMode = BoundedChannelFullMode.DropOldest
+        FullMode = BoundedChannelFullMode.Wait
     });
 
     public bool TryRead([MaybeNullWhen(false)] out TxQueueItem item)
