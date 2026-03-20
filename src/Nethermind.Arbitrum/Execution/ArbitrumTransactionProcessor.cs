@@ -1187,11 +1187,12 @@ namespace Nethermind.Arbitrum.Execution
 
             HandleGasRefunds(retryTx, effectiveBaseFee, gasLeft, ref maxRefund, networkFeeAccount);
 
-            HandleRetryableLifecycle(retryTx);
+            // Multi-dimensional refund for retryable tx (matches Nitro tx_processor.go:683-687)
+            // Must come BEFORE lifecycle (delete/escrow) to match Nitro ordering.
+            // Uses RefundFromAccount (maxRefund cap, RefundTo/From split) instead of direct TransferBalance.
+            HandleRetryableMultiGasRefund(retryTx, effectiveBaseFee, gasUsed, ref maxRefund, networkFeeAccount);
 
-            // Handle multi-dimensional gas refund (ArbOS version 60+)
-            UInt256 totalCost = effectiveBaseFee * gasUsed;
-            HandleMultiGasRefund(retryTx, totalCost);
+            HandleRetryableLifecycle(retryTx);
 
             // Update gas pool using multi-gas aware GrowBacklog (matches Nitro tx_processor.go:706)
             // For retry transactions, use AccumulatedMultiGas directly - no poster gas subtraction
@@ -1387,6 +1388,43 @@ namespace Nethermind.Arbitrum.Execution
             else
             {
                 BlockDebugLogger.LogValueStatic("MULTI_GAS_REFUND_SKIP", $"no refund needed (totalCost <= multiDimensionalCost)");
+            }
+        }
+
+        /// <summary>
+        /// Handle multi-gas refund for retryable transactions (matches Nitro tx_processor.go:683-687).
+        /// Unlike normal TX refund, retryable TX refunds route through RefundFromAccount which
+        /// respects the maxRefund cap and splits between RefundTo and From addresses.
+        /// Also skips refund during retryable estimation (effectiveBaseFee != blockBaseFee).
+        /// </summary>
+        private void HandleRetryableMultiGasRefund(
+            ArbitrumRetryTransaction retryTx,
+            UInt256 effectiveBaseFee,
+            ulong gasUsed,
+            ref UInt256 maxRefund,
+            Address networkFeeAccount)
+        {
+            if (_arbosState!.CurrentArbosVersion < ArbosVersion.MultiGasConstraintsVersion)
+                return;
+
+            GasModel gasModel = _arbosState.L2PricingState.GetGasModelToUse();
+            if (gasModel != GasModel.MultiGasConstraints)
+                return;
+
+            // Don't refund during retryable estimation (matches Nitro tx_processor.go:616)
+            UInt256 blockBaseFee = _currentHeader!.BaseFeePerGas;
+            if (effectiveBaseFee != blockBaseFee)
+                return;
+
+            UInt256 singleGasCost = effectiveBaseFee * gasUsed;
+            UInt256 multiDimensionalCost = _arbosState.L2PricingState.MultiDimensionalPriceForRefund(
+                TxExecContext.AccumulatedMultiGas);
+
+            if (singleGasCost > multiDimensionalCost)
+            {
+                UInt256 refundAmount = singleGasCost - multiDimensionalCost;
+                RefundFromAccount(networkFeeAccount, refundAmount, ref maxRefund, retryTx,
+                    _currentSpec!, BalanceChangeReason.BalanceChangeMultiGasRefund);
             }
         }
 
