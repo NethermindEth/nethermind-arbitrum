@@ -97,7 +97,6 @@ public class RetryableState(ArbosStorage retryables)
         retryable.TimeoutWindowsLeft.Increment();
 
         // Pay in advance for the work needed to reap the duplicate from the timeout queue
-        // Matches Nitro: retryables/retryable.go:250 - burns as Computation
         retryables.Burner.Burn(ResourceKind.Computation, Retryable.RetryableReapPrice);
 
         return timeout + Retryable.RetryableLifetimeSeconds;

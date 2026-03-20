@@ -130,14 +130,13 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Consume gas for SelfDestruct operation.
-    /// Based on observed Nitro behavior: the EIP150 cost (5000) is split as
-    /// 100 Computation (warm read) + 4900 StorageAccess.
+    /// The EIP150 cost (5000) is split as 100 Computation (warm read) + 4900 StorageAccess.
     /// </summary>
     public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
         if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
             return false;
-        // Split EIP150 cost: 100 Computation + 4900 StorageAccess (matching Nitro behavior)
+        // Split EIP150 cost: 100 Computation + 4900 StorageAccess
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
         return true;
@@ -199,7 +198,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Charges gas for accessing an account based on a cold / warm state (interface implementation).
     /// Cold access splits cost: (ColdAccountAccess - WarmStateRead) as StorageAccess, WarmStateRead as Computation.
     /// Warm access charges WarmStateRead as Computation.
-    /// See rationale: https://github.com/OffchainLabs/nitro/blob/master/docs/decisions/0002-multi-dimensional-gas-metering.md
     /// </summary>
     public static bool ConsumeAccountAccessGas(ref ArbitrumGasPolicy gas,
         IReleaseSpec spec,
@@ -215,7 +213,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
         if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
         {
-            // Cold account access: split into StorageAccess + Computation (matching Nitro gasEip2929AccountCheck)
+            // Cold account access: split into StorageAccess + Computation
             long coldDelta = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
             if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdAccountAccess))
                 return false;
@@ -229,8 +227,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// <summary>
     /// Charges gas for accessing the SELFDESTRUCT beneficiary account.
     /// Unlike regular ConsumeAccountAccessGas, cold access is charged as FULL StorageAccess (no Computation split).
-    /// This matches Nitro's makeSelfdestructGasFn in operations_acl.go which charges ColdAccountAccessCostEIP2929
-    /// entirely to ResourceKindStorageAccess.
     /// </summary>
     public static bool ConsumeSelfDestructBeneficiaryAccessGas(ref ArbitrumGasPolicy gas,
         IReleaseSpec spec,
@@ -246,23 +242,20 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
         {
             // SELFDESTRUCT beneficiary cold access: FULL cost to StorageAccess (no Computation split)
-            // This matches Nitro's makeSelfdestructGasFn:
-            //   multiGas = multiGas.SaturatingIncrement(multigas.ResourceKindStorageAccess, params.ColdAccountAccessCostEIP2929)
             if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdAccountAccess))
                 return false;
             gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess);
             return true;
         }
-        // Warm access: no gas charged (matches Nitro - only cold access adds to multiGas in makeSelfdestructGasFn)
+        // Warm access: no gas charged
         return true;
     }
 
     /// <summary>
     /// Charges gas for accessing a storage cell based on a cold / warm state (interface implementation).
-    /// For SLOAD: Cold access splits cost into StorageAccess + Computation (matching Nitro gasSLoadEIP2929).
-    /// For SSTORE: Cold access charges full cost to StorageAccess only (matching Nitro gasSStoreEIP2929).
+    /// For SLOAD: Cold access splits cost into StorageAccess + Computation.
+    /// For SSTORE: Cold access charges full cost to StorageAccess only.
     /// Warm access charges WarmStateRead as Computation (for SLOAD only).
-    /// See rationale: https://github.com/OffchainLabs/nitro/blob/master/docs/decisions/0002-multi-dimensional-gas-metering.md
     /// </summary>
     public static bool ConsumeStorageAccessGas(ref ArbitrumGasPolicy gas,
         ref readonly StackAccessTracker accessTracker,
@@ -279,14 +272,14 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         if (accessTracker.WarmUp(in storageCell))
         {
             // Cold slot access handling differs by operation type:
-            // - SLOAD: split into StorageAccess + Computation (matching Nitro gasSLoadEIP2929)
-            // - SSTORE: full cost to StorageAccess only (matching Nitro gasSStoreEIP2929)
+            // - SLOAD: split into StorageAccess + Computation
+            // - SSTORE: full cost to StorageAccess only
             if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdSLoad))
                 return false;
 
             if (storageAccessType == StorageAccessType.SLOAD)
             {
-                // SLOAD splits cold access: (ColdSLoad - WarmStateRead) to StorageAccess, WarmStateRead to Computation
+                // SLOAD cold access: (ColdSLoad - WarmStateRead) to StorageAccess, WarmStateRead to Computation
                 long coldDelta = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
                 gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
                 gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
@@ -437,7 +430,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public static void OnBeforeInstructionTrace(in ArbitrumGasPolicy gas, int pc, Instruction instruction, int depth)
     {
         IArbitrumTxTracer? tracer = gas._tracer;
-        // Depth is 0-based from VmState.Env.CallDepth, convert to 1-based for Nitro compatibility
+        // Depth is 0-based from VmState.Env.CallDepth, convert to 1-based
         tracer?.BeginGasDimensionCapture(pc, instruction, depth + 1, gas.GetAccumulated());
     }
 
@@ -485,7 +478,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             gas._accumulated.Increment(ResourceKind.Computation, (ulong)initCodeCost);
         }
 
-        // 3. L2Calldata: Transaction data bytes (matching Nitro state_transition.go:127,132)
+        // 3. L2Calldata: Transaction data bytes
         if (tx.Data.Length > 0)
         {
             ReadOnlySpan<byte> data = tx.Data.Span;

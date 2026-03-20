@@ -231,7 +231,7 @@ public class ArbosState
                         StylusParams stylusParamsV60 = Programs.GetParams();
                         stylusParamsV60.UpgradeToArbosVersion(nextArbosVersion);
                         stylusParamsV60.Save();
-                        // Initialize TransactionFilterers storage (matches Nitro's ArbosVersion_TransactionFiltering)
+                        // Initialize TransactionFilterers storage
                         AddressSet.Initialize(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
                         // filteredFundsRecipient defaults to zero address (falls back to networkFeeAccount)
                         // No explicit initialization needed - uninitialized storage reads as zero
@@ -303,8 +303,6 @@ public class ArbosState
         }
 
         // Create FilteredTransactionsState storage if version >= TransactionFiltering (60)
-        // This matches Nitro's openFilteredTransactions() behavior which creates a separate
-        // storage account at FilteredTransactionsStateAddress
         if (arbosVersion >= ArbosVersion.TransactionFiltering)
         {
             _ = new FilteredTransactionsState(worldState, burner);

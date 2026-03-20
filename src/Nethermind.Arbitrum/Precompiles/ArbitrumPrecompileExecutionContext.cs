@@ -35,7 +35,6 @@ public record ArbitrumPrecompileExecutionContext(
 
     /// <summary>
     /// When true, gas burning operations are skipped (unmetered gas accounting).
-    /// This matches Nitro's SetUnmeteredGasAccounting behavior.
     /// </summary>
     public bool Free { get; set; }
 
@@ -117,14 +116,13 @@ public record ArbitrumPrecompileExecutionContext(
 
     /// <summary>
     /// Burns gas without throwing on out-of-gas. If gas runs out, burns all remaining gas.
-    /// This matches Nitro's behavior for ArbosTest.BurnArbGas which ignores out-of-gas errors.
     /// </summary>
     /// <returns>True if all gas was burned (out-of-gas condition), false otherwise</returns>
     public bool BurnAllowingOutOfGas(ResourceKind kind, ulong amount)
     {
         if (GasLeft < amount)
         {
-            // Burn all remaining gas without throwing (matches Nitro's BurnOut behavior)
+            // Burn all remaining gas without throwing
             _burnedMultiGas.Increment(kind, GasLeft);
             GasLeft = 0;
             return true;

@@ -23,7 +23,7 @@ public static class ArbTest
 
     /// <summary>
     /// Unproductively burns the amount of L2 ArbGas.
-    /// Note: This burns the gas even if it's more than the user has, matching Nitro behavior.
+    /// Note: This burns the gas even if it's more than the user has.
     /// The error from out-of-gas is intentionally ignored.
     /// </summary>
     public static void BurnArbGas(ArbitrumPrecompileExecutionContext context, UInt256 gasAmount)
@@ -32,7 +32,6 @@ public static class ArbTest
             throw ArbitrumPrecompileException.CreateFailureException("not a uint64");
 
         // Burn the amount as Computation gas, even if it's more than the user has.
-        // Nitro ignores the out-of-gas error (//nolint:errcheck), so we use BurnAllowingOutOfGas.
         context.BurnAllowingOutOfGas(ResourceKind.Computation, (ulong)gasAmount);
     }
 }

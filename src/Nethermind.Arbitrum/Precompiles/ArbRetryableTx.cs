@@ -161,7 +161,7 @@ public static class ArbRetryableTx
         );
 
         ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
-        // Burn as StorageAccess to match Nitro's multigas tracking
+        // Burn as StorageAccess
         context.Burn(ResourceKind.StorageAccess, (ulong)(GasCostOf.SLoad * writeBytes));
 
         Retryable? retryable = state.OpenRetryable(
@@ -240,7 +240,6 @@ public static class ArbRetryableTx
             context.Burn(ResourceKind.Computation, MultiConstraintStaticBacklogUpdateCost);
 
             // Disable metering from now on, turning it back at the end of the function.
-            // This matches Nitro's SetUnmeteredGasAccounting(true) / defer SetUnmeteredGasAccounting(false) pattern.
             context.Free = true;
         }
 
@@ -295,7 +294,6 @@ public static class ArbRetryableTx
             ThrowOldNotFoundError(context, ticketId);
 
         ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
-        // Matches Nitro: precompiles/ArbRetryableTx.go:194 - burns as StorageAccess
         context.Burn(ResourceKind.StorageAccess, updateCost);
 
         ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime);

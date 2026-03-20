@@ -62,13 +62,11 @@ namespace Nethermind.Arbitrum.Modules
         }
 
         /// <summary>
-        /// Calculates EffectiveGasPrice for Arbitrum receipts matching Nitro's MarshalReceipt behavior.
-        /// In Nitro's MarshalReceipt (api.go:1815), for Arbitrum Nitro chains, effectiveGasPrice
-        /// is ALWAYS set to header.BaseFee for ALL transaction types, overriding DeriveFields.
+        /// Calculates EffectiveGasPrice for Arbitrum receipts.
+        /// For Arbitrum chains, effectiveGasPrice is ALWAYS set to header.BaseFee for ALL transaction types.
         /// </summary>
         private static TxGasInfo GetArbitrumGasInfo(Transaction tx, IReleaseSpec spec, BlockHeader header)
         {
-            // Nitro's MarshalReceipt unconditionally uses header.BaseFee for all Arbitrum Nitro transactions
             return new TxGasInfo(header.BaseFeePerGas);
         }
 

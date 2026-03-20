@@ -66,7 +66,7 @@ namespace Nethermind.Arbitrum.Execution
 
             Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
 
-            // Commit multi-gas fees before getting base fee (matches Nitro's block_processor.go)
+            // Commit multi-gas fees before getting base fee
             arbosState.L2PricingState.CommitMultiGasFees();
 
             UInt256 baseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();

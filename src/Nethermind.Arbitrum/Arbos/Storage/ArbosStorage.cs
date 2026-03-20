@@ -33,15 +33,12 @@ public class ArbosStorage
         _account = accountAddress ?? throw new ArgumentNullException(nameof(accountAddress));
         _storageKey = storageKey ?? []; // TODO: Fix to be ValueHash256
 
-        // Match Nitro's KVStorage behavior (storage/storage.go:73):
         // Set nonce to 1 to ensure the account is not treated as empty.
         // This marks the account as "touched" which affects state root computation.
         // Only do this for root storage (empty storageKey), not sub-storages.
         if (storageKey is null or { Length: 0 })
         {
-            // Geth's SetNonce creates the account if it doesn't exist.
             // Nethermind's SetNonce throws if account is null, so we must create first.
-            // Use CreateAccountIfNotExists with nonce=1 to match Geth's behavior.
             if (!_db.AccountExists(_account))
             {
                 _db.CreateAccount(_account, UInt256.Zero, UInt256.One);
@@ -202,7 +199,6 @@ public class ArbosStorage
         Clear(0);
     }
 
-    // Comment from Nitro:
     // We map addresses using "pages" of 256 storage slots. We hash over the page number but not the offset within
     // a page, to preserve contiguity within a page. This will reduce cost if/when Ethereum switches to storage
     // representations that reward contiguity.
@@ -231,7 +227,6 @@ public class ArbosStorage
     public ValueHash256 ComputeKeccakHash(ReadOnlySpan<byte> memory)
     {
         ulong words = Math.Utils.Div32Ceiling((ulong)memory.Length);
-        // Keccak gas is charged as Computation (matches Nitro storage/storage.go:354)
         Burner.Burn(ResourceKind.Computation, KeccakBaseCost + KeccakWordCost * words);
         return ValueKeccak.Compute(memory);
     }
@@ -307,7 +302,7 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
     public void Clear() => _slot.Clear();
 }
 
-public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries >= 0 and < 2^256
+public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset)
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
@@ -357,9 +352,6 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
 
     public void SetPreVersion7(BigInteger value)
     {
-        // Go's big.Int.Bytes() returns BigInteger unsigned representation.
-        // On the contrary, .NET BigInteger.ToByteArray() returns signed representation.
-        // To match Go's behavior, we need to convert negative values to positive.
         value = value < 0 ? -value : value;
 
         _slot.Set(ToHash(value));

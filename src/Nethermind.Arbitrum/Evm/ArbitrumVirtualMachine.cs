@@ -67,8 +67,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         wasmStore.ResetPages();
 
         _systemBurner = new SystemBurner();
-        // Use ZeroGasBurner for FreeArbosState - it's a "free" state like Nitro's OpenSystemArbosState
-        // which creates a new burner each time that doesn't flow to receipt's MultiGasUsed
+        // Use ZeroGasBurner for FreeArbosState - gas usage doesn't flow to receipt's MultiGasUsed
         FreeArbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), Logger);
 
         return base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
@@ -349,7 +348,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
         // Gas consumed by the callback execution (not including gasCost which was already charged by UpdateGas)
-        // The 1/64 reserved gas is returned to the caller, matching Nitro's behavior
+        // The 1/64 reserved gas is returned to the caller
         long one64th = gasAvailable / 64;
         ulong gasConsumed = (ulong)(gasAvailable - ArbitrumGasPolicy.GetRemainingGas(returnData.Gas) - one64th);
 
@@ -468,7 +467,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             state.Env
         );
 
-        // Geth EVM has depth started from 1, Nethermind has depth starting from 0
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
@@ -498,8 +496,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 : NonOwnerPrecompileCall(state, context, precompile);
 
         // Add precompile's MultiGas to child's gas policy so it flows through Refund correctly.
-        // In Nitro, precompile's usedMultiGas is returned from the call and added to parent's UsedMultiGas.
-        // Skip for owner precompiles - they don't charge multigas (Nitro returns multigas.ZeroGas())
+        // Skip for owner precompiles - they don't charge multigas.
         if (!precompile.IsOwner)
             ArbitrumGasPolicy.AddToAccumulated(ref state.Gas, context.BurnedMultiGas);
 
@@ -524,7 +521,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
     private CallResult OwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
         // Save BurnedMultiGas before owner check - owner precompiles don't charge multigas
-        // (Nitro creates a separate burner and returns multigas.ZeroGas() for owner precompiles)
         MultiGas savedMultiGas = _systemBurner.BurnedMultiGas;
 
         try
@@ -574,7 +570,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            // Restore BurnedMultiGas - owner precompiles don't charge multigas (Nitro returns multigas.ZeroGas())
+            // Restore BurnedMultiGas - owner precompiles don't charge multigas
             _systemBurner.RestoreBurnedMultiGas(in savedMultiGas);
         }
     }
@@ -621,7 +617,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
 
         // Burn gas for argument data supplied (excluding method id)
-        // Nitro charges this as L2Calldata (precompile.go:773)
         ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length);
         // Revert if user cannot afford the argument data supplied
         if (dataGasCost > context.GasLeft)
@@ -681,7 +676,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (outputGasCost > context.GasLeft)
             return new(ShouldRevert: true, GasLeft: 0L, RanOutOfGas: true);
 
-        // Precompile output data gas is charged as Computation (matches Nitro precompile.go:856)
+        // Precompile output data gas is charged as Computation
         context.Burn(ResourceKind.Computation, outputGasCost);
         return new(ShouldRevert: !success, GasLeft: context.GasLeft, RanOutOfGas: false);
     }
