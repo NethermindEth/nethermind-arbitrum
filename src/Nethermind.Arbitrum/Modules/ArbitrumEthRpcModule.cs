@@ -147,20 +147,10 @@ namespace Nethermind.Arbitrum.Modules
 
         public new async Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
         {
-            _logger.Warn($"eth_getTransactionCount [{address}, {blockParameter}]");
-
             if (blockParameter != BlockParameter.Pending || _blockFinder.Head?.Header is null)
-            {
-                ResultWrapper<UInt256> ethGetTransactionCount = await base.eth_getTransactionCount(address, blockParameter);
-
-                _logger.Warn($"eth_getTransactionCount: default implementation result={ethGetTransactionCount.Data}");
-
-                return ethGetTransactionCount;
-            }
+                return await base.eth_getTransactionCount(address, blockParameter);
 
             _stateReader.TryGetAccount(_blockFinder.Head?.Header, address, out AccountStruct account);
-
-            _logger.Warn($"eth_getTransactionCount: arbitrum implementation nonce={account.Nonce} balance={account.Balance} head={_blockFinder.Head?.Header.Number}");
 
             return ResultWrapper<UInt256>.Success(account.Nonce);
         }
@@ -199,8 +189,6 @@ namespace Nethermind.Arbitrum.Modules
 
             ResultWrapper<UInt256?> ethEstimateGas = new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
-
-            _logger.Warn($"eth_estimateGas: estimateGas result={ethEstimateGas.Data}");
 
             return ethEstimateGas;
         }
