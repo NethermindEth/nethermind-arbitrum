@@ -6,7 +6,6 @@ using Nethermind.Blockchain;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Blockchain.Headers;
 using Nethermind.Blockchain.Synchronization;
-using Nethermind.Core.Caching;
 using Nethermind.Core.Specs;
 using Nethermind.Db;
 using Nethermind.Db.Blooms;
@@ -18,13 +17,13 @@ namespace Nethermind.Arbitrum.Core;
 
 /// <summary>
 /// Interface for Arbitrum BlockTree implementations that support state reset for testing.
-/// Named differently from Nethermind.Blockchain.IResettableBlockTree to avoid ambiguity.
+/// Implemented by <see cref="ResettableArbitrumBlockTree"/> decorator.
 /// </summary>
 public interface IArbitrumResettableBlockTree
 {
     /// <summary>
     /// Resets the BlockTree state for testing purposes.
-    /// Clears cached Genesis, Head, and another in-memory state.
+    /// The decorator implementation creates a fresh inner BlockTree instance.
     /// </summary>
     void ResetForTesting();
 }
@@ -52,49 +51,4 @@ public class ArbitrumBlockTree(
         bloomStorage,
         syncConfig,
         logManager,
-        (long)chainSpecParams.GenesisBlockNum!), IArbitrumResettableBlockTree
-{
-    private readonly IBlockStore _blockStoreRef = blockStore;
-    private readonly IHeaderStore _headerStoreRef = headerStore;
-    private readonly IChainLevelInfoRepository _chainLevelInfoRef = chainLevelInfoRepository;
-
-    /// <summary>
-    /// Resets the BlockTree state for testing purposes.
-    /// Only clears Genesis and caches - keeps Head intact so block processor continues working.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Thread Safety:</b> This method is NOT thread-safe. Callers MUST ensure no concurrent
-    /// block production or processing is occurring. In comparison test mode, this is guaranteed
-    /// by the test runner stopping Nethermind between tests.
-    /// </para>
-    /// <para>
-    /// <b>Required Preconditions:</b>
-    /// <list type="bullet">
-    /// <item>No active DigestMessage calls</item>
-    /// <item>No pending block production</item>
-    /// <item>Processing queue is empty</item>
-    /// </list>
-    /// </para>
-    /// </remarks>
-    public void ResetForTesting()
-    {
-        // Reset Genesis - allows ArbitrumBlockTreeInitializer to create new genesis
-        // Uses protected setter from BlockTree base class (no reflection needed)
-        Genesis = null;
-
-        // Reset internal BlockTree state (Head, BestKnownNumber, BestSuggestedHeader, etc.)
-        // This is critical because after clearing databases, these cached values
-        // point to blocks that no longer exist, causing block processing to fail
-        // Call via interface since BlockTree implements it explicitly
-        ((Nethermind.Blockchain.IResettableBlockTree)this).ResetInternalState();
-
-        // Clear store caches using the IClearableCache interface
-        (_headerStoreRef as IClearableCache)?.ClearCache();
-        (_blockStoreRef as IClearableCache)?.ClearCache();
-
-        // Clear ChainLevelInfoRepository cache - CRITICAL for genesis re-init
-        // Without this, SuggestBlock thinks the old genesis still exists
-        (_chainLevelInfoRef as IClearableCache)?.ClearCache();
-    }
-}
+        (long)chainSpecParams.GenesisBlockNum!);

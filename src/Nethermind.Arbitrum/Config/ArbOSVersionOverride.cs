@@ -5,20 +5,25 @@ namespace Nethermind.Arbitrum.Config;
 
 /// <summary>
 /// Service for overriding the ArbOS version during test reinitialization.
-/// Used by debug_reinitialize to specify the ArbOS version for genesis initialization.
+/// Set by debug_reinitialize, read (non-destructively) during genesis initialization.
 /// </summary>
 public interface IArbOSVersionOverride
 {
     /// <summary>
-    /// Gets or sets the ArbOS version override. Null means use chainspec default.
+    /// Sets the ArbOS version override for the next genesis initialization.
     /// </summary>
-    ulong? OverrideVersion { get; set; }
+    void SetOverride(ulong version);
+
+    /// <summary>
+    /// Returns the current override value, or null if no override is set.
+    /// </summary>
+    ulong? GetOverride();
 }
 
-/// <summary>
-/// Default implementation of <see cref="IArbOSVersionOverride"/>.
-/// </summary>
 public class ArbOSVersionOverride : IArbOSVersionOverride
 {
-    public ulong? OverrideVersion { get; set; }
+    private ulong? _overrideVersion;
+
+    public void SetOverride(ulong version) => _overrideVersion = version;
+    public ulong? GetOverride() => _overrideVersion;
 }
