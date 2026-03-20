@@ -163,10 +163,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Add external MultiGas (e.g., from ArbOS storage operations via IBurner) to accumulated.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void AddToAccumulated(ref ArbitrumGasPolicy gas, in MultiGas toAdd)
-    {
-        gas._accumulated.Add(in toAdd);
-    }
+    public static void AddToAccumulated(ref ArbitrumGasPolicy gas, in MultiGas toAdd) => gas._accumulated.Add(in toAdd);
 
     /// <summary>
     /// Mark the gas state as out of gas.

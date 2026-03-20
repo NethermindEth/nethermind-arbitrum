@@ -65,10 +65,8 @@ namespace Nethermind.Arbitrum.Modules
         /// Calculates EffectiveGasPrice for Arbitrum receipts.
         /// For Arbitrum chains, effectiveGasPrice is ALWAYS set to header.BaseFee for ALL transaction types.
         /// </summary>
-        private static TxGasInfo GetArbitrumGasInfo(Transaction tx, IReleaseSpec spec, BlockHeader header)
-        {
-            return new TxGasInfo(header.BaseFeePerGas);
-        }
+        private static TxGasInfo GetArbitrumGasInfo(Transaction tx, IReleaseSpec spec, BlockHeader header) =>
+            new TxGasInfo(header.BaseFeePerGas);
 
         public override ResultWrapper<string> eth_call(
             TransactionForRpc transactionCall,

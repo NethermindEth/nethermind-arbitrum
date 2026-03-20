@@ -49,19 +49,13 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
     /// <summary>
     /// Merge in another MultiGas (e.g., from precompile context) into this burner's tracked gas.
     /// </summary>
-    public void AddBurnedMultiGas(in MultiGas toAdd)
-    {
-        _burnedMultiGas.Add(in toAdd);
-    }
+    public void AddBurnedMultiGas(in MultiGas toAdd) => _burnedMultiGas.Add(in toAdd);
 
     /// <summary>
     /// Restore BurnedMultiGas to a previously saved value.
     /// Used by owner precompiles which don't charge multigas.
     /// </summary>
-    public void RestoreBurnedMultiGas(in MultiGas saved)
-    {
-        _burnedMultiGas = saved;
-    }
+    public void RestoreBurnedMultiGas(in MultiGas saved) => _burnedMultiGas = saved;
 }
 
 public class ZeroGasBurner : IBurner

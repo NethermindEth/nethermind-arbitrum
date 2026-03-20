@@ -29,10 +29,8 @@ public class ArbitrumBlockValidationTransactionsExecutor(
     private readonly IWorldState _stateProvider = stateProvider;
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockValidationTransactionsExecutor>();
 
-    public void SetBlockExecutionContext(in BlockExecutionContext blockExecutionContext)
-    {
+    public void SetBlockExecutionContext(in BlockExecutionContext blockExecutionContext) =>
         _inner.SetBlockExecutionContext(in blockExecutionContext);
-    }
 
     public TxReceipt[] ProcessTransactions(Block block, ProcessingOptions processingOptions, BlockReceiptsTracer receiptsTracer, CancellationToken token = default)
     {
