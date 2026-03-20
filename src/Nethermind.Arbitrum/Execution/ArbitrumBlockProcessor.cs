@@ -229,9 +229,7 @@ namespace Nethermind.Arbitrum.Execution
 
                 UpdateArbitrumBlockHeader(block.Header, stateProvider);
 
-                // TODO: nitro's balanceDelta & expectedBalanceDelta comparison
-                // might be a different PR because it seems to be a bit big?
-                // does not seem to affect block 552 issue
+                // TODO: balanceDelta & expectedBalanceDelta comparison
 
                 wasmStore.Commit();
 

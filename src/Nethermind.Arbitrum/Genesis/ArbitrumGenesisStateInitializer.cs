@@ -40,8 +40,7 @@ public class ArbitrumGenesisStateInitializer(
         IWorldState worldState,
         ISpecProvider specProvider)
     {
-        // NOTE: Do NOT pre-create ArbosSystemAccount here. Nitro creates it via
-        // KVStorage.SetNonce(account, 1) which marks the account dirty. Pre-creating
+        // NOTE: Do NOT pre-create ArbosSystemAccount here. Pre-creating
         // with CreateAccountIfNotExists causes state divergence because when ArbosStorage
         // later calls SetNonce(1), the nonce is already 1 and no state change occurs.
 
@@ -162,8 +161,6 @@ public class ArbitrumGenesisStateInitializer(
 
         ArbosStorage addressTableStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace);
         AddressTable.Initialize(addressTableStorage);
-
-        // Nitro's InitializeMerkleAccumulator is a no-op ("// no initialization needed")
 
         ArbosStorage blockhashesStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.BlockhashesSubspace);
         Blockhashes.Initialize(blockhashesStorage, _logger);

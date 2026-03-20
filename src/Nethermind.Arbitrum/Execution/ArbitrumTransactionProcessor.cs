@@ -110,7 +110,6 @@ namespace Nethermind.Arbitrum.Execution
                 if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
                     gasUsed = arbTx.OverrideSpentGas.Value;
 
-                // Categorize gas based on transaction type (matching Nitro's tx_processor.go)
                 // ArbitrumSubmitRetryable uses L2CalldataGas, others use ComputationGas
                 var multiGas = new MultiGas();
                 ResourceKind resourceKind = tx is ArbitrumSubmitRetryableTransaction
@@ -156,7 +155,7 @@ namespace Nethermind.Arbitrum.Execution
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
             _currentSpec = GetSpec(_currentHeader);
-            // EffectiveGasPrice is calculated dynamically at RPC time (matches Nitro's DeriveFields)
+            // EffectiveGasPrice is calculated dynamically at RPC time
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx,
@@ -263,7 +262,7 @@ namespace Nethermind.Arbitrum.Execution
             // Get accumulated MultiGas from the policy (includes VM's burner gas via AddToAccumulated)
             // Note: Transaction processor's _arbosState burner gas is NOT added here because
             // those operations (L1 pricing updates, etc.) happen before EVM and are not counted
-            // in Nitro's MultiGasUsed for receipts.
+            // in MultiGasUsed for receipts.
             TxExecContext.AccumulatedMultiGas = gasWithRefund.GetTotalAccumulated();
 
             long operationGas = spentGas;
@@ -316,8 +315,7 @@ namespace Nethermind.Arbitrum.Execution
 
             UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee, out _);
 
-            // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
-            // which is then used for effectiveTip (premiumPerGas)
+            // Drop tip logic: if tip is dropped, set premiumPerGas to zero
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
                 effectiveGasPrice > effectiveBaseFee)
             {
@@ -1178,16 +1176,16 @@ namespace Nethermind.Arbitrum.Execution
 
             HandleGasRefunds(retryTx, effectiveBaseFee, gasLeft, ref maxRefund, networkFeeAccount);
 
-            // Multi-dimensional refund for retryable tx (matches Nitro tx_processor.go:683-687)
-            // Must come BEFORE lifecycle (delete/escrow) to match Nitro ordering.
+            // Multi-dimensional refund for retryable tx.
+            // Must come BEFORE lifecycle (delete/escrow).
             // Uses RefundFromAccount (maxRefund cap, RefundTo/From split) instead of direct TransferBalance.
             HandleRetryableMultiGasRefund(retryTx, effectiveBaseFee, gasUsed, ref maxRefund, networkFeeAccount);
 
             HandleRetryableLifecycle(retryTx);
 
-            // Update gas pool using multi-gas aware GrowBacklog (matches Nitro tx_processor.go:706)
+            // Update gas pool using multi-gas aware GrowBacklog.
             // For retry transactions, use AccumulatedMultiGas directly - no poster gas subtraction
-            // (unlike normal transactions which subtract posterGas at line 792)
+            // (unlike normal transactions which subtract posterGas)
             _arbosState!.L2PricingState.GrowBacklog(gasUsed, TxExecContext.AccumulatedMultiGas);
         }
 
@@ -1365,7 +1363,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         /// <summary>
-        /// Handle multi-gas refund for retryable transactions (matches Nitro tx_processor.go:683-687).
+        /// Handle multi-gas refund for retryable transactions.
         /// Unlike normal TX refund, retryable TX refunds route through RefundFromAccount which
         /// respects the maxRefund cap and splits between RefundTo and From addresses.
         /// Also skips refund during retryable estimation (effectiveBaseFee != blockBaseFee).
@@ -1384,7 +1382,7 @@ namespace Nethermind.Arbitrum.Execution
             if (gasModel != GasModel.MultiGasConstraints)
                 return;
 
-            // Don't refund during retryable estimation (matches Nitro tx_processor.go:616)
+            // Don't refund during retryable estimation
             UInt256 blockBaseFee = _currentHeader!.BaseFeePerGas;
             if (effectiveBaseFee != blockBaseFee)
                 return;

@@ -109,7 +109,7 @@ public static class EventsEncoder
             throw ArbitrumPrecompileException.CreateFailureException(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation)!);
 
         ulong emitCost = EventCost(eventLog);
-        // Precompile log gas is charged entirely as HistoryGrowth (matches Nitro precompile.go:370)
+        // Precompile log gas is charged entirely as HistoryGrowth
         context.Burn(ResourceKind.HistoryGrowth, emitCost);
 
         context.AddEventLog(eventLog);
