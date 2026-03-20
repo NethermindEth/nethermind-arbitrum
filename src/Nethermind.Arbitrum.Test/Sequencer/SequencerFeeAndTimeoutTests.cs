@@ -59,7 +59,7 @@ public class SequencerFeeAndTimeoutTests
         // No block should be produced since the only tx was rejected
         result.SequencedMsg.Should().BeNull();
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         // The send task should complete with an error
         ResultWrapper<Hash256> sendResult = sendTask.GetAwaiter().GetResult();
@@ -102,7 +102,7 @@ public class SequencerFeeAndTimeoutTests
         result.SequencedMsg.Should().NotBeNull("tx with adequate fee cap should be accepted");
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]

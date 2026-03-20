@@ -84,7 +84,7 @@ public sealed class ArbitrumSequencerEngine(
         return ResultWrapper<StartSequencingResult>.Success(new StartSequencingResult(null, arbitrumConfig.SequencerMaxBlockSpeedMs));
     }
 
-    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
+    public async Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error)
     {
         if (_lastCreatedBlockWithRegularTxsInfo is null)
         {
@@ -109,12 +109,13 @@ public sealed class ArbitrumSequencerEngine(
             SequencerStateSnapshot state = sequencerState.Current;
             if (state.Forwarder is not null)
             {
-                _ = HandleInactiveAsync(queueItems, state.Forwarder);
+                await HandleInactiveAsync(queueItems, state.Forwarder);
                 return ResultWrapper<EmptyResponse>.Success(default);
             }
 
             foreach (TxQueueItem item in queueItems)
                 transactionQueue.PushRetry(item);
+
             return ResultWrapper<EmptyResponse>.Success(default);
         }
 

@@ -74,7 +74,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env1, [Rlp.Encode(auctionTx).Bytes], [0, 0]);
         result1.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg1, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         // Second sequencing: regular tx is now picked up
         StartSequencingEnvironment env2 = StartSequencingEnvironment.FromNowUtc();
@@ -89,7 +89,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env2, [regularTxBytes], [0, 0]);
         result2.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg2, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -133,7 +133,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env1, [regularTxBytes], [0, 0]);
         regularResult.Should().BeEquivalentTo(new StartSequencingResult(expectedRegularMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         // Timeboosted tx: at least one bitmap bit should be set
         ulong headBlock = (ulong)chain.BlockTree.Head!.Number;
@@ -163,7 +163,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env2, [Rlp.Encode(timeboostedTx).Bytes], [0, 2]);
         boostResult.Should().BeEquivalentTo(new StartSequencingResult(expectedBoostMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -257,7 +257,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env, [Rlp.Encode(tx).Bytes], [0, 2]);
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -324,7 +324,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env, [regularTxBytes], [0, 0]);
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -384,7 +384,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env, [Rlp.Encode(txA).Bytes, Rlp.Encode(txB).Bytes], [0, 6]);
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -446,7 +446,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env, [regularTxBytes, Rlp.Encode(timeboostedTx).Bytes], [0, 4]);
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -501,7 +501,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, depositMsg, delayedMsgRead + 1, [0, 0]);
         result1.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg1, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         // Round 2: auction resolution tx is next in priority
         StartSequencingEnvironment env2 = StartSequencingEnvironment.FromNowUtc();
@@ -516,7 +516,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env2, [Rlp.Encode(auctionTx).Bytes], [0, 0]);
         result2.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg2, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -563,7 +563,7 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env, [Rlp.Encode(tx).Bytes], [0, 2]);
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -607,6 +607,6 @@ public class TimeboostSequencerEngineTests
             chain.BlockTree.Head!.Header, env, [Rlp.Encode(auctionTx).Bytes], [0, 0]);
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 }

@@ -63,7 +63,7 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<string> EndSequencing(EndSequencingParams? parameters);
+        Task<ResultWrapper<string>> EndSequencing(EndSequencingParams? parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters);

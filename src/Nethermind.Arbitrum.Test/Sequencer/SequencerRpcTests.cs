@@ -55,7 +55,7 @@ public class SequencerRpcTests
 
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }

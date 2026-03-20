@@ -30,7 +30,7 @@ public interface IArbitrumExecutionEngine
     Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
 
     Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
-    ResultWrapper<EmptyResponse> EndSequencing(string? error);
+    Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error);
     Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync();
     ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx);
     ResultWrapper<ulong> NextDelayedMessageNumber();

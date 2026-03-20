@@ -52,7 +52,7 @@ public class SequencerErrorRecoveryTests
             .ShouldAsync().RequestSucceed();
 
         // End with a non-retry error — should return error to caller, not re-queue
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("block validation failed");
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("block validation failed").ShouldAsync().RequestSucceed();
 
         // Caller should receive an error
         ResultWrapper<Hash256> sendResult = await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -95,7 +95,7 @@ public class SequencerErrorRecoveryTests
             .ShouldAsync().RequestSucceed();
 
         // EndSequencing with retry-sequencer — no forwarder, so re-queue (NOT error-return)
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("retry sequencer");
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("retry sequencer").ShouldAsync().RequestSucceed();
 
         // Key assertion: tx was re-queued, NOT error-returned immediately
         await Task.Delay(50);
@@ -108,7 +108,7 @@ public class SequencerErrorRecoveryTests
         chain.NitroExecutionRpcModule
             .nitroexecution_startSequencing(env2.L1BLockNumber, env2.L1Timestamp, env2.L2Timestamp)
             .ShouldAsync().RequestSucceed();
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         // Caller gets nonce error (from re-queue + nonce check), not "retry sequencer"
         ResultWrapper<Hash256> sendResult = await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -163,7 +163,7 @@ public class SequencerErrorRecoveryTests
 
         // Set up forwarding to backup, then end with retry error
         chain.NitroExecutionRpcModule.nitroexecution_forwardTo(remoteSequencer.Uri).Should().RequestSucceed();
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("retry sequencer");
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("retry sequencer").ShouldAsync().RequestSucceed();
 
         // Wait for the forwarding to complete
         await responseTask.WaitAsync(TimeSpan.FromSeconds(5));

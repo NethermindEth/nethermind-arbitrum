@@ -97,7 +97,7 @@ public class SequencerLifecycleTests
         result.SequencedMsg.Should().NotBeNull("block should be produced after reactivation");
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }
@@ -254,7 +254,7 @@ public class SequencerLifecycleTests
 
         activeResult.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }

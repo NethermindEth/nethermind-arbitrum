@@ -322,8 +322,8 @@ public sealed class ArbitrumExecutionEngine(
     public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
         => sequencerEngine.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp);
 
-    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
-        => sequencerEngine.EndSequencing(error);
+    public Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error)
+        => sequencerEngine.EndSequencingAsync(error);
 
     public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
         => sequencerEngine.AppendLastSequencedBlockAsync();

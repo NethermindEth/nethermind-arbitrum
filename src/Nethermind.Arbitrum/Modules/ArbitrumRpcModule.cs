@@ -68,8 +68,8 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
     public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
         => engine.StartSequencingAsync(parameters.L1BlockNumber, parameters.L1Timestamp, parameters.Timestamp);
 
-    public ResultWrapper<string> EndSequencing(EndSequencingParams? parameters)
-        => ToOkResult(engine.EndSequencing(parameters?.Error));
+    public Task<ResultWrapper<string>> EndSequencing(EndSequencingParams? parameters)
+        => ToOkResultAsync(engine.EndSequencingAsync(parameters?.Error));
 
     public ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters)
         => ToOkResult(engine.EnqueueDelayedMessages(parameters.Messages, parameters.FirstMsgIdx));
@@ -91,6 +91,9 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
 
     public ResultWrapper<string> ForwardTo(string url)
         => ToOkResult(engine.ForwardTo(url));
+
+    private static async Task<ResultWrapper<string>> ToOkResultAsync(Task<ResultWrapper<EmptyResponse>> result)
+        => ToOkResult(await result);
 
     private static ResultWrapper<string> ToOkResult(ResultWrapper<EmptyResponse> result)
         => result.Result == Result.Success

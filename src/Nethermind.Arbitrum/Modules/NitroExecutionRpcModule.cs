@@ -80,8 +80,8 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
     public Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
         => engine.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp);
 
-    public ResultWrapper<EmptyResponse> nitroexecution_endSequencing(string? error)
-        => engine.EndSequencing(error);
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_endSequencing(string? error)
+        => engine.EndSequencingAsync(error);
 
     public ResultWrapper<EmptyResponse> nitroexecution_enqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
         => engine.EnqueueDelayedMessages(messages, firstMsgIdx);

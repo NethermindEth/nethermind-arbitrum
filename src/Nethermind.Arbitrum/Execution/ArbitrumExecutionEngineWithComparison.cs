@@ -78,8 +78,8 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
         => innerEngine.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp);
 
-    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
-        => innerEngine.EndSequencing(error);
+    public Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error)
+        => innerEngine.EndSequencingAsync(error);
 
     public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
         => innerEngine.AppendLastSequencedBlockAsync();

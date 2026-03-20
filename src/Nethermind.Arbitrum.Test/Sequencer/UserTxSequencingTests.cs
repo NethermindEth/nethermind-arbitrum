@@ -218,7 +218,7 @@ public class UserTxSequencingTests
 
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(1.Ether);
     }
@@ -272,7 +272,7 @@ public class UserTxSequencingTests
         StartSequencingResult expectedSequencingResult1 = new(expectedSequencedMessage1, 0);
         result1.Should().BeEquivalentTo(expectedSequencingResult1);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         // Second sequencing: user transaction
         StartSequencingEnvironment env2 = StartSequencingEnvironment.FromNowUtc();
@@ -287,7 +287,7 @@ public class UserTxSequencingTests
         StartSequencingResult expectedSequencingResult2 = new(expectedSequencedMessage2, 0);
         result2.Should().BeEquivalentTo(expectedSequencingResult2);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -343,7 +343,7 @@ public class UserTxSequencingTests
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         (await sendTask1.WaitAsync(TimeSpan.FromSeconds(5))).Should().RequestSucceed();
         (await sendTask2.WaitAsync(TimeSpan.FromSeconds(5))).Should().RequestSucceed();

@@ -584,7 +584,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
             => rpc.StartSequencing(parameters);
 
-        public ResultWrapper<string> EndSequencing(EndSequencingParams? parameters)
+        public Task<ResultWrapper<string>> EndSequencing(EndSequencingParams? parameters)
             => rpc.EndSequencing(parameters);
 
         public ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters)

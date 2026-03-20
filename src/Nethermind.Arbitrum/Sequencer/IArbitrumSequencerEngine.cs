@@ -9,7 +9,7 @@ namespace Nethermind.Arbitrum.Sequencer;
 public interface IArbitrumSequencerEngine
 {
     Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
-    ResultWrapper<EmptyResponse> EndSequencing(string? error);
+    Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error);
     Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync();
     Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg);
     ResultWrapper<EmptyResponse> Pause();
@@ -26,7 +26,7 @@ public sealed class DisabledArbitrumSequencerEngine : IArbitrumSequencerEngine
     public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
         => Task.FromResult(ResultWrapper<StartSequencingResult>.Fail(Error));
 
-    public ResultWrapper<EmptyResponse> EndSequencing(string? error)
+    public Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error)
         => ResultWrapper<EmptyResponse>.Fail(Error);
 
     public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()

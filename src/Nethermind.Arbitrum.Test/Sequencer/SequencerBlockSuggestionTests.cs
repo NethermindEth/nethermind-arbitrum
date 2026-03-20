@@ -54,7 +54,7 @@ public class SequencerBlockSuggestionTests
 
         chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing + 1);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -116,7 +116,7 @@ public class SequencerBlockSuggestionTests
         result2.SequencedMsg.Should().NotBeNull("second cycle should produce a block");
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing + 1);
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountC.Address).Should().Be(2.Ether);
@@ -159,7 +159,7 @@ public class SequencerBlockSuggestionTests
 
         chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing, "head should not advance after Start");
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("retry sequencer");
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing("retry sequencer").ShouldAsync().RequestSucceed();
 
         chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing, "head should not advance after discard");
 
@@ -171,7 +171,7 @@ public class SequencerBlockSuggestionTests
             .nitroexecution_startSequencing(env2.L1BLockNumber, env2.L1Timestamp, env2.L2Timestamp)
             .ShouldAsync().RequestSucceed();
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         await sendTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
@@ -219,7 +219,7 @@ public class SequencerBlockSuggestionTests
             chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing + i + 1,
                 $"head should advance after Append (iteration {i})");
 
-            chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+            chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
         }
 
         chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing + 3);
@@ -263,7 +263,7 @@ public class SequencerBlockSuggestionTests
         chain.BlockTree.Head!.Number.Should().Be(headBeforeSequencing + 1);
         chain.BlockTree.Head!.Header.Nonce.Should().Be(delayedMsgRead + 1);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(5.Ether);
     }
@@ -300,7 +300,7 @@ public class SequencerBlockSuggestionTests
             .ShouldAsync().RequestSucceed();
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.WorldStateAccessor.GetBalance(FullChainSimulationAccounts.AccountB.Address).Should().Be(3.Ether);
     }
@@ -348,7 +348,7 @@ public class SequencerBlockSuggestionTests
         appendedBlock.Should().NotBeNull("block should be canonical after Append");
         appendedBlock!.Hash!.Should().Be(result.SequencedMsg!.MsgResult!.Hash!);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -388,7 +388,7 @@ public class SequencerBlockSuggestionTests
 
         result.SequencedMsg.Should().BeNull();
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
 
         chain.BlockTree.Head!.Number.Should().Be(headBefore);
     }

@@ -43,7 +43,7 @@ public class SequencerDelayedMessageTests
 
         chain.BlockTree.Head!.Header.Nonce.Should().Be(delayedMsgRead + 1);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
@@ -77,7 +77,7 @@ public class SequencerDelayedMessageTests
         StartSequencingResult expectedSequencingResult = new(expectedSequencedMessage, 0);
         result.Should().BeEquivalentTo(expectedSequencingResult);
 
-        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).Should().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
     }
 
     [Test]
