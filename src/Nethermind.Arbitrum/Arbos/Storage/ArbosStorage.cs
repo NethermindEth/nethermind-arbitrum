@@ -40,13 +40,9 @@ public class ArbosStorage
         {
             // Nethermind's SetNonce throws if account is null, so we must create first.
             if (!_db.AccountExists(_account))
-            {
                 _db.CreateAccount(_account, UInt256.Zero, UInt256.One);
-            }
             else
-            {
                 _db.SetNonce(_account, UInt256.One);
-            }
         }
     }
 
@@ -116,6 +112,13 @@ public class ArbosStorage
     public void Clear(ValueHash256 key)
     {
         Set(key, (ValueHash256)default);
+    }
+
+    public void ClearFree(ValueHash256 key)
+    {
+        ValueHash256 mappedAddress = MapAddress(key);
+        _burner.TracingInfo?.RecordStorageSet(mappedAddress, default);
+        _db.Set(new StorageCell(_account, new UInt256(mappedAddress.Bytes, isBigEndian: true)), []);
     }
 
     public void Clear(ulong key)

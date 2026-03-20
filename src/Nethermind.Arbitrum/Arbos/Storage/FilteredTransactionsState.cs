@@ -62,9 +62,6 @@ public class FilteredTransactionsState
     /// </summary>
     public void DeleteFree(Hash256 txHash)
     {
-        // Note: This requires a ClearFree method on ArbosStorage which doesn't exist yet.
-        // For now, we'll use the regular Clear method.
-        // TODO: Add ClearFree to ArbosStorage if needed for gas-free deletion
-        _storage.Clear(txHash);
+        _storage.ClearFree(txHash);
     }
 }
