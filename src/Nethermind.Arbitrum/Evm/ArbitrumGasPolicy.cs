@@ -126,7 +126,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     {
         EthereumGasPolicy.Consume(ref gas._ethereum, cost);
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)cost);
-        Execution.BlockDebugLogger.LogValueStatic("GAS_CONSUME", $"cost={cost} totalComp={gas._accumulated.Get(ResourceKind.Computation)}");
     }
 
     /// <summary>
@@ -136,13 +135,11 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// </summary>
     public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
-        try { System.IO.File.AppendAllText("/tmp/arb-selfdestruct-debug.txt", $"[{DateTime.UtcNow:HH:mm:ss.fff}] ConsumeSelfDestructGas CALLED\n"); } catch { }
         if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
             return false;
         // Split EIP150 cost: 100 Computation + 4900 StorageAccess (matching Nitro behavior)
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
-        try { System.IO.File.AppendAllText("/tmp/arb-selfdestruct-debug.txt", $"[{DateTime.UtcNow:HH:mm:ss.fff}] Added 100 Comp + 4900 SA\n"); } catch { }
         return true;
     }
 
@@ -480,7 +477,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             ? GasCostOf.TxCreate + GasCostOf.Transaction
             : GasCostOf.Transaction;
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)baseTxGas);
-        Execution.BlockDebugLogger.LogValueStatic("INTRINSIC_GAS", $"txType={tx.Type} baseTxGas={baseTxGas} dataLen={tx.Data.Length}");
 
         // 2. Computation: Init code cost (EIP-3860)
         if (tx.IsContractCreation && spec.IsEip3860Enabled && tx.Data.Length > 0)

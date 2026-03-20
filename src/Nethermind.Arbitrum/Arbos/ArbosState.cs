@@ -74,9 +74,6 @@ public class ArbosState
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
-        => UpgradeArbosVersionWithLog(targetVersion, isFirstTime, worldState, genesisSpec, null);
-
-    public void UpgradeArbosVersionWithLog(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec, GenesisDebugLogger? debugLog)
     {
         while (CurrentArbosVersion < targetVersion)
         {
@@ -231,16 +228,11 @@ public class ArbosState
                         break;
 
                     case 60: // StylusContractLimit + TransactionFiltering + MultiGasConstraints
-                        debugLog?.LogStep("v60_a_before_params");
                         StylusParams stylusParamsV60 = Programs.GetParams();
-                        debugLog?.LogStep("v60_b_after_get_params");
                         stylusParamsV60.UpgradeToArbosVersion(nextArbosVersion);
-                        debugLog?.LogStep("v60_c_after_upgrade_params");
                         stylusParamsV60.Save();
-                        debugLog?.LogStep("v60_d_after_save_params");
                         // Initialize TransactionFilterers storage (matches Nitro's ArbosVersion_TransactionFiltering)
                         AddressSet.Initialize(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
-                        debugLog?.LogStep("v60_e_after_txfilter_init");
                         // filteredFundsRecipient defaults to zero address (falls back to networkFeeAccount)
                         // No explicit initialization needed - uninitialized storage reads as zero
                         break;
@@ -255,32 +247,19 @@ public class ArbosState
                 throw;
             }
 
-            if (nextArbosVersion == 1)
-            {
-                debugLog?.LogStepWithValue("precompile_map_size", "count", Precompiles.PrecompileMinArbOSVersions.Count);
-                foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
-                {
-                    debugLog?.LogStepWithValue($"precompile_entry_{address}", "minVersion", minVersion);
-                }
-            }
             foreach ((Address address, ulong minVersion) in Precompiles.PrecompileMinArbOSVersions)
             {
                 if (minVersion == nextArbosVersion)
                 {
-                    debugLog?.LogStepWithValue($"installing_precompile_{address}", "version", minVersion);
                     worldState.CreateAccountIfNotExists(address, UInt256.Zero);
                     worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, genesisSpec, true);
                 }
             }
-            debugLog?.LogStep("v60_g_after_precompiles");
-
             CurrentArbosVersion = nextArbosVersion;
             Programs.ArbosVersion = nextArbosVersion;
             L1PricingState.CurrentArbosVersion = nextArbosVersion;
             L2PricingState.CurrentArbosVersion = nextArbosVersion;
 
-            // Log state after each version upgrade for comparison debugging
-            debugLog?.LogStepWithValue($"upgrade_to_v{nextArbosVersion}", "version", nextArbosVersion);
         }
 
         if (isFirstTime && targetVersion >= ArbosVersion.Six)

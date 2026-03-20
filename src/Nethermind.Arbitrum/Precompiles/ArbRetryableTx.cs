@@ -151,8 +151,6 @@ public static class ArbRetryableTx
     // Redeem schedules an attempt to redeem the retryable, donating all of the call's gas to the redeem attempt
     public static Hash256 Redeem(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {
-        BlockDebugLogger.LogValueStatic("REDEEM_ENTER",
-            $"ticketId={ticketId} caller={context.Caller} gasLeft={context.GasLeft} isStatic={context.ReadOnly} multiGas={context.BurnedMultiGas}");
         if (ticketId == context.CurrentRetryable)
             throw SelfModifyingRetryableException();
 
@@ -161,23 +159,19 @@ public static class ArbRetryableTx
             ticketId,
             context.BlockExecutionContext.Header.Timestamp
         );
-        BlockDebugLogger.LogValueStatic("REDEEM_AFTER_SIZE", $"byteCount={byteCount} multiGas={context.BurnedMultiGas}");
 
         ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
         // Burn as StorageAccess to match Nitro's multigas tracking
         context.Burn(ResourceKind.StorageAccess, (ulong)(GasCostOf.SLoad * writeBytes));
-        BlockDebugLogger.LogValueStatic("REDEEM_AFTER_BURN_SLOAD", $"writeBytes={writeBytes} multiGas={context.BurnedMultiGas}");
 
         Retryable? retryable = state.OpenRetryable(
             ticketId,
             context.BlockExecutionContext.Header.Timestamp
         );
-        BlockDebugLogger.LogValueStatic("REDEEM_AFTER_OPEN", $"multiGas={context.BurnedMultiGas}");
         if (retryable is null)
             ThrowOldNotFoundError(context, ticketId);
 
         ulong nonce = retryable!.IncrementNumTries() - 1;
-        BlockDebugLogger.LogValueStatic("REDEEM_AFTER_INCREMENT", $"nonce={nonce} multiGas={context.BurnedMultiGas}");
 
         UInt256 maxRefund = UInt256.MaxValue;
         ArbitrumRetryTransaction retryTxInner = new ArbitrumRetryTransaction
@@ -205,7 +199,6 @@ public static class ArbRetryableTx
         // Result is 32 bytes long which is 1 word
         ulong gasCostToReturnResult = GasCostOf.DataCopy;
         ulong gasPoolUpdateCost = context.ArbosState.L2PricingState.GasPoolUpdateCost();
-        BlockDebugLogger.LogValueStatic("REDEEM_AFTER_GASPOOL_COST", $"gasPoolUpdateCost={gasPoolUpdateCost} multiGas={context.BurnedMultiGas}");
         ulong futureGasCosts = eventGasCost + gasCostToReturnResult + gasPoolUpdateCost;
 
         if (context.GasLeft < futureGasCosts)
@@ -226,17 +219,12 @@ public static class ArbRetryableTx
         EmitRedeemScheduledEvent(
             context, ticketId, retryTxHash, nonce, gasToDonate, context.Caller, maxRefund, 0
         );
-        BlockDebugLogger.LogValueStatic("REDEEM_SCHEDULED",
-            $"ticketId={ticketId} retryTxHash={retryTxHash} nonce={nonce} gasToDonate={gasToDonate} eventLogsCount={context.EventLogs.Count}");
 
         // To prepare for the enqueued retry event, we burn gas here, adding it back to the pool right before retrying.
         // The gas payer for this tx will get a credit for the wei they paid for this gas when retrying.
         // We burn as much gas as we can (computation gas), leaving only enough to pay for copying out the return data.
         const ResourceKind donationResource = ResourceKind.Computation;
-        BlockDebugLogger.LogValueStatic("REDEEM_BEFORE_BURN",
-            $"gasToDonate={gasToDonate} gasLeft={context.GasLeft} willFail={gasToDonate > context.GasLeft}");
         context.Burn(donationResource, gasToDonate);
-        BlockDebugLogger.LogValueStatic("REDEEM_AFTER_BURN", $"gasLeft={context.GasLeft}");
 
         // Starting from ArbosVersion.MultiGasConstraintsVersion, charge a fixed amount of gas for the ShrinkBacklog
         // call because multi-gas constraints may have multiple backlogs and it would be too expensive to the user.
@@ -264,9 +252,7 @@ public static class ArbRetryableTx
             MultiGas donatedMultiGas = default;
             donatedMultiGas.Increment(donationResource, gasToDonate);
 
-            BlockDebugLogger.LogValueStatic("REDEEM_BEFORE_SHRINK", $"gasLeft={context.GasLeft} gasToDonate={gasToDonate} Free={context.Free} multiGas={context.BurnedMultiGas}");
             context.ArbosState.L2PricingState.ShrinkBacklog(gasToDonate, donatedMultiGas);
-            BlockDebugLogger.LogValueStatic("REDEEM_AFTER_SHRINK", $"gasLeft={context.GasLeft} Free={context.Free} multiGas={context.BurnedMultiGas}");
 
             return retryTxHash;
         }

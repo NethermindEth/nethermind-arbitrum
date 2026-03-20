@@ -115,8 +115,6 @@ public sealed class MultiGasConstraint
     /// </summary>
     public void SetResourceWeights(Dictionary<ResourceKind, ulong> weights)
     {
-        Execution.BlockDebugLogger.LogValueStatic("SET_RESOURCE_WEIGHTS_START", $"weightsCount={weights.Count} numKinds={MultiGas.NumResourceKinds}");
-
         ulong maxWeight = 0;
 
         // Find max weight
@@ -130,14 +128,10 @@ public sealed class MultiGasConstraint
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
         {
             ulong weight = weights.GetValueOrDefault((ResourceKind)i, 0UL);
-            Execution.BlockDebugLogger.LogValueStatic("SET_RESOURCE_WEIGHT", $"i={i} kind={(ResourceKind)i} weight={weight}");
             _weightedResources[i].Set(weight);
-            Execution.BlockDebugLogger.LogValueStatic("SET_RESOURCE_WEIGHT_DONE", $"i={i}");
         }
 
-        Execution.BlockDebugLogger.LogValueStatic("SET_RESOURCE_WEIGHTS_MAXWEIGHT", $"maxWeight={maxWeight}");
         _maxWeight.Set(maxWeight);
-        Execution.BlockDebugLogger.LogValueStatic("SET_RESOURCE_WEIGHTS_END", "complete");
     }
 
     /// <summary>
@@ -179,8 +173,6 @@ public sealed class MultiGasConstraint
     {
         ulong totalBacklog = Backlog;
 
-        Execution.BlockDebugLogger.LogValueStatic("UPDATE_BACKLOG_START", $"op={(int)op} initialBacklog={totalBacklog} multiGas={multiGas}");
-
         for (int i = 0; i < MultiGas.NumResourceKinds; i++)
         {
             ulong weight = _weightedResources[i].Get();
@@ -190,14 +182,11 @@ public sealed class MultiGasConstraint
             ulong resourceAmount = multiGas.Get((ResourceKind)i);
             ulong weightedAmount = resourceAmount.SaturateMul(weight);
 
-            Execution.BlockDebugLogger.LogValueStatic("UPDATE_BACKLOG_RESOURCE", $"resource={i} weight={weight} amount={resourceAmount} weighted={weightedAmount}");
-
             totalBacklog = op == BacklogOperation.Grow
                 ? totalBacklog.SaturateAdd(weightedAmount)
                 : totalBacklog.SaturateSub(weightedAmount);
         }
 
-        Execution.BlockDebugLogger.LogValueStatic("UPDATE_BACKLOG_END", $"finalBacklog={totalBacklog}");
         SetBacklog(totalBacklog);
     }
 
