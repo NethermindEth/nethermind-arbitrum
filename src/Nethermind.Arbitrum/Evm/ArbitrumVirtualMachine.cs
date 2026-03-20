@@ -520,7 +520,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult OwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        // Save BurnedMultiGas before owner check - owner precompiles don't charge multigas
+        // Save BurnedMultiGas before owner check - owner precompiles don't charge multigas.
+        // For non-owner callers, the ownership-check multigas delta is propagated to the gas
+        // policy accumulator, matching Nitro's OwnerPrecompile.Call which returns burner.gasUsed
+        // (non-zero) for non-owner paths but multigas.ZeroGas() for owner paths.
         MultiGas savedMultiGas = _systemBurner.BurnedMultiGas;
 
         try
@@ -532,6 +535,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             if (gasUsed > context.GasLeft)
             {
+                AddOwnerCheckMultiGasDelta(ref state.Gas, savedMultiGas);
                 ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
                 return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
                 {
@@ -542,6 +546,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (!isSenderAChainOwner)
             {
                 context.Burn(gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
+                AddOwnerCheckMultiGasDelta(ref state.Gas, savedMultiGas);
 
                 if (Logger.IsTrace)
                     Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
@@ -570,9 +575,21 @@ public sealed unsafe class ArbitrumVirtualMachine(
         }
         finally
         {
-            // Restore BurnedMultiGas - owner precompiles don't charge multigas
+            // Always restore - owner precompiles don't charge multigas, and for non-owner
+            // paths the delta was already propagated to the gas policy accumulator above.
             _systemBurner.RestoreBurnedMultiGas(in savedMultiGas);
         }
+    }
+
+    /// <summary>
+    /// Propagates the system burner's multigas delta (from the ownership check) into the
+    /// gas policy accumulator. Called for non-owner and OOG paths where the caller must
+    /// pay the multigas cost of OpenArbosState + IsMember.
+    /// </summary>
+    private void AddOwnerCheckMultiGasDelta(ref ArbitrumGasPolicy gas, in MultiGas savedMultiGas)
+    {
+        MultiGas delta = _systemBurner.BurnedMultiGas.SaturatingSub(savedMultiGas);
+        ArbitrumGasPolicy.AddToAccumulated(ref gas, delta);
     }
 
     private CallResult NonOwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
