@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 
@@ -125,7 +127,7 @@ public class ExpressLaneServiceTests
     }
 
     [Test]
-    public async Task SequenceAsync_BufferedSeqResentWithDifferentSig_Throws()
+    public async Task SequenceAsync_BufferedSeqResentWithDifferentSig_Rejects()
     {
         // A second submission for a still-buffered sequence number with a different signature is rejected.
         // Mirrors Go's ErrDuplicateSequenceNumber path.
@@ -139,9 +141,9 @@ public class ExpressLaneServiceTests
         // Different tx at the same seq=1 → conflicting submission must be rejected
         ExpressLaneSubmission conflict = TestExpressLaneSubmission.Create(TestTransaction.CreateTransfer(nonce: 99), round: 2, seqNum: 1);
 
-        Func<Task> act = () => service.SequenceAsync(conflict, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(conflict, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Conflicting*");
+        result.Should().RequestFail("Conflicting");
     }
 
     [Test]
@@ -165,7 +167,7 @@ public class ExpressLaneServiceTests
     }
 
     [Test]
-    public async Task SequenceAsync_StaleSequenceNumber_Throws()
+    public async Task SequenceAsync_StaleSequenceNumber_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext, currentRound: 2);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -174,17 +176,17 @@ public class ExpressLaneServiceTests
         // Advance nextSeq to 1 by sending seq=0
         await service.SequenceAsync(TestExpressLaneSubmission.Create(TestTransaction.CreateTransfer(nonce: 0), round: 2, seqNum: 0), 100);
 
-        // A different transaction signed with seq=0 (below nextSeq=1) is stale — must throw
+        // A different transaction signed with seq=0 (below nextSeq=1) is stale — must fail
         ExpressLaneSubmission stale = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(nonce: 1), round: 2, seqNum: 0);
 
-        Func<Task> act = () => service.SequenceAsync(stale, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(stale, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*too low*");
+        result.Should().RequestFail("too low");
     }
 
     [Test]
-    public async Task SequenceAsync_SequenceNumberTooFarAhead_Throws()
+    public async Task SequenceAsync_SequenceNumberTooFarAhead_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -194,13 +196,13 @@ public class ExpressLaneServiceTests
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(), round: 1, seqNum: 5000);
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*too far in the future*");
+        result.Should().RequestFail("too far in the future");
     }
 
     [Test]
-    public async Task SequenceAsync_NonControllerSigner_Throws()
+    public async Task SequenceAsync_NonControllerSigner_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -209,13 +211,13 @@ public class ExpressLaneServiceTests
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(), round: 1, seqNum: 0, signerKey: FullChainSimulationAccounts.AccountB);
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*not the express lane controller*");
+        result.Should().RequestFail("not the express lane controller");
     }
 
     [Test]
-    public async Task SequenceAsync_NoControllerRegisteredForRound_Throws()
+    public async Task SequenceAsync_NoControllerRegisteredForRound_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -224,13 +226,13 @@ public class ExpressLaneServiceTests
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(), round: 1, seqNum: 0);
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*No controller for round*");
+        result.Should().RequestFail("No controller for round");
     }
 
     [Test]
-    public async Task SequenceAsync_WrongAuctionContract_Throws()
+    public async Task SequenceAsync_WrongAuctionContract_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -240,13 +242,13 @@ public class ExpressLaneServiceTests
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(), round: 1, seqNum: 0, auctionContract: wrongContract);
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Wrong auction contract*");
+        result.Should().RequestFail("Wrong auction contract");
     }
 
     [Test]
-    public async Task SequenceAsync_RoundMismatch_Throws()
+    public async Task SequenceAsync_RoundMismatch_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext, currentRound: 5);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -256,13 +258,13 @@ public class ExpressLaneServiceTests
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(), round: 10, seqNum: 0);
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not match the current*");
+        result.Should().RequestFail("does not match the current");
     }
 
     [Test]
-    public async Task SequenceAsync_NullTransaction_Throws()
+    public async Task SequenceAsync_NullTransaction_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -276,13 +278,13 @@ public class ExpressLaneServiceTests
             AuctionContractAddress = TestExpressLane.TestAuctionContract,
         };
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Malformed*");
+        result.Should().RequestFail("Malformed");
     }
 
     [Test]
-    public async Task SequenceAsync_NullSignature_Throws()
+    public async Task SequenceAsync_NullSignature_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -296,13 +298,13 @@ public class ExpressLaneServiceTests
             AuctionContractAddress = TestExpressLane.TestAuctionContract,
         };
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Malformed*");
+        result.Should().RequestFail("Malformed");
     }
 
     [Test]
-    public async Task SequenceAsync_NextRoundOutsideGracePeriod_Throws()
+    public async Task SequenceAsync_NextRoundOutsideGracePeriod_Rejects()
     {
         // 30s remaining in round, 2s grace → outside grace window → immediate rejection.
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
@@ -311,9 +313,9 @@ public class ExpressLaneServiceTests
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(
             TestTransaction.CreateTransfer(), round: 2, seqNum: ulong.MaxValue);
 
-        Func<Task> act = () => service.SequenceAsync(submission, 100);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, 100);
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*does not match current round*");
+        result.Should().RequestFail("does not match current round");
     }
 
     [Test]
@@ -386,7 +388,7 @@ public class ExpressLaneServiceTests
     }
 
     [Test]
-    public void SequenceAsync_OversizedTransaction_Throws()
+    public async Task SequenceAsync_OversizedTransaction_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(
             out TestExpressLaneTrackerContext trackerContext,
@@ -396,14 +398,13 @@ public class ExpressLaneServiceTests
         Transaction tx = TestTransaction.CreateTransfer();
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(tx, round: 1, seqNum: 0);
 
-        Func<Task> act = () => service.SequenceAsync(submission, currentBlockNumber: 1);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, currentBlockNumber: 1);
 
-        act.Should().ThrowExactlyAsync<InvalidOperationException>()
-            .WithMessage("*exceeds maximum*");
+        result.Should().RequestFail("exceeds maximum");
     }
 
     [Test]
-    public void SequenceAsync_WrongChainId_Throws()
+    public async Task SequenceAsync_WrongChainId_Rejects()
     {
         using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
         ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out _);
@@ -418,14 +419,13 @@ public class ExpressLaneServiceTests
             AuctionContractAddress = TestExpressLane.TestAuctionContract,
         };
 
-        Func<Task> act = () => service.SequenceAsync(submission, currentBlockNumber: 1);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, currentBlockNumber: 1);
 
-        act.Should().ThrowExactlyAsync<InvalidOperationException>()
-            .WithMessage("*chain ID*does not match*");
+        result.Should().RequestFail("chain ID");
     }
 
     [Test]
-    public void SequenceAsync_WrongChainIdWithValidSignature_RejectsWithChainIdError()
+    public async Task SequenceAsync_WrongChainIdWithValidSignature_RejectsWithChainIdError()
     {
         // Chain ID validation must run before controller check — even with a valid signature,
         // wrong chain ID is caught first.
@@ -446,9 +446,8 @@ public class ExpressLaneServiceTests
             AuctionContractAddress = signed.AuctionContractAddress,
         };
 
-        Func<Task> act = () => service.SequenceAsync(wrongChainSubmission, currentBlockNumber: 1);
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(wrongChainSubmission, currentBlockNumber: 1);
 
-        act.Should().ThrowExactlyAsync<InvalidOperationException>()
-            .WithMessage("*chain ID*does not match*");
+        result.Should().RequestFail("chain ID");
     }
 }

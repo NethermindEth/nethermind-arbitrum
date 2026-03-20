@@ -202,7 +202,7 @@ public sealed class ArbitrumExecutionEngine(
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
 
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
         catch (Exception ex)
         {
@@ -218,7 +218,7 @@ public sealed class ArbitrumExecutionEngine(
         try
         {
             cachedL1PriceData.MarkFeedStart(to);
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
         catch (Exception ex)
         {
@@ -242,7 +242,7 @@ public sealed class ArbitrumExecutionEngine(
                 parameters.SyncProgressMap,
                 parameters.UpdatedAt);
 
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
         catch (Exception ex)
         {
@@ -407,15 +407,10 @@ public sealed class ArbitrumExecutionEngine(
 
         ulong currentBlock = (ulong)blockTree.Head!.Header.Number;
 
-        try
-        {
-            await expressLaneService.SequenceAsync(submission, currentBlock);
-            return ResultWrapper<bool>.Success(true);
-        }
-        catch (Exception ex)
-        {
-            return ResultWrapper<bool>.Fail(ex.Message);
-        }
+        ResultWrapper<EmptyResponse> result = await expressLaneService.SequenceAsync(submission, currentBlock);
+        return result.Result == Result.Success
+            ? ResultWrapper<bool>.Success(true)
+            : ResultWrapper<bool>.Fail(result.Result.Error ?? "Express lane sequencing failed");
     }
 
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)

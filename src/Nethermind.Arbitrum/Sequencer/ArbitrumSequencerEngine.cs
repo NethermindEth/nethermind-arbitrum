@@ -89,7 +89,7 @@ public sealed class ArbitrumSequencerEngine(
         if (_lastCreatedBlockWithRegularTxsInfo is null)
         {
             _pendingBlock = null;
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
 
         List<TxQueueItem>? queueItems = _lastRegularTxQueueItems;
@@ -99,7 +99,7 @@ public sealed class ArbitrumSequencerEngine(
         _lastRegularTxQueueItems = null;
 
         if (queueItems is null)
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
 
         // Retry-sequencer error: forward to backup if available, else re-queue locally
         if (IsRetrySequencerError(error))
@@ -110,13 +110,13 @@ public sealed class ArbitrumSequencerEngine(
             if (state.Forwarder is not null)
             {
                 await HandleInactiveAsync(queueItems, state.Forwarder);
-                return ResultWrapper<EmptyResponse>.Success(default);
+                return ResultWrapper.EmptySuccess;
             }
 
             foreach (TxQueueItem item in queueItems)
                 transactionQueue.PushRetry(item);
 
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
 
         // Non-retry error: return error to callers (don't re-queue)
@@ -126,7 +126,7 @@ public sealed class ArbitrumSequencerEngine(
 
             foreach (TxQueueItem item in queueItems)
                 item.ReturnResult(new Exception(error));
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
 
         _nonceCache.Finalize(block);
@@ -135,7 +135,7 @@ public sealed class ArbitrumSequencerEngine(
         foreach (TxQueueItem item in queueItems)
             item.ReturnResult(null);
 
-        return ResultWrapper<EmptyResponse>.Success(default);
+        return ResultWrapper.EmptySuccess;
     }
 
     public async Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
@@ -160,7 +160,7 @@ public sealed class ArbitrumSequencerEngine(
             _lastSequencedBlockInfo = null;
         }
 
-        return ResultWrapper<EmptyResponse>.Success(default);
+        return ResultWrapper.EmptySuccess;
     }
 
     public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
@@ -170,7 +170,7 @@ public sealed class ArbitrumSequencerEngine(
         if (_logger.IsDebug)
             _logger.Debug($"Enqueued {messages.Length} delayed messages starting at index {firstMsgIdx}");
 
-        return ResultWrapper<EmptyResponse>.Success(default);
+        return ResultWrapper.EmptySuccess;
     }
 
     public ResultWrapper<ulong> NextDelayedMessageNumber()
@@ -221,7 +221,7 @@ public sealed class ArbitrumSequencerEngine(
         if (_logger.IsInfo)
             _logger.Info("Sequencer paused");
 
-        return ResultWrapper<EmptyResponse>.Success(default);
+        return ResultWrapper.EmptySuccess;
     }
 
     public ResultWrapper<EmptyResponse> Activate()
@@ -231,7 +231,7 @@ public sealed class ArbitrumSequencerEngine(
         if (_logger.IsInfo)
             _logger.Info("Sequencer activated");
 
-        return ResultWrapper<EmptyResponse>.Success(default);
+        return ResultWrapper.EmptySuccess;
     }
 
     public ResultWrapper<EmptyResponse> ForwardTo(string url)
@@ -241,7 +241,7 @@ public sealed class ArbitrumSequencerEngine(
         if (_logger.IsInfo)
             _logger.Info($"Sequencer forwarding to {url}");
 
-        return ResultWrapper<EmptyResponse>.Success(default);
+        return ResultWrapper.EmptySuccess;
     }
 
     private static void OnNonceFailureEvict(SequencerState sequencerState, TxQueueItem item, string errorMessage)

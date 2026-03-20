@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
+using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
 
@@ -154,7 +156,7 @@ public class ExpressLaneTrackerTests
     }
 
     [Test]
-    public async Task DontCareSequence_RoundExpired_ThrowsRoundMismatch()
+    public async Task DontCareSequence_RoundExpired_RejectsRoundMismatch()
     {
         // DontCareSequence submitted for round 1 but current round is 2 → rejected
         // Use round timing where current round is 2 but submission says round 1
@@ -164,9 +166,8 @@ public class ExpressLaneTrackerTests
         Transaction tx = TestTransaction.CreateTransfer();
         ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(tx, round: 1, seqNum: ExpressLaneService.DontCareSequenceNumber);
 
-        Func<Task> act = () => service.SequenceAsync(submission, currentBlockNumber: 100);
-        await act.Should().ThrowExactlyAsync<InvalidOperationException>()
-            .WithMessage("*does not match the current*");
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(submission, currentBlockNumber: 100);
+        result.Should().RequestFail("does not match the current");
     }
 
     [Test]

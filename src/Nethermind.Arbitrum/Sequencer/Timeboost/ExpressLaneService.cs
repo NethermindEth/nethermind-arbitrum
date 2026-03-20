@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -34,22 +35,24 @@ public sealed class ExpressLaneService(
     private readonly Lock _roundLock = new();
     private readonly Dictionary<ulong, RoundInfo> _roundInfos = new();
 
-    public async Task SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber)
+    public async Task<ResultWrapper<EmptyResponse>> SequenceAsync(ExpressLaneSubmission submission, ulong currentBlockNumber)
     {
-        await ValidateSubmissionAsync(submission);
+        ResultWrapper<EmptyResponse> validationResult = await ValidateSubmissionAsync(submission);
+        if (validationResult.Result != Result.Success)
+            return validationResult;
 
         if (submission.SequenceNumber == DontCareSequenceNumber)
         {
             // DontCareSequence: publish with timeout = min(TimeTilNextRound, QueueTimeout)
             if (roundTimingInfo.RoundNumber() != submission.Round)
-                throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
+                return ResultWrapper<EmptyResponse>.Fail($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
 
             TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
             ResultWrapper<Hash256> result = await PublishAsync(submission.Transaction, currentBlockNumber, timeout);
             if (result.Result != Result.Success)
-                throw new InvalidOperationException(result.Result.Error ?? "Failed to publish DontCareSequence tx");
+                return ResultWrapper<EmptyResponse>.Fail(result.Result.Error ?? "Failed to publish DontCareSequence tx");
 
-            return;
+            return ResultWrapper.EmptySuccess;
         }
 
         List<(ulong SeqNum, Transaction Tx)>? toPublish = null;
@@ -61,10 +64,10 @@ public sealed class ExpressLaneService(
             ulong round = submission.Round;
             Address? controller = tracker.GetController(round);
             if (controller is null)
-                throw new InvalidOperationException($"No controller for round {round}");
+                return ResultWrapper<EmptyResponse>.Fail($"No controller for round {round}");
 
             if (sender != controller)
-                throw new InvalidOperationException("Sender is not the express lane controller");
+                return ResultWrapper<EmptyResponse>.Fail("Sender is not the express lane controller");
 
             if (!_roundInfos.TryGetValue(round, out RoundInfo? roundInfo))
             {
@@ -97,19 +100,19 @@ public sealed class ExpressLaneService(
             if (roundInfo.AllSeen.TryGetValue(seqNum, out ExpressLaneSubmission? existing))
             {
                 if (Bytes.AreEqual(existing.Signature, submission.Signature))
-                    return; // exact duplicate (same sig) → idempotent no-op
+                    return ResultWrapper.EmptySuccess; // exact duplicate (same sig) → idempotent no-op
 
                 if (seqNum < nextSeq)
-                    throw new InvalidOperationException($"Sequence number {seqNum} too low; expected >= {nextSeq}");
+                    return ResultWrapper<EmptyResponse>.Fail($"Sequence number {seqNum} too low; expected >= {nextSeq}");
 
-                throw new InvalidOperationException($"Conflicting submission for sequence number {seqNum}");
+                return ResultWrapper<EmptyResponse>.Fail($"Conflicting submission for sequence number {seqNum}");
             }
 
             if (seqNum < nextSeq)
-                throw new InvalidOperationException($"Sequence number {seqNum} too low; expected >= {nextSeq}");
+                return ResultWrapper<EmptyResponse>.Fail($"Sequence number {seqNum} too low; expected >= {nextSeq}");
 
             if (seqNum > nextSeq + MaxFutureSequenceDistance)
-                throw new InvalidOperationException($"Sequence number {seqNum} too far in the future");
+                return ResultWrapper<EmptyResponse>.Fail($"Sequence number {seqNum} too far in the future");
 
             roundInfo.AllSeen[seqNum] = submission;
 
@@ -122,7 +125,7 @@ public sealed class ExpressLaneService(
 
         if (toPublish is not null)
         {
-            InvalidOperationException? retErr = null;
+            ResultWrapper<EmptyResponse>? retErr = null;
 
             foreach (var (seqNum, tx) in toPublish)
             {
@@ -146,49 +149,53 @@ public sealed class ExpressLaneService(
                     }
 
                     if (seqNum == submission.SequenceNumber)
-                        retErr = new InvalidOperationException(result.Result.Error ?? $"Failed to publish express lane tx seqNum={seqNum}");
+                        retErr = ResultWrapper<EmptyResponse>.Fail(result.Result.Error ?? $"Failed to publish express lane tx seqNum={seqNum}");
                 }
             }
 
             if (retErr is not null)
-                throw retErr;
+                return retErr;
         }
+
+        return ResultWrapper.EmptySuccess;
     }
 
-    private async Task ValidateSubmissionAsync(ExpressLaneSubmission submission)
+    private async Task<ResultWrapper<EmptyResponse>> ValidateSubmissionAsync(ExpressLaneSubmission submission)
     {
         if (submission.Transaction is null || submission.Signature is null)
-            throw new InvalidOperationException("Malformed express lane submission");
+            return ResultWrapper<EmptyResponse>.Fail("Malformed express lane submission");
 
         int txSize = Rlp.Encode(submission.Transaction).Bytes.Length;
         if (txSize > _maxTxDataSize)
-            throw new InvalidOperationException($"Express lane tx size {txSize} exceeds maximum allowed size {_maxTxDataSize}");
+            return ResultWrapper<EmptyResponse>.Fail($"Express lane tx size {txSize} exceeds maximum allowed size {_maxTxDataSize}");
 
         if (submission.ChainId != chainSpec.ChainId)
-            throw new InvalidOperationException($"Express lane tx chain ID {submission.ChainId} does not match current chain ID {chainSpec.ChainId}");
+            return ResultWrapper<EmptyResponse>.Fail($"Express lane tx chain ID {submission.ChainId} does not match current chain ID {chainSpec.ChainId}");
 
         if (submission.AuctionContractAddress != tracker.AuctionContractAddress)
-            throw new InvalidOperationException($"Wrong auction contract address: {submission.AuctionContractAddress}");
+            return ResultWrapper<EmptyResponse>.Fail($"Wrong auction contract address: {submission.AuctionContractAddress}");
 
         ulong currentRound = roundTimingInfo.RoundNumber();
         if (submission.Round == currentRound)
-            return;
+            return ResultWrapper.EmptySuccess;
 
         if (submission.Round != currentRound + 1)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match the current {currentRound} " +
-                                                $"and next {currentRound + 1} rounds");
+            return ResultWrapper<EmptyResponse>.Fail($"Express lane tx round {submission.Round} does not match the current {currentRound} " +
+                                                    $"and next {currentRound + 1} rounds");
 
         TimeSpan timeTilNext = roundTimingInfo.TimeTilNextRound();
         if (timeTilNext > _earlySubmissionGrace)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRound} " +
-                                                $"and time til next round {timeTilNext} exceeds early submission grace {_earlySubmissionGrace}");
+            return ResultWrapper<EmptyResponse>.Fail($"Express lane tx round {submission.Round} does not match current round {currentRound} " +
+                                                    $"and time til next round {timeTilNext} exceeds early submission grace {_earlySubmissionGrace}");
 
         if (timeTilNext > TimeSpan.Zero)
             await Task.Delay(timeTilNext, roundTimingInfo.TimeProvider);
 
         ulong currentRoundAfterWait = roundTimingInfo.RoundNumber();
         if (currentRoundAfterWait > submission.Round)
-            throw new InvalidOperationException($"Express lane tx round {submission.Round} does not match current round {currentRoundAfterWait} after waiting");
+            return ResultWrapper<EmptyResponse>.Fail($"Express lane tx round {submission.Round} does not match current round {currentRoundAfterWait} after waiting");
+
+        return ResultWrapper.EmptySuccess;
     }
 
     private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ulong currentBlockNumber, TimeSpan timeout)
