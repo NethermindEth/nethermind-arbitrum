@@ -488,57 +488,42 @@ public static class ArbOwner
     // Each tuple is: (WeightedResource[], adjustmentWindowSecs, targetPerSec, backlog)
     public static void SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, object[] constraintsArray)
     {
-        Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_START", $"constraintsCount={constraintsArray?.Length ?? -1}");
-        try
-        {
-            context.ArbosState.L2PricingState.ClearMultiGasConstraints();
+        context.ArbosState.L2PricingState.ClearMultiGasConstraints();
 
-            int idx = 0;
-            foreach (object constraintObj in constraintsArray!)
+        foreach (object constraintObj in constraintsArray!)
+        {
+            object[] constraint = (object[])constraintObj!;
+
+            // Parse the constraint tuple: (resources[], adjustmentWindowSecs, targetPerSec, backlog)
+            object[] resourcesArray = (object[])constraint[0]!;
+            uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
+            ulong targetPerSec = Convert.ToUInt64(constraint[2]);
+            ulong backlog = Convert.ToUInt64(constraint[3]);
+
+            if (targetPerSec == 0 || adjustmentWindowSecs == 0)
+                throw ArbitrumPrecompileException.CreateFailureException(
+                    $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
+
+            // Parse weighted resources: (resource: uint8, weight: uint64)[]
+            Dictionary<ResourceKind, ulong> weights = new();
+            foreach (object resourceObj in resourcesArray)
             {
-                Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_CONSTRAINT", $"idx={idx} type={constraintObj?.GetType().Name ?? "null"}");
-                object[] constraint = (object[])constraintObj!;
-
-                // Parse the constraint tuple: (resources[], adjustmentWindowSecs, targetPerSec, backlog)
-                object[] resourcesArray = (object[])constraint[0]!;
-                uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
-                ulong targetPerSec = Convert.ToUInt64(constraint[2]);
-                ulong backlog = Convert.ToUInt64(constraint[3]);
-
-                Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_PARSED", $"idx={idx} resources={resourcesArray.Length} window={adjustmentWindowSecs} target={targetPerSec} backlog={backlog}");
-
-                if (targetPerSec == 0 || adjustmentWindowSecs == 0)
-                    throw ArbitrumPrecompileException.CreateFailureException(
-                        $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
-
-                // Parse weighted resources: (resource: uint8, weight: uint64)[]
-                Dictionary<ResourceKind, ulong> weights = new();
-                foreach (object resourceObj in resourcesArray)
-                {
-                    object[] resource = (object[])resourceObj;
-                    byte resourceKind = Convert.ToByte(resource[0]);
-                    ulong weight = Convert.ToUInt64(resource[1]);
-                    weights[(ResourceKind)resourceKind] = weight;
-                }
-
-                context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
-
-                // Validate exponents don't exceed maximum
-                long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
-                foreach (long exp in exponents)
-                {
-                    if (exp > L2PricingState.MaxPricingExponentBips)
-                        throw ArbitrumPrecompileException.CreateFailureException(
-                            $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
-                }
-                idx++;
+                object[] resource = (object[])resourceObj;
+                byte resourceKind = Convert.ToByte(resource[0]);
+                ulong weight = Convert.ToUInt64(resource[1]);
+                weights[(ResourceKind)resourceKind] = weight;
             }
-            Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_SUCCESS", $"constraintsProcessed={idx}");
-        }
-        catch (Exception ex)
-        {
-            Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_ERROR", $"type={ex.GetType().Name} msg={ex.Message}");
-            throw;
+
+            context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
+
+            // Validate exponents don't exceed maximum
+            long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
+            foreach (long exp in exponents)
+            {
+                if (exp > L2PricingState.MaxPricingExponentBips)
+                    throw ArbitrumPrecompileException.CreateFailureException(
+                        $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
+            }
         }
     }
 
@@ -546,62 +531,46 @@ public static class ArbOwner
     // The ABI decoder returns ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
     public static void SetMultiGasPricingConstraintsFromTuples(ArbitrumPrecompileExecutionContext context, Array constraintsArray)
     {
-        Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_START", $"constraintsCount={constraintsArray?.Length ?? -1}");
-        try
-        {
-            context.ArbosState.L2PricingState.ClearMultiGasConstraints();
+        context.ArbosState.L2PricingState.ClearMultiGasConstraints();
 
-            int idx = 0;
-            foreach (object constraintObj in constraintsArray!)
+        foreach (object constraintObj in constraintsArray!)
+        {
+            // Use ITuple interface to access ValueTuple elements
+            var constraint = (System.Runtime.CompilerServices.ITuple)constraintObj!;
+
+            // constraint[0] = resources array (ValueTuple<byte, ulong>[])
+            // constraint[1] = adjustmentWindowSecs (uint)
+            // constraint[2] = targetPerSec (ulong)
+            // constraint[3] = backlog (ulong)
+            Array resourcesArray = (Array)constraint[0]!;
+            uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
+            ulong targetPerSec = Convert.ToUInt64(constraint[2]);
+            ulong backlog = Convert.ToUInt64(constraint[3]);
+
+            if (targetPerSec == 0 || adjustmentWindowSecs == 0)
+                throw ArbitrumPrecompileException.CreateFailureException(
+                    $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
+
+            // Parse weighted resources: ValueTuple<byte, ulong>[]
+            Dictionary<ResourceKind, ulong> weights = new();
+            foreach (object resourceObj in resourcesArray)
             {
-                Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_CONSTRAINT", $"idx={idx} type={constraintObj?.GetType().FullName ?? "null"}");
-
-                // Use ITuple interface to access ValueTuple elements
-                var constraint = (System.Runtime.CompilerServices.ITuple)constraintObj!;
-
-                // constraint[0] = resources array (ValueTuple<byte, ulong>[])
-                // constraint[1] = adjustmentWindowSecs (uint)
-                // constraint[2] = targetPerSec (ulong)
-                // constraint[3] = backlog (ulong)
-                Array resourcesArray = (Array)constraint[0]!;
-                uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
-                ulong targetPerSec = Convert.ToUInt64(constraint[2]);
-                ulong backlog = Convert.ToUInt64(constraint[3]);
-
-                Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_PARSED", $"idx={idx} resources={resourcesArray.Length} window={adjustmentWindowSecs} target={targetPerSec} backlog={backlog}");
-
-                if (targetPerSec == 0 || adjustmentWindowSecs == 0)
-                    throw ArbitrumPrecompileException.CreateFailureException(
-                        $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
-
-                // Parse weighted resources: ValueTuple<byte, ulong>[]
-                Dictionary<ResourceKind, ulong> weights = new();
-                foreach (object resourceObj in resourcesArray)
-                {
-                    var resource = (System.Runtime.CompilerServices.ITuple)resourceObj;
-                    byte resourceKind = Convert.ToByte(resource[0]);
-                    ulong weight = Convert.ToUInt64(resource[1]);
-                    weights[(ResourceKind)resourceKind] = weight;
-                }
-
-                context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
-
-                // Validate exponents don't exceed maximum
-                long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
-                foreach (long exp in exponents)
-                {
-                    if (exp > L2PricingState.MaxPricingExponentBips)
-                        throw ArbitrumPrecompileException.CreateFailureException(
-                            $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
-                }
-                idx++;
+                var resource = (System.Runtime.CompilerServices.ITuple)resourceObj;
+                byte resourceKind = Convert.ToByte(resource[0]);
+                ulong weight = Convert.ToUInt64(resource[1]);
+                weights[(ResourceKind)resourceKind] = weight;
             }
-            Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_SUCCESS", $"constraintsProcessed={idx}");
-        }
-        catch (Exception ex)
-        {
-            Execution.BlockDebugLogger.LogValueStatic("SET_MULTI_GAS_ERROR", $"type={ex.GetType().Name} msg={ex.Message}");
-            throw;
+
+            context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
+
+            // Validate exponents don't exceed maximum
+            long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
+            foreach (long exp in exponents)
+            {
+                if (exp > L2PricingState.MaxPricingExponentBips)
+                    throw ArbitrumPrecompileException.CreateFailureException(
+                        $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
+            }
         }
     }
 }

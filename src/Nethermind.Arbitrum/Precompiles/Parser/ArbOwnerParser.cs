@@ -822,30 +822,18 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     // with weighted resource constraints (ArbOS v60+)
     private static byte[] SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        Execution.BlockDebugLogger.LogValueStatic("PARSE_MULTI_GAS_START", $"inputLen={inputData.Length}");
-        try
-        {
-            var sig = PrecompileFunctionDescription[_setMultiGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature;
-            Execution.BlockDebugLogger.LogValueStatic("PARSE_MULTI_GAS_SIG", $"signature={sig}");
+        var sig = PrecompileFunctionDescription[_setMultiGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature;
 
-            object[] decoded = PrecompileAbiEncoder.Instance.Decode(
-                AbiEncodingStyle.None,
-                sig,
-                inputData.ToArray()
-            );
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            sig,
+            inputData.ToArray()
+        );
 
-            Execution.BlockDebugLogger.LogValueStatic("PARSE_MULTI_GAS_DECODED", $"decodedLen={decoded.Length} type0={decoded[0]?.GetType().FullName ?? "null"}");
-
-            // decoded[0] is ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
-            // We need to iterate and extract the values from the ValueTuples
-            Array constraintsArray = (Array)decoded[0];
-            ArbOwner.SetMultiGasPricingConstraintsFromTuples(context, constraintsArray);
-            return [];
-        }
-        catch (Exception ex)
-        {
-            Execution.BlockDebugLogger.LogValueStatic("PARSE_MULTI_GAS_ERROR", $"type={ex.GetType().Name} msg={ex.Message}");
-            throw;
-        }
+        // decoded[0] is ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
+        // We need to iterate and extract the values from the ValueTuples
+        Array constraintsArray = (Array)decoded[0];
+        ArbOwner.SetMultiGasPricingConstraintsFromTuples(context, constraintsArray);
+        return [];
     }
 }
