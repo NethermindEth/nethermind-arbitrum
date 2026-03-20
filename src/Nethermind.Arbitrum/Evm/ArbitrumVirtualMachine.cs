@@ -648,9 +648,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         // Add logs to evm state
         foreach (LogEntry log in context.EventLogs)
-        {
             state.AccessTracker.Logs.Add(log);
-        }
 
         // Burn gas for output data
         (shouldRevert, ulong gasToReturn, _) = PayForOutput(context, output, success: true);

@@ -89,9 +89,7 @@ public record ArbitrumPrecompileExecutionContext(
             return;
 
         if (GasLeft < amount)
-        {
             BurnOut();
-        }
         else
         {
             GasLeft -= amount;
@@ -104,9 +102,7 @@ public record ArbitrumPrecompileExecutionContext(
             return;
 
         if (GasLeft < amount)
-        {
             BurnOut();
-        }
         else
         {
             GasLeft -= amount;

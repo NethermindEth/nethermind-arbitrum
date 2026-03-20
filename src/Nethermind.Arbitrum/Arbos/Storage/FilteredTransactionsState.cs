@@ -17,26 +17,18 @@ public class FilteredTransactionsState
 
     private readonly ArbosStorage _storage;
 
-    public FilteredTransactionsState(IWorldState worldState, IBurner burner)
-    {
+    public FilteredTransactionsState(IWorldState worldState, IBurner burner) =>
         _storage = new ArbosStorage(worldState, burner, ArbosAddresses.FilteredTransactionsStateAddress);
-    }
 
     /// <summary>
     /// Adds a transaction hash to the filtered set.
     /// </summary>
-    public void Add(Hash256 txHash)
-    {
-        _storage.Set(txHash, PresentHash);
-    }
+    public void Add(Hash256 txHash) => _storage.Set(txHash, PresentHash);
 
     /// <summary>
     /// Removes a transaction hash from the filtered set.
     /// </summary>
-    public void Delete(Hash256 txHash)
-    {
-        _storage.Clear(txHash);
-    }
+    public void Delete(Hash256 txHash) => _storage.Clear(txHash);
 
     /// <summary>
     /// Checks if a transaction hash is in the filtered set.
@@ -60,8 +52,5 @@ public class FilteredTransactionsState
     /// Removes a transaction hash from the filtered set without charging gas.
     /// This is called after a filtered tx is executed as a no-op to clean up.
     /// </summary>
-    public void DeleteFree(Hash256 txHash)
-    {
-        _storage.ClearFree(txHash);
-    }
+    public void DeleteFree(Hash256 txHash) => _storage.ClearFree(txHash);
 }

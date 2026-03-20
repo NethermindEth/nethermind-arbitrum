@@ -204,9 +204,7 @@ public class StylusParams(
         }
 
         if (newArbosVersion == ArbosVersion.StylusContractLimit)
-        {
             MaxFragmentCount = InitialMaxFragmentCount;
-        }
 
         _arbosVersion = newArbosVersion;
     }
@@ -338,10 +336,7 @@ public class StylusParams(
         MaxWasmSize = maxWasmSize;
     }
 
-    public void SetMaxFragmentCount(byte maxFragmentCount)
-    {
-        MaxFragmentCount = maxFragmentCount;
-    }
+    public void SetMaxFragmentCount(byte maxFragmentCount) => MaxFragmentCount = maxFragmentCount;
 
     private static ReadOnlySpan<byte> ReadFromStorage(ArbosStorage storage, ref ReadOnlySpan<byte> buffer, ref ulong currentSlot, int count)
     {

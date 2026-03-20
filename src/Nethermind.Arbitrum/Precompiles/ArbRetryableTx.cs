@@ -258,9 +258,7 @@ public static class ArbRetryableTx
         finally
         {
             if (chargeFixedAmount)
-            {
                 context.Free = false;
-            }
         }
     }
 

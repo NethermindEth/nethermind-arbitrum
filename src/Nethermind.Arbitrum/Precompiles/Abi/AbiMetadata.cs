@@ -204,9 +204,7 @@ public class AbiMetadata
 
                 // Preserve array suffix if present (e.g., "()[]" -> "(...)[]")
                 if (typeStr.Length > 2) // "()" is 2 chars
-                {
                     return tupleSignature + typeStr[2..];
-                }
                 return tupleSignature;
             }
 

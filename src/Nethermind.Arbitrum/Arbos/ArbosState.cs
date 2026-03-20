@@ -304,9 +304,7 @@ public class ArbosState
 
         // Create FilteredTransactionsState storage if version >= TransactionFiltering (60)
         if (arbosVersion >= ArbosVersion.TransactionFiltering)
-        {
             _ = new FilteredTransactionsState(worldState, burner);
-        }
 
         return new ArbosState(backingStorage, arbosVersion, logger);
     }
