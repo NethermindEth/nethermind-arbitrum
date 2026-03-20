@@ -53,7 +53,7 @@ public class ArbitrumDebugRpcModule(
 
             if (arbosVersion > 0)
             {
-                _arbosVersionOverride.OverrideVersion = (ulong)arbosVersion;
+                _arbosVersionOverride.SetOverride((ulong)arbosVersion);
                 if (_logger.IsInfo)
                     _logger.Info($"debug_reinitialize: ArbOS version override set to {arbosVersion}");
             }
@@ -64,16 +64,17 @@ public class ArbitrumDebugRpcModule(
             // Clear all databases to reset the persistent state
             ClearAllDatabases();
 
-            // Reset BlockTree in-memory state (Genesis, Head, etc.)
-            // This is critical for comparison mode where databases are cleared but
-            // BlockTree.Genesis remains cached in memory from the previous test
+            // Clear all static and singleton caches BEFORE creating new BlockTree.
+            // The decorator creates a new ArbitrumBlockTree whose constructor reads from
+            // IHeaderStore/IBlockStore/IChainLevelInfoRepository — their in-memory caches
+            // must be clean before the constructor runs.
+            ClearAllCaches();
+
+            // Reset BlockTree by creating a fresh inner instance (decorator pattern).
+            // Must happen AFTER caches are cleared so the constructor sees clean stores.
             _blockTree.ResetForTesting();
             if (_logger.IsDebug)
                 _logger.Debug("BlockTree in-memory state reset");
-
-            // Clear all static and singleton caches to ensure complete test isolation
-            // These caches persist across test reinitialization and can cause flaky tests
-            ClearAllCaches();
             if (_logger.IsInfo)
                 _logger.Info("debug_reinitialize completed: databases and BlockTree cleared, ready for init message from CL");
 

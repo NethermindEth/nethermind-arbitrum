@@ -19,6 +19,8 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Blocks;
+using Nethermind.Blockchain.Headers;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -35,7 +37,9 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
+using Nethermind.Init;
 using Nethermind.Init.Modules;
+using Nethermind.State.Repositories;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
@@ -270,8 +274,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             })
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
 
-            .AddSingleton<IBlockTree, ArbitrumBlockTree>()
-
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
             .AddScoped<IBlockhashProvider, ArbitrumBlockhashProvider>()
@@ -298,10 +300,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
-            // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
+            // IClearableCache services (auto-discovered by debug_reinitialize)
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
-            .AddSingleton<IClearableCache, Modules.TrieStoreClearableCache>()
+            .AddSingleton<IClearableCache, MainPruningTrieStoreFactory>(factory => (IClearableCache)factory.PruningTrieStore)
+            .AddSingleton<IClearableCache, CacheCodeInfoClearService>()
+            .AddSingleton<IClearableCache, IHeaderStore>(store => (IClearableCache)store)
+            .AddSingleton<IClearableCache, IBlockStore>(store => (IClearableCache)store)
+            .AddSingleton<IClearableCache, IChainLevelInfoRepository>(repo => (IClearableCache)repo)
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
@@ -309,6 +315,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             // Rpcs
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+
+        // ArbitrumBlockTree as transient — Autofac auto-provides Func<ArbitrumBlockTree>
+        builder.RegisterType<ArbitrumBlockTree>().AsSelf();
+        // Decorator creates fresh inner instance on reset, registered as both IBlockTree and IArbitrumResettableBlockTree
+        builder.Register(c => new ResettableArbitrumBlockTree(c.Resolve<Func<ArbitrumBlockTree>>()))
+            .As<IBlockTree>()
+            .As<IArbitrumResettableBlockTree>()
+            .SingleInstance();
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
