@@ -26,18 +26,6 @@ public class ExpressLaneSubmissionTests
     }
 
     [Test]
-    public void RecoverSender_CalledTwice_ReturnsCachedReference()
-    {
-        PrivateKey controller = FullChainSimulationAccounts.AccountA;
-        ExpressLaneSubmission submission = TestExpressLaneSubmission.Create(TestTransaction.CreateTransfer(), round: 1, seqNum: 0, signerKey: controller);
-
-        Address first = submission.RecoverSender(Ecdsa);
-        Address second = submission.RecoverSender(Ecdsa);
-
-        first.Should().BeSameAs(second, "second call must return the cached reference");
-    }
-
-    [Test]
     public void RecoverSender_SignatureShorterThan65Bytes_Throws()
     {
         ExpressLaneSubmission submission = new()

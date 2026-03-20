@@ -53,6 +53,7 @@ public sealed class ExpressLaneService(
         }
 
         List<(ulong SeqNum, Transaction Tx)>? toPublish = null;
+        Address sender = submission.RecoverSender(ethereumEcdsa);
 
         lock (_roundLock)
         {
@@ -62,7 +63,6 @@ public sealed class ExpressLaneService(
             if (controller is null)
                 throw new InvalidOperationException($"No controller for round {round}");
 
-            Address sender = submission.RecoverSender(ethereumEcdsa);
             if (sender != controller)
                 throw new InvalidOperationException("Sender is not the express lane controller");
 

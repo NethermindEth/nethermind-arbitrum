@@ -22,8 +22,6 @@ public sealed class ExpressLaneSubmission
     public required ulong ChainId { get; init; }
     public required Address AuctionContractAddress { get; init; }
 
-    private Address? _cachedSender;
-
     // Format: domainValue (32) | chainId (32 BE) | auctionContract (20) | round (8 BE) | seqNum (8 BE) | rlpTx
     public byte[] ToMessageBytes()
     {
@@ -67,9 +65,6 @@ public sealed class ExpressLaneSubmission
     // Recovers the signer address from the Ethereum personal-sign signature; caches the result.
     public Address RecoverSender(IEthereumEcdsa ecdsa)
     {
-        if (_cachedSender is not null)
-            return _cachedSender;
-
         if (Signature.Length != 65)
             throw new InvalidOperationException("Express lane submission signature must be 65 bytes");
 
@@ -79,9 +74,7 @@ public sealed class ExpressLaneSubmission
         int recoveryId = Signature[64] >= 27 ? Signature[64] - 27 : Signature[64];
         Signature sig = new(Signature.AsSpan(0, 64), recoveryId);
 
-        _cachedSender = ecdsa.RecoverAddress(sig, msgHash)
+        return ecdsa.RecoverAddress(sig, msgHash)
             ?? throw new InvalidOperationException("Could not recover signer from express lane submission signature");
-
-        return _cachedSender;
     }
 }
