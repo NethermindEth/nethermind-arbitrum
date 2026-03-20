@@ -141,6 +141,7 @@ def print_json_results(results: list[TestResult], duration: float) -> int:
         "total": len(results),
         "passed": sum(1 for r in results if r.status == TestStatus.PASSED),
         "failed": sum(1 for r in results if r.status == TestStatus.FAILED),
+        "flaky": sum(1 for r in results if r.was_retried),
         "skipped": sum(1 for r in results if r.status == TestStatus.SKIPPED),
         "errors": sum(1 for r in results if r.status == TestStatus.ERROR),
         "results": [
@@ -150,6 +151,8 @@ def print_json_results(results: list[TestResult], duration: float) -> int:
                 "duration_s": round(r.duration_s, 2) if r.duration_s else None,
                 "worker_id": r.worker_id if r.worker_id >= 0 else None,
                 "error_msg": r.error_msg,
+                "attempt": r.attempt,
+                "max_attempts": r.max_attempts,
             }
             for r in results
         ],
@@ -221,6 +224,7 @@ def main() -> int:
             startup_timeout_s=args.timeout,
             fail_fast=args.fail_fast,
             verbose=args.verbose,
+            max_retries=args.retries,
         )
         runner = SequentialRunner(seq_config)
     else:
@@ -233,6 +237,7 @@ def main() -> int:
             root_dir=nethermind_root,
             log_dir=args.log_dir,
             startup_timeout_s=args.timeout,
+            max_retries=args.retries,
         )
         runner = ParallelRunner(par_config)
 

@@ -46,6 +46,7 @@ def generate_github_summary(
     failed = sum(1 for r in results if r.status == TestStatus.FAILED)
     errors = sum(1 for r in results if r.status == TestStatus.ERROR)
     skipped = sum(1 for r in results if r.status == TestStatus.SKIPPED)
+    flaky = sum(1 for r in results if r.was_retried)
 
     pass_rate = (passed / total * 100) if total > 0 else 0
 
@@ -74,6 +75,8 @@ def generate_github_summary(
     lines.append(f"| **Total Tests** | {total} |")
     lines.append(f"| **Passed** | {passed} ✓ ({pass_rate:.1f}%) |")
     lines.append(f"| **Failed** | {failed} ✗ |")
+    if flaky > 0:
+        lines.append(f"| **Flaky** | {flaky} ↻ |")
     if errors > 0:
         lines.append(f"| **Errors** | {errors} ⚡ |")
     if skipped > 0:
@@ -89,12 +92,13 @@ def generate_github_summary(
     if failed_tests:
         lines.append("<details>")
         lines.append(f"<summary>❌ Failed Tests ({len(failed_tests)})</summary>\n")
-        lines.append("| Test | Worker | Duration | Error |")
-        lines.append("|------|--------|----------|-------|")
+        lines.append("| Test | Worker | Attempts | Duration | Error |")
+        lines.append("|------|--------|----------|----------|-------|")
 
         for r in failed_tests[:50]:  # Limit to 50
             name = r.name
             worker = f"W{r.worker_id}" if r.worker_id >= 0 else "-"
+            attempts = f"{r.attempt}/{r.max_attempts}" if r.max_attempts > 1 else "-"
             dur_str = f"{r.duration_s:.1f}s" if r.duration_s else "-"
 
             # Clean up error message for table
@@ -104,7 +108,7 @@ def generate_github_summary(
                 err_short += "..."
             err_short = err_short.replace("|", "\\|") or "-"
 
-            lines.append(f"| `{name}` | {worker} | {dur_str} | {err_short} |")
+            lines.append(f"| `{name}` | {worker} | {attempts} | {dur_str} | {err_short} |")
 
         if len(failed_tests) > 50:
             lines.append(f"\n*... and {len(failed_tests) - 50} more*")

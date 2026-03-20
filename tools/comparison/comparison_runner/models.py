@@ -76,6 +76,13 @@ class TestResult:
     error_msg: str = ""
     log_dir: Path | None = None
     worker_id: int = -1  # -1 indicates sequential mode
+    attempt: int = 1  # Which attempt produced this result (1-based)
+    max_attempts: int = 1  # Total attempts allowed (1 = no retries)
+
+    @property
+    def was_retried(self) -> bool:
+        """True if this test passed on a retry (flaky test indicator)."""
+        return self.status == TestStatus.PASSED and self.attempt > 1
 
     def is_sequential(self) -> bool:
         """Return True if this result is from sequential mode."""

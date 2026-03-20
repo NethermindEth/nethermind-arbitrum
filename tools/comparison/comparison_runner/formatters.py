@@ -25,6 +25,8 @@ class SummaryStats:
     failed: int
     skipped: int
     errored: int
+    flaky: int
+    retries_enabled: bool
     duration: float
 
     @classmethod
@@ -36,6 +38,8 @@ class SummaryStats:
             failed=sum(1 for r in results if r.status == TestStatus.FAILED),
             skipped=sum(1 for r in results if r.status == TestStatus.SKIPPED),
             errored=sum(1 for r in results if r.status == TestStatus.ERROR),
+            flaky=sum(1 for r in results if r.was_retried),
+            retries_enabled=any(r.max_attempts > 1 for r in results),
             duration=duration,
         )
 
@@ -83,6 +87,10 @@ def format_summary_box(stats: SummaryStats) -> str:
     lines.append(f"\u2551  {'Total Tests:':<20} {stats.total:>8}                       \u2551")
     pass_str = f"{stats.passed:>8}  \u2713  ({stats.pass_rate:.1f}%)"
     lines.append(f"\u2551  {'Passed:':<20} {pass_str:<32} \u2551")
+    if stats.flaky > 0:
+        lines.append(f"\u2551  {'  (flaky):':<20} {stats.flaky:>8}  \u21bb                       \u2551")
+    elif stats.retries_enabled:
+        lines.append(f"\u2551  {'  (flaky):':<20} {'none detected':>20}  \u2713       \u2551")
     lines.append(f"\u2551  {'Failed:':<20} {stats.failed:>8}  \u2717                       \u2551")
     if stats.skipped > 0:
         lines.append(
@@ -149,7 +157,8 @@ def format_failed_tests(results: list[TestResult]) -> str:
         # Show up to 10 tests per group, then summarize
         for r in tests[:10]:
             name = r.name[:45] + "..." if len(r.name) > 48 else r.name
-            lines.append(f"    \u2022 {name}")
+            attempt_info = f" ({r.max_attempts} attempts)" if r.max_attempts > 1 else ""
+            lines.append(f"    \u2022 {name}{attempt_info}")
         if len(tests) > 10:
             lines.append(f"    ... and {len(tests) - 10} more")
 
