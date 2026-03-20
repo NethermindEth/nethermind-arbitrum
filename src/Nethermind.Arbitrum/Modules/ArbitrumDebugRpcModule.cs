@@ -96,8 +96,11 @@ public class ArbitrumDebugRpcModule(
 
         if (!ClearDatabase(_dbProvider.StateDb, "StateDb"))
             failures.Add("StateDb");
-        if (!ClearDatabase(_dbProvider.CodeDb, "CodeDb"))
-            failures.Add("CodeDb");
+        // CodeDb is intentionally NOT cleared. Code entries are content-addressed (keyed by
+        // Keccak-256 hash of bytecode) so they can never be stale. Clearing CodeDb breaks
+        // StateProvider._persistedCodeInsertFilter which tracks what code has been written —
+        // the filter survives reinitialize and causes InsertCode() to skip re-writing code,
+        // leading to "Code X is missing from the database" errors.
         if (!ClearDatabase(_dbProvider.BlocksDb, "BlocksDb"))
             failures.Add("BlocksDb");
         if (!ClearDatabase(_dbProvider.HeadersDb, "HeadersDb"))
