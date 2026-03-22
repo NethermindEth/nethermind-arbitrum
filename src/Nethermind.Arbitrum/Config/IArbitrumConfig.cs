@@ -26,4 +26,7 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
+
+    [ConfigItem(Description = "Enable ResettableArbitrumBlockTree and debug_reinitialize for system/comparison testing", DefaultValue = "false")]
+    bool EnableTestReset { get; set; }
 }

@@ -199,7 +199,8 @@ public class ArbitrumDebugRpcModuleTests
         await _module.debug_reinitialize(51, "{}", null);
 
         _dbProvider.StateDb.Received(1).Clear();
-        _dbProvider.CodeDb.Received(1).Clear();
+        // CodeDb is intentionally NOT cleared — entries are content-addressed (see ClearAllDatabases comment)
+        _dbProvider.CodeDb.DidNotReceive().Clear();
         _dbProvider.BlocksDb.Received(1).Clear();
         _dbProvider.HeadersDb.Received(1).Clear();
         _dbProvider.BlockInfosDb.Received(1).Clear();

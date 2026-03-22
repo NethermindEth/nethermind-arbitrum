@@ -22,13 +22,18 @@ namespace Nethermind.Arbitrum.Genesis;
 public class ArbitrumGenesisStateInitializer(
     ChainSpec chainSpec,
     IArbitrumSpecHelper specHelper,
+    IArbitrumConfig arbitrumConfig,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumGenesisStateInitializer>();
 
     public void ValidateInitMessage(ParsedInitMessage initMessage)
     {
-        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        // In test mode (EnableTestReset), skip ArbOS version validation.
+        // The init message is the source of truth — each test brings its own version.
+        // All other checks (chain ID, EnableArbOS, chain owner, etc.) still apply.
+        string? compatibilityError = initMessage.IsCompatibleWith(
+            chainSpec, skipVersionCheck: arbitrumConfig.EnableTestReset);
         if (compatibilityError is not null)
             throw new InvalidOperationException(
                 $"Incompatible init message: {compatibilityError}. " +
