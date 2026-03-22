@@ -41,8 +41,6 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
         SubscribeToInner(_inner);
     }
 
-    // ── IBlockFinder properties ──────────────────────────────────────
-
     public Hash256 HeadHash => _inner.HeadHash;
     public Hash256 GenesisHash => _inner.GenesisHash;
     public Hash256? PendingHash => _inner.PendingHash;
@@ -50,8 +48,6 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
     public Hash256? SafeHash => _inner.SafeHash;
     public Block? Head => _inner.Head;
     public long? BestPersistedState { get => _inner.BestPersistedState; set => _inner.BestPersistedState = value; }
-
-    // ── IBlockTree properties ────────────────────────────────────────
 
     public ulong NetworkId => _inner.NetworkId;
     public ulong ChainId => _inner.ChainId;
@@ -66,8 +62,6 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
     public bool CanAcceptNewBlocks => _inner.CanAcceptNewBlocks;
     public (long BlockNumber, Hash256 BlockHash) SyncPivot { get => _inner.SyncPivot; set => _inner.SyncPivot = value; }
     public bool IsProcessingBlock { get => _inner.IsProcessingBlock; set => _inner.IsProcessingBlock = value; }
-
-    // ── IBlockFinder methods ─────────────────────────────────────────
 
     public Block? FindBlock(Hash256 blockHash, BlockTreeLookupOptions options, long? blockNumber = null)
         => _inner.FindBlock(blockHash, options, blockNumber);
@@ -98,8 +92,6 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
 
     public long GetLowestBlock()
         => _inner.GetLowestBlock();
-
-    // ── IBlockTree methods ───────────────────────────────────────────
 
     public AddBlockResult Insert(BlockHeader header, BlockTreeInsertHeaderOptions headerOptions = BlockTreeInsertHeaderOptions.None)
         => _inner.Insert(header, headerOptions);
@@ -181,8 +173,6 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
 
     public void RecalculateTreeLevels()
         => _inner.RecalculateTreeLevels();
-
-    // ── Events ───────────────────────────────────────────────────────
 
     public event EventHandler<BlockEventArgs>? NewBestSuggestedBlock;
     public event EventHandler<BlockEventArgs>? NewSuggestedBlock;

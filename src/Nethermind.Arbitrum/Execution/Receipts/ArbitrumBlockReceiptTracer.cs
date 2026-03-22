@@ -19,7 +19,6 @@ public class ArbitrumBlockReceiptTracer(
     protected override TxReceipt BuildReceipt(Address recipient, in GasConsumed gasConsumed, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
     {
         Transaction transaction = CurrentTx!;
-
         ArbitrumTxReceipt txReceipt = new()
         {
             Logs = logEntries,

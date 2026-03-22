@@ -348,7 +348,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         TransactionSubstate txnSubstrate = ExecuteStylusEvmCallback(callResult);
 
         // Gas consumed by the callback execution (not including gasCost which was already charged by UpdateGas)
-        // The 1/64 reserved gas is returned to the caller
+        // The 1/64 reserved gas is returned to the caller, matching Nitro's behavior
         long one64th = gasAvailable / 64;
         ulong gasConsumed = (ulong)(gasAvailable - ArbitrumGasPolicy.GetRemainingGas(returnData.Gas) - one64th);
 
@@ -467,6 +467,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             state.Env
         );
 
+        // Geth EVM has depth started from 1, Nethermind has depth starting from 0
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
         ArbitrumPrecompileExecutionContext context = new(
@@ -727,8 +728,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         else if (Logger.IsTrace)
             Logger.Trace($"Precompile failed with exception: {exception.GetType()} and message {exception.Message}, consuming all gas");
 
-        // ArbOS >= 11: precompile failures revert (shouldRevert=true), OOG handled via Revert
-        // Pre-ArbOS 11: OOG is a hard failure (shouldRevert=false), returns OutOfGas
         EvmExceptionType exceptionType = exception switch
         {
             _ when shouldRevert => EvmExceptionType.Revert,

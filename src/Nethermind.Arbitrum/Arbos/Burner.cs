@@ -44,7 +44,7 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
     public ulong Burned => _gasBurnt;
     public MultiGas BurnedMultiGas => _burnedMultiGas;
     public bool ReadOnly { get; } = readOnly;
-    public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left.");
+    public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
 
     /// <summary>
     /// Merge in another MultiGas (e.g., from precompile context) into this burner's tracked gas.

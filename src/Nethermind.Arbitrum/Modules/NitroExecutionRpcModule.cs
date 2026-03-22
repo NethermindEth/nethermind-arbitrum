@@ -15,17 +15,23 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
     public Task<ResultWrapper<MessageResult>> nitroexecution_digestMessage(
         MessageIndex msgIdx,
         MessageWithMetadata message,
-        MessageWithMetadata? messageForPrefetch) =>
-        engine.DigestMessageAsync(new(msgIdx, message, messageForPrefetch));
+        MessageWithMetadata? messageForPrefetch)
+    {
+        DigestMessageParameters parameters = new(msgIdx, message, messageForPrefetch);
+        return engine.DigestMessageAsync(parameters);
+    }
 
     public Task<ResultWrapper<MessageResult[]>> nitroexecution_reorg(
         MessageIndex msgIdxOfFirstMsgToAdd,
         MessageWithMetadataAndBlockInfo[] newMessages,
-        MessageWithMetadata[] oldMessages) =>
-        engine.ReorgAsync(new(msgIdxOfFirstMsgToAdd, newMessages, oldMessages));
+        MessageWithMetadata[] oldMessages)
+    {
+        ReorgParameters parameters = new(msgIdxOfFirstMsgToAdd, newMessages, oldMessages);
+        return engine.ReorgAsync(parameters);
+    }
 
-    public Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex) =>
-        engine.ResultAtMessageIndexAsync(messageIndex);
+    public Task<ResultWrapper<MessageResult>> nitroexecution_resultAtMessageIndex(MessageIndex messageIndex)
+        => engine.ResultAtMessageIndexAsync(messageIndex);
 
     public async Task<ResultWrapper<MessageIndex>> nitroexecution_headMessageIndex()
     {
@@ -33,8 +39,8 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
         return ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data);
     }
 
-    public Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex) =>
-        Task.FromResult(engine.MessageIndexToBlockNumber(messageIndex));
+    public Task<ResultWrapper<long>> nitroexecution_messageIndexToBlockNumber(MessageIndex messageIndex)
+        => Task.FromResult(engine.MessageIndexToBlockNumber(messageIndex));
 
     public Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber)
     {
@@ -45,26 +51,29 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
     public ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
-        RpcFinalityData? validatedFinalityData) =>
-        engine.SetFinalityData(new()
+        RpcFinalityData? validatedFinalityData)
+    {
+        SetFinalityDataParams parameters = new()
         {
             SafeFinalityData = safeFinalityData,
             FinalizedFinalityData = finalizedFinalityData,
             ValidatedFinalityData = validatedFinalityData
-        });
+        };
+        return engine.SetFinalityData(parameters);
+    }
 
-    public ResultWrapper<EmptyResponse> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData) =>
-        engine.SetConsensusSyncData(syncData);
+    public ResultWrapper<EmptyResponse> nitroexecution_setConsensusSyncData(SetConsensusSyncDataParams syncData)
+        => engine.SetConsensusSyncData(syncData);
 
-    public ResultWrapper<EmptyResponse> nitroexecution_markFeedStart(MessageIndex to) =>
-        engine.MarkFeedStart(to);
+    public ResultWrapper<EmptyResponse> nitroexecution_markFeedStart(MessageIndex to)
+        => engine.MarkFeedStart(to);
 
-    public Task<ResultWrapper<string>> nitroexecution_triggerMaintenance() =>
-        engine.TriggerMaintenanceAsync();
+    public Task<ResultWrapper<string>> nitroexecution_triggerMaintenance()
+        => engine.TriggerMaintenanceAsync();
 
-    public Task<ResultWrapper<bool>> nitroexecution_shouldTriggerMaintenance() =>
-        engine.ShouldTriggerMaintenanceAsync();
+    public Task<ResultWrapper<bool>> nitroexecution_shouldTriggerMaintenance()
+        => engine.ShouldTriggerMaintenanceAsync();
 
-    public Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus() =>
-        engine.MaintenanceStatusAsync();
+    public Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus()
+        => engine.MaintenanceStatusAsync();
 }

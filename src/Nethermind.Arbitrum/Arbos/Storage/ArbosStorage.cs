@@ -202,6 +202,7 @@ public class ArbosStorage
         Clear(0);
     }
 
+    // Comment from Nitro:
     // We map addresses using "pages" of 256 storage slots. We hash over the page number but not the offset within
     // a page, to preserve contiguity within a page. This will reduce cost if/when Ethereum switches to storage
     // representations that reward contiguity.
@@ -305,7 +306,7 @@ public class ArbosStorageBackedULong(ArbosStorage storage, ulong offset)
     public void Clear() => _slot.Clear();
 }
 
-public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset)
+public class ArbosStorageBackedUInt256(ArbosStorage storage, ulong offset) // Nitro uses BigInteger with boundaries >= 0 and < 2^256
 {
     private readonly ArbosStorageSlot _slot = new(storage, offset);
 
@@ -355,6 +356,9 @@ public class ArbosStorageBackedBigInteger(ArbosStorage storage, ulong offset)
 
     public void SetPreVersion7(BigInteger value)
     {
+        // Go's big.Int.Bytes() returns BigInteger unsigned representation.
+        // On the contrary, .NET BigInteger.ToByteArray() returns signed representation.
+        // To match Go's behavior, we need to convert negative values to positive.
         value = value < 0 ? -value : value;
 
         _slot.Set(ToHash(value));

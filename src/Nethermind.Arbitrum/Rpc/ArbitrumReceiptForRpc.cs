@@ -27,7 +27,6 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
 
         if (receipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
             MultiGasUsed = multiGas.ToJson();
-        // EffectiveGasPrice is calculated by GetArbitrumGasInfo and passed via TxGasInfo
     }
 
     public ArbitrumReceiptForRpc(
@@ -43,7 +42,6 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
 
             if (arbitrumReceipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
                 MultiGasUsed = multiGas.ToJson();
-            // EffectiveGasPrice is calculated by GetArbitrumGasInfo and passed via TxGasInfo
         }
     }
 

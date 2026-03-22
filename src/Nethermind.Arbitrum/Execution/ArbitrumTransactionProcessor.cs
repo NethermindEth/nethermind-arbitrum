@@ -127,7 +127,6 @@ namespace Nethermind.Arbitrum.Execution
 
             // Don't pass execution options as we don't want to commit / restore at this stage
             ExecutionOptions filteredOpts = opts & ~(ExecutionOptions.Restore | ExecutionOptions.Commit);
-
             TransactionResult evmResult = base.Execute(tx, tracer, filteredOpts);
 
             // Post-processing changes the state - run only if EVM execution actually proceeded
@@ -155,7 +154,6 @@ namespace Nethermind.Arbitrum.Execution
             ((ArbitrumVirtualMachine)VirtualMachine).L1BlockCache.ClearL1BlockNumberCache();
             _currentHeader = VirtualMachine.BlockExecutionContext.Header;
             _currentSpec = GetSpec(_currentHeader);
-            // EffectiveGasPrice is calculated dynamically at RPC time
         }
 
         private ArbitrumTransactionProcessorResult PreProcessArbitrumTransaction(Transaction tx,
@@ -315,7 +313,8 @@ namespace Nethermind.Arbitrum.Execution
 
             UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee, out _);
 
-            // Drop tip logic: if tip is dropped, set premiumPerGas to zero
+            // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
+            // which is then used for effectiveTip (premiumPerGas)
             if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
                 effectiveGasPrice > effectiveBaseFee)
             {
@@ -1096,12 +1095,9 @@ namespace Nethermind.Arbitrum.Execution
             // Preserve intrinsic gas MultiGas breakdown and add poster gas to L1Calldata.
             // This ensures intrinsic gas (computation, L2 calldata, etc.) plus L1 costs are tracked.
             MultiGas accumulated = intrinsicGas.GetAccumulated();
-
             if (gasNeededToStartEVM > 0)
                 accumulated.Increment(ResourceKind.L1Calldata, gasNeededToStartEVM);
-
             gasAvailable = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasLeft, in accumulated);
-
             return TransactionResult.Ok;
         }
 
