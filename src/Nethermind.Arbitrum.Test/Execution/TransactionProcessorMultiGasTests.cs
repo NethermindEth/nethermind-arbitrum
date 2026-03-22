@@ -121,7 +121,7 @@ public class TransactionProcessorMultiGasTests
 
     /// <summary>
     /// Tests multi-gas refund calculation for normal transactions.
-    /// Mirrors Nitro's TestEndTxHookMultiGasRefundNormalTx from tx_processor_multigas_test.go.
+    /// Validates that refunds are computed per-resource and subtracted from the weighted backlog.
     ///
     /// When multi-gas constraints make certain resources expensive (e.g., StorageGrowth weight=10),
     /// transactions that don't use those expensive resources should have multiDimensionalCost less than
@@ -142,7 +142,7 @@ public class TransactionProcessorMultiGasTests
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
         // Set up constraint that makes StorageGrowth expensive (weight=10) vs Computation (weight=1)
-        // This mirrors Nitro's test setup where StorageGrowth is heavily constrained
+        // StorageGrowth is heavily constrained relative to Computation
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
@@ -182,7 +182,7 @@ public class TransactionProcessorMultiGasTests
 
     /// <summary>
     /// Tests multi-gas refund calculation for retryable transactions.
-    /// Mirrors Nitro's TestEndTxHookMultiGasRefundRetryableTx from tx_processor_multigas_test.go.
+    /// Validates that retryable transactions apply the same per-resource refund logic.
     ///
     /// For retryable transactions, the refund goes to RefundTo address (up to MaxRefund),
     /// with any excess going to the sender.

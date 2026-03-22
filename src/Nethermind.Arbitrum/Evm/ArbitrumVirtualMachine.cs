@@ -539,7 +539,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
     {
         // Save BurnedMultiGas before owner check - owner precompiles don't charge multigas.
         // For non-owner callers, the ownership-check multigas delta is propagated to the gas
-        // policy accumulator, matching Nitro's OwnerPrecompile.Call which returns burner.gasUsed
+        // policy accumulator, matching OwnerPrecompile.Call which returns burner.gasUsed
         // (non-zero) for non-owner paths but multigas.ZeroGas() for owner paths.
         MultiGas savedMultiGas = _systemBurner.BurnedMultiGas;
 

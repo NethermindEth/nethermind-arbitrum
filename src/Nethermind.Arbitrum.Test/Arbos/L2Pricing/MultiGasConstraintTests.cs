@@ -121,7 +121,7 @@ public class MultiGasConstraintTests
     }
 
     /// <summary>
-    /// Mirrors Nitro's TestMultiGasConstraintBacklogGrowth test pattern:
+    /// Validates weighted backlog accumulation:
     /// Tests weighted backlog accumulation across multiple GrowBacklog calls with different values.
     /// </summary>
     [Test]
@@ -164,7 +164,7 @@ public class MultiGasConstraintTests
     }
 
     /// <summary>
-    /// Mirrors Nitro's TestMultiGasConstraintBacklogDecay test pattern:
+    /// Validates weighted backlog decay:
     /// Tests weighted backlog decay with underflow clamping to zero.
     /// </summary>
     [Test]

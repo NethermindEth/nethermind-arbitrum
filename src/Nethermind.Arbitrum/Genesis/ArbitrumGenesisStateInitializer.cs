@@ -118,7 +118,7 @@ public class ArbitrumGenesisStateInitializer(
             }
         }
         // TODO: Parse ArbOSInit from chain config (NativeTokenSupplyManagementEnabled, TransactionFilteringEnabled)
-        // and conditionally set to 1 when enabled. See Nitro arbosstate.go:240-256.
+        // and conditionally set to 1 when enabled. See arbosstate.go:240-256.
         // Currently hardcoded to 0 — correct for Arbitrum One/Nova/Sepolia but wrong for custom Orbit chains
         // that enable these features at genesis.
         ArbosStorageBackedULong nativeTokenEnabledTimeStorage = new(rootStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
