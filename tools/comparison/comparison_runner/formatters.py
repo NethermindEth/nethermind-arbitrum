@@ -88,7 +88,9 @@ def format_summary_box(stats: SummaryStats) -> str:
     pass_str = f"{stats.passed:>8}  \u2713  ({stats.pass_rate:.1f}%)"
     lines.append(f"\u2551  {'Passed:':<20} {pass_str:<32} \u2551")
     if stats.flaky > 0:
-        lines.append(f"\u2551  {'  (flaky):':<20} {stats.flaky:>8}  \u21bb                       \u2551")
+        lines.append(
+            f"\u2551  {'  (flaky):':<20} {stats.flaky:>8}  \u21bb                       \u2551"
+        )
     elif stats.retries_enabled:
         lines.append(f"\u2551  {'  (flaky):':<20} {'none detected':>20}  \u2713       \u2551")
     lines.append(f"\u2551  {'Failed:':<20} {stats.failed:>8}  \u2717                       \u2551")
