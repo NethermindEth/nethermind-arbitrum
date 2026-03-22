@@ -243,9 +243,7 @@ class SequentialRunner:
                     f"  \u21b3 {test_name}: FAILED attempt {attempt}/{max_attempts}, retrying..."
                 )
             else:
-                self.logger.error(
-                    f"  \u21b3 {test_name}: FAILED all {max_attempts} attempts"
-                )
+                self.logger.error(f"  \u21b3 {test_name}: FAILED all {max_attempts} attempts")
 
         return result
 

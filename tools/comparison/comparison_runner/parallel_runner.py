@@ -257,8 +257,7 @@ class ParallelRunner:
                 # Check worker health before retrying — restart if needed
                 if not self._handle_health_check(worker_id):
                     self.logger.error(
-                        f"  \u21b3 [W{worker_id}] {test_name}: Worker unhealthy, "
-                        f"cannot retry"
+                        f"  \u21b3 [W{worker_id}] {test_name}: Worker unhealthy, cannot retry"
                     )
                     return result
                 # Update port in case worker was restarted on a new port
