@@ -62,20 +62,24 @@ public class ArbitrumGenesisStateInitializer(
         Block genesis = chainSpec.Genesis;
         genesis.Header.StateRoot = worldState.StateRoot;
 
-        // Update MixHash with correct ArbOS version (chainspec has pre-computed value that may differ)
-        ArbitrumBlockHeaderInfo genesisHeaderInfo = new()
+        // In test mode the init message may carry a different ArbOS version than the chainspec,
+        // so recompute MixHash. In production the chainspec value is canonical — don't touch it.
+        if (arbitrumConfig.EnableTestReset)
         {
-            SendRoot = Hash256.Zero,
-            SendCount = 0,
-            L1BlockNumber = 0,
-            ArbOSFormatVersion = finalArbosVersion
-        };
-        ArbitrumBlockHeaderInfo.UpdateHeader(genesis.Header, genesisHeaderInfo);
+            ArbitrumBlockHeaderInfo genesisHeaderInfo = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 0,
+                L1BlockNumber = 0,
+                ArbOSFormatVersion = finalArbosVersion
+            };
+            ArbitrumBlockHeaderInfo.UpdateHeader(genesis.Header, genesisHeaderInfo);
+
+            if (_logger.IsInfo)
+                _logger.Info($"Genesis block MixHash updated with ArbOS version {finalArbosVersion}");
+        }
 
         genesis.Header.Hash = genesis.Header.CalculateHash();
-
-        if (_logger.IsInfo)
-            _logger.Info($"Genesis block MixHash updated with ArbOS version {finalArbosVersion}");
 
         return genesis;
     }
