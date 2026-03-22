@@ -42,6 +42,7 @@ public static class ArbOSInitialization
         ArbitrumGenesisStateInitializer stateInitializer = new(
             chainSpec,
             specHelper,
+            new ArbitrumConfig(),
             LimboLogs.Instance);
 
         ArbitrumGenesisLoader genesisLoader = new(specProvider,

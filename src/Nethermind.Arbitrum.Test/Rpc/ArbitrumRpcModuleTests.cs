@@ -62,6 +62,7 @@ namespace Nethermind.Arbitrum.Test.Rpc
             ArbitrumGenesisStateInitializer stateInitializer = new(
                 _chainSpec,
                 specHelper,
+                new ArbitrumConfig(),
                 _logManager);
 
             _initializer = new ArbitrumBlockTreeInitializer(_specProvider,

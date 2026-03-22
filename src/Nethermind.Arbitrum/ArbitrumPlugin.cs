@@ -55,7 +55,7 @@ using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IArbitrumConfig arbitrumConfig) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
@@ -65,7 +65,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig);
+    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig,
+        enableTestReset: arbitrumConfig.EnableTestReset);
     public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public Task Init(INethermindApi api)
@@ -138,9 +139,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
 
-        // Register Arbitrum debug module for MemDb mode (system testing)
-        IInitConfig initConfig = _api.Config<IInitConfig>();
-        if (initConfig.DiagnosticMode == DiagnosticMode.MemDb)
+        // Register Arbitrum debug module for system/comparison testing
+        if (arbitrumConfig.EnableTestReset)
         {
             IDbProvider dbProvider = _api.Context.Resolve<IDbProvider>();
 
@@ -233,7 +233,7 @@ public class ArbitrumGasPolicyLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : Module
+public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, bool enableTestReset = false) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
@@ -316,13 +316,20 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
-        // ArbitrumBlockTree as transient — Autofac auto-provides Func<ArbitrumBlockTree>
-        builder.RegisterType<ArbitrumBlockTree>().AsSelf();
-        // Decorator creates fresh inner instance on reset, registered as both IBlockTree and IArbitrumResettableBlockTree
-        builder.Register(c => new ResettableArbitrumBlockTree(c.Resolve<Func<ArbitrumBlockTree>>()))
-            .As<IBlockTree>()
-            .As<IArbitrumResettableBlockTree>()
-            .SingleInstance();
+        if (enableTestReset)
+        {
+            // Test/comparison mode: wrap in resettable decorator for debug_reinitialize
+            builder.RegisterType<ArbitrumBlockTree>().AsSelf();
+            builder.Register(c => new ResettableArbitrumBlockTree(c.Resolve<Func<ArbitrumBlockTree>>()))
+                .As<IBlockTree>()
+                .As<IArbitrumResettableBlockTree>()
+                .SingleInstance();
+        }
+        else
+        {
+            // Production mode: use ArbitrumBlockTree directly
+            builder.AddSingleton<IBlockTree, ArbitrumBlockTree>();
+        }
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();

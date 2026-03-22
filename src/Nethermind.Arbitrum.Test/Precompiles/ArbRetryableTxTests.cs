@@ -18,11 +18,18 @@ using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 public class ArbRetryableTxTests
 {
+    [OneTimeSetUp]
+    public void Setup()
+    {
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+    }
+
     [Test]
     public void EmitTicketCreatedEvent_WithValidContext_EmitsCorrectLogEntry()
     {
@@ -244,7 +251,7 @@ public class ArbRetryableTxTests
             CurrentRetryable = Hash256.Zero
         };
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         // Redeem the retryable
@@ -322,7 +329,7 @@ public class ArbRetryableTxTests
             CurrentRetryable = Hash256.Zero
         };
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         // Redeem the retryable
@@ -405,7 +412,7 @@ public class ArbRetryableTxTests
         };
         newContext.WithArbosVersion(ArbosVersion.FiftyOne).WithBlockExecutionContext(genesis.Header);
         GasConstraint constraint = newContext.ArbosState.L2PricingState.OpenConstraintAt(0);
-        constraint.SetBacklog(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        constraint.SetBacklog(gasToDonate + 1);
         newContext.ResetGasLeft();
 
         Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);

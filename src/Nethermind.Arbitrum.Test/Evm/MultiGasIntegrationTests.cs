@@ -164,7 +164,7 @@ public class MultiGasIntegrationTests
         // Cold accesses: the only target contract is cold (2600)
         // The caller contract (tx.to) is pre-warmed by EIP-2929 transaction processing
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess,
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead,
             expectedStorageGrowth: 0);
     }
 
@@ -213,7 +213,7 @@ public class MultiGasIntegrationTests
         // Cold accesses: the only target contract is cold (2600)
         // The caller contract (tx.to) is pre-warmed by EIP-2929 transaction processing
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess,
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead,
             expectedStorageGrowth: 0);
     }
 
@@ -261,7 +261,7 @@ public class MultiGasIntegrationTests
         // Cold accesses: the only target contract is cold (2600)
         // The caller contract (tx.to) is pre-warmed by EIP-2929 transaction processing
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess,
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead,
             expectedStorageGrowth: 0);
     }
 
@@ -309,7 +309,7 @@ public class MultiGasIntegrationTests
         // Cold accesses: the only target contract is cold (2600)
         // The caller contract (tx.to) is pre-warmed by EIP-2929 transaction processing
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess,
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead,
             expectedStorageGrowth: 0);
     }
 
@@ -359,7 +359,7 @@ public class MultiGasIntegrationTests
         // Value transfer: 9000 → Computation (per gas_table.go:440)
         // No new account (target exists with balance)
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess,
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead,
             expectedStorageGrowth: 0); // Target exists, not empty
     }
 
@@ -408,7 +408,7 @@ public class MultiGasIntegrationTests
         // New account creation: 25000 → StorageGrowth (per gas_table.go:431)
         // Value transfer: 9000 → Computation (per gas_table.go:440)
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess,
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead,
             expectedStorageGrowth: GasCostOf.NewAccount); // 25,000 for a new account
     }
 
@@ -468,7 +468,7 @@ public class MultiGasIntegrationTests
         // Cold accesses: only target first access (2600) - caller (tx.to) is pre-warmed by EIP-2929
         // Second CALL to target is warm (100) → goes to Computation, not StorageAccess
         AssertMultiGasBreakdown(gas, gasSpent,
-            expectedStorageAccess: GasCostOf.ColdAccountAccess, // Only 1 cold access (target)
+            expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead, // Only 1 cold access (target)
             expectedStorageGrowth: 0);
     }
 
