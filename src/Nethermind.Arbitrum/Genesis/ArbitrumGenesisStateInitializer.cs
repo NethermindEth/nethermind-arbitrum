@@ -34,7 +34,7 @@ public class ArbitrumGenesisStateInitializer(
         // All other checks (chain ID, EnableArbOS, chain owner, etc.) still apply.
         string? compatibilityError = initMessage.IsCompatibleWith(
             chainSpec, skipVersionCheck: arbitrumConfig.EnableTestReset);
-        if (compatibilityError is not null)
+        if (compatibilityError != null)
             throw new InvalidOperationException(
                 $"Incompatible init message: {compatibilityError}. " +
                 $"This indicates a mismatch between the init message and chainspec configuration.");
@@ -94,12 +94,15 @@ public class ArbitrumGenesisStateInitializer(
 
         ArbitrumChainSpecEngineParameters canonicalArbitrumParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
 
-        if (canonicalArbitrumParams.InitialArbOSVersion is null)
+        if (canonicalArbitrumParams.InitialArbOSVersion == null)
             throw new InvalidOperationException("Cannot initialize ArbOS without initial ArbOS version");
 
         ulong desiredInitialArbosVersion = canonicalArbitrumParams.InitialArbOSVersion.Value;
         if (desiredInitialArbosVersion == ArbosVersion.Zero)
             throw new InvalidOperationException("Cannot initialize to ArbOS version 0.");
+
+        if (_logger.IsDebug)
+            _logger.Debug($"Using initial ArbOS version: {desiredInitialArbosVersion}");
 
         // Initialize precompiles
         foreach ((Address address, ulong minVersion) in Arbos.Precompiles.PrecompileMinArbOSVersions)
@@ -121,6 +124,8 @@ public class ArbitrumGenesisStateInitializer(
         transactionFilteringEnabledTimeStorage.Set(0);
 
         versionStorage.Set(ArbosVersion.One);
+        if (_logger.IsDebug)
+            _logger.Debug("Set ArbOS version in storage to 1.");
 
         ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
@@ -128,7 +133,7 @@ public class ArbitrumGenesisStateInitializer(
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
-        if (canonicalArbitrumParams.InitialChainOwner is null)
+        if (canonicalArbitrumParams.InitialChainOwner == null)
             throw new InvalidOperationException("Cannot initialize ArbOS without initial chain owner");
 
         Address canonicalChainOwner = canonicalArbitrumParams.InitialChainOwner;
@@ -139,12 +144,16 @@ public class ArbitrumGenesisStateInitializer(
         chainIdStorage.Set(initMessage.ChainId);
 
         ArbosStorageBackedBytes chainConfigStorage = new(rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainConfigSubspace));
-        if (initMessage.SerializedChainConfig is not null)
+        if (initMessage.SerializedChainConfig != null)
+        {
             chainConfigStorage.Set(initMessage.SerializedChainConfig);
+            if (_logger.IsDebug)
+                _logger.Debug("Stored chain config in ArbOS state");
+        }
         else
             throw new InvalidOperationException("Cannot initialize ArbOS without serialized chain config");
 
-        if (canonicalArbitrumParams.GenesisBlockNum is null)
+        if (canonicalArbitrumParams.GenesisBlockNum == null)
             throw new InvalidOperationException("Cannot initialize ArbOS without genesis block number");
 
         ulong canonicalGenesisBlockNum = canonicalArbitrumParams.GenesisBlockNum.Value;
@@ -172,10 +181,8 @@ public class ArbitrumGenesisStateInitializer(
 
         ArbosStorage chainOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace);
         AddressSet.Initialize(chainOwnerStorage);
-
         AddressSet chainOwners = new(chainOwnerStorage);
         chainOwners.Add(canonicalChainOwner);
-
         ArbosStorage nativeTokenOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace);
         AddressSet.Initialize(nativeTokenOwnerStorage);
 

@@ -255,11 +255,11 @@ public class ArbosState
                     worldState.InsertCode(address, Precompiles.InvalidCodeHash, Precompiles.InvalidCode, genesisSpec, true);
                 }
             }
+
             CurrentArbosVersion = nextArbosVersion;
             Programs.ArbosVersion = nextArbosVersion;
             L1PricingState.CurrentArbosVersion = nextArbosVersion;
             L2PricingState.CurrentArbosVersion = nextArbosVersion;
-
         }
 
         if (isFirstTime && targetVersion >= ArbosVersion.Six)

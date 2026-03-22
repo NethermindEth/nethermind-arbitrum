@@ -60,6 +60,7 @@ namespace Nethermind.Arbitrum.Execution
             if (payloadAttributes.MessageWithMetadata == null)
                 throw new ArgumentException("MessageWithMetadata is null");
 
+
             ulong timestamp = payloadAttributes?.MessageWithMetadata.Message.Header.Timestamp ?? UInt64.MinValue;
             if (timestamp < parent.Timestamp)
                 timestamp = parent.Timestamp;

@@ -130,13 +130,18 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Consume gas for SelfDestruct operation.
-    /// The EIP150 cost (5000) is split as 100 Computation (warm read) + 4900 StorageAccess.
     /// </summary>
     public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
+        // Note from Nitro:
+        // SELFDESTRUCT is a special case because it charges for storage access, but it isn't
+        // dependent on any input data. We charge a small computational cost for warm access like
+        // other multidimensional gas opcodes, and the rest is storage access to delete the
+        // contract from the database.
+        // Note we only need to cover EIP150 because it is the current cost, and SELFDESTRUCT cost was
+        // zero previously.
         if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
             return false;
-        // Split EIP150 cost: 100 Computation + 4900 StorageAccess
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
         return true;
@@ -427,7 +432,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public static void OnBeforeInstructionTrace(in ArbitrumGasPolicy gas, int pc, Instruction instruction, int depth)
     {
         IArbitrumTxTracer? tracer = gas._tracer;
-        // Depth is 0-based from VmState.Env.CallDepth, convert to 1-based
+        // Depth is 0-based from VmState.Env.CallDepth, convert to 1-based for Nitro compatibility
         tracer?.BeginGasDimensionCapture(pc, instruction, depth + 1, gas.GetAccumulated());
     }
 
