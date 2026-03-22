@@ -24,7 +24,6 @@ from .parallel_runner import ParallelRunner, ParallelRunnerConfig
 from .sequential_runner import SequentialRunner, SequentialRunnerConfig
 from .summary import write_github_summary
 from .test_discovery import get_tests
-from .test_executor import build_nethermind
 
 if TYPE_CHECKING:
     import argparse
@@ -189,14 +188,6 @@ def main() -> int:
     else:
         nethermind_root = args.nethermind_path or find_nethermind_root()
         nethermind_build_dir = nethermind_root / NETHERMIND_BUILD_RELPATH
-
-    # Build Nethermind if project has changed (smart rebuild)
-    if not build_nethermind(nethermind_root, nethermind_build_dir):
-        print(
-            "Error: Failed to build Nethermind. Check the build output above.",
-            file=sys.stderr,
-        )
-        return 1
 
     if not nethermind_build_dir.exists():
         print(
