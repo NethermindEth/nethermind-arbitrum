@@ -4,10 +4,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-using System.Threading;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
@@ -16,11 +16,13 @@ using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
+using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -37,6 +39,7 @@ public sealed class ArbitrumExecutionEngine(
     CachedL1PriceData cachedL1PriceData,
     IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
+    IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
     IBlocksConfig blocksConfig)
     : IArbitrumExecutionEngine
 {
@@ -506,6 +509,79 @@ public sealed class ArbitrumExecutionEngine(
         catch (TimeoutException)
         {
             return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+        }
+    }
+
+    public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+    {
+        long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
+        if (blockNumber == 0)
+        {
+            // Cannot generate witness for genesis block as the block itself does not contain any transaction
+            // responsible for the state setup. It is the weak subjectivity starting point to trust.
+            return ResultWrapper<RecordResult>.Fail($"Cannot generate witness for genesis block");
+        }
+
+        BlockHeader? parent = BlockTree.FindHeader(blockNumber - 1);
+        if (parent is null)
+        {
+            return ResultWrapper<RecordResult>.Fail($"Unable to find parent for block {blockNumber}");
+        }
+
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+
+        using (witness)
+        {
+            if (builtBlock.Hash is null)
+                return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
+
+            TaskCompletionSource<Hash256> blockAddedTcs = new();
+
+            void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
+            {
+                if (e.Block.Number == blockNumber)
+                    blockAddedTcs.TrySetResult(e.Block.Hash!);
+            }
+
+            BlockTree.BlockAddedToMain += OnBlockAddedToMain;
+
+            try
+            {
+                // Check immediately in case the block was committed before we subscribed
+                Hash256? canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+                if (canonicalHash is null)
+                {
+                    using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+                    canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
+                }
+
+                if (canonicalHash != builtBlock.Hash)
+                    return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+                RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+                return ResultWrapper<RecordResult>.Success(result);
+            }
+            catch (OperationCanceledException)
+            {
+                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+            }
+            finally
+            {
+                BlockTree.BlockAddedToMain -= OnBlockAddedToMain;
+            }
         }
     }
 

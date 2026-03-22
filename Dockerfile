@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.200-noble AS build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
@@ -42,7 +42,7 @@ COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 # Create data directory
 RUN mkdir -p /app/data
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.4-noble
 
 # Fix CVE-2025-68973 - Update gpgv package
 RUN apt-get update && \

@@ -41,7 +41,7 @@ public static class ArbitrumBinaryTestWriter
 
     public static void WriteByteString(BinaryWriter writer, byte[] data)
     {
-        WriteUInt256(writer, (ulong)data.Length);
+        WriteULongBigEndian(writer, (ulong)data.Length);
         writer.Write(data);
     }
 

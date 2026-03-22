@@ -78,6 +78,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public ulong Burned => GasSupplied - GasLeft;
     public MultiGas BurnedMultiGas => _burnedMultiGas;
+
     public IArbitrumSpecHelper? SpecHelper { get; init; }
 
     private ulong _gasLeft = GasSupplied;

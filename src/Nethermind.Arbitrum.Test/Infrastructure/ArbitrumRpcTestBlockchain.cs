@@ -32,6 +32,10 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
+using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -250,6 +254,84 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return await ArbitrumRpcModule.DigestMessage(parameters);
     }
 
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestL2Transactions message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.L2Message, message.RequestId, message.L1BaseFee,
+            message.Sender, message.Transactions);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestSubmitRetryable retryable)
+    {
+        ArbitrumSubmitRetryableTransaction transaction = new()
+        {
+            SourceHash = retryable.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = retryable.GasFee,
+            GasLimit = (long)retryable.GasLimit,
+            Value = 0,
+            Data = retryable.RetryData,
+            IsOPSystemTransaction = false,
+            Mint = retryable.DepositValue,
+
+            ChainId = ChainSpec.ChainId,
+            RequestId = retryable.RequestId,
+            SenderAddress = retryable.Sender,
+            L1BaseFee = retryable.L1BaseFee,
+            DepositValue = retryable.DepositValue,
+            GasFeeCap = retryable.GasFee,
+            Gas = retryable.GasLimit,
+            RetryTo = retryable.Receiver,
+            RetryValue = retryable.RetryValue,
+            Beneficiary = retryable.Beneficiary,
+            MaxSubmissionFee = retryable.MaxSubmissionFee,
+            FeeRefundAddr = retryable.Beneficiary,
+            RetryData = retryable.RetryData
+        };
+
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.SubmitRetryable, retryable.RequestId, retryable.L1BaseFee,
+            retryable.Sender, transaction);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestEndOfBlock message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.EndOfBlock, Hash256.Zero, message.L1BaseFee, Address.Zero);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    // Helper function to return the witness because RecordBlockCreation returns the accumulated preimages altogether
+    public async Task<ArbitrumWitness> BuildBlockWitness(RecordBlockCreationParameters parameters)
+    {
+        long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(parameters.Index, Dependencies.SpecHelper);
+        BlockHeader parent = BlockTree.FindHeader(blockNumber - 1)
+            ?? throw new ArgumentException($"Unable to find parent for block {blockNumber}");
+
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        IArbitrumWitnessGeneratingBlockProcessingEnvFactory factory = Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
+        using IWitnessGeneratingBlockProcessingEnvScope scope = factory.CreateScope(wasmTargets);
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block _, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        return witness;
+    }
+
     public void DumpBlocks()
     {
         List<Block> blocks = new();
@@ -303,6 +385,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Dependencies.CachedL1PriceData,
             chain.BlockProcessingQueue,
             chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
             chain.Container.Resolve<IBlocksConfig>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
@@ -466,6 +549,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.TriggerMaintenance();
         }
+
+        public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+        {
+            return rpc.RecordBlockCreation(parameters);
+        }
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
@@ -522,3 +610,5 @@ public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address S
 
     }
 }
+
+public record TestEndOfBlock(UInt256 L1BaseFee);

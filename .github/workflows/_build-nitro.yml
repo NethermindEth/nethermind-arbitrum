@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout Nitro
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ inputs.nitro_repo }}
           ref: ${{ inputs.nitro_branch }}
@@ -38,7 +38,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -69,7 +69,7 @@ jobs:
 
       - name: Cache cbrotli
         id: cache-cbrotli
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             target/include/brotli/
