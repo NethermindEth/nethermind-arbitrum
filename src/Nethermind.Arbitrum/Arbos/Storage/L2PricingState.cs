@@ -11,6 +11,9 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
+/// <summary>
+/// Identifies which pricing model is active for L2 gas fee calculation.
+/// </summary>
 public enum GasModel
 {
     Unknown,
@@ -20,14 +23,9 @@ public enum GasModel
 }
 
 /// <summary>
-/// Fixed-size inline buffer for per-resource base fees (avoids heap allocation).
+/// Manages L2 gas pricing state including base fee calculation, backlog tracking,
+/// and constraint-based pricing models (legacy, single-gas, multi-gas).
 /// </summary>
-[InlineArray(MultiGas.NumResourceKinds)]
-internal struct FeeBuffer
-{
-    private UInt256 _element0;
-}
-
 public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
     private const ulong SpeedLimitPerSecondOffset = 0;
@@ -74,6 +72,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
     public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
     public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
 
+    /// <summary>
+    /// Writes default pricing parameters to the given storage (called during ArbOS genesis).
+    /// </summary>
     public static void Initialize(ArbosStorage storage)
     {
         storage.Set(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
@@ -85,6 +86,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         storage.Set(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
     }
 
+    /// <summary>
+    /// Determines the active pricing model based on ArbOS version and configured constraints.
+    /// </summary>
     public GasModel GetGasModelToUse()
     {
         if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion)
@@ -98,6 +102,11 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         return GasModel.Legacy;
     }
 
+    /// <summary>
+    /// Recalculates the base fee by shrinking backlogs and recomputing exponents
+    /// for the active pricing model.
+    /// </summary>
+    /// <param name="timePassed">Seconds elapsed since the previous block.</param>
     public void UpdatePricingModel(ulong timePassed)
     {
         GasModel model = GetGasModelToUse();
@@ -118,6 +127,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         }
     }
 
+    /// <summary>
+    /// Adjusts the gas backlog by <paramref name="gas"/> units (positive shrinks, negative grows).
+    /// </summary>
     public void AddToGasPool(long gas)
     {
         GasModel model = GetGasModelToUse();
@@ -135,6 +147,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         }
     }
 
+    /// <summary>
+    /// Returns the ArbOS storage gas cost charged for updating the gas pool.
+    /// </summary>
     public ulong GasPoolUpdateCost()
     {
         // Charge a static price for any pricer starting from ArbOS 60
@@ -159,18 +174,36 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         return result;
     }
 
+    /// <summary>
+    /// Increases the backlog by the gas used in a transaction.
+    /// </summary>
     public void GrowBacklog(ulong usedGas, MultiGas usedMultiGas)
         => UpdateBacklogByModel(BacklogOperation.Grow, usedGas, usedMultiGas);
 
+    /// <summary>
+    /// Decreases the backlog by the gas used in a transaction (saturates at zero).
+    /// </summary>
     public void ShrinkBacklog(ulong usedGas, MultiGas usedMultiGas)
         => UpdateBacklogByModel(BacklogOperation.Shrink, usedGas, usedMultiGas);
 
+    /// <summary>
+    /// Directly sets the legacy gas backlog value.
+    /// </summary>
     public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
 
+    /// <summary>
+    /// Returns the number of single-gas constraints currently configured.
+    /// </summary>
     public ulong ConstraintsLength() => _constraints.Length();
 
+    /// <summary>
+    /// Opens the single-gas constraint at the given index.
+    /// </summary>
     public GasConstraint OpenConstraintAt(ulong index) => new(_constraints.At(index));
 
+    /// <summary>
+    /// Appends a new single-gas constraint with the specified parameters.
+    /// </summary>
     public void AddConstraint(ulong target, ulong adjustmentWindow, ulong backlog)
     {
         ArbosStorage subStorage = _constraints.Push();
@@ -180,6 +213,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         constraint.SetBacklog(backlog);
     }
 
+    /// <summary>
+    /// Removes all single-gas constraints and zeroes their storage.
+    /// </summary>
     public void ClearConstraints()
     {
         ulong length = ConstraintsLength();
@@ -191,10 +227,19 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         }
     }
 
+    /// <summary>
+    /// Returns the number of multi-gas constraints currently configured (ArbOS 60+).
+    /// </summary>
     public ulong MultiGasConstraintsLength() => _multiGasConstraints.Length();
 
+    /// <summary>
+    /// Opens the multi-gas constraint at the given index.
+    /// </summary>
     public MultiGasConstraint OpenMultiGasConstraintAt(ulong index) => new(_multiGasConstraints.At(index));
 
+    /// <summary>
+    /// Appends a new multi-gas constraint with per-resource weights.
+    /// </summary>
     public void AddMultiGasConstraint(ulong target, uint adjustmentWindow, ulong backlog, Dictionary<ResourceKind, ulong> weights)
     {
         ArbosStorage subStorage = _multiGasConstraints.Push();
@@ -205,6 +250,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         constraint.SetResourceWeights(weights);
     }
 
+    /// <summary>
+    /// Removes all multi-gas constraints and zeroes their storage.
+    /// </summary>
     public void ClearMultiGasConstraints()
     {
         ulong length = MultiGasConstraintsLength();
@@ -216,6 +264,10 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         }
     }
 
+    /// <summary>
+    /// Computes the pricing exponent (in basis points) per resource kind across all multi-gas constraints.
+    /// Each constraint contributes <c>backlog * weight * BIPS / (target * window * maxWeight)</c>.
+    /// </summary>
     public long[] CalcMultiGasConstraintsExponents()
     {
         long[] exponentPerKind = new long[MultiGas.NumResourceKinds];
@@ -235,7 +287,6 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
 
             ulong divisor = ((ulong)adjustmentWindow).SaturateMul(target).SaturateMul(maxWeight);
 
-            // Direct loop instead of UsedResources() iterator to avoid allocation
             for (int kindIndex = 0; kindIndex < MultiGas.NumResourceKinds; kindIndex++)
             {
                 ulong weight = constraint.GetResourceWeight((ResourceKind)kindIndex);
@@ -253,6 +304,10 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         return exponentPerKind;
     }
 
+    /// <summary>
+    /// Calculates the total wei cost of <paramref name="gasUsed"/> using per-resource base fees
+    /// (used for retryable ticket refund computation).
+    /// </summary>
     public UInt256 MultiDimensionalPriceForRefund(MultiGas gasUsed)
     {
         Span<UInt256> fees = stackalloc UInt256[MultiGas.NumResourceKinds];
@@ -273,6 +328,9 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
         return total;
     }
 
+    /// <summary>
+    /// Promotes next-block per-resource fees to current-block fees (end-of-block commit).
+    /// </summary>
     public void CommitMultiGasFees()
     {
         GasModel model = GetGasModelToUse();

@@ -86,16 +86,6 @@ public sealed class MultiGasConstraint
     public void SetAdjustmentWindow(uint value) => _adjustmentWindow.Set(value);
 
     /// <summary>
-    /// Returns the list of resource kinds that have non-zero weights.
-    /// </summary>
-    public IEnumerable<ResourceKind> UsedResources()
-    {
-        for (int i = 0; i < MultiGas.NumResourceKinds; i++)
-            if (_weightedResources[i].Get() != 0)
-                yield return (ResourceKind)i;
-    }
-
-    /// <summary>
     /// Sets the backlog value for this constraint.
     /// </summary>
     public void SetBacklog(ulong value) => _backlog.Set(value);
@@ -133,22 +123,6 @@ public sealed class MultiGasConstraint
 
         _maxWeight.Set(maxWeight);
     }
-
-    /// <summary>
-    /// Returns all resources that have non-zero weights.
-    /// </summary>
-    public Dictionary<ResourceKind, ulong> GetResourcesWithWeights()
-    {
-        Dictionary<ResourceKind, ulong> result = new();
-        for (int i = 0; i < MultiGas.NumResourceKinds; i++)
-        {
-            ulong weight = _weightedResources[i].Get();
-            if (weight != 0)
-                result[(ResourceKind)i] = weight;
-        }
-        return result;
-    }
-
 
     /// <summary>
     /// Adds the resource usage in multiGas to this constraint's backlog,
