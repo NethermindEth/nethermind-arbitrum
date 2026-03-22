@@ -61,13 +61,6 @@ namespace Nethermind.Arbitrum.Modules
             _chainSpecParams = chainSpecParams;
         }
 
-        /// <summary>
-        /// Calculates EffectiveGasPrice for Arbitrum receipts.
-        /// For Arbitrum chains, effectiveGasPrice is ALWAYS set to header.BaseFee for ALL transaction types.
-        /// </summary>
-        private static TxGasInfo GetArbitrumGasInfo(Transaction tx, IReleaseSpec spec, BlockHeader header) =>
-            new TxGasInfo(header.BaseFeePerGas);
-
         public override ResultWrapper<string> eth_call(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
@@ -159,15 +152,13 @@ namespace Nethermind.Arbitrum.Modules
 
             Block block = searchResult.Object!;
             TxReceipt[] receipts = _receiptFinder.Get(block);
-            IReleaseSpec spec = _specProvider.GetSpec(block.Header);
-
             ReceiptForRpc[] result = receipts
                 .Zip(block.Transactions, (receipt, tx) =>
                     (ReceiptForRpc)new ArbitrumReceiptForRpc(
                         tx.Hash!,
                         receipt,
                         block.Timestamp,
-                        GetArbitrumGasInfo(tx, spec, block.Header),
+                        new TxGasInfo(block.Header.BaseFeePerGas),
                         receipts.GetBlockLogFirstIndex(receipt.Index)))
                 .ToArray();
 
