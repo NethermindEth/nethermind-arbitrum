@@ -538,6 +538,12 @@ public sealed class ArbitrumExecutionEngine(
         // References temporarily parent trie
         stateReconstructor.EnsureStateAvailable(parent);
 
+        if (blockNumber % 200 == 0)
+        {
+            int overlayNodeCount = stateReconstructor.OverlayNodeCount;
+            long overlayTotalBytes = stateReconstructor.OverlayTotalBytes;
+            _logger.Info($"[RecordBlockCreation] block {blockNumber}, overlayNodeCount={overlayNodeCount}, overlayTotalBytes={overlayTotalBytes / 1_048_576:F1} MB");
+        }
         string[] wasmTargets = parameters.WasmTargets;
         string localTarget = StylusTargets.GetLocalTargetName();
         if (!wasmTargets.Contains(localTarget))

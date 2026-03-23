@@ -11,6 +11,7 @@ using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
+using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 
@@ -35,6 +36,9 @@ public class StateReconstructor : IStateReconstructor
 
     /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
+
+    public int OverlayNodeCount => _trieStore.OverlayNodeCount;
+    public long OverlayTotalBytes => _trieStore.OverlayTotalBytes;
 
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,

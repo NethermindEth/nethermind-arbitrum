@@ -8,6 +8,8 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 
 public interface IStateReconstructor
 {
+    int OverlayNodeCount { get; }
+    long OverlayTotalBytes { get; }
     void EnsureStateAvailable(BlockHeader targetParent);
     void DereferenceRoot(Hash256 parentStateRoot);
     void PreparedAddTrim(List<Hash256> stateRoots);

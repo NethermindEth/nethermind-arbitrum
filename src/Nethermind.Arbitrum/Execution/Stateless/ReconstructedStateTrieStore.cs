@@ -33,10 +33,21 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     /// <summary>MemDb keys of each committed node's children that are also in MemDb. Used for cascade dereference without traversal.</summary>
     private readonly Dictionary<byte[], List<byte[]>> _children = new(Bytes.EqualityComparer);
 
-    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="Reference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
+    /// <summary>Byte size of each MemDb node, keyed by its storage key. Used to compute <see cref="OverlayTotalBytes"/> without re-reading from MemDb on removal.</summary>
+    private readonly Dictionary<byte[], int> _nodeSizes = new(Bytes.EqualityComparer);
+
+    /// <summary>Running total of RLP bytes stored across all nodes currently in the MemDb overlay.</summary>
+    private long _totalBytes;
+
+    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, <see cref="_nodeSizes"/>, <see cref="_totalBytes"/>, and MemDb deletions in <see cref="Reference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
     private readonly object _refCountLock = new();
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
+
+    public int OverlayNodeCount => _memDb.Count;
+
+    /// <summary>Total RLP byte size of all nodes currently stored in the MemDb overlay.</summary>
+    public long OverlayTotalBytes => Interlocked.Read(ref _totalBytes);
 
     public void Dispose()
     {
@@ -119,6 +130,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 }
 
                 _parents.Remove(key, out _);
+                if (_nodeSizes.Remove(key, out int nodeSize))
+                    Interlocked.Add(ref _totalBytes, -nodeSize);
                 _memDb.Remove(key);
 
                 if (_children.TryGetValue(key, out List<byte[]>? childKeys))
@@ -146,6 +159,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 return;
 
             _parents[nodeKey] = 0;
+            _nodeSizes[nodeKey] = fullRlp.Length;
+            Interlocked.Add(ref _totalBytes, fullRlp.Length);
         }
 
         // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
@@ -177,6 +192,11 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         public TrieNode CommitNode(ref TreePath path, TrieNode node)
         {
             TrieNode result = inner.CommitNode(ref path, node);
+            // Only track nodes that were actually written to NodeStorage as a real, hash-keyed entry:
+            // - Keccak is null for inline nodes (RLP < 32 bytes), which are embedded in their parent
+            //   and never stored separately — no MemDb entry exists to track.
+            // - Boundary proof nodes are hash-only stubs (no RLP content, children not in MemDb)
+            //   committed as placeholders.
             if (!node.IsBoundaryProofNode && node.Keccak is not null)
             {
                 byte[] nodeKey = NodeStorage.GetHalfPathNodeStoragePath(address, path, node.Keccak);
