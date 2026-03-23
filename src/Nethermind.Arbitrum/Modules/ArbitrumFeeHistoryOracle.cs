@@ -99,6 +99,9 @@ public class ArbitrumFeeHistoryOracle(
             baseFees[i] = header.BaseFeePerGas;
             baseFeePerBlobGas[i] = UInt256.Zero;
 
+            if (blockNum > newestBlockNumber)
+                break;
+
             if (header.Timestamp > prevTimestamp)
             {
                 timeSinceLastTimeChange = header.Timestamp - prevTimestamp;
