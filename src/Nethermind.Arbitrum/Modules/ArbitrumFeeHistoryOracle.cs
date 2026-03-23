@@ -71,7 +71,11 @@ public class ArbitrumFeeHistoryOracle(
                 rewards[i] = new ArrayPoolList<UInt256>(rewardPercentiles.Length, Enumerable.Repeat(UInt256.Zero, rewardPercentiles.Length));
         }
 
-        ulong speedLimit = ReadSpeedLimitPerSecond(newestHeader);
+        Result<ulong> speedLimitResult = ReadSpeedLimitPerSecond(newestHeader);
+        if (speedLimitResult.IsError)
+            return ResultWrapper<FeeHistoryResults>.Fail($"Failed to read speed limit: {speedLimitResult.Error}", ErrorCodes.InternalError);
+
+        ulong speedLimit = speedLimitResult.Data;
 
         ArrayPoolList<UInt256> baseFees = new(blockCount + 1, blockCount + 1);
         ArrayPoolList<double> gasUsedRatios = new(blockCount, blockCount);
@@ -158,11 +162,11 @@ public class ArbitrumFeeHistoryOracle(
         return new UInt256(mappedKey, isBigEndian: true);
     }
 
-    private ulong ReadSpeedLimitPerSecond(BlockHeader header)
+    private Result<ulong> ReadSpeedLimitPerSecond(BlockHeader header)
     {
         ReadOnlySpan<byte> value = stateReader.GetStorage(header, ArbosAddresses.ArbosSystemAccount, SpeedLimitStorageIndex);
-        if (value.IsEmpty)
-            return L2PricingState.InitialSpeedLimitPerSecondV6;
-        return (ulong)new UInt256(value, isBigEndian: true);
+        return !value.IsEmpty
+            ? Result<ulong>.Success((ulong)new UInt256(value, isBigEndian: true))
+            : Result<ulong>.Fail("ArbOS is not initialized.");
     }
 }
