@@ -60,18 +60,10 @@ public class TransactionQueue(IArbitrumConfig config, IExpressLaneTracker expres
     /// </summary>
     public List<TxQueueItem> DrainBatch()
     {
-        List<TxQueueItem> items = new(config.SequencerMaxTxQueueSize);
+        List<TxQueueItem> items = new();
 
         while (_retryQueue.TryDequeue(out TxQueueItem? retryItem))
             items.Add(retryItem);
-
-        if (items.Count == 0)
-        {
-            if (_channel.Reader.TryRead(out TxQueueItem? firstItem))
-                items.Add(firstItem);
-            else
-                return items;
-        }
 
         while (_channel.Reader.TryRead(out TxQueueItem? item))
             items.Add(item);
