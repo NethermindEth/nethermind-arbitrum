@@ -97,7 +97,6 @@ public class ArbitrumFeeHistoryOracle(
                 break;
 
             baseFees[i] = header.BaseFeePerGas;
-            baseFeePerBlobGas[i] = UInt256.Zero;
 
             if (blockNum > newestBlockNumber)
                 break;
@@ -127,7 +126,6 @@ public class ArbitrumFeeHistoryOracle(
                 : 1.0;
 
             gasUsedRatios[i] = fullnessAnalogue;
-            blobGasUsedRatios[i] = 0.0;
         }
 
         if (newestBlockNumber < latestBlockNumber)
