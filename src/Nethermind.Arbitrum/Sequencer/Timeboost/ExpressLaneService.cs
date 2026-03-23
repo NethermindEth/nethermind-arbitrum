@@ -4,6 +4,7 @@
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -12,6 +13,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Sequencer.Timeboost;
 
@@ -22,6 +24,8 @@ public sealed class ExpressLaneService(
     TransactionQueue transactionQueue,
     IEthereumEcdsa ethereumEcdsa,
     ChainSpec chainSpec,
+    IBlockTree blockTree,
+    IStateReader stateReader,
     ILogManager logManager) : IExpressLaneService
 {
     public const uint MaxFutureSequenceDistance = 1000;
@@ -41,6 +45,18 @@ public sealed class ExpressLaneService(
         if (validationResult.Result != Result.Success)
             return validationResult;
 
+        if (submission.Options is not null)
+        {
+            BlockHeader? head = blockTree.Head?.Header;
+            if (head is null)
+                return ResultWrapper<EmptyResponse>.Fail("Cannot validate conditional options: block tree head is not available");
+
+            ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(head, _logger).L1BlockNumber;
+            Result checkResult = submission.Options.Check(l1BlockNumber, head.Timestamp, stateReader, head);
+            if (checkResult != Result.Success)
+                return ResultWrapper<EmptyResponse>.Fail($"Conditional options check failed: {checkResult.Error}");
+        }
+
         if (submission.SequenceNumber == DontCareSequenceNumber)
         {
             // DontCareSequence: publish with timeout = min(TimeTilNextRound, QueueTimeout)
@@ -48,14 +64,14 @@ public sealed class ExpressLaneService(
                 return ResultWrapper<EmptyResponse>.Fail($"Express lane tx round {submission.Round} does not match current round {roundTimingInfo.RoundNumber()}");
 
             TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
-            ResultWrapper<Hash256> result = await PublishAsync(submission.Transaction, currentBlockNumber, timeout);
+            ResultWrapper<Hash256> result = await PublishAsync(submission.Transaction, submission.Options, currentBlockNumber, timeout);
             if (result.Result != Result.Success)
                 return ResultWrapper<EmptyResponse>.Fail(result.Result.Error ?? "Failed to publish DontCareSequence tx");
 
             return ResultWrapper.EmptySuccess;
         }
 
-        List<(ulong SeqNum, Transaction Tx)>? toPublish = null;
+        List<ExpressLaneSubmission>? toPublish = null;
         Address sender = submission.RecoverSender(ethereumEcdsa);
 
         lock (_roundLock)
@@ -118,7 +134,7 @@ public sealed class ExpressLaneService(
 
             while (roundInfo.AllSeen.TryGetValue(roundInfo.NextSequence, out ExpressLaneSubmission? next))
             {
-                (toPublish ??= new()).Add((roundInfo.NextSequence, next.Transaction));
+                (toPublish ??= new()).Add(next);
                 roundInfo.NextSequence++;
             }
         }
@@ -127,29 +143,29 @@ public sealed class ExpressLaneService(
         {
             ResultWrapper<EmptyResponse>? retErr = null;
 
-            foreach (var (seqNum, tx) in toPublish)
+            foreach (ExpressLaneSubmission queued in toPublish)
             {
                 if (roundTimingInfo.RoundNumber() != submission.Round)
                     break;
 
                 TimeSpan timeout = TimeSpanMin(roundTimingInfo.TimeTilNextRound(), _queueTimeout);
-                ResultWrapper<Hash256> result = await PublishAsync(tx, currentBlockNumber, timeout);
+                ResultWrapper<Hash256> result = await PublishAsync(queued.Transaction, queued.Options, currentBlockNumber, timeout);
                 if (result.Result != Result.Success)
                 {
                     bool isNearRoundBoundary = timeout < TimeSpan.FromSeconds(1);
                     if (isNearRoundBoundary)
                     {
                         if (_logger.IsWarn)
-                            _logger.Warn($"Express lane tx seqNum={seqNum} timed out near round boundary");
+                            _logger.Warn($"Express lane tx seqNum={queued.SequenceNumber} timed out near round boundary");
                     }
                     else
                     {
                         if (_logger.IsError)
-                            _logger.Error($"Error queuing express lane tx seqNum={seqNum} txHash={tx.Hash}: {result.Result.Error}");
+                            _logger.Error($"Error queuing express lane tx seqNum={queued.SequenceNumber} txHash={queued.Transaction.Hash}: {result.Result.Error}");
                     }
 
-                    if (seqNum == submission.SequenceNumber)
-                        retErr = ResultWrapper<EmptyResponse>.Fail(result.Result.Error ?? $"Failed to publish express lane tx seqNum={seqNum}");
+                    if (queued.SequenceNumber == submission.SequenceNumber)
+                        retErr = ResultWrapper<EmptyResponse>.Fail(result.Result.Error ?? $"Failed to publish express lane tx seqNum={queued.SequenceNumber}");
                 }
             }
 
@@ -198,9 +214,9 @@ public sealed class ExpressLaneService(
         return ResultWrapper.EmptySuccess;
     }
 
-    private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ulong currentBlockNumber, TimeSpan timeout)
+    private async Task<ResultWrapper<Hash256>> PublishAsync(Transaction tx, ConditionalOptions? options, ulong currentBlockNumber, TimeSpan timeout)
     {
-        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, currentBlockNumber, timeout);
+        TxQueueItem item = TxQueueItem.CreateTimeboosted(tx, currentBlockNumber, timeout, options);
         return await transactionQueue.EnqueueAsync(item, awaitForCompletion: false);
     }
 

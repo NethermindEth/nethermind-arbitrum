@@ -450,4 +450,88 @@ public class ExpressLaneServiceTests
 
         result.Should().RequestFail("chain ID");
     }
+
+    [Test]
+    public async Task SequenceAsync_WithValidConditionalOptions_Succeeds()
+    {
+        // Options with BlockNumberMax = 100 pass when L1 block is 0 (default header returns Empty → L1BlockNumber=0)
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext, currentRound: 5);
+        ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out TestExpressLaneServiceContext context);
+        await trackerContext.AdvanceLoop(new ResolvedRound(ControllerAddress, 5));
+
+        ConditionalOptions options = new() { BlockNumberMax = 100 };
+        Transaction tx = TestTransaction.CreateTransfer();
+
+        await service.SequenceAsync(
+            TestExpressLaneSubmission.Create(tx, round: 5, seqNum: 0, options: options),
+            currentBlockNumber: 100);
+
+        List<TxQueueItem> items = context.TxQueue.DrainBatch();
+        items.Should().HaveCount(1);
+        items[0].Tx.Should().BeSameAs(tx);
+        items[0].Options.Should().BeSameAs(options);
+    }
+
+    [Test]
+    public async Task SequenceAsync_WithInvalidConditionalOptions_RejectedEarly()
+    {
+        // Options with BlockNumberMin = 100 fail when L1 block is 0 (default header returns Empty → L1BlockNumber=0)
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext, currentRound: 5);
+        ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out TestExpressLaneServiceContext context);
+        await trackerContext.AdvanceLoop(new ResolvedRound(ControllerAddress, 5));
+
+        ConditionalOptions options = new() { BlockNumberMin = 100 };
+
+        ResultWrapper<EmptyResponse> result = await service.SequenceAsync(
+            TestExpressLaneSubmission.Create(TestTransaction.CreateTransfer(), round: 5, seqNum: 0, options: options),
+            currentBlockNumber: 100);
+
+        result.Should().RequestFail("Conditional options check failed");
+        context.TxQueue.DrainBatch().Should().BeEmpty("rejected tx should not be enqueued");
+    }
+
+    [Test]
+    public async Task SequenceAsync_DontCare_ConditionalOptionsPassedThrough()
+    {
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext);
+        ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out TestExpressLaneServiceContext context);
+        await trackerContext.AdvanceLoop(new ResolvedRound(ControllerAddress, 1));
+
+        ConditionalOptions options = new() { BlockNumberMax = 100 };
+        Transaction tx = TestTransaction.CreateTransfer();
+
+        await service.SequenceAsync(
+            TestExpressLaneSubmission.Create(tx, round: 1, seqNum: ulong.MaxValue, options: options),
+            currentBlockNumber: 100);
+
+        List<TxQueueItem> items = context.TxQueue.DrainBatch();
+        items.Should().HaveCount(1);
+        items[0].Options.Should().BeSameAs(options);
+    }
+
+    [Test]
+    public async Task SequenceAsync_GapFilling_ConditionalOptionsPreserved()
+    {
+        using ExpressLaneTracker tracker = TestExpressLane.CreateTracker(out TestExpressLaneTrackerContext trackerContext, currentRound: 3);
+        ExpressLaneService service = TestExpressLane.CreateService(tracker, trackerContext, out TestExpressLaneServiceContext context);
+        await trackerContext.AdvanceLoop(new ResolvedRound(ControllerAddress, 3));
+
+        ConditionalOptions options0 = new() { BlockNumberMax = 200 };
+        ConditionalOptions options1 = new() { BlockNumberMax = 300 };
+        Transaction tx0 = TestTransaction.CreateTransfer(nonce: 0);
+        Transaction tx1 = TestTransaction.CreateTransfer(nonce: 1);
+
+        // Submit seq=1 first (buffered), then seq=0 fills the gap — both drain with their Options
+        await service.SequenceAsync(
+            TestExpressLaneSubmission.Create(tx1, round: 3, seqNum: 1, options: options1), 100);
+        context.TxQueue.DrainBatch().Should().BeEmpty();
+
+        await service.SequenceAsync(
+            TestExpressLaneSubmission.Create(tx0, round: 3, seqNum: 0, options: options0), 100);
+
+        List<TxQueueItem> items = context.TxQueue.DrainBatch();
+        items.Should().HaveCount(2);
+        items[0].Options.Should().BeSameAs(options0);
+        items[1].Options.Should().BeSameAs(options1);
+    }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Serialization.Rlp;
 
@@ -15,9 +16,10 @@ public class TxQueueItem
 {
     private readonly CancellationTokenSource? _ownedCts;
 
-    private TxQueueItem(Transaction tx, TimeSpan? timeout, bool isTimeboosted, ulong blockStamp)
+    private TxQueueItem(Transaction tx, ConditionalOptions? options, TimeSpan? timeout, bool isTimeboosted, ulong blockStamp)
     {
         Tx = tx;
+        Options = options;
         RlpEncoded = Rlp.Encode(tx).Bytes;
         _ownedCts = timeout.HasValue ? new CancellationTokenSource(timeout.Value) : null;
         CancellationToken = _ownedCts?.Token ?? CancellationToken.None;
@@ -26,6 +28,7 @@ public class TxQueueItem
     }
 
     public Transaction Tx { get; }
+    public ConditionalOptions? Options { get; }
     public byte[] RlpEncoded { get; }
     public TaskCompletionSource<Exception?> ResultChannel { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public CancellationToken CancellationToken { get; }
@@ -53,9 +56,9 @@ public class TxQueueItem
         _ownedCts?.Dispose();
     }
 
-    public static TxQueueItem CreateRegular(Transaction tx, TimeSpan? timeout = null)
-        => new(tx, timeout, isTimeboosted: false, blockStamp: 0);
+    public static TxQueueItem CreateRegular(Transaction tx, TimeSpan? timeout = null, ConditionalOptions? options = null)
+        => new(tx, options, timeout, isTimeboosted: false, blockStamp: 0);
 
-    public static TxQueueItem CreateTimeboosted(Transaction tx, ulong blockStamp, TimeSpan? timeout = null)
-        => new(tx, timeout, isTimeboosted: true, blockStamp: blockStamp);
+    public static TxQueueItem CreateTimeboosted(Transaction tx, ulong blockStamp, TimeSpan? timeout = null, ConditionalOptions? options = null)
+        => new(tx, options, timeout, isTimeboosted: true, blockStamp: blockStamp);
 }
