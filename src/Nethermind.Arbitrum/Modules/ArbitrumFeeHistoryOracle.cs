@@ -37,11 +37,11 @@ public class ArbitrumFeeHistoryOracle(
         if (newestBlock.Type == BlockParameterType.BlockHash)
             return ResultWrapper<FeeHistoryResults>.Fail("newestBlock: Is not correct block number", ErrorCodes.InvalidParams);
 
-        if (blockCount < 1)
-            return ResultWrapper<FeeHistoryResults>.Fail($"blockCount: Value {blockCount} is less than 1", ErrorCodes.InvalidParams);
-
         if (blockCount > MaxFeeHistory)
             blockCount = MaxFeeHistory;
+
+        if (blockCount < 1)
+            return ResultWrapper<FeeHistoryResults>.Fail($"blockCount: Value {blockCount} is less than 1", ErrorCodes.InvalidParams);
 
         long genesisBlockNum = (long)(chainSpecParams.GenesisBlockNum ?? 0);
 
@@ -54,12 +54,12 @@ public class ArbitrumFeeHistoryOracle(
 
         if (newestBlockNumber > latestBlockNumber)
             newestBlockNumber = latestBlockNumber;
+
         if (newestBlockNumber < genesisBlockNum)
             newestBlockNumber = genesisBlockNum;
 
-        long availableBlocks = newestBlockNumber - genesisBlockNum + 1;
-        if (blockCount > availableBlocks)
-            blockCount = (int)availableBlocks;
+        if (blockCount > newestBlockNumber - genesisBlockNum)
+            blockCount = (int)(newestBlockNumber - genesisBlockNum) + 1;
 
         long oldestBlock = newestBlockNumber + 1 - blockCount;
 
