@@ -185,28 +185,29 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         ref readonly StackAccessTracker accessTracker,
         bool isTracingAccess,
         Address address,
-        Address? delegated,
-        bool chargeForWarm = true)
+        Address? delegated)
     {
         if (!spec.UseHotAndColdStorage)
             return true;
 
-        return ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, address, chargeForWarm)
+        return ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, address)
                && (delegated is null
-                   || ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, delegated, chargeForWarm));
+                   || ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, delegated));
     }
 
     /// <summary>
-    /// Charges gas for accessing an account based on a cold / warm state (interface implementation).
-    /// Cold access splits cost: (ColdAccountAccess - WarmStateRead) as StorageAccess, WarmStateRead as Computation.
-    /// Warm access charges WarmStateRead as Computation.
+    /// Charges gas for accessing an account based on cold/warm state.
+    /// For <see cref="AccountAccessKind.Default"/>: cold splits into StorageAccess + Computation;
+    /// warm charges WarmStateRead as Computation.
+    /// For <see cref="AccountAccessKind.SelfDestructBeneficiary"/>: cold charges full ColdAccountAccess
+    /// to StorageAccess only; warm charges nothing.
     /// </summary>
     public static bool ConsumeAccountAccessGas(ref ArbitrumGasPolicy gas,
         IReleaseSpec spec,
         ref readonly StackAccessTracker accessTracker,
         bool isTracingAccess,
         Address address,
-        bool chargeForWarm = true)
+        AccountAccessKind kind = AccountAccessKind.Default)
     {
         if (!spec.UseHotAndColdStorage)
             return true;
@@ -215,42 +216,30 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
         if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
         {
-            // Cold account access: split into StorageAccess + Computation
-            long coldDelta = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
             if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdAccountAccess))
                 return false;
-            gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
-            gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+
+            switch (kind)
+            {
+                case AccountAccessKind.SelfDestructBeneficiary:
+                    // Full cost to StorageAccess (no Computation split)
+                    gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess);
+                    break;
+                default:
+                    // Split into StorageAccess + Computation
+                    long coldDelta = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
+                    gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
+                    gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
+                    break;
+            }
             return true;
         }
-        return !chargeForWarm || UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation);
-    }
 
-    /// <summary>
-    /// Charges gas for accessing the SELFDESTRUCT beneficiary account.
-    /// Unlike regular ConsumeAccountAccessGas, cold access is charged as FULL StorageAccess (no Computation split).
-    /// </summary>
-    public static bool ConsumeSelfDestructBeneficiaryAccessGas(ref ArbitrumGasPolicy gas,
-        IReleaseSpec spec,
-        ref readonly StackAccessTracker accessTracker,
-        bool isTracingAccess,
-        Address address)
-    {
-        if (!spec.UseHotAndColdStorage)
-            return true;
-        if (isTracingAccess)
-            accessTracker.WarmUp(address);
-
-        if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
+        return kind switch
         {
-            // SELFDESTRUCT beneficiary cold access: FULL cost to StorageAccess (no Computation split)
-            if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdAccountAccess))
-                return false;
-            gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess);
-            return true;
-        }
-        // Warm access: no gas charged
-        return true;
+            AccountAccessKind.SelfDestructBeneficiary => true, // no warm charge
+            _ => UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation)
+        };
     }
 
     /// <summary>

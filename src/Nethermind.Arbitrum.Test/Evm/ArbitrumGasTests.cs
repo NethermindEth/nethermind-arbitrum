@@ -8,6 +8,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using Nethermind.Specs.Forks;
 
@@ -38,24 +39,24 @@ public class ArbitrumGasPolicyTests
 
         // Base SELFDESTRUCT cost
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
-        // Inheritor account access (cold)
+        // Inheritor account access (cold, SelfDestructBeneficiary → full cost to StorageAccess)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA, false);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA,
+            AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
-        // SELFDESTRUCT computation: WarmStateRead
-        // SELFDESTRUCT storage access: (SelfDestructEip150 - WarmStateRead)
-        // Cold inheritor: ColdAccountAccess to StorageAccess
-        accumulated.Get(ResourceKind.Computation).Should().Be(2 * GasCostOf.WarmStateRead);
+        // SELFDESTRUCT computation: WarmStateRead (from ConsumeSelfDestructGas only)
+        // SELFDESTRUCT storage access: (SelfDestructEip150 - WarmStateRead) + full ColdAccountAccess
+        accumulated.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
         accumulated.Get(ResourceKind.StorageAccess).Should().Be(
-            GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead + GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
+            GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead + GasCostOf.ColdAccountAccess);
     }
 
     [Test]
     public void SelfDestruct_WarmInheritor_NoAdditionalCharge()
     {
-        // SELFDESTRUCT with warm inheritor: base cost only (chargeForWarm=false in VM)
+        // SELFDESTRUCT with warm inheritor: base cost only (SelfDestructBeneficiary skips warm charge)
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
@@ -64,9 +65,10 @@ public class ArbitrumGasPolicyTests
 
         // Base SELFDESTRUCT cost
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
-        // Inheritor account access (warm, chargeForWarm=false as in VM)
+        // Inheritor account access (warm, SelfDestructBeneficiary → no warm charge)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA, false);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA,
+            AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
@@ -82,7 +84,7 @@ public class ArbitrumGasPolicyTests
     {
         // SELFDESTRUCT where inheritor == executing account (self-destruct to self)
         // The executing account is always warm (tx.to pre-warming per EIP-2929)
-        // With chargeForWarm=false, no additional account access charge
+        // SelfDestructBeneficiary skips warm charge
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
@@ -93,9 +95,10 @@ public class ArbitrumGasPolicyTests
 
         // Base SELFDESTRUCT cost
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
-        // Inheritor is self (already warm)
+        // Inheritor is self (already warm, SelfDestructBeneficiary → no warm charge)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress, false);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress,
+            AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
