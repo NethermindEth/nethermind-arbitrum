@@ -10,7 +10,14 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Sequencer;
 
-public sealed class ArbitrumBlockSuggester : IProducedBlockSuggester
+public interface IArbitrumSequencerBlockSuggester : IDisposable
+{
+    void DeferNextBlock();
+    void ResetDefer();
+    void SuggestBlockImmediate(Block block);
+}
+
+public sealed class ArbitrumSequencerBlockSuggester : IProducedBlockSuggester, IArbitrumSequencerBlockSuggester
 {
     private readonly IBlockTree _blockTree;
     private readonly IBlockProducerRunner _blockProducerRunner;
@@ -19,7 +26,7 @@ public sealed class ArbitrumBlockSuggester : IProducedBlockSuggester
 
     private volatile bool _deferNext;
 
-    public ArbitrumBlockSuggester(
+    public ArbitrumSequencerBlockSuggester(
         IBlockTree blockTree,
         IBlockProducerRunner blockProducerRunner,
         IBlocksConfig blocksConfig,
@@ -28,7 +35,7 @@ public sealed class ArbitrumBlockSuggester : IProducedBlockSuggester
         _blockTree = blockTree;
         _blockProducerRunner = blockProducerRunner;
         _blocksConfig = blocksConfig;
-        _logger = logManager.GetClassLogger<ArbitrumBlockSuggester>();
+        _logger = logManager.GetClassLogger<ArbitrumSequencerBlockSuggester>();
 
         _blockProducerRunner.BlockProduced += OnBlockProduced;
     }
@@ -74,5 +81,25 @@ public sealed class ArbitrumBlockSuggester : IProducedBlockSuggester
     public void Dispose()
     {
         _blockProducerRunner.BlockProduced -= OnBlockProduced;
+    }
+}
+
+public class DisabledArbitrumSequencerBlockSuggester : IArbitrumSequencerBlockSuggester
+{
+    public void DeferNextBlock()
+    {
+        throw new InvalidOperationException("Deferring blocks is not supported when ArbitrumSequencerBlockSuggester is disabled.");
+    }
+
+    public void ResetDefer()
+    {
+    }
+
+    public void SuggestBlockImmediate(Block block)
+    {
+    }
+
+    public void Dispose()
+    {
     }
 }

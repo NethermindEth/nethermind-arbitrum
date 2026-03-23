@@ -10,10 +10,10 @@ using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Logging;
 
-namespace Nethermind.Arbitrum.Test.Execution;
+namespace Nethermind.Arbitrum.Test.Sequencer;
 
 [TestFixture]
-public class ArbitrumBlockSuggesterTests
+public class SequencerBlockSuggesterTests
 {
     private static readonly BlocksConfig BlocksConfig = new() { BuildBlocksOnMainState = true };
 
@@ -24,7 +24,7 @@ public class ArbitrumBlockSuggesterTests
         IBlockTree blockTree = Build.A.BlockTree().WithBlocks(genesis).TestObject;
         FakeBlockProducerRunner runner = new();
 
-        using ArbitrumBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
+        using ArbitrumSequencerBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
 
         Block block = Build.A.Block.WithParent(genesis).TestObject;
         runner.RaiseBlockProduced(block);
@@ -39,7 +39,7 @@ public class ArbitrumBlockSuggesterTests
         IBlockTree blockTree = Build.A.BlockTree().WithBlocks(genesis).TestObject;
         FakeBlockProducerRunner runner = new();
 
-        using ArbitrumBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
+        using ArbitrumSequencerBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
 
         long headBefore = blockTree.Head!.Number;
 
@@ -57,7 +57,7 @@ public class ArbitrumBlockSuggesterTests
         IBlockTree blockTree = Build.A.BlockTree().WithBlocks(genesis).TestObject;
         FakeBlockProducerRunner runner = new();
 
-        using ArbitrumBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
+        using ArbitrumSequencerBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
 
         suggester.DeferNextBlock();
         Block block1 = Build.A.Block.WithParent(genesis).TestObject;
@@ -78,7 +78,7 @@ public class ArbitrumBlockSuggesterTests
         IBlockTree blockTree = Build.A.BlockTree().WithBlocks(genesis).TestObject;
         FakeBlockProducerRunner runner = new();
 
-        using ArbitrumBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
+        using ArbitrumSequencerBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
 
         suggester.DeferNextBlock();
         suggester.ResetDefer();

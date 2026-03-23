@@ -28,7 +28,7 @@ public sealed class ArbitrumBlockFactory(
     IManualBlockProductionTrigger trigger,
     IBlocksConfig blocksConfig,
     IArbitrumConfig arbitrumConfig,
-    ArbitrumBlockSuggester blockSuggester,
+    IArbitrumSequencerBlockSuggester blockSuggester,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockFactory>();

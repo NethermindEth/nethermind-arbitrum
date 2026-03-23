@@ -298,8 +298,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<ArbitrumBlockFactory>()
-            .AddSingleton<ArbitrumBlockSuggester>()
-            .AddSingleton<IProducedBlockSuggester>(c => c.Resolve<ArbitrumBlockSuggester>())
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
@@ -316,7 +314,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
 
         builder
-            .AddModule(new SequencerModule(arbitrumConfig));
+            .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -335,7 +333,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             });
     }
 
-    private class SequencerModule(IArbitrumConfig arbitrumConfig) : Module
+    private class ArbitrumSequencerModule(IArbitrumConfig arbitrumConfig) : Module
     {
         protected override void Load(ContainerBuilder builder)
         {
@@ -357,9 +355,16 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                     timeProvider: TimeProvider.System));
 
             if (arbitrumConfig.SequencerEnabled)
-                builder.AddSingleton<IArbitrumSequencerEngine, ArbitrumSequencerEngine>();
+                builder
+                    .AddSingleton<IArbitrumSequencerEngine, ArbitrumSequencerEngine>()
+                    .AddSingleton<ArbitrumSequencerBlockSuggester>()
+                    .AddSingleton<IArbitrumSequencerBlockSuggester>(c => c.Resolve<ArbitrumSequencerBlockSuggester>())
+                    .AddSingleton<IProducedBlockSuggester>(c => c.Resolve<ArbitrumSequencerBlockSuggester>());
             else
-                builder.AddSingleton<IArbitrumSequencerEngine, DisabledArbitrumSequencerEngine>();
+                builder
+                    .AddSingleton<IArbitrumSequencerEngine, DisabledArbitrumSequencerEngine>()
+                    .AddSingleton<DisabledArbitrumSequencerBlockSuggester>()
+                    .AddSingleton<IArbitrumSequencerBlockSuggester>(c => c.Resolve<DisabledArbitrumSequencerBlockSuggester>());
 
             if (arbitrumConfig.TimeboostEnabled)
                 builder

@@ -170,7 +170,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        Container.Resolve<ArbitrumBlockSuggester>();
+        Container.Resolve<ArbitrumSequencerBlockSuggester>();
         BlockProducerRunner.Start();
 
         RegisterTransactionDecoders();
@@ -259,7 +259,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<ArbitrumInitializeStylusNative>()
             .AddSingleton<ArbitrumInitializeWasmDb>()
             .AddSingleton<IManualBlockProductionTrigger>(BlockProductionTrigger)
-            .AddSingleton<ArbitrumBlockSuggester>(ctx => new ArbitrumBlockSuggester(
+            .AddSingleton<ArbitrumSequencerBlockSuggester>(ctx => new ArbitrumSequencerBlockSuggester(
                 ctx.Resolve<IBlockTree>(),
                 BlockProducerRunner,
                 ctx.Resolve<IBlocksConfig>(),
