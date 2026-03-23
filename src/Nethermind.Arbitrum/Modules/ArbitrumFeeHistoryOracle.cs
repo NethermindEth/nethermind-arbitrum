@@ -78,6 +78,10 @@ public class ArbitrumFeeHistoryOracle(
         ArrayPoolList<UInt256> baseFeePerBlobGas = new(blockCount + 1, blockCount + 1);
         ArrayPoolList<double> blobGasUsedRatios = new(blockCount, blockCount);
 
+        long baseFeeLookup = newestBlockNumber + 1;
+        if (newestBlockNumber == latestBlockNumber)
+            baseFeeLookup = newestBlockNumber;
+
         ulong prevTimestamp = 0;
         ulong timeSinceLastTimeChange = 0;
         ulong currentTimestampGasUsed = 0;
@@ -89,9 +93,9 @@ public class ArbitrumFeeHistoryOracle(
                 prevTimestamp = prevHeader.Timestamp;
         }
 
-        for (int i = 0; i < blockCount; i++)
+        for (long blockNum = oldestBlock; blockNum <= baseFeeLookup; blockNum++)
         {
-            long blockNum = oldestBlock + i;
+            int i = (int)(blockNum - oldestBlock);
             BlockHeader? header = blockTree.FindHeader(blockNum);
             if (header is null)
                 break;
@@ -128,16 +132,10 @@ public class ArbitrumFeeHistoryOracle(
             gasUsedRatios[i] = fullnessAnalogue;
         }
 
-        if (newestBlockNumber < latestBlockNumber)
-        {
-            BlockHeader? nextHeader = blockTree.FindHeader(newestBlockNumber + 1);
-            baseFees[blockCount] = nextHeader?.BaseFeePerGas ?? baseFees[blockCount - 1];
-        }
-        else
+        if (newestBlockNumber == latestBlockNumber)
         {
             baseFees[blockCount] = baseFees[blockCount - 1];
         }
-        baseFeePerBlobGas[blockCount] = UInt256.Zero;
 
         return ResultWrapper<FeeHistoryResults>.Success(
             new FeeHistoryResults(oldestBlock, baseFees, gasUsedRatios, baseFeePerBlobGas, blobGasUsedRatios, rewards));
