@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Test")]
 
@@ -244,6 +244,11 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         return true;
     }
 
+    public static bool TryConsumeStateAndRegularGas(ref ArbitrumGasPolicy gas, long stateGasCost, long regularGasCost)
+    {
+        return UpdateGasWithResource(ref gas, regularGasCost, ResourceKind.StorageGrowth);
+    }
+
     /// <summary>
     /// Refunds gas by adding the specified amount back to the available gas.
     /// </summary>
@@ -271,10 +276,12 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Tracks as StorageGrowth for slot creation, StorageAccess for modification.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ConsumeStorageWrite(ref ArbitrumGasPolicy gas, bool isSlotCreation, IReleaseSpec spec)
+    public static bool ConsumeStorageWrite<TEip8037, TSlotCreate>(ref ArbitrumGasPolicy gas, IReleaseSpec spec)
+        where TEip8037: struct, IFlag
+        where TSlotCreate : struct, IFlag
     {
-        long cost = isSlotCreation ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
-        return UpdateGasWithResource(ref gas, cost, isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess);
+        long cost = TSlotCreate.IsActive ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
+        return UpdateGasWithResource(ref gas, cost, TSlotCreate.IsActive ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess);
     }
 
     /// <summary>
@@ -295,7 +302,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Tracks as StorageGrowth resource.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ConsumeNewAccountCreation(ref ArbitrumGasPolicy gas)
+    public static bool ConsumeNewAccountCreation<TEip8037>(ref ArbitrumGasPolicy gas) where TEip8037 : struct, IFlag
     {
         if (!EthereumGasPolicy.ConsumeStateGas(ref gas._ethereum, GasCostOf.NewAccount))
             return false;

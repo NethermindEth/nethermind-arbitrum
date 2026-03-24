@@ -168,7 +168,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
+        ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OnFlag>(ref gas, Cancun.Instance);
 
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.SSet);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.SSet);
@@ -179,7 +179,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
+        ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OffFlag>(ref gas, Cancun.Instance);
 
         long expectedCost = Cancun.Instance.GasCosts.SStoreResetCost;
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
@@ -202,7 +202,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeNewAccountCreation(ref gas);
+        ArbitrumGasPolicy.ConsumeNewAccountCreation<OffFlag>(ref gas);
 
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.NewAccount);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.NewAccount);
@@ -598,7 +598,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100);
 
-        bool result = ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
+        bool result = ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OnFlag>(ref gas, Cancun.Instance);
 
         result.Should().BeFalse();
     }
@@ -611,7 +611,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
         // Simulate storage write (slot clearing triggers refund calculation at tx end)
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
+        ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OffFlag>(ref gas, Cancun.Instance);
 
         // At the transaction end, apply a calculated refund (EIP-3529: SstoreClearsScheduleRefundEIP3529 = 4800)
         const ulong expectedRefund = 4800;
