@@ -17,6 +17,8 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -24,12 +26,14 @@ using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Arbitrum.Processing;
+using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Consensus.Validators;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
@@ -41,16 +45,17 @@ using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
+using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
+using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum;
 
-public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : IConsensusPlugin
+public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IArbitrumConfig arbitrumConfig) : IConsensusPlugin
 {
     private ArbitrumNethermindApi _api = null!;
     private IJsonRpcConfig _jsonRpcConfig = null!;
@@ -60,7 +65,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
     public string Description => "Nethermind Arbitrum client";
     public string Author => "Nethermind";
     public bool Enabled => chainSpec.SealEngineType == ArbitrumChainSpecEngineParameters.ArbitrumEngineName;
-    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig);
+    public IModule Module => new ArbitrumModule(chainSpec, blocksConfig, arbitrumConfig);
     public Type ApiType => typeof(ArbitrumNethermindApi);
 
     public Task Init(INethermindApi api)
@@ -96,6 +101,12 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig) : I
             return Task.CompletedTask;
 
         IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
+
+        if (arbitrumConfig.SequencerEnabled)
+        {
+            SequencerState sequencerState = _api.Context.Resolve<SequencerState>();
+            sequencerState.Activate();
+        }
 
         // Wrap engine with comparison decorator if verification is enabled
         IVerifyBlockHashConfig verifyBlockHashConfig = _api.Config<IVerifyBlockHashConfig>();
@@ -219,7 +230,7 @@ public class ArbitrumGasPolicyLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : Module
+public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IArbitrumConfig arbitrumConfig) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
@@ -236,6 +247,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
             .AddStep(typeof(ArbitrumInitializeStylusNative))
+            .AddStep(typeof(StartExpressLaneTracker))
 
             .AddDatabase(WasmDb.DbName)
             .AddDecorator<IRocksDbConfigFactory, ArbitrumDbConfigFactory>()
@@ -250,7 +262,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
         }
 
         builder
-
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
             .AddScoped<IWasmStore, IWasmDb, IStylusTargetConfig>((db, config) => new WasmStore(db, config, cacheTag: 1))
@@ -286,11 +297,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
+            .AddSingleton<ArbitrumBlockFactory>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
 
             // Rpcs
+            .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
 
@@ -298,6 +312,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
             .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
 
             .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
+
+        builder
+            .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -314,5 +331,52 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig) : M
                     ctx.Resolve<IWorldState>(),
                     ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
             });
+    }
+
+    private class ArbitrumSequencerModule(IArbitrumConfig arbitrumConfig) : Module
+    {
+        protected override void Load(ContainerBuilder builder)
+        {
+            if (arbitrumConfig.TimeboostEnabled && string.IsNullOrWhiteSpace(arbitrumConfig.TimeboostAuctionContractAddress))
+                throw new InvalidOperationException(
+                    "Timeboost is enabled but TimeboostAuctionContractAddress is not configured. " +
+                    "Please set Arbitrum.TimeboostAuctionContractAddress or disable Timeboost.");
+
+            builder
+                .AddSingleton<SequencerState>()
+                .AddSingleton<DelayedMessageQueue>()
+                .AddSingleton<TransactionQueue>(c => new TransactionQueue(
+                    c.Resolve<IArbitrumConfig>(),
+                    c.Resolve<IExpressLaneTracker>(),
+                    timeProvider: TimeProvider.System))
+                .AddSingleton<IRoundTimingInfo>(c => new RoundTimingInfo(
+                    c.Resolve<IArbitrumConfig>(),
+                    offset: DateTime.UnixEpoch,
+                    timeProvider: TimeProvider.System));
+
+            if (arbitrumConfig.SequencerEnabled)
+                builder
+                    .AddSingleton<IArbitrumSequencerEngine, ArbitrumSequencerEngine>()
+                    .AddSingleton<ArbitrumSequencerBlockSuggester>()
+                    .AddSingleton<IArbitrumSequencerBlockSuggester>(c => c.Resolve<ArbitrumSequencerBlockSuggester>())
+                    .AddSingleton<IProducedBlockSuggester>(c => c.Resolve<ArbitrumSequencerBlockSuggester>());
+            else
+                builder
+                    .AddSingleton<IArbitrumSequencerEngine, DisabledArbitrumSequencerEngine>()
+                    .AddSingleton<DisabledArbitrumSequencerBlockSuggester>()
+                    .AddSingleton<IArbitrumSequencerBlockSuggester>(c => c.Resolve<DisabledArbitrumSequencerBlockSuggester>());
+
+            if (arbitrumConfig.TimeboostEnabled)
+                builder
+                    .AddSingleton<IAuctionContract, AuctionContract>()
+                    .AddSingleton<IExpressLaneTracker, ExpressLaneTracker>()
+                    .AddSingleton<IAuctionResolutionQueue, AuctionResolutionQueue>()
+                    .AddSingleton<IExpressLaneService, ExpressLaneService>();
+            else
+                builder
+                    .AddSingleton<IExpressLaneTracker, DisabledExpressLaneTracker>()
+                    .AddSingleton<IAuctionResolutionQueue, DisabledAuctionResolutionQueue>()
+                    .AddSingleton<IExpressLaneService, DisabledExpressLaneService>();
+        }
     }
 }
