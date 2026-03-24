@@ -2,13 +2,10 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
-using Nethermind.Arbitrum.Sequencer;
-using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Core.Specs;
-using Nethermind.Crypto;
 using Nethermind.Db.LogIndex;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
@@ -42,12 +39,8 @@ public class ArbitrumEthModuleFactory(
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
     IBlocksConfig blocksConfig,
-    ILogIndexConfig logIndexConfig,
-    ArbitrumChainSpecEngineParameters chainSpecParams,
-    IEthereumEcdsa ecdsa,
-    TransactionQueue transactionQueue,
-    SequencerState sequencerState,
-    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IEthRpcModule>
+    ILogIndexConfig? logIndexConfig,
+    ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
 {
     public override IEthRpcModule Create()
     {
@@ -69,10 +62,6 @@ public class ArbitrumEthModuleFactory(
             forkInfo,
             logIndexConfig,
             blocksConfig.SecondsPerSlot,
-            chainSpecParams,
-            transactionQueue,
-            sequencerState,
-            ecdsa,
-            arbitrumConfig);
+            chainSpecParams);
     }
 }

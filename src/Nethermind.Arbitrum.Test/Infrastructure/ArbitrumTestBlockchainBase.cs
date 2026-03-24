@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Find;
@@ -170,7 +169,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        Container.Resolve<ArbitrumSequencerBlockSuggester>();
+        _ = new NonProcessingProducedBlockSuggester(BlockTree, BlockProducerRunner);
         BlockProducerRunner.Start();
 
         RegisterTransactionDecoders();
@@ -249,7 +248,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return builder
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
-            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>(), configProvider.GetConfig<IArbitrumConfig>()))
+            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>()))
             .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
@@ -257,13 +256,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<IUnclesValidator>(Always.Valid)
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
             .AddSingleton<ArbitrumInitializeStylusNative>()
-            .AddSingleton<ArbitrumInitializeWasmDb>()
-            .AddSingleton<IManualBlockProductionTrigger>(BlockProductionTrigger)
-            .AddSingleton<ArbitrumSequencerBlockSuggester>(ctx => new ArbitrumSequencerBlockSuggester(
-                ctx.Resolve<IBlockTree>(),
-                BlockProducerRunner,
-                ctx.Resolve<IBlocksConfig>(),
-                NullLogManager.Instance));
+            .AddSingleton<ArbitrumInitializeWasmDb>();
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)

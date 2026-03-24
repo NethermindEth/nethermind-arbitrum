@@ -323,36 +323,27 @@ namespace Nethermind.Arbitrum.Execution
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
             ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
-            bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
-            bool commit = _currentOpts.HasFlag(ExecutionOptions.Commit) ||
-                          (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && !_currentSpec!.IsEip658Enabled);
-
-            // For CallAndRestore (restore=true): always restore the snapshot to undo state changes,
-            // matching the base class behavior that checks restore BEFORE commit.
-            if (restore)
+            // We don't restore snapshot for failures during preprocessing
+            if (!result && !isPreProcessing)
             {
-                WorldState.Restore(snapshot);
-                WorldState.Commit(_currentSpec!, commitRoots: false);
-            }
-            else if (!result && !isPreProcessing)
-            {
-                // Restore snapshot for failures during normal execution (not preprocessing)
                 WorldState.Restore(snapshot);
                 TxExecContext.Reset();
 
                 if (_logger.IsTrace)
                     _logger.Trace($"Reverted state for failed Arbitrum transaction {tx.Hash}: {result.ErrorDescription}");
-
-                if (commit)
-                {
-                    WorldState.Commit(_currentSpec!, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
-                        commitRoots: !_currentSpec!.IsEip658Enabled);
-                }
             }
-            else if (commit)
+
+            bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
+            bool commit = _currentOpts.HasFlag(ExecutionOptions.Commit) ||
+                          (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && !_currentSpec!.IsEip658Enabled);
+            if (commit)
             {
                 WorldState.Commit(_currentSpec!, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
                     commitRoots: !_currentSpec!.IsEip658Enabled);
+            }
+            else if (restore)
+            {
+                WorldState.Reset(resetBlockChanges: false);
             }
 
             if (tracer.IsTracingReceipt)

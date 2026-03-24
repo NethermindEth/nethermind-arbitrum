@@ -14,12 +14,12 @@ namespace Nethermind.Arbitrum.Execution;
 /// </summary>
 public class CachedL1PriceData(ILogManager logManager) : IClearableCache
 {
-    private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
-    private readonly Lock _lock = new();
-
     public ulong StartOfL1PriceDataCache { get; private set; }
     public ulong EndOfL1PriceDataCache { get; private set; }
     public List<L1PriceDataOfMsg> MsgToL1PriceData { get; private set; } = [];
+
+    private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
+    private readonly Lock _lock = new();
 
     public void MarkFeedStart(ulong to)
     {
@@ -94,19 +94,19 @@ public class CachedL1PriceData(ILogManager logManager) : IClearableCache
             {
                 if (msgIndex > EndOfL1PriceDataCache + 1)
                 {
-                    if (_logger.IsDebug)
-                        _logger.Debug("Message position higher then current end of l1 price data cache, resetting cache to this message");
+                    if (_logger.IsInfo)
+                        _logger.Info("Message position higher then current end of l1 price data cache, resetting cache to this message");
                     ResetCache();
                 }
                 else if (msgIndex < StartOfL1PriceDataCache)
                 {
-                    if (_logger.IsDebug)
-                        _logger.Debug("Message position lower than start of l1 price data cache, ignoring");
+                    if (_logger.IsInfo)
+                        _logger.Info("Message position lower than start of l1 price data cache, ignoring");
                 }
                 else
                 {
-                    if (_logger.IsDebug)
-                        _logger.Debug("Message position already seen in l1 price data cache, ignoring");
+                    if (_logger.IsInfo)
+                        _logger.Info("Message position already seen in l1 price data cache, ignoring");
                 }
             }
             else

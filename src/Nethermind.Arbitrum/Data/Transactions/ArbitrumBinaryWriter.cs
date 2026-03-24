@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Buffers.Binary;
-using Nethermind.Int256;
-
 namespace Nethermind.Arbitrum.Data.Transactions;
 
-public static class ArbitrumBinaryWriter
+public class ArbitrumBinaryWriter
 {
     public static void WriteUInt24BigEndian(Span<byte> destination, uint value)
     {
@@ -27,13 +24,5 @@ public static class ArbitrumBinaryWriter
             throw new ArgumentException("Destination span is too small to write a boolean value.");
 
         destination[0] = value ? (byte)1 : (byte)0;
-    }
-
-    public static void WriteByteString(BinaryWriter writer, byte[] data)
-    {
-        Span<byte> lengthBytes = stackalloc byte[8];
-        BinaryPrimitives.WriteUInt64BigEndian(lengthBytes, (ulong)data.Length);
-        writer.Write(lengthBytes);
-        writer.Write(data);
     }
 }

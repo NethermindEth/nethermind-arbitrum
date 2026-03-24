@@ -15,16 +15,14 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class FullChainSimulationChainSpecProvider
 {
-    public const ulong ChainId = 0x64aba; // ChainID of full chain simulation 412346
-
     public static ChainSpec Create(ulong initialArbOsVersion = 32, bool allowDebugPrecompiles = true)
     {
         ChainSpec chainSpec = new()
         {
             Name = "Arbitrum Full Chain Simulation",
             DataDir = "arbitrum-local",
-            NetworkId = ChainId,
-            ChainId = ChainId,
+            NetworkId = 0x64aba,
+            ChainId = 0x64aba,
             Bootnodes = [],
             GenesisStateUnavailable = false,
             SealEngineType = "Arbitrum",

@@ -2,370 +2,487 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Moq;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Blockchain;
+using Nethermind.Config;
+using Nethermind.Consensus.Processing;
+using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Arbitrum.Execution.Stateless;
 
-namespace Nethermind.Arbitrum.Test.Rpc;
-
-[TestFixture]
-public class ArbitrumRpcModuleTests
+namespace Nethermind.Arbitrum.Test.Rpc
 {
-    [Test]
-    public async Task ResultAtMessageIndex_BlockNumberOverflow_ReturnsFailResult()
+    [TestFixture]
+    public abstract class ArbitrumRpcModuleTests
     {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ulong messageIndex = ulong.MaxValue - 50UL;
+        private const ulong GenesisBlockNum = 1000UL;
 
-        ResultWrapper<MessageResult> result = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
-
-        result.Should().RequestFail(ArbitrumRpcErrors.Overflow);
-    }
-
-    [Test]
-    public async Task ResultAtMessageIndex_BlockNumberExceedsMaxValue_ReturnsFailResult()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ulong messageIndex = ulong.MaxValue - 5000UL;
-
-        ResultWrapper<MessageResult> result = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
-
-        result.Should().RequestFail(ArbitrumRpcErrors.Overflow);
-    }
-
-    [Test]
-    public async Task ResultAtMessageIndex_BlockNotFound_ReturnsFailResult()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 32)
-            .Build();
-
-        ResultWrapper<MessageResult> result = await chain.ArbitrumRpcModule.ResultAtMessageIndex(99999);
-
-        long expectedBlockNumber = (long)(chain.SpecHelper.GenesisBlockNum + 99999);
-        result.Should().RequestFail(ArbitrumRpcErrors.BlockNotFound(expectedBlockNumber));
-    }
-
-    [Test]
-    public async Task ResultAtMessageIndex_HasBlock_ReturnsCorrectResult()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 32)
-            .Build();
-
-        await chain.Digest(new TestL2Transactions(92, TestItem.AddressA, Build.A.Transaction.SignedAndResolved().TestObject));
-
-        ResultWrapper<MessageResult> result = await chain.ArbitrumRpcModule.ResultAtMessageIndex(1);
-
-        result.Should().RequestSucceed();
-        result.Data.BlockHash.Should().Be(chain.BlockTree.Head!.Hash!);
-        result.Data.SendRoot.Should().NotBeNull();
-    }
-
-    [Test]
-    public async Task ResultAtMessageIndex_BlockFinalized_ReturnsCorrectResult()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), 8)
-            .Build();
-
-        ResultWrapper<ulong> headResult = await chain.ArbitrumRpcModule.HeadMessageIndex();
-        headResult.Should().RequestSucceed();
-        headResult.Data.Should().Be(8UL);
-
-        Hash256 lastBlockHash = chain.BlockTree.Head!.Hash!;
-
-        SetFinalityDataParams finalityParams = new()
+        private ArbitrumBlockTreeInitializer _initializer = null!;
+        private IBlocksConfig _blockConfig = null!;
+        private Mock<IBlockTree> _blockTreeMock = null!;
+        private Mock<IManualBlockProductionTrigger> _triggerMock = null!;
+        private LimboLogs _logManager = null!;
+        private ChainSpec _chainSpec = null!;
+        private Mock<IArbitrumSpecHelper> _specHelper = null!;
+        private IArbitrumRpcModule _rpcModule = null!;
+        private Mock<IBlockProcessingQueue> _blockProcessingQueue = null!;
+        private IArbitrumConfig _arbitrumConfig = null!;
+        private Mock<IMainProcessingContext> _mainProcessingContextMock = null!;
+        private ISpecProvider _specProvider = null!;
+        private Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory> _witnessGeneratingBlockProcessingEnvFactory = null!;
+        [SetUp]
+        public void Setup()
         {
-            SafeFinalityData = new RpcFinalityData { MsgIdx = 8UL, BlockHash = lastBlockHash },
-            FinalizedFinalityData = new RpcFinalityData { MsgIdx = 8UL, BlockHash = lastBlockHash }
-        };
+            _mainProcessingContextMock = new Mock<IMainProcessingContext>();
+            _blockConfig = new BlocksConfig();
+            _blockConfig.BuildBlocksOnMainState = true;
+            _blockTreeMock = new Mock<IBlockTree>();
+            _triggerMock = new Mock<IManualBlockProductionTrigger>();
+            _logManager = LimboLogs.Instance;
+            _chainSpec = FullChainSimulationChainSpecProvider.Create();
+            _specHelper = new Mock<IArbitrumSpecHelper>();
+            _blockProcessingQueue = new Mock<IBlockProcessingQueue>();
+            _specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(_chainSpec);
+            _witnessGeneratingBlockProcessingEnvFactory = new Mock<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
 
-        chain.ArbitrumRpcModule.SetFinalityData(finalityParams).Should().RequestSucceed();
-        chain.ArbitrumRpcModule.MarkFeedStart(8UL).Should().RequestSucceed();
+            ArbitrumChainSpecEngineParameters parameters = _chainSpec.EngineChainSpecParametersProvider
+                .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+            IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+            ArbitrumGenesisStateInitializer stateInitializer = new(
+                _chainSpec,
+                specHelper,
+                _logManager);
 
-        ResultWrapper<MessageResult> resultAtIndex = await chain.ArbitrumRpcModule.ResultAtMessageIndex(7UL);
-        resultAtIndex.Should().RequestSucceed();
-        resultAtIndex.Data.BlockHash.Should().NotBeNull();
-        resultAtIndex.Data.SendRoot.Should().NotBeNull();
-    }
+            _initializer = new ArbitrumBlockTreeInitializer(_specProvider,
+                _mainProcessingContextMock.Object,
+                _blockTreeMock.Object,
+                _blockConfig,
+                stateInitializer,
+                _logManager);
 
-    [Test]
-    public async Task MessageIndexToBlockNumber_Always_ReturnsCorrectBlockNumber()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            _specHelper.SetupGet(x => x.GenesisBlockNum).Returns(GenesisBlockNum);
 
-        ResultWrapper<long> result = await chain.ArbitrumRpcModule.MessageIndexToBlockNumber(0);
+            CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-        result.Should().RequestSucceed();
-        result.Data.Should().Be((long)chain.SpecHelper.GenesisBlockNum);
-    }
+            _arbitrumConfig = new ArbitrumConfig();
 
-    [Test]
-    public async Task BlockNumberToMessageIndex_Always_ReturnsCorrectMessageIndex()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        ulong genesisBlockNum = chain.SpecHelper.GenesisBlockNum;
+            ArbitrumExecutionEngine engine = new(
+                _initializer,
+                _blockTreeMock.Object,
+                _triggerMock.Object,
+                _chainSpec,
+                _specHelper.Object,
+                _logManager,
+                cachedL1PriceData,
+                _blockProcessingQueue.Object,
+                _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
+                _blockConfig);
 
-        ResultWrapper<ulong> result = await chain.ArbitrumRpcModule.BlockNumberToMessageIndex(genesisBlockNum);
+            _rpcModule = new ArbitrumRpcModule(engine);
+        }
 
-        result.Should().RequestSucceed();
-        result.Data.Should().Be(0UL);
-    }
-
-    [Test]
-    public async Task BlockNumberToMessageIndex_BlockNumberIsLowerThanGenesis_Fails()
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
-        chainSpec.EngineChainSpecParametersProvider
-            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>()
-            .GenesisBlockNum = 10;
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(chainSpec: chainSpec);
-
-        ResultWrapper<ulong> result = await chain.ArbitrumRpcModule.BlockNumberToMessageIndex(0);
-
-        result.Should().RequestFail("blockNumber 0 < genesis 10");
-    }
-
-    [Test]
-    public async Task HeadMessageIndex_AfterDigestingBlocks_ReturnsCorrectIndex()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 32)
-            .Build();
-
-        await chain.Digest(new TestL2Transactions(92, TestItem.AddressA, Build.A.Transaction.SignedAndResolved().TestObject));
-
-        ResultWrapper<ulong> result = await chain.ArbitrumRpcModule.HeadMessageIndex();
-
-        result.Should().RequestSucceed();
-        result.Data.Should().Be(1UL);
-    }
-
-    [Test]
-    public async Task HeadMessageIndex_BeforeArbitrumGenesisDigested_Fails()
-    {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
-        chainSpec.EngineChainSpecParametersProvider
-            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>()
-            .GenesisBlockNum = 10;
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithChainSpec(chainSpec)
-            .Build();
-
-        ResultWrapper<ulong> result = await chain.ArbitrumRpcModule.HeadMessageIndex();
-
-        result.Should().RequestFail("Failed to get latest header");
-    }
-
-    [Test]
-    public void Synced_WithSyncedState_ReturnsTrue()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-
-        ResultWrapper<bool> result = chain.ArbitrumRpcModule.Synced();
-
-        result.Should().RequestSucceed();
-    }
-
-    [Test]
-    public void FullSyncProgressMap_EmptyChain_ReturnsZeroes()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 32)
-            .Build();
-
-        ResultWrapper<Dictionary<string, object>> result = chain.ArbitrumRpcModule.FullSyncProgressMap();
-
-        result.Should().RequestSucceed();
-        result.Data.Should().BeEquivalentTo(new Dictionary<string, object>
+        [Test]
+        public async Task ResultAtMessageIndex_BlockNumberOverflow_ReturnsFailResult()
         {
-            ["consensusMaxMessageCount"] = 0UL,
-            ["executionSyncTarget"] = 0UL,
-            ["blockNum"] = 0UL,
-            ["messageOfLastBlock"] = 0UL,
-        });
-    }
+            ulong genesis = 100UL;
+            ulong messageIndex = ulong.MaxValue - 50UL;
 
-    [Test]
-    public void FullSyncProgressMap_AfterSetConsensusSyncData_ReflectsConsensusState()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 32)
-            .Build();
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesis);
 
-        chain.ArbitrumRpcModule.SetConsensusSyncData(new SetConsensusSyncDataParams
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.Overflow));
+            });
+        }
+
+        [Test]
+        public async Task ResultAtMessageIndex_BlockNumberExceedsMaxValue_ReturnsFailResult()
         {
-            Synced = true,
-            MaxMessageCount = 42,
-            SyncProgressMap = new Dictionary<string, object> { ["someKey"] = "someValue" },
-            UpdatedAt = DateTime.UtcNow,
-        }).Should().RequestSucceed();
+            ulong messageIndex = ulong.MaxValue - 5000UL;
 
-        ResultWrapper<Dictionary<string, object>> result = chain.ArbitrumRpcModule.FullSyncProgressMap();
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
 
-        result.Should().RequestSucceed();
-        result.Data.Should().BeEquivalentTo(new Dictionary<string, object>
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.Overflow));
+            });
+        }
+
+        [Test]
+        public async Task ResultAtMessageIndex_BlockNotFound_ReturnsFailResult()
         {
-            ["someKey"] = "someValue",
-            ["consensusMaxMessageCount"] = 42UL,
-            ["executionSyncTarget"] = 42UL,
-            ["blockNum"] = 0UL,
-            ["messageOfLastBlock"] = 0UL,
-        });
-    }
+            ulong messageIndex = 10000UL;
+            ulong blockNumber = 11000UL;
 
-    [Test]
-    public void FullSyncProgressMap_AfterSetFinalityData_ReflectsBlockState()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(new FullChainSimulationRecordingFile("./Recordings/1__arbos32_basefee92.jsonl"), 3)
-            .Build();
+            _blockTreeMock.Setup(b => b.FindHeader((long)blockNumber, BlockTreeLookupOptions.None))
+                .Returns((BlockHeader?)null);
 
-        Hash256 lastBlockHash = chain.BlockTree.Head!.Hash!;
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
 
-        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound((long)blockNumber)));
+            });
+        }
+
+        [Test]
+        public async Task ResultAtMessageIndex_HasBlock_ReturnsCorrectResult()
         {
-            SafeFinalityData = new RpcFinalityData { MsgIdx = 3UL, BlockHash = lastBlockHash },
-            FinalizedFinalityData = new RpcFinalityData { MsgIdx = 3UL, BlockHash = lastBlockHash },
-        }).Should().RequestSucceed();
+            ulong messageIndex = 10000UL;
+            ulong blockNumber = messageIndex + 1000UL;
+            var expectedBlockHash = TestItem.KeccakA;
+            var expectedSendRoot = TestItem.KeccakB;
 
-        ResultWrapper<Dictionary<string, object>> result = chain.ArbitrumRpcModule.FullSyncProgressMap();
+            // Create MixHash with correct values
+            var mixHashBytes = new byte[32];
+            BitConverter.GetBytes(789UL).CopyTo(mixHashBytes, 0); // SendCount
+            BitConverter.GetBytes(456UL).CopyTo(mixHashBytes, 8); // L1BlockNumber
+            BitConverter.GetBytes(123UL).CopyTo(mixHashBytes, 16); // ArbOSFormatVersion
 
-        result.Should().RequestSucceed();
-        result.Data.Should().BeEquivalentTo(new Dictionary<string, object>
+            var header = Build.A.BlockHeader
+                .WithNumber((long)blockNumber)
+                .WithHash(expectedBlockHash)
+                .WithExtraData(expectedSendRoot.Bytes.ToArray())
+                .WithDifficulty(UInt256.One)
+                .TestObject;
+            header.BaseFeePerGas = UInt256.One;
+
+            _blockTreeMock.Setup(x => x.FindHeader((long)blockNumber, BlockTreeLookupOptions.RequireCanonical))
+                .Returns(header);
+
+            var result = await _rpcModule.ResultAtMessageIndex(messageIndex);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data.BlockHash, Is.EqualTo(expectedBlockHash));
+                Assert.That(result.Data.SendRoot, Is.EqualTo(expectedSendRoot));
+            });
+        }
+
+        [Test]
+        public async Task MessageIndexToBlockNumber_Always_ReturnsCorrectBlockNumber()
         {
-            ["consensusMaxMessageCount"] = 0UL,
-            ["executionSyncTarget"] = 0UL,
-            ["blockNum"] = 3UL,
-            ["messageOfLastBlock"] = 3UL,
-        });
-    }
+            ulong messageIndex = 500UL;
+            ulong genesisBlockNum = 1000UL;
 
-    [Test]
-    public async Task ArbOSVersionForMessageIndex_WhenMessageIndexCausesOverflow_ReturnsFailResult()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-        ResultWrapper<ulong> result = await chain.ArbitrumRpcModule.ArbOSVersionForMessageIndex(ulong.MaxValue);
+            var result = await _rpcModule.MessageIndexToBlockNumber(messageIndex);
 
-        result.Should().RequestFail(ArbitrumRpcErrors.Overflow);
-    }
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(genesisBlockNum + messageIndex));
+            });
+        }
 
-    [Test]
-    public async Task ArbOSVersionForMessageIndex_WhenBlockNotFound_ReturnsFailResult()
-    {
-        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 32)
-            .Build();
-
-        ResultWrapper<ulong> result = await chain.ArbitrumRpcModule.ArbOSVersionForMessageIndex(99999);
-
-        long expectedBlockNumber = (long)(chain.SpecHelper.GenesisBlockNum + 99999);
-        result.Should().RequestFail(ArbitrumRpcErrors.BlockNotFound(expectedBlockNumber));
-    }
-
-    [Test]
-    public void DigestInitMessage_IsNotInitialized_ProducesGenesisBlock()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
-
-        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
-
-        result.Data.Should().BeEquivalentTo(new MessageResult
+        [Test]
+        public async Task BlockNumberToMessageIndex_Always_ReturnsCorrectMessageIndex()
         {
-            BlockHash = new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"),
-            SendRoot = Hash256.Zero
-        });
-    }
+            ulong blockNumber = 50UL;
+            ulong genesisBlockNum = 10UL;
 
-    [Test]
-    public void DigestInitMessage_AlreadyInitialized_ReturnsGenesisResult()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-        // Produce genesis block
-        ResultWrapper<MessageResult> firstCallResult = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
-        // Call again with the same init message
-        ResultWrapper<MessageResult> secondCallResult = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - genesisBlockNum));
+            });
+        }
 
-        secondCallResult.Data.Should().BeEquivalentTo(new MessageResult
+        [Test]
+        public async Task BlockNumberToMessageIndex_BlockNumberIsLowerThanGenesis_Fails()
         {
-            BlockHash = new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"),
-            SendRoot = Hash256.Zero
-        });
-        firstCallResult.Should().BeEquivalentTo(secondCallResult);
-    }
+            ulong blockNumber = 9UL;
+            ulong genesisBlockNum = 10UL;
 
-    [Test]
-    public void DigestInitMessage_InvalidInitialL1BaseFee_ReturnsInvalidParamsError()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        DigestInitMessage initMessage = new(UInt256.Zero, FullChainSimulationInitMessage.GetSerializedChainConfigBase64Bytes());
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
 
-        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+            var result = await _rpcModule.BlockNumberToMessageIndex(blockNumber);
 
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
-    }
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+            });
+        }
 
-    [Test]
-    public async Task ArbOSVersionForMessageIndex_WhenBlockExists_ReturnsCorrectArbOSVersion()
-    {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
-        DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+        [Test]
+        public async Task HeadMessageIndex_Always_ReturnsHeadMessageIndex()
+        {
+            ulong blockNumber = 1UL;
 
-        chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+            Block genesis = Build.A.Block.Genesis.TestObject;
+            BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+            Block newBlock = Build.A.Block.WithParent(genesis).WithNumber((long)blockNumber).TestObject;
+            blockTree.SuggestBlock(newBlock);
+            blockTree.UpdateMainChain(newBlock);
 
-        TestL2Transactions message = new(
-            new UInt256(1000000000),
-            TestItem.AddressA,
-            Build.A.Transaction.SignedAndResolved().TestObject
-        );
+            CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-        await chain.Digest(message);
+            ArbitrumExecutionEngine engine = new(
+                _initializer,
+                blockTree,
+                _triggerMock.Object,
+                _chainSpec,
+                _specHelper.Object,
+                _logManager,
+                cachedL1PriceData,
+                _blockProcessingQueue.Object,
+                _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
+                _blockConfig);
 
-        ulong messageIndex = 1;
-        ResultWrapper<ulong> versionResult = await chain.ArbitrumRpcModule.ArbOSVersionForMessageIndex(messageIndex);
+            _rpcModule = new ArbitrumRpcModule(engine);
 
-        Assert.That(versionResult.Result.ResultType, Is.EqualTo(ResultType.Success));
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns((ulong)genesis.Number);
 
-        versionResult.Should().RequestSucceed();
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
 
-        ResultWrapper<MessageResult> blockResult = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
-        BlockHeader? header = chain.BlockTree.FindHeader(blockResult.Data.BlockHash);
-        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger());
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Success));
+                Assert.That(result.Data, Is.EqualTo(blockNumber - (ulong)genesis.Number));
+            });
+        }
 
-        versionResult.Data.Should().Be(headerInfo.ArbOSFormatVersion);
-    }
+        [Test]
+        public async Task HeadMessageIndex_HasNoBlocks_NoLatestHeaderFound()
+        {
+            BlockTree blockTree = Build.A.BlockTree().TestObject;
 
-    public static IEnumerable<TestCaseData> InvalidSerializedChainConfigCases()
-    {
-        yield return new TestCaseData<byte[]>(null!);
-        yield return new TestCaseData<byte[]>([]);
-        yield return new TestCaseData<byte[]>("?"u8.ToArray());
-    }
+            CachedL1PriceData cachedL1PriceData = new(_logManager);
 
-    [TestCaseSource(nameof(InvalidSerializedChainConfigCases))]
-    public void DigestInitMessage_InvalidSerializedChainConfig_ReturnsInvalidParamsError(byte[]? invalidSerializedChainConfig)
-    {
-        DigestInitMessage initMessage = new(UInt256.One, invalidSerializedChainConfig);
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            ArbitrumExecutionEngine engine = new(
+                _initializer,
+                blockTree,
+                _triggerMock.Object,
+                _chainSpec,
+                _specHelper.Object,
+                _logManager,
+                cachedL1PriceData,
+                _blockProcessingQueue.Object,
+                _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
+                _blockConfig);
 
-        ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+            _rpcModule = new ArbitrumRpcModule(engine);
 
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo("Failed to get latest header"));
+                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
+            });
+        }
+
+        [Test]
+        public async Task HeadMessageIndex_BlockNumberIsLowerThanGenesis_Fails()
+        {
+            ulong blockNumber = 1UL;
+            ulong genesisBlockNum = 10UL;
+
+            Block genesis = Build.A.Block.Genesis.TestObject;
+            BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
+            Block newBlock = Build.A.Block.WithParent(genesis).WithNumber((long)blockNumber).TestObject;
+            blockTree.SuggestBlock(newBlock);
+            blockTree.UpdateMainChain(newBlock);
+
+            CachedL1PriceData cachedL1PriceData = new(_logManager);
+
+            ArbitrumExecutionEngine engine = new(
+                _initializer,
+                blockTree,
+                _triggerMock.Object,
+                _chainSpec,
+                _specHelper.Object,
+                _logManager,
+                cachedL1PriceData,
+                _blockProcessingQueue.Object,
+                _arbitrumConfig,
+                _witnessGeneratingBlockProcessingEnvFactory.Object,
+                _blockConfig);
+
+            _rpcModule = new ArbitrumRpcModule(engine);
+
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(genesisBlockNum);
+
+            ResultWrapper<ulong> result = await _rpcModule.HeadMessageIndex();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+                Assert.That(result.Result.Error, Is.EqualTo($"blockNumber {blockNumber} < genesis {genesisBlockNum}"));
+                Assert.That(result.ErrorCode, Is.EqualTo(ErrorCodes.InternalError));
+            });
+        }
+
+        [Test]
+        public void DigestInitMessage_IsNotInitialized_ProducesGenesisBlock()
+        {
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+
+            ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            result.Data.Should().BeEquivalentTo(new MessageResult
+            {
+                BlockHash = new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"),
+                SendRoot = Hash256.Zero
+            });
+        }
+
+        [Test]
+        public void DigestInitMessage_AlreadyInitialized_ReturnsGenesisResult()
+        {
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+
+            // Produce genesis block
+            ResultWrapper<MessageResult> firstCallResult = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            // Call again with the same init message
+            ResultWrapper<MessageResult> secondCallResult = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            secondCallResult.Data.Should().BeEquivalentTo(new MessageResult
+            {
+                BlockHash = new Hash256("0xbd9f2163899efb7c39f945c9a7744b2c3ff12cfa00fe573dcb480a436c0803a8"),
+                SendRoot = Hash256.Zero
+            });
+            firstCallResult.Should().BeEquivalentTo(secondCallResult);
+        }
+
+        [Test]
+        public void DigestInitMessage_InvalidInitialL1BaseFee_ReturnsInvalidParamsError()
+        {
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            DigestInitMessage initMessage = new(UInt256.Zero, FullChainSimulationInitMessage.GetSerializedChainConfigBase64Bytes());
+
+            ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            result.Result.ResultType.Should().Be(ResultType.Failure);
+            result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
+        }
+
+        [Test]
+        public void Synced_WithSyncedState_ReturnsTrue()
+        {
+            ResultWrapper<bool> result = _rpcModule.Synced();
+
+            result.Should().NotBeNull();
+            result.Result.ResultType.Should().Be(ResultType.Success);
+        }
+
+        [Test]
+        public void FullSyncProgressMap_Always_ReturnsProgressMap()
+        {
+            ResultWrapper<Dictionary<string, object>> result = _rpcModule.FullSyncProgressMap();
+
+            result.Should().NotBeNull();
+            result.Result.ResultType.Should().Be(ResultType.Success);
+            result.Data.Should().NotBeNull();
+            result.Data.Should().ContainKey("consensusMaxMessageCount");
+            result.Data.Should().ContainKey("executionSyncTarget");
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenMessageIndexCausesOverflow_ReturnsFailResult()
+        {
+            ulong messageIndex = ulong.MaxValue;
+
+            _specHelper.Setup(c => c.GenesisBlockNum).Returns(GenesisBlockNum);
+
+            ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+            Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.Overflow));
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenBlockNotFound_ReturnsFailResult()
+        {
+            ulong messageIndex = 100UL;
+            long expectedBlockNumber = (long)(GenesisBlockNum + messageIndex);
+
+            _blockTreeMock.Setup(b => b.FindHeader(expectedBlockNumber, BlockTreeLookupOptions.RequireCanonical))
+                .Returns((BlockHeader?)null);
+
+            ResultWrapper<ulong> result = await _rpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(result.Result.ResultType, Is.EqualTo(ResultType.Failure));
+            Assert.That(result.Result.Error, Does.Contain(ArbitrumRpcErrors.BlockNotFound(expectedBlockNumber)));
+        }
+
+        [Test]
+        public async Task ArbOSVersionForMessageIndex_WhenBlockExists_ReturnsCorrectArbOSVersion()
+        {
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+            DigestInitMessage initMessage = FullChainSimulationInitMessage.CreateDigestInitMessage(92);
+
+            chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            TestL2Transactions message = new(
+                new UInt256(1000000000),
+                TestItem.AddressA,
+                Build.A.Transaction.SignedAndResolved().TestObject
+            );
+
+            await chain.Digest(message);
+
+            ulong messageIndex = 1;
+            ResultWrapper<ulong> versionResult = await chain.ArbitrumRpcModule.ArbOSVersionForMessageIndex(messageIndex);
+
+            Assert.That(versionResult.Result.ResultType, Is.EqualTo(ResultType.Success));
+
+            ResultWrapper<MessageResult> blockResult = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
+            BlockHeader? header = chain.BlockTree.FindHeader(blockResult.Data.BlockHash);
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger());
+
+            Assert.That(versionResult.Data, Is.EqualTo(headerInfo.ArbOSFormatVersion));
+        }
+
+        public static IEnumerable<TestCaseData> InvalidSerializedChainConfigCases()
+        {
+            yield return new TestCaseData<byte[]>(null!);
+            yield return new TestCaseData<byte[]>([]);
+            yield return new TestCaseData<byte[]>("?"u8.ToArray());
+        }
+
+        [TestCaseSource(nameof(InvalidSerializedChainConfigCases))]
+        public void DigestInitMessage_InvalidSerializedChainConfig_ReturnsInvalidParamsError(byte[]? invalidSerializedChainConfig)
+        {
+            DigestInitMessage initMessage = new(UInt256.One, invalidSerializedChainConfig);
+            ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault();
+
+            ResultWrapper<MessageResult> result = chain.ArbitrumRpcModule.DigestInitMessage(initMessage);
+
+            result.Result.ResultType.Should().Be(ResultType.Failure);
+            result.ErrorCode.Should().Be(ErrorCodes.InvalidParams);
+        }
     }
 }
