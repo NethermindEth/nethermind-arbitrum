@@ -249,7 +249,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return builder
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
-            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>()))
+            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>(), enableTestReset: false))
             .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()

@@ -29,7 +29,7 @@ public class MultiGasConstraintTests
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
         // Add a multi-gas constraint
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 100 },
             { ResourceKind.StorageAccess, 200 }
@@ -62,7 +62,7 @@ public class MultiGasConstraintTests
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
         // Weights: Computation=2, StorageAccess=3
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 2 },
             { ResourceKind.StorageAccess, 3 }
@@ -97,7 +97,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 }
         };
@@ -138,7 +138,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
             { ResourceKind.StorageAccess, 2 }
@@ -181,7 +181,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
             { ResourceKind.StorageAccess, 2 }
@@ -225,7 +225,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 }
         };
@@ -258,7 +258,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 10 },
             { ResourceKind.StorageGrowth, 20 },
@@ -292,7 +292,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 100 },
             { ResourceKind.StorageAccess, 200 }
@@ -322,7 +322,7 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        var weights = new Dictionary<ResourceKind, ulong>
+        Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 100 },
             { ResourceKind.StorageAccess, 200 }

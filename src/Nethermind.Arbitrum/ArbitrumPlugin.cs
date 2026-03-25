@@ -235,7 +235,7 @@ public class ArbitrumGasPolicyLimitCalculator : IGasLimitCalculator
     public long GetGasLimit(BlockHeader parentHeader) => long.MaxValue;
 }
 
-public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, bool enableTestReset = false) : Module
+public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, bool enableTestReset) : Module
 {
     protected override void Load(ContainerBuilder builder)
     {
