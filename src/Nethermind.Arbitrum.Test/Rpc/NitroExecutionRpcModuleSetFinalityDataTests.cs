@@ -8,7 +8,6 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
-using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Test;
 using NSubstitute;
 
@@ -42,7 +41,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper<EmptyResponse>.Success(default));
+            .Returns(ResultWrapper.EmptySuccess);
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
@@ -71,7 +70,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper<EmptyResponse>.Success(default));
+            .Returns(ResultWrapper.EmptySuccess);
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
@@ -97,7 +96,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper<EmptyResponse>.Success(default));
+            .Returns(ResultWrapper.EmptySuccess);
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 
@@ -127,7 +126,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         SetFinalityDataParams? capturedParams = null;
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Do<SetFinalityDataParams>(p => capturedParams = p))
-            .Returns(ResultWrapper<EmptyResponse>.Success(default));
+            .Returns(ResultWrapper.EmptySuccess);
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine);
 

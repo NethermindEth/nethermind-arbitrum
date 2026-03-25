@@ -29,7 +29,7 @@ public class ArbitrumChainSpecProviderTests
             chainSpec.EngineChainSpecParametersProvider.GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         engineParameters.InitialArbOSVersion = 10;
 
-        ArbitrumModule module = new(chainSpec, new BlocksConfig(), enableTestReset: false);
+        ArbitrumModule module = new(chainSpec, new BlocksConfig(), new ArbitrumConfig());
 
         ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule(new ConfigProvider(), chainSpec));
@@ -88,7 +88,7 @@ public class ArbitrumChainSpecProviderTests
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
 
-        ArbitrumModule module = new(chainSpec, new BlocksConfig(), enableTestReset: false);
+        ArbitrumModule module = new(chainSpec, new BlocksConfig(), new ArbitrumConfig());
 
         ContainerBuilder containerBuilder = new();
         //explicitly state we won't use TestSpecProvider
