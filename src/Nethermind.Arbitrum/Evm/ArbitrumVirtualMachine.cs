@@ -562,7 +562,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
             if (!isSenderAChainOwner)
             {
-                context.Burn(gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
+                context.Burn(ResourceKind.Computation, gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
                 AddOwnerCheckMultiGasDelta(ref state.Gas, savedMultiGas);
 
                 if (Logger.IsTrace)

@@ -50,17 +50,9 @@ public static class TestArbosStorage
 
         public bool ReadOnly => false;
         public TracingInfo? TracingInfo { get; } = tracingInfo;
-        public ulong Burned => _availableGas;
+        public ulong Burned => _burnedMultiGas.Total;
         public MultiGas BurnedMultiGas => _burnedMultiGas;
         public ref ulong GasLeft => ref _availableGas;
-
-        public void Burn(ulong amount)
-        {
-            checked
-            {
-                _availableGas -= amount;
-            }
-        }
 
         public void Burn(ResourceKind kind, ulong amount)
         {

@@ -221,7 +221,7 @@ public class ArbosStorage
 
     public ValueHash256 GetCodeHash(Address address)
     {
-        _burner.Burn(StorageCodeHashCost);
+        _burner.Burn(ResourceKind.StorageAccess, StorageCodeHashCost);
         return _db.GetCodeHash(address);
     }
 

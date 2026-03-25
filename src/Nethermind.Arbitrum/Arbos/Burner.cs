@@ -9,7 +9,6 @@ namespace Nethermind.Arbitrum.Arbos;
 public interface IBurner
 {
     public TracingInfo? TracingInfo { get; }
-    void Burn(ulong amount);
     void Burn(ResourceKind kind, ulong amount);
     ulong Burned { get; }
     MultiGas BurnedMultiGas { get; }
@@ -19,29 +18,19 @@ public interface IBurner
 
 public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false) : IBurner
 {
-    private ulong _gasBurnt;
     private MultiGas _burnedMultiGas;
 
     public TracingInfo? TracingInfo { get; } = tracingInfo;
-
-    public void Burn(ulong amount)
-    {
-        if (ReadOnly)
-            throw new InvalidOperationException("Cannot burn gas with a read-only system burner.");
-
-        _gasBurnt += amount;
-    }
 
     public void Burn(ResourceKind kind, ulong amount)
     {
         if (ReadOnly)
             throw new InvalidOperationException("Cannot burn gas with a read-only system burner.");
 
-        _gasBurnt += amount;
         _burnedMultiGas.Increment(kind, amount);
     }
 
-    public ulong Burned => _gasBurnt;
+    public ulong Burned => _burnedMultiGas.Total;
     public MultiGas BurnedMultiGas => _burnedMultiGas;
     public bool ReadOnly { get; } = readOnly;
     public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
@@ -63,9 +52,6 @@ public class ZeroGasBurner : IBurner
     private ulong _zeroGas = 0;
 
     public TracingInfo? TracingInfo => null;
-    public void Burn(ulong amount)
-    {
-    }
 
     public void Burn(ResourceKind kind, ulong amount)
     {

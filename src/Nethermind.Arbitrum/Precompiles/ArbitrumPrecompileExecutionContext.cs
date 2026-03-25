@@ -84,19 +84,6 @@ public record ArbitrumPrecompileExecutionContext(
     private ulong _gasLeft = GasSupplied;
     private MultiGas _burnedMultiGas;
 
-    public void Burn(ulong amount)
-    {
-        if (Free)
-            return;
-
-        if (GasLeft < amount)
-            BurnOut();
-        else
-        {
-            GasLeft -= amount;
-        }
-    }
-
     public void Burn(ResourceKind kind, ulong amount)
     {
         if (Free)

@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core;
@@ -237,7 +238,7 @@ public class StylusParams(
     public static StylusParams CreateFromStorage(ArbosStorage storage, ulong arbosVersion)
     {
         // Assume reads are warm due to the frequency of access
-        storage.Burner.Burn(GasCostOf.CallPrecompileEip2929);
+        storage.Burner.Burn(ResourceKind.Computation, GasCostOf.CallPrecompileEip2929);
 
         ulong currentSlot = 0;
         ReadOnlySpan<byte> buffer = [];
