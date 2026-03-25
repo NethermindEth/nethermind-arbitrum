@@ -56,6 +56,8 @@ class ProcessState:
     pid: int | None = None
     start_time: datetime | None = None
     exit_code: int | None = None
+    write_count: int = 0
+    """Monotonically increasing counter of total log lines appended."""
     log_buffer: deque[LogEntry] = field(
         default_factory=lambda: deque(maxlen=LOG_BUFFER_SIZE)
     )

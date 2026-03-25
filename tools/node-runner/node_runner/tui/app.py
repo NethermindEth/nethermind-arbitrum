@@ -148,12 +148,16 @@ class NodeRunnerApp(App[None]):
 
         while True:
             for proc in self._orchestrator.processes:
-                buf = proc.state.log_buffer
-                pointer = self._log_pointers.get(proc.name, 0)
-                buf_list = list(buf)
-                new_entries = buf_list[pointer:]
+                last_seen = self._log_pointers.get(proc.name, 0)
+                current = proc.state.write_count
+                new_count = current - last_seen
 
-                if new_entries:
+                if new_count > 0:
+                    buf_list = list(proc.state.log_buffer)
+                    # If more were written than the buffer holds, we missed some
+                    new_count = min(new_count, len(buf_list))
+                    new_entries = buf_list[-new_count:]
+
                     pane = self._panes.get(proc.name)
                     if pane is None:
                         pane = self._panes.get(_PANE_FALLBACK.get(proc.name, ""))
@@ -163,7 +167,7 @@ class NodeRunnerApp(App[None]):
                         if self._combined_pane is not None:
                             self._combined_pane.write_entry(entry)
 
-                    self._log_pointers[proc.name] = len(buf_list)
+                    self._log_pointers[proc.name] = current
 
                 # Update pane header status
                 pane = self._panes.get(proc.name)
@@ -306,6 +310,7 @@ class NodeRunnerApp(App[None]):
                     pane.write_entry(entry)
                 if self._combined_pane is not None:
                     self._combined_pane.write_entry(entry)
+            self._log_pointers[proc.name] = proc.state.write_count
 
     def action_focus_pane(self, pane_number: int) -> None:
         """Focus a specific process pane by number (1-indexed)."""

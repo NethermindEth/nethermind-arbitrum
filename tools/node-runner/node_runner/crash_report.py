@@ -117,10 +117,10 @@ def write_error_logs(
     processes: Sequence[BaseProcess],
     error_dir: Path,
 ) -> None:
-    """Write persistent error-only log files (appended during runtime).
+    """Write error-only log files at shutdown.
 
-    These are small files containing only ERROR/WARN lines, suitable
-    for long-running sessions where full logs would be too large.
+    Dumps ERROR/WARN lines from the in-memory ring buffer to disk,
+    overwriting any previous file for the same process.
 
     Args:
         processes: List of managed processes

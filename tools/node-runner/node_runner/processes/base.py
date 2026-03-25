@@ -138,8 +138,9 @@ class BaseProcess(ABC):
             self.state.status = ProcessStatus.HEALTHY
             return True
 
-        deadline = asyncio.get_event_loop().time() + timeout
-        while asyncio.get_event_loop().time() < deadline:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
             # Check for early process death
             if self._proc is not None and self._proc.returncode is not None:
                 self.state.status = ProcessStatus.CRASHED
@@ -184,6 +185,7 @@ class BaseProcess(ABC):
                 line = raw_line.decode("utf-8", errors="replace")
                 entry = self._parse_log_line(line)
                 self.state.log_buffer.append(entry)
+                self.state.write_count += 1
                 if entry.is_notable:
                     self.state.error_log.append(entry)
         except asyncio.CancelledError:
