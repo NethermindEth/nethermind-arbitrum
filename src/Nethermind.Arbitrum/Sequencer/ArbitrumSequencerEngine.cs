@@ -393,7 +393,7 @@ public sealed class ArbitrumSequencerEngine(
                 Result checkResult = it.Options.Check(l1BlockNumber, timestamp, stateReader, currentHead);
                 if (checkResult != Result.Success)
                 {
-                    it.ReturnResult(new InvalidOperationException($"Conditional tx rejected: {checkResult.Error}"));
+                    it.ReturnResult(new InvalidOperationException(checkResult.Error));
                     continue;
                 }
             }

@@ -486,7 +486,7 @@ public class ExpressLaneServiceTests
             TestExpressLaneSubmission.Create(TestTransaction.CreateTransfer(), round: 5, seqNum: 0, options: options),
             currentBlockNumber: 100);
 
-        result.Should().RequestFail("Conditional options check failed");
+        result.Should().RequestFail("BlockNumberMin condition not met");
         context.TxQueue.DrainBatch().Should().BeEmpty("rejected tx should not be enqueued");
     }
 

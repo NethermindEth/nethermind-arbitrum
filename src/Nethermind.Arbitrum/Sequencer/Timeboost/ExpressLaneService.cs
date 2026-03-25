@@ -54,7 +54,7 @@ public sealed class ExpressLaneService(
             ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(head, _logger).L1BlockNumber;
             Result checkResult = submission.Options.Check(l1BlockNumber, head.Timestamp, stateReader, head);
             if (checkResult != Result.Success)
-                return ResultWrapper<EmptyResponse>.Fail($"Conditional options check failed: {checkResult.Error}");
+                return ResultWrapper<EmptyResponse>.Fail(checkResult.Error!);
         }
 
         if (submission.SequenceNumber == DontCareSequenceNumber)

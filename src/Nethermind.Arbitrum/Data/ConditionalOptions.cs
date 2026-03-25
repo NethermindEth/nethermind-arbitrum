@@ -32,16 +32,16 @@ public sealed class ConditionalOptions
     public Result Check(ulong l1BlockNumber, ulong l2Timestamp, IStateReader stateReader, BlockHeader header)
     {
         if (BlockNumberMin is not null && l1BlockNumber < BlockNumberMin.Value)
-            return Result.Fail($"BlockNumberMin condition not met: l1BlockNumber {l1BlockNumber} < {BlockNumberMin.Value}");
+            return Result.Fail("BlockNumberMin condition not met");
 
         if (BlockNumberMax is not null && l1BlockNumber > BlockNumberMax.Value)
-            return Result.Fail($"BlockNumberMax condition not met: l1BlockNumber {l1BlockNumber} > {BlockNumberMax.Value}");
+            return Result.Fail("BlockNumberMax condition not met");
 
         if (TimestampMin is not null && l2Timestamp < TimestampMin.Value)
-            return Result.Fail($"TimestampMin condition not met: l2Timestamp {l2Timestamp} < {TimestampMin.Value}");
+            return Result.Fail("TimestampMin condition not met");
 
         if (TimestampMax is not null && l2Timestamp > TimestampMax.Value)
-            return Result.Fail($"TimestampMax condition not met: l2Timestamp {l2Timestamp} > {TimestampMax.Value}");
+            return Result.Fail("TimestampMax condition not met");
 
         if (KnownAccounts is not null)
         {
@@ -60,7 +60,7 @@ public sealed class ConditionalOptions
                         : default;
 
                     if (storageRoot != condition.RootHash.ValueHash256)
-                        return Result.Fail($"Storage root hash condition not met for {address}: expected {condition.RootHash}, got {storageRoot}");
+                        return Result.Fail("Storage root hash condition not met");
                 }
                 else if (condition.SlotValues is { Count: > 0 })
                 {
@@ -72,7 +72,7 @@ public sealed class ConditionalOptions
                         stored.CopyTo(padded[(Hash256.Size - stored.Length)..]);
 
                         if (!Bytes.AreEqual(padded, expectedValue.Bytes))
-                            return Result.Fail($"Storage slot value condition not met for {address} slot {slot}: expected {expectedValue}, got {padded.ToHexString()}");
+                            return Result.Fail("Storage slot value condition not met");
                     }
                 }
             }

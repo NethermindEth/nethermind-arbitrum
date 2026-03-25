@@ -116,7 +116,7 @@ public class SequencerConditionalTests
 
         Exception? error = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
         error.Should().BeOfType<InvalidOperationException>();
-        error.Message.Should().Contain("Conditional tx rejected");
+        error.Message.Should().Contain("BlockNumberMax condition not met");
     }
 
     [Test]
@@ -170,7 +170,7 @@ public class SequencerConditionalTests
 
         Exception? error = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
         error.Should().BeOfType<InvalidOperationException>();
-        error.Message.Should().Contain("Conditional tx rejected");
+        error.Message.Should().Contain("Storage root hash condition not met");
     }
 
     [Test]
@@ -227,7 +227,7 @@ public class SequencerConditionalTests
 
         Exception? error = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
         error.Should().BeOfType<InvalidOperationException>();
-        error.Message.Should().Contain("Conditional tx rejected");
+        error.Message.Should().Contain("Storage slot value condition not met");
     }
 
     [Test]
@@ -287,7 +287,7 @@ public class SequencerConditionalTests
         // Conditional tx should be evicted with error
         Exception? conditionalError = await conditionalResultTask.WaitAsync(TimeSpan.FromSeconds(5));
         conditionalError.Should().BeOfType<InvalidOperationException>();
-        conditionalError.Message.Should().Contain("Conditional tx rejected");
+        conditionalError.Message.Should().Contain("BlockNumberMax condition not met");
 
         chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
 
