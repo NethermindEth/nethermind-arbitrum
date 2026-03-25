@@ -822,7 +822,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     // with weighted resource constraints (ArbOS v60+)
     private static byte[] SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        var sig = PrecompileFunctionDescription[_setMultiGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature;
+        AbiSignature sig = PrecompileFunctionDescription[_setMultiGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

@@ -51,7 +51,7 @@ namespace Nethermind.Arbitrum.Execution
             _worldState = worldState;
         }
 
-        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState, IReleaseSpec spec)
+        private BlockHeader PrepareBlockHeader(BlockHeader parent, ArbitrumPayloadAttributes payloadAttributes, ArbosState arbosState)
         {
             long newBlockNumber = parent.Number + 1;
             if (payloadAttributes.Number != newBlockNumber)
@@ -107,7 +107,7 @@ namespace Nethermind.Arbitrum.Execution
             ArbosState arbosState =
                 ArbosState.OpenArbosState(_worldState, burner, Logger);
 
-            BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState, spec);
+            BlockHeader header = PrepareBlockHeader(parent, arbitrumPayload, arbosState);
 
             IEnumerable<Transaction> transactions = TxSource.GetTransactions(parent, header.GasLimit, payloadAttributes, filterSource: true);
 

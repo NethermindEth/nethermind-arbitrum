@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Rpc;
 public class ReceiptForRpcPolymorphicConverter : JsonConverter<ReceiptForRpc>
 {
     // Cache options without this converter to avoid allocation on every serialization
-    private static readonly ConcurrentDictionary<JsonSerializerOptions, JsonSerializerOptions> s_optionsCache = new();
+    private static readonly ConcurrentDictionary<JsonSerializerOptions, JsonSerializerOptions> _optionsCache = new();
 
     public override ReceiptForRpc? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
         JsonSerializer.Deserialize<ReceiptForRpc>(ref reader, GetOptionsWithoutConverter(options));
@@ -29,7 +29,7 @@ public class ReceiptForRpcPolymorphicConverter : JsonConverter<ReceiptForRpc>
         JsonSerializer.Serialize(writer, value, value.GetType(), GetOptionsWithoutConverter(options));
 
     private JsonSerializerOptions GetOptionsWithoutConverter(JsonSerializerOptions options) =>
-        s_optionsCache.GetOrAdd(options, static opts =>
+        _optionsCache.GetOrAdd(options, static opts =>
         {
             var newOptions = new JsonSerializerOptions(opts);
             // Remove all instances of this converter type
