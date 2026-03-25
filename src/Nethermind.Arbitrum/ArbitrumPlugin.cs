@@ -321,7 +321,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, boo
 
         if (enableTestReset)
         {
-            // Test/comparison mode: wrap in resettable decorator for debug_reinitialize
+            // Test/comparison mode: wrap in resettable decorator for debug_reinitialize.
+            // Must be transient (not singleton) so Func<ArbitrumBlockTree> creates fresh instances on reset.
             builder.RegisterType<ArbitrumBlockTree>().AsSelf();
             builder.Register(c => new ResettableArbitrumBlockTree(c.Resolve<Func<ArbitrumBlockTree>>()))
                 .As<IBlockTree>()
