@@ -52,9 +52,15 @@ public sealed class ConditionalOptions
             {
                 if (condition.RootHash is not null)
                 {
-                    stateReader.TryGetAccount(header, address, out AccountStruct account);
-                    if (account.StorageRoot != condition.RootHash.ValueHash256)
-                        return Result.Fail($"Storage root hash condition not met for {address}: expected {condition.RootHash}, got {account.StorageRoot}");
+                    // Nitro returns common.Hash{} (all zeros) for nonexistent accounts.
+                    // Nethermind's default AccountStruct has StorageRoot = EmptyTreeHash,
+                    // so we must use zero when TryGetAccount returns false.
+                    ValueHash256 storageRoot = stateReader.TryGetAccount(header, address, out AccountStruct account)
+                        ? account.StorageRoot
+                        : default;
+
+                    if (storageRoot != condition.RootHash.ValueHash256)
+                        return Result.Fail($"Storage root hash condition not met for {address}: expected {condition.RootHash}, got {storageRoot}");
                 }
                 else if (condition.SlotValues is { Count: > 0 })
                 {

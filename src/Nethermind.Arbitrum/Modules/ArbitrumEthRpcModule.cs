@@ -38,7 +38,7 @@ using Nethermind.Wallet;
 namespace Nethermind.Arbitrum.Modules
 {
     [RpcModule(ModuleType.Eth)]
-    public class ArbitrumEthRpcModule : EthRpcModule
+    public class ArbitrumEthRpcModule : EthRpcModule, IArbitrumEthRpcModule
     {
         private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
         private readonly TransactionQueue _transactionQueue;

@@ -56,7 +56,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         WorldStateAccessor = new ScopedGlobalWorldStateAccessor(this);
     }
 
-    public ArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
+    public IArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public INitroExecutionRpcModule NitroExecutionRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }

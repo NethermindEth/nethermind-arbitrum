@@ -99,6 +99,34 @@ public class ConditionalOptionsTests
     }
 
     [Test]
+    public void Check_RootHashOnNonexistentAccount_MatchesZeroHash()
+    {
+        // Nitro returns common.Hash{} (all zeros) for nonexistent accounts.
+        // A condition expecting zero hash should pass, while EmptyTreeHash should fail.
+        Address addr = TestItem.AddressA;
+        FakeStateReader stateReader = new(); // no account set — TryGetAccount returns false
+
+        Hash256 zeroHash = new(new ValueHash256());
+        ConditionalOptions optsZero = new()
+        {
+            KnownAccounts = new Dictionary<Address, AccountStateCondition>
+            {
+                [addr] = new() { RootHash = zeroHash }
+            }
+        };
+        ((bool)optsZero.Check(0, 0, stateReader, TestHeader)).Should().BeTrue();
+
+        ConditionalOptions optsEmptyTree = new()
+        {
+            KnownAccounts = new Dictionary<Address, AccountStateCondition>
+            {
+                [addr] = new() { RootHash = Keccak.EmptyTreeHash }
+            }
+        };
+        optsEmptyTree.Check(0, 0, stateReader, TestHeader).Error.Should().Contain("Storage root hash condition not met");
+    }
+
+    [Test]
     public void Check_SlotValueMatch_AcceptsTransaction()
     {
         Address addr = TestItem.AddressA;
