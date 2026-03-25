@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using FastEnumUtility;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
@@ -109,5 +110,10 @@ public abstract class GasDimensionTracerBase : GethLikeNativeTxTracer, IArbitrum
         ulong gasUsedForL1 = _posterGas;
         ulong gasUsedForL2 = _gasUsed > gasUsedForL1 ? _gasUsed - gasUsedForL1 : 0;
         return (gasUsedForL1, gasUsedForL2);
+    }
+
+    public static string GetInstructionName(Instruction instruction)
+    {
+        return (FastEnum.IsDefined(instruction) ? FastEnum.GetName(instruction) : null) ?? instruction.ToString().ToUpperInvariant();
     }
 }

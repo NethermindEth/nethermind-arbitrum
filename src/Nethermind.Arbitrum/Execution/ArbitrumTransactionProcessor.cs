@@ -182,7 +182,8 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas, out ArbitrumGasPolicy gasAvailable)
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, IReleaseSpec spec, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas,
+            out ArbitrumGasPolicy gasAvailable)
         {
             // Capture intrinsic gas for gas dimension tracers
             if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
@@ -202,7 +203,8 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas)
+            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas,
+            in ArbitrumGasPolicy intrinsicGasStandard)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -221,7 +223,8 @@ namespace Nethermind.Arbitrum.Execution
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
-                    totalToRefund += substate.Refund + substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
+                    totalToRefund += substate.Refund +
+                                     substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
                 refund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
@@ -307,17 +310,8 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts)
         {
-            UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
-
-            long spentGas = tx.GasLimit;
-
             // ComputeHoldGas should always be refunded, independently of the tx result (success or failure)
-            spentGas -= (long)TxExecContext.ComputeHoldGas;
-
-            if (!opts.HasFlag(ExecutionOptions.SkipValidation))
-                WorldState.AddToBalance(tx.SenderAddress!, (ulong)(tx.GasLimit - spentGas) * effectiveGasPrice, spec);
-
-            return spentGas;
+            return tx.GasLimit - (long)TxExecContext.ComputeHoldGas;
         }
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
