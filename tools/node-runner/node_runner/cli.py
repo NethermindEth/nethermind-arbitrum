@@ -168,6 +168,11 @@ def build_config(args: argparse.Namespace) -> RunnerConfig:
     nitro_path = _resolve_path(args.nitro_path, "NITRO_PATH", "Nitro path")
     nethermind_path = _resolve_path(args.nethermind_path, "NETHERMIND_PATH", "Nethermind path")
 
+    # Load Nitro's .env for L1 RPC URLs (won't override already-set vars)
+    nitro_env = nitro_path / ".env"
+    if nitro_env.is_file():
+        load_dotenv(nitro_env, override=False)
+
     mode = Mode(args.mode)
 
     if args.verification is not None and mode != Mode.NITRO_NM:
@@ -199,9 +204,15 @@ def build_config(args: argparse.Namespace) -> RunnerConfig:
             f"Build it with: cd {nethermind_path} && make build"
         )
 
+    # Resolve L1 URLs: CLI flag > Nitro .env > hardcoded default
+    network = Network(args.network)
+    network_prefix = network.value.upper()
+    l1_rpc = args.l1_rpc or os.environ.get(f"{network_prefix}_L1_RPC")
+    l1_beacon = args.l1_beacon or os.environ.get(f"{network_prefix}_L1_BEACON")
+
     return RunnerConfig(
         mode=mode,
-        network=Network(args.network),
+        network=network,
         log_level=LogLevel(args.log_level),
         clean=args.clean,
         force_init=args.force_init,
@@ -209,8 +220,8 @@ def build_config(args: argparse.Namespace) -> RunnerConfig:
         nethermind_path=nethermind_path,
         data_dir=args.data_dir.resolve(),
         verification=args.verification,
-        l1_rpc_override=args.l1_rpc,
-        l1_beacon_override=args.l1_beacon,
+        l1_rpc_override=l1_rpc,
+        l1_beacon_override=l1_beacon,
     )
 
 
