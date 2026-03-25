@@ -76,9 +76,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
 
-        // Register polymorphic JSON converter for receipts to ensure ArbitrumReceiptForRpc
+        // Register polymorphic serialization for receipts to ensure ArbitrumReceiptForRpc
         // properties (GasUsedForL1, MultiGasUsed) are serialized correctly
-        EthereumJsonSerializer.AddConverter(new ReceiptForRpcPolymorphicConverter());
+        EthereumJsonSerializer.AddTypeInfoResolver(ReceiptForRpcPolymorphism.CreateResolver());
 
         // Load Arbitrum-specific configuration from chainspec
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
