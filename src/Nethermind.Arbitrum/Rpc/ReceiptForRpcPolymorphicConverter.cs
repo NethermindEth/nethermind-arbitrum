@@ -1,33 +1,43 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using Nethermind.JsonRpc.Data;
 
 namespace Nethermind.Arbitrum.Rpc;
 
 /// <summary>
-/// Adds polymorphic serialization for ReceiptForRpc so that derived types like
-/// ArbitrumReceiptForRpc serialize their own properties (GasUsedForL1, MultiGasUsed).
+/// Custom JSON converter for ReceiptForRpc that enables polymorphic serialization.
+/// This ensures that derived types like ArbitrumReceiptForRpc serialize their own properties
+/// (e.g., GasUsedForL1, MultiGasUsed) instead of only the base class properties.
 /// </summary>
 /// <remarks>
 /// Required because ReceiptForRpc is in upstream Nethermind and cannot be decorated with
-/// [JsonDerivedType] attributes for Arbitrum-specific types. Uses the standard
-/// <see cref="IJsonTypeInfoResolver"/> modifier approach instead of a custom converter.
+/// [JsonDerivedType] attributes for Arbitrum-specific types.
 /// </remarks>
-public static class ReceiptForRpcPolymorphism
+public class ReceiptForRpcPolymorphicConverter : JsonConverter<ReceiptForRpc>
 {
-    public static IJsonTypeInfoResolver CreateResolver() =>
-        new DefaultJsonTypeInfoResolver().WithAddedModifier(static typeInfo =>
+    // Cache options without this converter to avoid allocation on every serialization
+    private static readonly ConcurrentDictionary<JsonSerializerOptions, JsonSerializerOptions> _optionsCache = new();
+
+    public override ReceiptForRpc? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        JsonSerializer.Deserialize<ReceiptForRpc>(ref reader, GetOptionsWithoutConverter(options));
+
+    public override void Write(Utf8JsonWriter writer, ReceiptForRpc value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value, value.GetType(), GetOptionsWithoutConverter(options));
+
+    private JsonSerializerOptions GetOptionsWithoutConverter(JsonSerializerOptions options) =>
+        _optionsCache.GetOrAdd(options, static opts =>
         {
-            if (typeInfo.Type == typeof(ReceiptForRpc))
+            var newOptions = new JsonSerializerOptions(opts);
+            // Remove all instances of this converter type
+            for (int i = newOptions.Converters.Count - 1; i >= 0; i--)
             {
-                typeInfo.PolymorphismOptions = new JsonPolymorphismOptions
-                {
-                    UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor,
-                    DerivedTypes = { new JsonDerivedType(typeof(ArbitrumReceiptForRpc)) }
-                };
+                if (newOptions.Converters[i] is ReceiptForRpcPolymorphicConverter)
+                    newOptions.Converters.RemoveAt(i);
             }
+            return newOptions;
         });
 }
