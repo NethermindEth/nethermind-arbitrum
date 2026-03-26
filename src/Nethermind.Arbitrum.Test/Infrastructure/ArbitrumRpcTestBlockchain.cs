@@ -13,6 +13,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
@@ -437,7 +438,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             transactionQueue ?? chain.Container.Resolve<TransactionQueue>(),
             sequencerState ?? chain.Container.Resolve<SequencerState>(),
             chain.Container.Resolve<IEthereumEcdsa>(),
-            chain.Container.Resolve<IArbitrumConfig>()
+            chain.Container.Resolve<IArbitrumConfig>(),
+            new DisabledConsensusRpcClient(chain.LogManager)
         );
     }
 

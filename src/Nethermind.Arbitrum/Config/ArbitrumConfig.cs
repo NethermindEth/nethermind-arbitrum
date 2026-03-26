@@ -35,6 +35,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public int TimeboostEarlySubmissionGraceMs { get; set; } = 2000;
     public int TimeboostRoundDurationSeconds { get; set; } = 60;
     public int TimeboostAuctionClosingWindowSeconds { get; set; } = 15;
+    public string ConsensusNodeRpcUrl { get; set; } = "";
 }
 
 public static class ArbitrumConfigExtensions

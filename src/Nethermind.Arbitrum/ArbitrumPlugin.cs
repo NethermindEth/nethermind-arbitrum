@@ -17,6 +17,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
@@ -312,7 +313,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             // Rpcs
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
-            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
+
+        if (!string.IsNullOrWhiteSpace(arbitrumConfig.ConsensusNodeRpcUrl))
+            builder.AddSingleton<IConsensusRpcClient, ConsensusRpcClient>();
+        else
+            builder.AddSingleton<IConsensusRpcClient, DisabledConsensusRpcClient>();
+
+        builder
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
