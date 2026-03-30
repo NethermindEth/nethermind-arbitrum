@@ -402,7 +402,8 @@ public sealed class ArbitrumExecutionEngine(
             SequenceNumber = rpcSubmission.SequenceNumber,
             Signature = rpcSubmission.Signature,
             ChainId = rpcSubmission.ChainId,
-            AuctionContractAddress = rpcSubmission.AuctionContractAddress
+            AuctionContractAddress = rpcSubmission.AuctionContractAddress,
+            Options = rpcSubmission.Options
         };
 
         ulong currentBlock = (ulong)blockTree.Head!.Header.Number;

@@ -136,7 +136,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
-            _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
+            _api.Context.Resolve<IRpcModuleFactory<IArbitrumEthRpcModule>>(),
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
 
@@ -306,6 +306,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
             .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
             .AddSingleton<ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
 
             .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()

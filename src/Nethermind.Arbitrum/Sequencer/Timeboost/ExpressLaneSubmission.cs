@@ -3,6 +3,7 @@
 
 using System.Buffers.Binary;
 using System.Text;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Crypto;
@@ -21,6 +22,7 @@ public sealed class ExpressLaneSubmission
     public required byte[] Signature { get; init; }
     public required ulong ChainId { get; init; }
     public required Address AuctionContractAddress { get; init; }
+    public ConditionalOptions? Options { get; init; }
 
     // Format: domainValue (32) | chainId (32 BE) | auctionContract (20) | round (8 BE) | seqNum (8 BE) | rlpTx
     public byte[] ToMessageBytes()
