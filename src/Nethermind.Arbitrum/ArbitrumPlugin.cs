@@ -313,7 +313,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             // Execution recording (state reconstruction + witness generation)
             .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
             .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
-            .AddSingleton<IStateReconstructor, StateReconstructor>()
+            .AddSingleton<StateReconstructor>()
             .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
             .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
 

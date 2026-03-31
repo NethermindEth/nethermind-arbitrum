@@ -47,7 +47,7 @@ public sealed class ArbitrumExecutionEngine(
     IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
     IEthereumEcdsa ethereumEcdsa,
-    IStateReconstructor stateReconstructor)
+    StateReconstructor stateReconstructor)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
