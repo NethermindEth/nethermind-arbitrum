@@ -28,4 +28,17 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
     Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex);
     Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
+
+    Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
+    Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error);
+    Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync();
+    ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx);
+    ResultWrapper<ulong> NextDelayedMessageNumber();
+    Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg);
+    ResultWrapper<EmptyResponse> Pause();
+    ResultWrapper<EmptyResponse> Activate();
+    ResultWrapper<EmptyResponse> ForwardTo(string url);
+
+    Task<ResultWrapper<bool>> PublishAuctionResolutionTransactionAsync(byte[] rlpTransaction);
+    Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc submission);
 }
