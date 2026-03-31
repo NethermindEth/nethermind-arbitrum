@@ -100,15 +100,15 @@ public class ArbitrumProcessingStats : IProcessingStats
 
     public void CaptureStartStats()
     {
-        _startSLoadOps = EvmMetrics.ThreadLocalSLoadOpcode;
-        _startSStoreOps = EvmMetrics.ThreadLocalSStoreOpcode;
-        _startCallOps = EvmMetrics.ThreadLocalCalls;
-        _startEmptyCalls = EvmMetrics.ThreadLocalEmptyCalls;
-        _startContractsAnalyzed = EvmMetrics.ThreadLocalContractsAnalysed;
-        _startCachedContractsUsed = EvmMetrics.GetThreadLocalCodeDbCache();
-        _startCreateOps = EvmMetrics.ThreadLocalCreates;
-        _startSelfDestructOps = EvmMetrics.ThreadLocalSelfDestructs;
-        _startOpCodes = EvmMetrics.ThreadLocalOpCodes;
+        _startSLoadOps = EvmMetrics.MainThreadSLoadOpcode;
+        _startSStoreOps = EvmMetrics.MainThreadSStoreOpcode;
+        _startCallOps = EvmMetrics.MainThreadCalls;
+        _startEmptyCalls = EvmMetrics.MainThreadEmptyCalls;
+        _startContractsAnalyzed = EvmMetrics.MainThreadContractsAnalysed;
+        _startCachedContractsUsed = EvmMetrics.MainThreadCodeDbCache;
+        _startCreateOps = EvmMetrics.MainThreadCreates;
+        _startSelfDestructOps = EvmMetrics.MainThreadSelfDestructs;
+        _startOpCodes = EvmMetrics.MainThreadOpCodes;
     }
 
     public void UpdateStats(Block? block, BlockHeader? baseBlock, long blockProcessingTimeInMicros)
@@ -131,15 +131,15 @@ public class ArbitrumProcessingStats : IProcessingStats
         blockData.StartCreateOps = _startCreateOps;
         blockData.StartSelfDestructOps = _startSelfDestructOps;
         blockData.ProcessingMicroseconds = blockProcessingTimeInMicros;
-        blockData.CurrentOpCodes = EvmMetrics.ThreadLocalOpCodes;
-        blockData.CurrentSLoadOps = EvmMetrics.ThreadLocalSLoadOpcode;
-        blockData.CurrentSStoreOps = EvmMetrics.ThreadLocalSStoreOpcode;
-        blockData.CurrentCallOps = EvmMetrics.ThreadLocalCalls;
-        blockData.CurrentEmptyCalls = EvmMetrics.ThreadLocalEmptyCalls;
-        blockData.CurrentContractsAnalyzed = EvmMetrics.ThreadLocalContractsAnalysed;
-        blockData.CurrentCachedContractsUsed = EvmMetrics.GetThreadLocalCodeDbCache();
-        blockData.CurrentCreatesOps = EvmMetrics.ThreadLocalCreates;
-        blockData.CurrentSelfDestructOps = EvmMetrics.ThreadLocalSelfDestructs;
+        blockData.CurrentOpCodes = EvmMetrics.MainThreadOpCodes;
+        blockData.CurrentSLoadOps = EvmMetrics.MainThreadSLoadOpcode;
+        blockData.CurrentSStoreOps = EvmMetrics.MainThreadSStoreOpcode;
+        blockData.CurrentCallOps = EvmMetrics.MainThreadCalls;
+        blockData.CurrentEmptyCalls = EvmMetrics.MainThreadEmptyCalls;
+        blockData.CurrentContractsAnalyzed = EvmMetrics.MainThreadContractsAnalysed;
+        blockData.CurrentCachedContractsUsed = EvmMetrics.MainThreadCodeDbCache;
+        blockData.CurrentCreatesOps = EvmMetrics.MainThreadCreates;
+        blockData.CurrentSelfDestructOps = EvmMetrics.MainThreadSelfDestructs;
 
         ThreadPool.UnsafeQueueUserWorkItem(_executeFromThreadPool, blockData, preferLocal: false);
     }
