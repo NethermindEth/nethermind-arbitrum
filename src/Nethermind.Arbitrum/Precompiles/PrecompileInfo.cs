@@ -16,7 +16,7 @@ public sealed class PrecompileInfo : CodeInfo
     private static readonly IPrecompile PrecompileStub = new ArbitrumPrecompileStub();
 
     public PrecompileInfo(IArbitrumPrecompile precompile)
-        : base(PrecompileStub, version: 0, new ReadOnlyMemory<byte>(PrecompileCode))
+        : base(PrecompileStub, PrecompileCode)
     {
         ArbitrumPrecompile = precompile;
     }

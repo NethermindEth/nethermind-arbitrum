@@ -24,7 +24,7 @@ public static class ArbInfo
     {
         context.Burn(GasCostOf.ColdSLoad);
         byte[] code = context.WorldState.GetCode(account)!;
-        context.Burn(GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)code.Length));
+        context.Burn(GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)code.Length));
         return code;
     }
 }
