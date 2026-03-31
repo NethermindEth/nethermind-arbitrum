@@ -11,7 +11,6 @@ using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
@@ -221,7 +220,8 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         }
 
         // Approximate the l1 fee charged for posting this tx's calldata
-        return (PricePerUnitStorage.Get() * units, units);
+        UInt256 pricePerUnit = PricePerUnitStorage.Get();
+        return (pricePerUnit * units, units);
     }
 
     private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
@@ -276,6 +276,7 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
 
         ulong unitsSinceUpdate = UnitsSinceStorage.Get();
         ulong unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
+
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 

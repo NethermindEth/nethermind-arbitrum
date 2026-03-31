@@ -195,7 +195,7 @@ public static class ArbRetryableTx
         ulong eventGasCost = RedeemScheduledEventGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
 
         // Result is 32 bytes long which is 1 word
-        ulong gasCostToReturnResult = GasCostOf.DataCopy;
+        ulong gasCostToReturnResult = GasCostOf.Memory;
         ulong gasPoolUpdateCost = context.ArbosState.L2PricingState.GasPoolUpdateCost();
         ulong futureGasCosts = eventGasCost + gasCostToReturnResult + gasPoolUpdateCost;
 

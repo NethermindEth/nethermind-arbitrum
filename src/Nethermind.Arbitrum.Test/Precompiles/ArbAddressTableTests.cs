@@ -222,7 +222,7 @@ public sealed class ArbAddressTableTests
 
         foreach (Address address in testAddresses)
         {
-            const ulong gasSupplied = (GasCostOf.ColdSLoad + GasCostOf.DataCopy) * 2 + 1;
+            const ulong gasSupplied = (GasCostOf.ColdSLoad + GasCostOf.Memory) * 2 + 1;
             PrecompileTestContextBuilder context = new(_worldState, gasSupplied) { ArbosState = _arbosState };
 
             byte[] compressed = ArbAddressTable.Compress(context, address);

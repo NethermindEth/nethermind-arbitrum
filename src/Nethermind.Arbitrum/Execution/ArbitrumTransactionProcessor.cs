@@ -182,7 +182,8 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas, out ArbitrumGasPolicy gasAvailable)
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, IReleaseSpec spec, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas,
+            out ArbitrumGasPolicy gasAvailable)
         {
             // Capture intrinsic gas for gas dimension tracers
             if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
@@ -202,7 +203,8 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas)
+            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas,
+            in ArbitrumGasPolicy intrinsicGasStandard)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -221,7 +223,8 @@ namespace Nethermind.Arbitrum.Execution
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
-                    totalToRefund += substate.Refund + substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
+                    totalToRefund += substate.Refund +
+                                     substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
                 refund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
@@ -323,27 +326,36 @@ namespace Nethermind.Arbitrum.Execution
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
             ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
-            // We don't restore snapshot for failures during preprocessing
-            if (!result && !isPreProcessing)
+            bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
+            bool commit = _currentOpts.HasFlag(ExecutionOptions.Commit) ||
+                          (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && !_currentSpec!.IsEip658Enabled);
+
+            // For CallAndRestore (restore=true): always restore the snapshot to undo state changes,
+            // matching the base class behavior that checks restore BEFORE commit.
+            if (restore)
             {
+                WorldState.Restore(snapshot);
+                WorldState.Commit(_currentSpec!, commitRoots: false);
+            }
+            else if (!result && !isPreProcessing)
+            {
+                // Restore snapshot for failures during normal execution (not preprocessing)
                 WorldState.Restore(snapshot);
                 TxExecContext.Reset();
 
                 if (_logger.IsTrace)
                     _logger.Trace($"Reverted state for failed Arbitrum transaction {tx.Hash}: {result.ErrorDescription}");
-            }
 
-            bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
-            bool commit = _currentOpts.HasFlag(ExecutionOptions.Commit) ||
-                          (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && !_currentSpec!.IsEip658Enabled);
-            if (commit)
+                if (commit)
+                {
+                    WorldState.Commit(_currentSpec!, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
+                        commitRoots: !_currentSpec!.IsEip658Enabled);
+                }
+            }
+            else if (commit)
             {
                 WorldState.Commit(_currentSpec!, tracer.IsTracingState ? tracer : NullStateTracer.Instance,
                     commitRoots: !_currentSpec!.IsEip658Enabled);
-            }
-            else if (restore)
-            {
-                WorldState.Reset(resetBlockChanges: false);
             }
 
             if (tracer.IsTracingReceipt)

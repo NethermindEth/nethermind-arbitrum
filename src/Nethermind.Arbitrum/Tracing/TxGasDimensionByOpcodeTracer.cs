@@ -3,14 +3,14 @@
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global - Properties are used by JSON serialization
 
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Serialization.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Nethermind.Arbitrum.Tracing;
 
@@ -34,7 +34,7 @@ public sealed class TxGasDimensionByOpcodeTracer(Transaction? transaction, Block
         Dictionary<string, GasDimensionBreakdown> dimensionsByName = new();
         foreach (KeyValuePair<Instruction, GasDimensionBreakdown> kvp in _dimensionsByOpcode)
         {
-            string opcodeName = (kvp.Key.GetName() ?? kvp.Key.ToString()).ToUpperInvariant();
+            string opcodeName = GetInstructionName(kvp.Key);
             dimensionsByName[opcodeName] = kvp.Value;
         }
 
