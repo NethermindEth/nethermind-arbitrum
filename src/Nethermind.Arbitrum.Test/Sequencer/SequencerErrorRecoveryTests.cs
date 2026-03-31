@@ -118,7 +118,7 @@ public class SequencerErrorRecoveryTests
     [Test]
     public async Task EndSequencing_RetryErrorWithBackup_ForwardsToBackup()
     {
-        using TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
+        using TestHttpServer remoteSequencer = TestHttpServer.Start();
 
         int forwardCount = 0;
         // Handle one forwarded tx

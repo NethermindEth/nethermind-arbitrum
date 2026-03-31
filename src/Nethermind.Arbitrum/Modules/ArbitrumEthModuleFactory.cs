@@ -49,7 +49,7 @@ public class ArbitrumEthModuleFactory(
     TransactionQueue transactionQueue,
     SequencerState sequencerState,
     IArbitrumConfig arbitrumConfig,
-    IConsensusRpcClient consensusRpcClient) : ModuleFactoryBase<IArbitrumEthRpcModule>
+    IBlockMetadataProvider blockMetadataProvider) : ModuleFactoryBase<IArbitrumEthRpcModule>
 {
     public override IArbitrumEthRpcModule Create()
     {
@@ -76,6 +76,6 @@ public class ArbitrumEthModuleFactory(
             sequencerState,
             ecdsa,
             arbitrumConfig,
-            consensusRpcClient);
+            blockMetadataProvider);
     }
 }

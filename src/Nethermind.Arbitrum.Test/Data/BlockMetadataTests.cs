@@ -16,9 +16,16 @@ public class BlockMetadataTests
     }
 
     [Test]
-    public void IsTxTimeboosted_EmptyMetadata_ReturnsNull()
+    public void IsTxTimeboosted_EmptyMetadata_ReturnsFalse()
     {
-        BlockMetadata.IsTxTimeboosted([], 0).Should().BeNull();
+        BlockMetadata.IsTxTimeboosted([], 0).Should().BeFalse();
+    }
+
+    [Test]
+    public void IsTxTimeboosted_NegativeTxIndex_ReturnsFalse()
+    {
+        byte[] metadata = [0x00, 0x01];
+        BlockMetadata.IsTxTimeboosted(metadata, -1).Should().BeFalse();
     }
 
     [Test]

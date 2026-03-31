@@ -315,10 +315,20 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
             .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
 
-        if (!string.IsNullOrWhiteSpace(arbitrumConfig.ConsensusNodeRpcUrl))
-            builder.AddSingleton<IConsensusRpcClient, ConsensusRpcClient>();
+        if (arbitrumConfig.ConsensusNodeRpcEnabled)
+        {
+            if (!Uri.TryCreate(arbitrumConfig.ConsensusNodeRpcUrl, UriKind.Absolute, out Uri? consensusUri) ||
+                (consensusUri.Scheme != Uri.UriSchemeHttp && consensusUri.Scheme != Uri.UriSchemeHttps))
+                throw new ArgumentException(
+                    $"{nameof(ArbitrumConfig.ConsensusNodeRpcUrl)} must be a valid absolute http/https URL when {nameof(ArbitrumConfig.ConsensusNodeRpcEnabled)} is true. " +
+                    $"Configured value: '{arbitrumConfig.ConsensusNodeRpcUrl}'.");
+
+            builder.AddSingleton<IArbitrumConsensusClient, ArbitrumConsensusClient>();
+        }
         else
-            builder.AddSingleton<IConsensusRpcClient, DisabledConsensusRpcClient>();
+            builder.AddSingleton<IArbitrumConsensusClient, DisabledArbitrumConsensusClient>();
+
+        builder.AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
 
         builder
             .AddSingleton<ArbitrumEthModuleFactory>()

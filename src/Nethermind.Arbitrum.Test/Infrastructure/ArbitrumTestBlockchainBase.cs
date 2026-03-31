@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Collections.Concurrent;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
@@ -9,6 +10,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
@@ -264,7 +266,10 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 ctx.Resolve<IBlockTree>(),
                 BlockProducerRunner,
                 ctx.Resolve<IBlocksConfig>(),
-                NullLogManager.Instance));
+                NullLogManager.Instance))
+            .AddSingleton<FakeArbitrumConsensusClient>()
+            .AddSingleton<IArbitrumConsensusClient>(c => c.Resolve<FakeArbitrumConsensusClient>())
+            .AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
@@ -381,4 +386,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     }
 
     private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();
+}
+
+public sealed class FakeArbitrumConsensusClient : IArbitrumConsensusClient
+{
+    private readonly ConcurrentDictionary<long, byte[]?> _responses = new();
+
+    public void SetupResult(long blockNumber, byte[]? blockMetadata) =>
+        _responses.TryAdd(blockNumber, blockMetadata);
+
+    public Task<byte[]?> GetBlockMetadataAsync(long blockNumber) =>
+        Task.FromResult(_responses.TryGetValue(blockNumber, out byte[]? response) ? response : null);
 }

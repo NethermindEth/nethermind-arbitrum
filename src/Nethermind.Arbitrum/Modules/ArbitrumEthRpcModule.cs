@@ -44,7 +44,7 @@ namespace Nethermind.Arbitrum.Modules
         private readonly TransactionQueue _transactionQueue;
         private readonly SequencerState _sequencerState;
         private readonly IEthereumEcdsa _ecdsa;
-        private readonly IConsensusRpcClient _consensusRpcClient;
+        private readonly IBlockMetadataProvider _blockMetadataProvider;
         private readonly HashSet<Address>? _senderWhitelist;
         private readonly int _queueTimeoutMs;
 
@@ -71,14 +71,14 @@ namespace Nethermind.Arbitrum.Modules
             SequencerState sequencerState,
             IEthereumEcdsa ecdsa,
             IArbitrumConfig arbitrumConfig,
-            IConsensusRpcClient consensusRpcClient)
+            IBlockMetadataProvider blockMetadataProvider)
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
             _transactionQueue = transactionQueue;
             _sequencerState = sequencerState;
             _ecdsa = ecdsa;
-            _consensusRpcClient = consensusRpcClient;
+            _blockMetadataProvider = blockMetadataProvider;
             _senderWhitelist = ParseSenderWhitelist(arbitrumConfig.SequencerSenderWhitelist);
             _queueTimeoutMs = arbitrumConfig.SequencerQueueTimeoutMs
                 + (arbitrumConfig.TimeboostEnabled ? arbitrumConfig.TimeboostExpressLaneAdvantageMs : 0);
@@ -197,7 +197,7 @@ namespace Nethermind.Arbitrum.Modules
                     l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(header, _logger).L1BlockNumber;
             }
 
-            byte[]? blockMetadata = _consensusRpcClient.GetBlockMetadataAsync(receipt.BlockNumber).GetAwaiter().GetResult();
+            byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(receipt.BlockNumber).GetAwaiter().GetResult();
             bool? isTimeboosted = Data.BlockMetadata.IsTxTimeboosted(blockMetadata, receipt.Index);
 
             ArbitrumReceiptForRpc result = new(
@@ -222,7 +222,7 @@ namespace Nethermind.Arbitrum.Modules
             TxReceipt[] receipts = _receiptFinder.Get(block);
             IReleaseSpec spec = _specProvider.GetSpec(block.Header);
             ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger).L1BlockNumber;
-            byte[]? blockMetadata = _consensusRpcClient.GetBlockMetadataAsync(block.Number).GetAwaiter().GetResult();
+            byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(block.Number).GetAwaiter().GetResult();
 
             ReceiptForRpc[] result = receipts
                 .Zip(block.Transactions, (receipt, tx) =>

@@ -8,8 +8,12 @@ public static class BlockMetadata
 {
     public static bool? IsTxTimeboosted(byte[]? blockMetadata, int txIndex)
     {
-        if (blockMetadata is null || blockMetadata.Length == 0)
+        if (blockMetadata is null)
             return null;
+        if (blockMetadata.Length == 0)
+            return false;
+        if (txIndex < 0)
+            return false;
 
         int maxTxCount = (blockMetadata.Length - 1) * 8;
         if (txIndex >= maxTxCount)
