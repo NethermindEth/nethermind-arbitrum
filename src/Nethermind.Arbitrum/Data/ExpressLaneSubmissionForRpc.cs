@@ -27,4 +27,7 @@ public class ExpressLaneSubmissionForRpc
 
     /// <summary>Address of the ExpressLaneAuction contract included in the signing message.</summary>
     public Address AuctionContractAddress { get; set; } = Address.Zero;
+
+    /// <summary>Optional EIP-7796 conditional state preconditions.</summary>
+    public ConditionalOptions? Options { get; set; }
 }

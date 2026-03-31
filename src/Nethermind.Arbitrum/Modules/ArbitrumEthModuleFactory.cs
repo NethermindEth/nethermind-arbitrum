@@ -47,9 +47,9 @@ public class ArbitrumEthModuleFactory(
     IEthereumEcdsa ecdsa,
     TransactionQueue transactionQueue,
     SequencerState sequencerState,
-    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IEthRpcModule>
+    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IArbitrumEthRpcModule>
 {
-    public override IEthRpcModule Create()
+    public override IArbitrumEthRpcModule Create()
     {
         return new ArbitrumEthRpcModule(
             jsonRpcConfig,

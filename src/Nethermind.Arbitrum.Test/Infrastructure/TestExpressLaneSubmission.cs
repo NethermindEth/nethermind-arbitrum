@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -15,7 +16,8 @@ public static class TestExpressLaneSubmission
         ulong round,
         ulong seqNum,
         PrivateKey? signerKey = null,
-        Address? auctionContract = null)
+        Address? auctionContract = null,
+        ConditionalOptions? options = null)
     {
         Address contract = auctionContract ?? TestSequencer.TestAuctionContract;
         PrivateKey key = signerKey ?? FullChainSimulationAccounts.AccountA;
@@ -28,6 +30,7 @@ public static class TestExpressLaneSubmission
             Signature = sig,
             ChainId = FullChainSimulationChainSpecProvider.ChainId,
             AuctionContractAddress = contract,
+            Options = options,
         };
     }
 
