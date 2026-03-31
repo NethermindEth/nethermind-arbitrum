@@ -515,8 +515,8 @@ public class StateReconstructorTests
 
     /// <summary>
     /// A controller that wraps an IReadOnlyTrieStore with switchable HasRoot behavior.
-    /// Initially passes through all calls (including HasRoot) to the real store.
-    /// After EnablePruning() is called, HasRoot returns false for roots not in the allowed set,
+    /// Initially passes through all calls (including TryLoadRlp used for HasRoot) to the real store.
+    /// After EnablePruning() is called, TryLoadRlp returns false for roots not in the allowed set,
     /// while all other operations still delegate to the real store.
     /// This simulates pruning mode where the few available trie nodes are "on disk" while all the others have been evicted from the dirty cache.
     /// </summary>
