@@ -545,7 +545,7 @@ public sealed class ArbitrumExecutionEngine(
 
         for (long current = headerNum; current <= lastHeaderNum; current++)
         {
-            BlockHeader? header = BlockTree.FindHeader(current);
+            BlockHeader? header = blockTree.FindHeader(current);
             if (header is null)
             {
                 _logger.Warn($"PrepareForRecord: header not found for block {current}");
