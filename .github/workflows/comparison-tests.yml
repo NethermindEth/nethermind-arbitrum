@@ -139,7 +139,7 @@ jobs:
           python -m comparison_runner "${ARGS[@]}"
 
       - name: Upload logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: comparison-test-logs-${{ github.run_id }}
@@ -149,7 +149,7 @@ jobs:
           compression-level: 6
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: comparison-test-results-${{ github.run_id }}
