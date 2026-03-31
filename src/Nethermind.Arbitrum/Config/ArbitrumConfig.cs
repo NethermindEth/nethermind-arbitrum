@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Diagnostics;
-using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Config;
 
@@ -14,6 +13,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
     public int MessageLagMs { get; set; } = 1000;
     public bool ExposeMultiGas { get; set; } = false;
+    public int ValidatorMaxStateRootsInMem { get; set; } = 1000;
     public bool SequencerEnabled { get; set; } = false;
     public int SequencerNonceCacheSize { get; set; } = 1024;
     public int SequencerMaxTxQueueSize { get; set; } = 1024;

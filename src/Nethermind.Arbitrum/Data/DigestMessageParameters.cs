@@ -66,6 +66,11 @@ public record RecordBlockCreationParameters(
     [property: JsonPropertyName("wasmTargets")] string[] WasmTargets
 );
 
+public record PrepareForRecordParameters(
+    [property: JsonPropertyName("start")] ulong Start,
+    [property: JsonPropertyName("end")] ulong End
+);
+
 public record EnqueueDelayedMessagesParams(
     [property: JsonPropertyName("messages")] L1IncomingMessage[] Messages,
     [property: JsonPropertyName("firstMsgIdx")] ulong FirstMsgIdx

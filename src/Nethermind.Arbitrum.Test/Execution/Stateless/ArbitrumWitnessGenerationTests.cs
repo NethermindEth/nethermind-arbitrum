@@ -36,7 +36,8 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
-            .Build();
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
@@ -74,7 +75,8 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
-            .Build();
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
@@ -112,7 +114,8 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
-            .Build();
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
@@ -158,7 +161,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
-            .Build();
+            .Build(); // no need to flush trie here, do it before RecordBlockCreation call
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
@@ -272,6 +275,9 @@ public class ArbitrumWitnessGenerationTests
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Step 5: Call RecordBlockCreation to generate the witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
@@ -373,6 +379,9 @@ public class ArbitrumWitnessGenerationTests
         TxReceipt[] receipts = chain.LatestReceipts();
         receipts[1].StatusCode.Should().Be(StatusCode.Success, "ArbSys call should succeed");
         receipts[2].StatusCode.Should().Be(StatusCode.Success, "ecrecover call should succeed");
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         // Call RecordBlockCreation to generate the witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
@@ -493,6 +502,9 @@ public class ArbitrumWitnessGenerationTests
         call2Result.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Step 2: Call the contract again (would use cached value from the block that just got built
         // if cache were persisted into witness-generating env)
         // Making sure witness-generating VM has its own empty cache and must access storage, recording the trie nodes.
@@ -551,6 +563,9 @@ public class ArbitrumWitnessGenerationTests
             await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, callTx));
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "ArbBlockHash call should succeed");
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
@@ -668,6 +683,9 @@ public class ArbitrumWitnessGenerationTests
             await chain.DigestAndGetParams(retryable);
         result.Result.Should().Be(Result.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
@@ -776,6 +794,9 @@ public class ArbitrumWitnessGenerationTests
             await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, transferTx));
         result.Result.Should().Be(Result.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
@@ -811,6 +832,9 @@ public class ArbitrumWitnessGenerationTests
         (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
             await chain.DigestAndGetParams(new TestEndOfBlock(l1BaseFee));
         result.Result.Should().Be(Result.Success);
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
@@ -931,6 +955,9 @@ public class ArbitrumWitnessGenerationTests
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "TX1 (set to 2) should succeed");
         chain.LatestReceipts()[2].StatusCode.Should().Be(StatusCode.Success, "TX2 (reset to 1) should succeed");
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Record block creation and generate witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
@@ -993,7 +1020,7 @@ public class ArbitrumWitnessGenerationTests
         depositResult.Result.Should().Be(Result.Success);
 
         // Pre-populate NetworkFeeAccount (ArbOS root storage, offset 3) with a known original value.
-        // This creates a leaf trie node at that storage path so the assertion targets something unique.
+        // This creates a leaf trie node at that storage path so the assertion targets a unique trie node.
         Address originalFeeAccount = TestItem.AddressB;
         chain.AppendBlock(chain =>
         {
@@ -1061,6 +1088,9 @@ public class ArbitrumWitnessGenerationTests
             arbosState.NetworkFeeAccount.Get().Should().Be(originalFeeAccount,
                 "NetworkFeeAccount should retain its original value after modify + reset in the same block");
         }
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         // Record block creation and generate witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
@@ -1190,6 +1220,9 @@ public class ArbitrumWitnessGenerationTests
             arbosState.AddressTable.AddressExists(addressToRegister).Should().BeFalse(
                 "address should not be registered since the transaction reverted");
         }
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         // Record the block and generate the witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(

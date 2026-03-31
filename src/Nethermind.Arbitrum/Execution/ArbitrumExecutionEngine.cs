@@ -46,7 +46,8 @@ public sealed class ArbitrumExecutionEngine(
     IExpressLaneService expressLaneService,
     IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
-    IEthereumEcdsa ethereumEcdsa)
+    IEthereumEcdsa ethereumEcdsa,
+    StateReconstructor stateReconstructor)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -463,14 +464,27 @@ public sealed class ArbitrumExecutionEngine(
             Number = blockNumber
         };
 
+        // References temporarily parent trie
+        stateReconstructor.EnsureStateAvailable(parent);
+
         string[] wasmTargets = parameters.WasmTargets;
         string localTarget = StylusTargets.GetLocalTargetName();
         if (!wasmTargets.Contains(localTarget))
             wasmTargets = wasmTargets.Append(localTarget).ToArray();
 
-        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
-        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        Block builtBlock;
+        ArbitrumWitness witness;
+        try
+        {
+            using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
+            IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+            (builtBlock, witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        }
+        finally
+        {
+            // Removes temporary reference to parent trie
+            stateReconstructor.DereferenceRoot(parent.StateRoot!);
+        }
 
         using (witness)
         {
@@ -512,6 +526,47 @@ public sealed class ArbitrumExecutionEngine(
                 blockTree.BlockAddedToMain -= OnBlockAddedToMain;
             }
         }
+    }
+
+    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+    {
+        if (parameters.End < parameters.Start)
+            return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
+
+        ulong numOfBlocks = parameters.End + 1 - parameters.Start;
+        long headerNum = MessageIndexToBlockNumber(parameters.Start).Data;
+        if (parameters.Start > 0)
+            headerNum--; // need to get previous as RecordBlockCreation executes from the parent block's state
+        else
+            numOfBlocks--; // genesis block doesn't need preparation, so recording one less block
+
+        long lastHeaderNum = headerNum + (long)numOfBlocks;
+        List<Hash256> referencedStateRoots = new List<Hash256>((int)numOfBlocks);
+
+        for (long current = headerNum; current <= lastHeaderNum; current++)
+        {
+            BlockHeader? header = blockTree.FindHeader(current);
+            if (header is null)
+            {
+                _logger.Warn($"PrepareForRecord: header not found for block {current}");
+                break;
+            }
+
+            try
+            {
+                stateReconstructor.EnsureStateAvailable(header);
+                referencedStateRoots.Add(header.StateRoot!);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn($"PrepareForRecord: failed to ensure state for block {current}: {ex.Message}");
+                break;
+            }
+        }
+
+        stateReconstructor.PreparedAddTrim(referencedStateRoots);
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
     private Hash256 GetSendRootFromBlock(Block block)

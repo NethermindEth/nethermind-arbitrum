@@ -15,7 +15,6 @@ using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.State;
-using Nethermind.Trie.Pruning;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles;
@@ -27,6 +26,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Config;
 using Nethermind.Evm;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -37,38 +37,17 @@ public interface IArbitrumWitnessGeneratingBlockProcessingEnvFactory : IWitnessG
 
 public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     ILifetimeScope rootLifetimeScope,
-    IReadOnlyTrieStore readOnlyTrieStore,
+    ReconstructedStateTrieStore reconstructedStateTrieStore,
     IDbProvider dbProvider,
     ILogManager logManager) : IArbitrumWitnessGeneratingBlockProcessingEnvFactory
 {
-    // To force processing in BlockchainProcessor even though block is not better than head (already existing block)
-    private static BlocksConfig CreateWitnessBlocksConfig(IBlocksConfig blocksConfig)
-        => new()
-        {
-            TargetBlockGasLimit = blocksConfig.TargetBlockGasLimit,
-            MinGasPrice = blocksConfig.MinGasPrice,
-            RandomizedBlocks = blocksConfig.RandomizedBlocks,
-            ExtraData = blocksConfig.ExtraData,
-            SecondsPerSlot = blocksConfig.SecondsPerSlot,
-            SingleBlockImprovementOfSlot = blocksConfig.SingleBlockImprovementOfSlot,
-            PreWarmStateOnBlockProcessing = blocksConfig.PreWarmStateOnBlockProcessing,
-            CachePrecompilesOnBlockProcessing = blocksConfig.CachePrecompilesOnBlockProcessing,
-            PreWarmStateConcurrency = blocksConfig.PreWarmStateConcurrency,
-            BlockProductionTimeoutMs = blocksConfig.BlockProductionTimeoutMs,
-            GenesisTimeoutMs = blocksConfig.GenesisTimeoutMs,
-            BlockProductionMaxTxKilobytes = blocksConfig.BlockProductionMaxTxKilobytes,
-            GasToken = blocksConfig.GasToken,
-            BlockProductionBlobLimit = blocksConfig.BlockProductionBlobLimit,
-            BuildBlocksOnMainState = false,
-        };
-
     // TODO: check debug endpoint exec later (compare with nitro) -- Not priority for now
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope() => CreateScope(null);
 
     public IWitnessGeneratingBlockProcessingEnvScope CreateScope(string[]? wasmTargets)
     {
         IReadOnlyDbProvider readOnlyDbProvider = new ReadOnlyDbProvider(dbProvider, true);
-        WitnessCapturingTrieStore trieStore = new(readOnlyDbProvider.StateDb, readOnlyTrieStore);
+        WitnessCapturingTrieStore trieStore = new(reconstructedStateTrieStore);
         IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
         WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
@@ -92,7 +71,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                     new WitnessGeneratingWorldState(worldState, stateReader, trieStore, headerFinder))
                 .BindScoped<IWorldState, WitnessGeneratingWorldState>()
 
-                .AddScoped<IBlocksConfig>(_ => CreateWitnessBlocksConfig(blocksConfig))
+                .AddScoped<IBlocksConfig>(_ => ArbitrumStateReconstructionBlockProcessingEnvFactory.CreateReplayBlocksConfig(blocksConfig))
 
                 // We give a NoOp l1BlockCache to the vm so that it forces querying
                 // the world state to record state accesses.
@@ -127,6 +106,7 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
                 .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
 
                 // 1st: add the tx executor
+                .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>()
                 .AddScoped<IBlockProcessor.IBlockTransactionsExecutor, ArbitrumBlockProductionTransactionsExecutor>()
 
                 // 2nd: add block processor
@@ -136,7 +116,6 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
 
                 // 3rd: configure the builder for block production (like ArbitrumBlockProducerEnvFactory but with my own witness capturing world state)
                 .AddScoped<ITxSource, IBlockProducerTxSourceFactory>(factory => factory.Create())
-                .AddScoped<ITransactionProcessorAdapter, BuildUpTransactionProcessorAdapter>()
                 .AddDecorator<IWithdrawalProcessor, BlockProductionWithdrawalProcessor>()
                 .AddDecorator<IBlockchainProcessor, OneTimeChainProcessor>()
                 .AddScoped<IBlockProducerEnv, BlockProducerEnv>()

@@ -43,6 +43,7 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using NSubstitute;
 using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainProcessor.Options;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -330,6 +331,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         CachedL1PriceData CachedL1PriceData,
         IWasmStore WasmStore,
         IArbosVersionProvider ArbosVersionProvider,
+        StateReconstructor StateReconstructor,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)

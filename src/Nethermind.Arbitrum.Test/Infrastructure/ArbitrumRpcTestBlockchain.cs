@@ -395,7 +395,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IExpressLaneService>(),
             chain.Container.Resolve<IExpressLaneTracker>(),
             chain.Container.Resolve<IAuctionResolutionQueue>(),
-            chain.Container.Resolve<IEthereumEcdsa>());
+            chain.Container.Resolve<IEthereumEcdsa>(),
+            chain.Dependencies.StateReconstructor);
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
@@ -580,6 +581,9 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.RecordBlockCreation(parameters);
         }
+
+        public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+            => rpc.PrepareForRecord(parameters);
 
         public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
             => rpc.StartSequencing(parameters);

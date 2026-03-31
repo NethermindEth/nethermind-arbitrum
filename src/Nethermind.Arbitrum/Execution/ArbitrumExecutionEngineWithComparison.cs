@@ -315,4 +315,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
 
     public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
         => innerEngine.RecordBlockCreation(parameters);
+
+    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+        => innerEngine.PrepareForRecord(parameters);
 }
