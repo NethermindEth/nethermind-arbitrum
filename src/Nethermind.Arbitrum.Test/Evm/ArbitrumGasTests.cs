@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
+using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
@@ -166,7 +168,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
+        ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OnFlag>(ref gas, Cancun.Instance);
 
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.SSet);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.SSet);
@@ -177,7 +179,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
+        ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OffFlag>(ref gas, Cancun.Instance);
 
         long expectedCost = Cancun.Instance.GasCosts.SStoreResetCost;
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
@@ -200,7 +202,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
-        ArbitrumGasPolicy.ConsumeNewAccountCreation(ref gas);
+        ArbitrumGasPolicy.ConsumeNewAccountCreation<OffFlag>(ref gas);
 
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - GasCostOf.NewAccount);
         gas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.NewAccount);
@@ -596,7 +598,7 @@ public class ArbitrumGasPolicyTests
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100);
 
-        bool result = ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: true, Cancun.Instance);
+        bool result = ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OnFlag>(ref gas, Cancun.Instance);
 
         result.Should().BeFalse();
     }
@@ -609,7 +611,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
         // Simulate storage write (slot clearing triggers refund calculation at tx end)
-        ArbitrumGasPolicy.ConsumeStorageWrite(ref gas, isSlotCreation: false, Cancun.Instance);
+        ArbitrumGasPolicy.ConsumeStorageWrite<OffFlag, OffFlag>(ref gas, Cancun.Instance);
 
         // At the transaction end, apply a calculated refund (EIP-3529: SstoreClearsScheduleRefundEIP3529 = 4800)
         const ulong expectedRefund = 4800;
@@ -661,8 +663,10 @@ public class ArbitrumGasPolicyTests
             .WithData([0x01, 0x02]) // 2 non-zero bytes
             .TestObject;
 
+        IReleaseSpec releaseSpec = new ArbitrumReleaseSpec();
+
         ArbitrumGasPolicy intrinsicGas = ArbitrumGasPolicy.CalculateIntrinsicGas(tx, Cancun.Instance).Standard;
-        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas);
+        ArbitrumGasPolicy availableGas = ArbitrumGasPolicy.CreateAvailableFromIntrinsic(100_000, in intrinsicGas, releaseSpec);
 
         // Accumulated breakdown should be preserved
         availableGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);

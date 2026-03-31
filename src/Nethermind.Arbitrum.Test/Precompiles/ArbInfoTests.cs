@@ -150,7 +150,7 @@ public class ArbInfoTests
         worldState.Commit(London.Instance);
 
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
-        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
+        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.Memory * codeLengthInWords + 1;
 
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
         byte[] code = ArbInfo.GetCode(context, someContract);
