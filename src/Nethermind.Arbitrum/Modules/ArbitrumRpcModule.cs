@@ -36,28 +36,13 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
         => Task.FromResult(engine.BlockNumberToMessageIndex(blockNumber));
 
     public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
-    {
-        ResultWrapper<EmptyResponse> result = engine.SetFinalityData(parameters);
-        return result.Result == Result.Success
-            ? ResultWrapper<string>.Success("OK")
-            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
-    }
+        => ToOkResult(engine.SetFinalityData(parameters));
 
     public ResultWrapper<string> MarkFeedStart(ulong to)
-    {
-        ResultWrapper<EmptyResponse> result = engine.MarkFeedStart(to);
-        return result.Result == Result.Success
-            ? ResultWrapper<string>.Success("OK")
-            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
-    }
+        => ToOkResult(engine.MarkFeedStart(to));
 
     public ResultWrapper<string> SetConsensusSyncData(SetConsensusSyncDataParams? parameters)
-    {
-        ResultWrapper<EmptyResponse> result = engine.SetConsensusSyncData(parameters);
-        return result.Result == Result.Success
-            ? ResultWrapper<string>.Success("OK")
-            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
-    }
+        => ToOkResult(engine.SetConsensusSyncData(parameters));
 
     public ResultWrapper<bool> Synced()
         => engine.Synced();
@@ -82,4 +67,39 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
 
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
         => engine.PrepareForRecord(parameters);
+
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
+        => engine.StartSequencingAsync(parameters.L1BlockNumber, parameters.L1Timestamp, parameters.Timestamp);
+
+    public Task<ResultWrapper<string>> EndSequencing(EndSequencingParams? parameters)
+        => ToOkResultAsync(engine.EndSequencingAsync(parameters?.Error));
+
+    public ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters)
+        => ToOkResult(engine.EnqueueDelayedMessages(parameters.Messages, parameters.FirstMsgIdx));
+
+    public async Task<ResultWrapper<string>> AppendLastSequencedBlock()
+        => ToOkResult(await engine.AppendLastSequencedBlockAsync());
+
+    public ResultWrapper<ulong> NextDelayedMessageNumber()
+        => engine.NextDelayedMessageNumber();
+
+    public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessage(MessageWithMetadata? message)
+        => engine.ResequenceReorgedMessageAsync(message);
+
+    public ResultWrapper<string> Pause()
+        => ToOkResult(engine.Pause());
+
+    public ResultWrapper<string> Activate()
+        => ToOkResult(engine.Activate());
+
+    public ResultWrapper<string> ForwardTo(string url)
+        => ToOkResult(engine.ForwardTo(url));
+
+    private static async Task<ResultWrapper<string>> ToOkResultAsync(Task<ResultWrapper<EmptyResponse>> result)
+        => ToOkResult(await result);
+
+    private static ResultWrapper<string> ToOkResult(ResultWrapper<EmptyResponse> result)
+        => result.Result == Result.Success
+            ? ResultWrapper<string>.Success("OK")
+            : ResultWrapper<string>.Fail(result.Result.Error!, result.ErrorCode);
 }

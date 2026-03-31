@@ -4,6 +4,7 @@
 using Nethermind.Arbitrum.Data;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -58,4 +59,37 @@ public interface INitroExecutionRpcModule : IRpcModule
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<EmptyResponse>> nitroexecution_endSequencing(string? error);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<EmptyResponse> nitroexecution_enqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<EmptyResponse>> nitroexecution_appendLastSequencedBlock();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<ulong> nitroexecution_nextDelayedMessageNumber();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<SequencedMsg?>> nitroexecution_resequenceReorgedMessage(MessageWithMetadata? message);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<EmptyResponse> nitroexecution_pause();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<EmptyResponse> nitroexecution_activate();
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<EmptyResponse> nitroexecution_forwardTo(string url);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<bool>> nitroexecution_publishAuctionResolutionTransaction(byte[] rlpTransaction);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission);
 }

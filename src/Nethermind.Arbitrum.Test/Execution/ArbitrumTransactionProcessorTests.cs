@@ -2989,6 +2989,89 @@ public class ArbitrumTransactionProcessorTests
         senderFinalBalance.Should().Be(expectedBalance);
     }
 
+    [Test]
+    public void RefundOnFailContractCreation_WithTipDropped_RefundsAtBaseFeeNotEffectiveGasPrice()
+    {
+        using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+        chain.BlockTree.Head!.Header.Author = ArbosAddresses.BatchPosterAddress;
+        chain.TxProcessor.SetBlockExecutionContext(new BlockExecutionContext(chain.BlockTree.Head!.Header,
+            chain.SpecProvider.GetSpec(chain.BlockTree.Head!.Header)));
+
+        using IDisposable dispose = chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header);
+        IWorldState worldState = chain.MainWorldState;
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
+
+        // Use a non-v9 ArbOS version so ShouldDropTip() returns true
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Twenty);
+
+        ulong blockGasLimit = 50_000;
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(blockGasLimit);
+
+        Address sender = TestItem.AddressA;
+        byte[] initCode = Prepare.EvmCode
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        long gasLimit = 200_000;
+        Address contractAddress = ContractAddress.From(sender, 0);
+
+        // Deploy existing code at the contract address to trigger collision
+        byte[] existingCode = [0x60, 0x00];
+        worldState.CreateAccount(contractAddress, 0, 1);
+        worldState.InsertCode(contractAddress, Keccak.Compute(existingCode), existingCode, chain.SpecProvider.GenesisSpec);
+
+        // EIP-1559 tx with a tip that will be dropped
+        ulong maxPriorityFeePerGas = 500;
+        ulong maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
+        Transaction tx = Build.A.Transaction
+            .WithChainId(chain.ChainSpec.ChainId)
+            .WithType(TxType.EIP1559)
+            .WithTo(null)
+            .WithData(initCode)
+            .WithValue(0)
+            .WithMaxFeePerGas(maxFeePerGas)
+            .WithMaxPriorityFeePerGas(maxPriorityFeePerGas)
+            .WithGasLimit(gasLimit)
+            .WithNonce(0)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = 10.Ether;
+        worldState.CreateAccount(sender, senderInitialBalance, 0);
+
+        ArbitrumTransactionProcessor arbProcessor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = arbProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+
+        ulong actualComputeHoldGas = arbProcessor.TxExecContext.ComputeHoldGas;
+        actualComputeHoldGas.Should().BeGreaterThan(0);
+
+        long expectedGasSpent = gasLimit - (long)actualComputeHoldGas;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        // The refund must use the tip-dropped price (baseFee), not the full effective gas price (baseFee + tip).
+        // If TxExecutionContext.GasPrice were used instead of CalculateEffectiveGasPrice(),
+        // the balance would be: senderInitialBalance - expectedGasSpent * maxFeePerGas (wrong, over-refunds computeHoldGas)
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        UInt256 expectedBalance = senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas;
+        senderFinalBalance.Should().Be(expectedBalance);
+    }
+
     [TestCaseSource(nameof(PosterDataCostReturnsNonZeroCases))]
     public void PosterDataCost_WhenCalledWithBatchPosterAndStandardTx_ShouldReturnNonZero(string posterHex, TxType txType)
     {

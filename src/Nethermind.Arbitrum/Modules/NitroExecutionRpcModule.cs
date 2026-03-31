@@ -76,4 +76,37 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
 
     public Task<ResultWrapper<MaintenanceStatus>> nitroexecution_maintenanceStatus()
         => engine.MaintenanceStatusAsync();
+
+    public Task<ResultWrapper<StartSequencingResult>> nitroexecution_startSequencing(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+        => engine.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp);
+
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_endSequencing(string? error)
+        => engine.EndSequencingAsync(error);
+
+    public ResultWrapper<EmptyResponse> nitroexecution_enqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
+        => engine.EnqueueDelayedMessages(messages, firstMsgIdx);
+
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_appendLastSequencedBlock()
+        => engine.AppendLastSequencedBlockAsync();
+
+    public ResultWrapper<ulong> nitroexecution_nextDelayedMessageNumber()
+        => engine.NextDelayedMessageNumber();
+
+    public Task<ResultWrapper<SequencedMsg?>> nitroexecution_resequenceReorgedMessage(MessageWithMetadata? message)
+        => engine.ResequenceReorgedMessageAsync(message);
+
+    public ResultWrapper<EmptyResponse> nitroexecution_pause()
+        => engine.Pause();
+
+    public ResultWrapper<EmptyResponse> nitroexecution_activate()
+        => engine.Activate();
+
+    public ResultWrapper<EmptyResponse> nitroexecution_forwardTo(string url)
+        => engine.ForwardTo(url);
+
+    public Task<ResultWrapper<bool>> nitroexecution_publishAuctionResolutionTransaction(byte[] rlpTransaction)
+        => engine.PublishAuctionResolutionTransactionAsync(rlpTransaction);
+
+    public Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission)
+        => engine.PublishExpressLaneTransactionAsync(submission);
 }

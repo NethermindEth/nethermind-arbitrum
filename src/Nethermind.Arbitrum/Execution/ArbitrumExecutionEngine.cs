@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Arbitrum.Config;
@@ -11,16 +10,19 @@ using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Int256;
 using Nethermind.Blockchain;
-using Nethermind.Config;
-using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Stylus;
 
@@ -37,28 +39,20 @@ public sealed class ArbitrumExecutionEngine(
     IArbitrumSpecHelper specHelper,
     ILogManager logManager,
     CachedL1PriceData cachedL1PriceData,
-    IBlockProcessingQueue processingQueue,
     IArbitrumConfig arbitrumConfig,
     IArbitrumWitnessGeneratingBlockProcessingEnvFactory witnessGeneratingBlockProcessingEnvFactory,
-    IStateReconstructor stateReconstructor,
-    IBlocksConfig blocksConfig)
+    ArbitrumBlockFactory arbitrumBlockFactory,
+    IArbitrumSequencerEngine sequencerEngine,
+    IExpressLaneService expressLaneService,
+    IExpressLaneTracker expressLaneTracker,
+    IAuctionResolutionQueue auctionResolutionQueue,
+    IEthereumEcdsa ethereumEcdsa,
+    IStateReconstructor stateReconstructor)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
 
-    public IBlockTree BlockTree { get; } = blockTree;
-    public bool BuildBlocksOnMainState => blocksConfig.BuildBlocksOnMainState;
-
-    private readonly SemaphoreSlim _createBlocksSemaphore = new(1, 1);
     private readonly ArbitrumSyncMonitor _syncMonitor = new(blockTree, specHelper, arbitrumConfig, logManager);
-    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<Block>> _newBestSuggestedBlockEvents = new();
-    private readonly ConcurrentDictionary<Hash256, TaskCompletionSource<BlockRemovedEventArgs>> _blockRemovedEvents = new();
-
-    public Task<bool> TryAcquireSemaphoreAsync(int millisecondsTimeout = 0)
-        => _createBlocksSemaphore.WaitAsync(millisecondsTimeout);
-
-    public void ReleaseSemaphore()
-        => _createBlocksSemaphore.Release();
 
     public ResultWrapper<MessageResult> DigestInitMessage(DigestInitMessage message)
     {
@@ -85,116 +79,49 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
     {
-        ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndexAsync(parameters.Index);
-        if (resultAtMessageIndex.Result == Result.Success)
-            return resultAtMessageIndex;
-
         // Handle init message (Kind = Initialize) - used by external consensus layers like Nitro
         if (parameters.Message.Message.Header.Kind == ArbitrumL1MessageKind.Initialize)
             return HandleInitMessageFromDigest(parameters);
 
-        // Non-blocking attempt to acquire the semaphore.
-        if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<MessageResult>.Fail("CreateBlock mutex held.", ErrorCodes.InternalError);
+        ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Index);
+        if (blockNumberResult.Result != Result.Success)
+            return ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error!);
 
-        try
+        ResultWrapper<MessageResult> resultAtMessageIndex = await ResultAtMessageIndexAsync(parameters.Index);
+        if (resultAtMessageIndex.Result == Result.Success)
+            return resultAtMessageIndex;
+
+        ResultWrapper<Block> blockResult = await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
+        if (blockResult.Result != Result.Success)
+            return ResultWrapper<MessageResult>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+        return ResultWrapper<MessageResult>.Success(new()
         {
-            long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
-            BlockHeader? headBlockHeader = BlockTree.Head?.Header;
-
-            if (headBlockHeader is not null && headBlockHeader.Number + 1 != blockNumber)
-                return ResultWrapper<MessageResult>.Fail(
-                    $"Wrong block number in digest got {blockNumber} expected {headBlockHeader.Number}");
-
-            if (blocksConfig.BuildBlocksOnMainState)
-                return await ProduceBlockWithoutWaitingOnProcessingQueueAsync(parameters.Message, blockNumber, headBlockHeader);
-
-            return await ProduceBlockWhileLockedAsync(parameters.Message, blockNumber, headBlockHeader);
-        }
-        finally
-        {
-            _createBlocksSemaphore.Release();
-        }
+            BlockHash = blockResult.Data.Hash!,
+            SendRoot = GetSendRootFromBlock(blockResult.Data)
+        });
     }
 
     public async Task<ResultWrapper<MessageResult[]>> ReorgAsync(ReorgParameters parameters)
     {
-        // 1. Validate: Cannot reorg to genesis
         if (parameters.MsgIdxOfFirstMsgToAdd == 0)
             return ResultWrapper<MessageResult[]>.Fail("Cannot reorg to genesis", ErrorCodes.InternalError);
 
-        // 2. Acquire semaphore (non-blocking, consistent with DigestMessage)
-        if (!await _createBlocksSemaphore.WaitAsync(0))
-            return ResultWrapper<MessageResult[]>.Fail("CreateBlock mutex held", ErrorCodes.InternalError);
+        ResultWrapper<long> blockNumResult = MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1);
+        if (blockNumResult.Result != Result.Success)
+            return ResultWrapper<MessageResult[]>.Fail(blockNumResult.Result.Error ?? "Unknown error converting message index", blockNumResult.ErrorCode);
 
-        try
+        ResultWrapper<Block[]> reorgedBlocks = await arbitrumBlockFactory.ReorgAsync(blockNumResult.Data, parameters.NewMessages);
+        if (reorgedBlocks.Result != Result.Success)
+            return ResultWrapper<MessageResult[]>.Fail(reorgedBlocks.Result.Error ?? "Unknown error during reorg", reorgedBlocks.ErrorCode);
+
+        MessageResult[] results = reorgedBlocks.Data.Select(block => new MessageResult
         {
-            // 3. Convert message index to block number
-            ResultWrapper<long> blockNumResult = MessageIndexToBlockNumber(parameters.MsgIdxOfFirstMsgToAdd - 1);
-            if (blockNumResult.Result != Result.Success)
-                return ResultWrapper<MessageResult[]>.Fail(blockNumResult.Result.Error ?? "Unknown error converting message index", blockNumResult.ErrorCode);
+            BlockHash = block.Hash!,
+            SendRoot = GetSendRootFromBlock(block)
+        }).ToArray();
 
-            long lastBlockNumToKeep = blockNumResult.Data;
-
-            // 4. Validate target block exists
-            BlockHeader? currentHead = BlockTree.Head?.Header;
-            if (currentHead is null || lastBlockNumToKeep > currentHead.Number)
-                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
-
-            // 5. Find the target block
-            Block? blockToKeep = BlockTree.FindBlock(lastBlockNumToKeep, BlockTreeLookupOptions.RequireCanonical);
-            if (blockToKeep is null)
-                return ResultWrapper<MessageResult[]>.Fail("Reorg target block not found", ErrorCodes.InternalError);
-
-            // 6. Clear safe/finalized blocks if below reorg target
-            BlockHeader? safeBlock = BlockTree.FindSafeHeader();
-            BlockHeader? finalBlock = BlockTree.FindFinalizedHeader();
-            Hash256? newSafeHash = safeBlock is not null && safeBlock.Number > blockToKeep.Number ? null : BlockTree.SafeHash;
-            Hash256? newFinalHash = finalBlock is not null && finalBlock.Number > blockToKeep.Number ? null : BlockTree.FinalizedHash;
-
-            if (safeBlock is not null && safeBlock.Number > blockToKeep.Number && _logger.IsInfo)
-                _logger.Info($"Reorg target block is below safe block. lastBlockNumToKeep:{blockToKeep.Number} currentSafeBlock:{safeBlock.Number}");
-
-            if (finalBlock is not null && finalBlock.Number > blockToKeep.Number && _logger.IsInfo)
-                _logger.Info($"Reorg target block is below finalized block. lastBlockNumToKeep:{blockToKeep.Number} currentFinalBlock:{finalBlock.Number}");
-
-            // 7. Update fork choice with potentially cleared safe/finalized
-            BlockTree.ForkChoiceUpdated(newFinalHash, newSafeHash);
-
-            // 8. Reorg blockchain to target block
-            BlockTree.UpdateMainChain([blockToKeep], wereProcessed: true, forceHeadBlock: true);
-
-            // 9. Process new messages using simpler block production (no event waiting after reorg)
-            MessageResult[] messageResults = new MessageResult[parameters.NewMessages.Length];
-            for (int i = 0; i < parameters.NewMessages.Length; i++)
-            {
-                MessageWithMetadataAndBlockInfo message = parameters.NewMessages[i];
-                BlockHeader headBlockHeader = BlockTree.Head!.Header;
-
-                ResultWrapper<MessageResult> blockResult = await ProduceBlockWithoutWaitingOnProcessingQueueAsync(
-                    message.MessageWithMeta,
-                    headBlockHeader.Number + 1,
-                    headBlockHeader);
-
-                if (blockResult.Result != Result.Success)
-                    return ResultWrapper<MessageResult[]>.Fail(blockResult.Result.Error ?? "Unknown error producing block", blockResult.ErrorCode);
-
-                messageResults[i] = blockResult.Data;
-            }
-
-            // 10. Return results
-            return ResultWrapper<MessageResult[]>.Success(messageResults);
-        }
-        catch (Exception ex)
-        {
-            if (_logger.IsError)
-                _logger.Error($"Error processing Reorg for message index {parameters.MsgIdxOfFirstMsgToAdd}: {ex.Message}", ex);
-            return ResultWrapper<MessageResult[]>.Fail(ArbitrumRpcErrors.InternalError, ErrorCodes.InternalError);
-        }
-        finally
-        {
-            _createBlocksSemaphore.Release();
-        }
+        return ResultWrapper<MessageResult[]>.Success(results);
     }
 
     public Task<ResultWrapper<MessageResult>> ResultAtMessageIndexAsync(ulong messageIndex)
@@ -205,7 +132,7 @@ public sealed class ArbitrumExecutionEngine(
             if (blockNumberResult.Result != Result.Success)
                 return Task.FromResult(ResultWrapper<MessageResult>.Fail(blockNumberResult.Result.Error ?? "Unknown error converting message index"));
 
-            BlockHeader? blockHeader = BlockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
             if (blockHeader == null)
                 return Task.FromResult(ResultWrapper<MessageResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data)));
 
@@ -229,7 +156,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public Task<ResultWrapper<ulong>> HeadMessageIndexAsync()
     {
-        BlockHeader? header = BlockTree.FindLatestHeader();
+        BlockHeader? header = blockTree.FindLatestHeader();
 
         return header is null
             ? Task.FromResult(ResultWrapper<ulong>.Fail("Failed to get latest header", ErrorCodes.InternalError))
@@ -238,15 +165,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<long> MessageIndexToBlockNumber(ulong messageIndex)
     {
-        try
-        {
-            long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
-            return ResultWrapper<long>.Success(blockNumber);
-        }
-        catch (OverflowException)
-        {
-            return ResultWrapper<long>.Fail(ArbitrumRpcErrors.Overflow);
-        }
+        return MessageBlockConverter.MessageIndexToBlockNumber(messageIndex, specHelper);
     }
 
     public ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber)
@@ -284,7 +203,7 @@ public sealed class ArbitrumExecutionEngine(
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
 
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
         catch (Exception ex)
         {
@@ -300,7 +219,7 @@ public sealed class ArbitrumExecutionEngine(
         try
         {
             cachedL1PriceData.MarkFeedStart(to);
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
         catch (Exception ex)
         {
@@ -324,7 +243,7 @@ public sealed class ArbitrumExecutionEngine(
                 parameters.SyncProgressMap,
                 parameters.UpdatedAt);
 
-            return ResultWrapper<EmptyResponse>.Success(default);
+            return ResultWrapper.EmptySuccess;
         }
         catch (Exception ex)
         {
@@ -373,7 +292,7 @@ public sealed class ArbitrumExecutionEngine(
                 return Task.FromResult(ResultWrapper<ulong>.Fail(
                     blockNumberResult.Result.Error ?? "Failed to convert message index to block number"));
 
-            BlockHeader? blockHeader = BlockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
+            BlockHeader? blockHeader = blockTree.FindHeader(blockNumberResult.Data, BlockTreeLookupOptions.RequireCanonical);
             if (blockHeader == null)
                 return Task.FromResult(ResultWrapper<ulong>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumberResult.Data)));
 
@@ -401,89 +320,99 @@ public sealed class ArbitrumExecutionEngine(
     public Task<ResultWrapper<string>> TriggerMaintenanceAsync()
         => Task.FromResult(ResultWrapper<string>.Success("OK"));
 
-    /// <summary>
-    /// Produces a block while waiting for processing queue events.
-    /// Used internally and by ArbitrumExecutionEngineWithComparison.
-    /// </summary>
-    public async Task<ResultWrapper<MessageResult>> ProduceBlockWhileLockedAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
+    public Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp)
+        => sequencerEngine.StartSequencingAsync(l1BlockNumber, l1Timestamp, timestamp);
+
+    public Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error)
+        => sequencerEngine.EndSequencingAsync(error);
+
+    public Task<ResultWrapper<EmptyResponse>> AppendLastSequencedBlockAsync()
+        => sequencerEngine.AppendLastSequencedBlockAsync();
+
+    public ResultWrapper<EmptyResponse> EnqueueDelayedMessages(L1IncomingMessage[] messages, ulong firstMsgIdx)
+        => sequencerEngine.EnqueueDelayedMessages(messages, firstMsgIdx);
+
+    public ResultWrapper<ulong> NextDelayedMessageNumber()
+        => sequencerEngine.NextDelayedMessageNumber();
+
+    public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessageAsync(MessageWithMetadata? msg)
+        => sequencerEngine.ResequenceReorgedMessageAsync(msg);
+
+    public ResultWrapper<EmptyResponse> Pause()
+        => sequencerEngine.Pause();
+
+    public ResultWrapper<EmptyResponse> Activate()
+        => sequencerEngine.Activate();
+
+    public ResultWrapper<EmptyResponse> ForwardTo(string url)
+        => sequencerEngine.ForwardTo(url);
+
+    public async Task<ResultWrapper<bool>> PublishAuctionResolutionTransactionAsync(byte[] rlpTransaction)
     {
-        ArbitrumPayloadAttributes payload = new()
-        {
-            MessageWithMetadata = messageWithMetadata,
-            Number = blockNumber,
-            PreviousArbosVersion = headBlockHeader != null ? ArbitrumBlockHeaderInfo.Deserialize(headBlockHeader, _logger).ArbOSFormatVersion : 0
-        };
+        if (!arbitrumConfig.TimeboostEnabled)
+            return ResultWrapper<bool>.Fail("Timeboost is not enabled");
 
-        void OnNewBestSuggestedBlock(object? sender, BlockEventArgs e)
-        {
-            if (e.Block.Hash is null)
-                return;
-
-            _newBestSuggestedBlockEvents
-                .GetOrAdd(e.Block.Hash, _ => new TaskCompletionSource<Block>())
-                .TrySetResult(e.Block);
-        }
-
-        void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
-        {
-            _blockRemovedEvents
-                .GetOrAdd(e.BlockHash, _ => new TaskCompletionSource<BlockRemovedEventArgs>())
-                .TrySetResult(e);
-        }
-
-        BlockTree.NewBestSuggestedBlock += OnNewBestSuggestedBlock;
-        processingQueue.BlockRemoved += OnBlockRemoved;
-
+        Transaction tx;
         try
         {
-            Block? block = await trigger.BuildBlock(parentHeader: headBlockHeader, payloadAttributes: payload);
-            if (block?.Hash is null)
-                return ResultWrapper<MessageResult>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError);
-
-            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<Block>());
-            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash, _ => new TaskCompletionSource<BlockRemovedEventArgs>());
-
-            using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
-            await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
-                .WaitAsync(processingTimeoutTokenSource.Token);
-
-            BlockRemovedEventArgs resultArgs = blockRemovedTcs.Task.Result;
-
-            if (resultArgs.ProcessingResult != ProcessingResult.Exception)
-                return resultArgs.ProcessingResult switch
-                {
-                    ProcessingResult.Success => ResultWrapper<MessageResult>.Success(new MessageResult
-                    {
-                        BlockHash = block.Hash!,
-                        SendRoot = GetSendRootFromBlock(block)
-                    }),
-                    ProcessingResult.ProcessingError => ResultWrapper<MessageResult>.Fail(resultArgs.Message ?? "Block processing failed.",
-                        ErrorCodes.InternalError),
-                    _ => ResultWrapper<MessageResult>.Fail($"Block processing ended in an unhandled state: {resultArgs.ProcessingResult}",
-                        ErrorCodes.InternalError)
-                };
-            BlockchainException exception = new(
-                resultArgs.Exception?.Message ?? "Block processing threw an unspecified exception.",
-                resultArgs.Exception);
-
-            if (_logger.IsError)
-                _logger.Error($"Block processing failed for {block.Hash}", exception);
-
-            return ResultWrapper<MessageResult>.Fail(exception.Message, ErrorCodes.InternalError);
-
+            tx = Rlp.Decode<Transaction>(rlpTransaction);
         }
-        catch (TimeoutException)
+        catch (Exception ex)
         {
-            return ResultWrapper<MessageResult>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
+            return ResultWrapper<bool>.Fail($"Failed to decode transaction: {ex.Message}");
         }
-        finally
-        {
-            BlockTree.NewBestSuggestedBlock -= OnNewBestSuggestedBlock;
-            processingQueue.BlockRemoved -= OnBlockRemoved;
 
-            _newBestSuggestedBlockEvents.Clear();
-            _blockRemovedEvents.Clear();
+        if (tx.To != expressLaneTracker.AuctionContractAddress)
+            return ResultWrapper<bool>.Fail($"Transaction must target the auction contract {expressLaneTracker.AuctionContractAddress}");
+
+        if (string.IsNullOrEmpty(arbitrumConfig.TimeboostAuctioneerAddress))
+            return ResultWrapper<bool>.Fail("TimeboostAuctioneerAddress is not configured");
+
+        Address expectedAuctioneer = new(arbitrumConfig.TimeboostAuctioneerAddress);
+        Address? sender = ethereumEcdsa.RecoverAddress(tx);
+        if (sender != expectedAuctioneer)
+            return ResultWrapper<bool>.Fail($"Transaction sender {sender} is not the authorized auctioneer {expectedAuctioneer}");
+
+        if (!expressLaneTracker.IsWithinAuctionCloseWindow(DateTime.UtcNow))
+            return ResultWrapper<bool>.Fail("Not within the auction close window");
+
+        TxQueueItem item = TxQueueItem.CreateRegular(tx);
+        await auctionResolutionQueue.WriteAsync(item);
+        return ResultWrapper<bool>.Success(true);
+    }
+
+    public async Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc rpcSubmission)
+    {
+        if (!arbitrumConfig.TimeboostEnabled)
+            return ResultWrapper<bool>.Fail("Timeboost is not enabled");
+
+        Transaction tx;
+        try
+        {
+            tx = Rlp.Decode<Transaction>(rpcSubmission.Transaction);
         }
+        catch (Exception ex)
+        {
+            return ResultWrapper<bool>.Fail($"Failed to decode transaction: {ex.Message}");
+        }
+
+        ExpressLaneSubmission submission = new()
+        {
+            Transaction = tx,
+            Round = rpcSubmission.Round,
+            SequenceNumber = rpcSubmission.SequenceNumber,
+            Signature = rpcSubmission.Signature,
+            ChainId = rpcSubmission.ChainId,
+            AuctionContractAddress = rpcSubmission.AuctionContractAddress,
+            Options = rpcSubmission.Options
+        };
+
+        ulong currentBlock = (ulong)blockTree.Head!.Header.Number;
+
+        ResultWrapper<EmptyResponse> result = await expressLaneService.SequenceAsync(submission, currentBlock);
+        return result.Result == Result.Success
+            ? ResultWrapper<bool>.Success(true)
+            : ResultWrapper<bool>.Fail(result.Result.Error ?? "Express lane sequencing failed");
     }
 
     public async Task<ResultWrapper<MessageResult>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(MessageWithMetadata messageWithMetadata, long blockNumber, BlockHeader? headBlockHeader)
@@ -523,7 +452,7 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<RecordResult>.Fail($"Cannot generate witness for genesis block");
         }
 
-        BlockHeader? parent = BlockTree.FindHeader(blockNumber - 1);
+        BlockHeader? parent = blockTree.FindHeader(blockNumber - 1);
         if (parent is null)
         {
             return ResultWrapper<RecordResult>.Fail($"Unable to find parent for block {blockNumber}");
@@ -570,12 +499,12 @@ public sealed class ArbitrumExecutionEngine(
                     blockAddedTcs.TrySetResult(e.Block.Hash!);
             }
 
-            BlockTree.BlockAddedToMain += OnBlockAddedToMain;
+            blockTree.BlockAddedToMain += OnBlockAddedToMain;
 
             try
             {
                 // Check immediately in case the block was committed before we subscribed
-                Hash256? canonicalHash = BlockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+                Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
                 if (canonicalHash is null)
                 {
                     using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
@@ -594,7 +523,7 @@ public sealed class ArbitrumExecutionEngine(
             }
             finally
             {
-                BlockTree.BlockAddedToMain -= OnBlockAddedToMain;
+                blockTree.BlockAddedToMain -= OnBlockAddedToMain;
             }
         }
     }
@@ -669,7 +598,7 @@ public sealed class ArbitrumExecutionEngine(
     private ResultWrapper<MessageResult> HandleInitMessageFromDigest(DigestMessageParameters parameters)
     {
         ResultWrapper<MessageResult>? existingGenesisResult = TryGetExistingGenesisResult(
-            $"Genesis already initialized, returning existing hash: {BlockTree.Genesis?.Hash}");
+            $"Genesis already initialized, returning existing hash: {blockTree.Genesis?.Hash}");
         if (existingGenesisResult is not null)
             return existingGenesisResult;
 
@@ -724,7 +653,7 @@ public sealed class ArbitrumExecutionEngine(
 
     private ResultWrapper<MessageResult>? TryGetExistingGenesisResult(string debugMessage)
     {
-        BlockHeader? existingGenesis = BlockTree.Genesis;
+        BlockHeader? existingGenesis = blockTree.Genesis;
         if (existingGenesis is null)
             return null;
 
