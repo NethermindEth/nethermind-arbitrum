@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution;
@@ -294,19 +295,15 @@ public sealed class ArbitrumSyncMonitor : IDisposable
         if (finalityData is null)
             return null;
 
-        long blockNumber;
-        try
-        {
-            blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(
-                finalityData.Value.MessageIndex, _specHelper);
-        }
-        catch (Exception ex)
+        ResultWrapper<long> blockNumberResult = MessageBlockConverter.MessageIndexToBlockNumber(finalityData.Value.MessageIndex, _specHelper);
+        if (blockNumberResult.Result != Result.Success)
         {
             if (_logger.IsWarn)
-                _logger.Warn($"Error converting message index {finalityData.Value.MessageIndex} to block number for {blockType}: {ex.Message}");
+                _logger.Warn($"Error converting message index {finalityData.Value.MessageIndex} to block number for {blockType}: {blockNumberResult.Result.Error}");
             return null;
         }
 
+        long blockNumber = blockNumberResult.Data;
         if (_logger.IsTrace)
             _logger.Trace($"Validating {blockType} block at number {blockNumber}, messageIndex={finalityData.Value.MessageIndex}");
 
