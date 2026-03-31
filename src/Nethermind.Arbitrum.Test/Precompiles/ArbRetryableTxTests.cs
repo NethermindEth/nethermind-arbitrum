@@ -253,7 +253,7 @@ public class ArbRetryableTxTests
         returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
         newContext.GasLeft.Should().Be(gasLeft);
-        newContext.GasLeft.Should().Be(GasCostOf.DataCopy); // just enough for returning the 32bytes result
+        newContext.GasLeft.Should().Be(GasCostOf.Memory); // just enough for returning the 32bytes result
         retryable.NumTries.Get().Should().Be(1);
 
         // Redeem execution used up all gas, give some gas for asserting
@@ -331,7 +331,7 @@ public class ArbRetryableTxTests
         returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
         newContext.GasLeft.Should().Be(gasLeft);
-        newContext.GasLeft.Should().Be(GasCostOf.DataCopy); // just enough for returning the 32bytes result
+        newContext.GasLeft.Should().Be(GasCostOf.Memory); // just enough for returning the 32bytes result
         retryable.NumTries.Get().Should().Be(1);
 
         // Redeem execution used up all gas, give some gas for asserting
@@ -413,7 +413,7 @@ public class ArbRetryableTxTests
         returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
         newContext.GasLeft.Should().Be(gasLeft);
-        newContext.GasLeft.Should().Be(GasCostOf.DataCopy);
+        newContext.GasLeft.Should().Be(GasCostOf.Memory);
         retryable.NumTries.Get().Should().Be(1);
 
         newContext.ResetGasLeft();
@@ -459,7 +459,7 @@ public class ArbRetryableTxTests
             GasCostOf.Log +
             GasCostOf.LogTopic * (1 + 3) +
             GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
-        ulong futureGasCosts = GasCostOf.DataCopy + gasPoolUpdateCost + redeemScheduledEventGasCost;
+        ulong futureGasCosts = GasCostOf.Memory + gasPoolUpdateCost + redeemScheduledEventGasCost;
         gasToDonate = gasLeft - futureGasCosts;
 
         gasLeft -= redeemScheduledEventGasCost;

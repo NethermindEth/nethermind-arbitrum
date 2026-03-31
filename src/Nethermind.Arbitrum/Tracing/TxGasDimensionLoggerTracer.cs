@@ -71,7 +71,7 @@ public sealed class TxGasDimensionLoggerTracer : GasDimensionTracerBase
         DimensionLog log = new()
         {
             Pc = (ulong)pc,
-            Op = (opcode.GetName() ?? opcode.ToString()).ToUpperInvariant(),
+            Op = GetInstructionName(opcode),
             Depth = depth,
             OneDimensionalGasCost = (ulong)gasCost,
             Computation = delta.Get(ResourceKind.Computation),

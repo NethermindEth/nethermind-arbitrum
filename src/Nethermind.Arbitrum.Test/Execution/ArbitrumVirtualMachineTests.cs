@@ -1415,9 +1415,9 @@ public class ArbitrumVirtualMachineTests
 
         long intrinsicGas = GasCostOf.Transaction + 204;
 
-        ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
+        ulong inputDataCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
         ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
+        ulong solidityErrorCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
         // input data cost + opening arbos + error data cost
         ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
 
@@ -1506,9 +1506,9 @@ public class ArbitrumVirtualMachineTests
 
         long intrinsicGas = GasCostOf.Transaction + 204;
 
-        ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
+        ulong inputDataCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
         ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
+        ulong solidityErrorCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
         // input data cost + opening arbos + error data cost
         ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
 

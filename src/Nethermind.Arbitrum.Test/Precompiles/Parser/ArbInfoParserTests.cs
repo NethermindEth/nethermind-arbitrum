@@ -100,7 +100,7 @@ public class ArbInfoParserTests
         worldState.Commit(London.Instance);
 
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
-        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
+        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.Memory * codeLengthInWords;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
         bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getCodeId, out PrecompileHandler? implementation);
