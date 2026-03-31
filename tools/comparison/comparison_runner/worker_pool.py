@@ -24,6 +24,7 @@ from .config import DEFAULT_BASE_PORT, MAX_PORT, MIN_PORT, PortAllocator
 from .exceptions import ConfigurationError, WorkerPoolError
 from .models import WorkerInstance
 from .process_manager import (
+    DEFAULT_CONFIG_NAME,
     NethermindProcess,
     allocate_port,
 )
@@ -109,7 +110,7 @@ class PoolConfig:
     max_workers: int
     base_port: int = DEFAULT_BASE_PORT
     host: str = "127.0.0.1"
-    config_name: str = "arbitrum-system-test"
+    config_name: str = DEFAULT_CONFIG_NAME
 
     def __post_init__(self) -> None:
         """Validate configuration."""
