@@ -13,13 +13,11 @@ using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.State;
-using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor : IStateReconstructor, IAdditionalRootsProvider
+public class StateReconstructor : IAdditionalRootsProvider
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly IBlockTree _blockTree;
@@ -205,13 +203,16 @@ public class StateReconstructor : IStateReconstructor, IAdditionalRootsProvider
             _logger.Info($"State reconstruction complete: re-executed {endBlock - startBlock + 1} blocks ({startBlock} to {endBlock})");
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Updates the valid candidate header, keeping the oldest eligible one pinned in the MemDb overlay.
+    /// Should be called for each header prepared in <see cref="PrepareForRecord"/>.
+    /// </summary>
     public void UpdateValidCandidateHdr(BlockHeader header)
     {
         lock (_validHdrLock)
         {
             // Keep the oldest candidate — it will be validated first by the consensus layer.
-            // Mirrors Nitro: don't need a candidate that's newer than the current one.
+            // Don't need a candidate that's newer than the current one.
             if (_validHdrCandidate is not null && _validHdrCandidate.Number <= header.Number)
                 return;
 
@@ -238,7 +239,12 @@ public class StateReconstructor : IStateReconstructor, IAdditionalRootsProvider
         }
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Attempts to promote the current candidate to the confirmed valid header.
+    /// Releases the candidate's MemDb pin regardless of the outcome when the candidate is non-canonical.
+    /// Returns the promoted header on success, <see langword="null"/> otherwise.
+    /// Mirrors Nitro's <c>MarkValid</c> candidate promotion logic.
+    /// </summary>
     public BlockHeader? TryPromoteValidCandidate(long validBlockNumber)
     {
         lock (_validHdrLock)

@@ -175,7 +175,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         MainPruningTrieStoreFactory? trieStoreFactory = _api.Context.ResolveOptional<MainPruningTrieStoreFactory>();
         if (trieStoreFactory?.PruningTrieStore is TrieStore trieStore)
         {
-            IAdditionalRootsProvider provider = (IAdditionalRootsProvider)_api.Context.Resolve<IStateReconstructor>();
+            IAdditionalRootsProvider provider = _api.Context.Resolve<StateReconstructor>();
             trieStore.AdditionalRootsProvider = provider;
 
             if (trieStoreFactory.FullPruner is not null)
