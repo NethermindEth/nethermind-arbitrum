@@ -148,8 +148,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             if (rlp is null)
                 continue;
 
-            foreach ((Hash256? ca, TreePath cp, Hash256 ch) in EnumerateChildren(rlp, item.addr, item.p))
-                stack.Push((ca, cp, ch));
+            TupleStackSink stackSink = new(stack);
+            PushChildren(rlp, item.addr, item.p, ref stackSink);
             store.Set(item.addr, in item.p, item.h, rlp);
         }
     }
@@ -173,8 +173,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
 
         // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
         List<byte[]> childKeys = [];
-        foreach ((Hash256? ca, TreePath cp, Hash256 ch) in EnumerateChildren(fullRlp, address, path))
-            childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(ca, cp, ch));
+        KeyListSink keySink = new(childKeys);
+        PushChildren(fullRlp, address, path, ref keySink);
 
         if (childKeys.Count == 0)
             return;
@@ -210,13 +210,12 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         }
     }
 
-    private static List<(Hash256? address, TreePath path, Hash256 hash)> EnumerateChildren(
+    private static void PushChildren<TSink>(
         CappedArray<byte> rlp,
         Hash256? address,
-        TreePath path)
+        TreePath path,
+        ref TSink sink) where TSink : struct, IChildSink
     {
-        List<(Hash256? address, TreePath path, Hash256 hash)> children = [];
-
         ValueRlpStream stream = new ValueRlpStream(rlp);
         stream.ReadSequenceLength();
         int items = stream.PeekNumberOfItemsRemaining(null, 3);
@@ -228,7 +227,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             {
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    children.Add((address, path.Append(i), stream.DecodeKeccak()!));
+                    sink.Add(address, path.Append(i), stream.DecodeKeccak()!);
                 else
                     stream.SkipItem();
             }
@@ -252,7 +251,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                         // which is the address key used by NodeStorage for storage trie nodes.
                         TreePath fullPath = path.Append(pathNibbles);
                         Hash256 addressHash = new Hash256(in fullPath.Path);
-                        children.Add((addressHash, TreePath.Empty, storageRoot));
+                        sink.Add(addressHash, TreePath.Empty, storageRoot);
                     }
                 }
                 // Storage trie leaf: value is a storage slot — no child nodes.
@@ -262,12 +261,10 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 // Extension node: single hash-referenced child, path extended by pathNibbles.
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    children.Add((address, path.Append(pathNibbles), stream.DecodeKeccak()!));
+                    sink.Add(address, path.Append(pathNibbles), stream.DecodeKeccak()!);
                 // Inline child (< 32 bytes) is embedded in the parent — not a separate MemDb entry.
             }
         }
-
-        return children;
     }
 
     private static Hash256? DecodeAccountStorageRoot(ReadOnlySpan<byte> accountRlp)
@@ -275,5 +272,22 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         Rlp.ValueDecoderContext ctx = new Rlp.ValueDecoderContext(accountRlp);
         Hash256 storageRoot = _accountDecoder.DecodeStorageRootOnly(ref ctx);
         return storageRoot == Keccak.EmptyTreeHash ? null : storageRoot;
+    }
+
+    private interface IChildSink
+    {
+        void Add(Hash256? address, TreePath path, Hash256 hash);
+    }
+
+    private struct KeyListSink(List<byte[]> keys) : IChildSink
+    {
+        public void Add(Hash256? address, TreePath path, Hash256 hash)
+            => keys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path, hash));
+    }
+
+    private struct TupleStackSink(Stack<(Hash256? address, TreePath path, Hash256 hash)> stack) : IChildSink
+    {
+        public void Add(Hash256? address, TreePath path, Hash256 hash)
+            => stack.Push((address, path, hash));
     }
 }
