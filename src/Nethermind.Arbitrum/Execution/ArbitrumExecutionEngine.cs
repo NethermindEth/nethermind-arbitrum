@@ -514,10 +514,7 @@ public sealed class ArbitrumExecutionEngine(
                 if (canonicalHash != builtBlock.Hash)
                     return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
-                // Mirrors Nitro: updateValidCandidateHdr then Dereference after successful block validation.
-                // temporary references to parent trie are now removed
                 stateReconstructor.UpdateValidCandidateHdr(parent);
-                stateReconstructor.DereferenceRoot(parent.StateRoot!);
 
                 RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
                 return ResultWrapper<RecordResult>.Success(result);
