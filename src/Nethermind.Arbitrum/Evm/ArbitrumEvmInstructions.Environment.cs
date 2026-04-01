@@ -9,7 +9,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
-using Nethermind.Evm.EvmObjectFormat;
 using Nethermind.Core.Specs;
 using Nethermind.Evm.GasPolicy;
 
@@ -174,16 +173,8 @@ internal static class ArbitrumEvmInstructions
         ReadOnlySpan<byte> accountCode = vm.CodeInfoRepository
             .GetCachedCodeInfo(address, followDelegation: false, spec, out _)
             .CodeSpan;
-        // If EOF is enabled and the code is an EOF contract, push a fixed size (2).
-        if (spec.IsEofEnabled && EofValidator.IsEof(accountCode, out _))
-        {
-            stack.PushUInt32<TTracingInst>(2);
-        }
-        else
-        {
-            // Otherwise, push the actual code length.
-            stack.PushUInt32<TTracingInst>((uint)accountCode.Length);
-        }
+        stack.PushUInt32<TTracingInst>((uint)accountCode.Length);
+
         return EvmExceptionType.None;
         // Jump forward to be unpredicted by the branch predictor.
     OutOfGas:
