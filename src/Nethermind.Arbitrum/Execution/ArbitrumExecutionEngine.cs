@@ -586,7 +586,7 @@ public sealed class ArbitrumExecutionEngine(
         Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
 
         // Verify the canonical block at validBlockNumber is canonical
-        Hash256? canonicalHash = BlockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
+        Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
         if (canonicalHash != parameters.ResultHash)
         {
             if (_logger.IsError)
