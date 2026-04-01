@@ -7,8 +7,8 @@ using Nethermind.TxPool;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api, IChainHeadInfoProvider chainHeadInfoProvider)
-    : InitializeBlockchain(api, chainHeadInfoProvider)
+public class ArbitrumInitializeBlockchain(ArbitrumNethermindApi api, IChainHeadInfoProvider chainHeadInfoProvider, ITxGossipPolicy txGossipPolicy)
+    : InitializeBlockchain(api, chainHeadInfoProvider, txGossipPolicy)
 {
     protected override IBlockProductionPolicy CreateBlockProductionPolicy() => AlwaysStartBlockProductionPolicy.Instance;
 }
