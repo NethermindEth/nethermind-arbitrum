@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
@@ -24,6 +26,8 @@ public class StateReconstructor : IAdditionalRootsProvider
     private readonly ArbitrumStateReconstructionBlockProcessingEnvFactory _envFactory;
     private readonly IReceiptStorage _receiptStorage;
     private readonly IEthereumEcdsa _ecdsa;
+    private readonly string _validMarkerPath;
+    private static readonly int MarkerSize = sizeof(long) + Hash256.Size;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
     private readonly object _reconstructionLock = new();
@@ -56,6 +60,7 @@ public class StateReconstructor : IAdditionalRootsProvider
         IEthereumEcdsa ecdsa,
         IArbitrumSpecHelper specHelper,
         IArbitrumConfig arbitrumConfig,
+        IInitConfig initConfig,
         ILogManager logManager)
     {
         _trieStore = trieStore;
@@ -63,9 +68,12 @@ public class StateReconstructor : IAdditionalRootsProvider
         _envFactory = envFactory;
         _receiptStorage = receiptStorage;
         _ecdsa = ecdsa;
+        _validMarkerPath = Path.Combine(initConfig.BaseDbPath.GetApplicationResourcePath(), "validator-last-valid");
         _logger = logManager.GetClassLogger();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
+
+        RestoreValidHdr();
     }
 
     /// <summary>
@@ -276,8 +284,8 @@ public class StateReconstructor : IAdditionalRootsProvider
                 return null;
             }
 
-            // Release the OLD valid header's MemDb pin before replacing it.
-            // The candidate's reference is transferred to _validHdr — do NOT dereference it.
+            // Release the old valid header's MemDb pin before replacing it.
+            // The candidate's reference is transferred to _validHdr
             if (_validHdr is not null)
                 _trieStore.Dereference(_validHdr.StateRoot!);
 
@@ -298,13 +306,17 @@ public class StateReconstructor : IAdditionalRootsProvider
     public void CopyAdditionalStatesToNodeStorage(INodeStorage target, long? upToBlockNumberExclusive = null)
     {
         long? minBlock;
+        Hash256? minBlockHash;
         lock (_validHdrLock)
+        {
             minBlock = _validHdr?.Number;
+            minBlockHash = _validHdr?.Hash;
+        }
 
         if (minBlock is null)
         {
-            if (_logger.IsDebug)
-                _logger.Debug("CopyAdditionalStatesToNodeStorage: no confirmed valid header, skipping");
+            if (_logger.IsWarn)
+                _logger.Warn("CopyAdditionalStatesToNodeStorage: no confirmed valid header, skipping. Careful: might lead to state still used being pruned");
             return;
         }
 
@@ -334,6 +346,12 @@ public class StateReconstructor : IAdditionalRootsProvider
             }
             _trieStore.TraverseTrieAndCopyTo(header.StateRoot, target);
         }
+
+        // Persist the marker only on shutdown (upToBlockNumberExclusive is null) so that on restart
+        // _validHdr can be restored before full pruning may fire and MarkValid has not been called.
+        // Written after the node copy so the marker and the persisted nodes are always in sync.
+        if (upToBlockNumberExclusive is null)
+            PersistValidHdrMarker(minBlock.Value, minBlockHash!);
     }
 
     public void PreparedAddTrim(List<Hash256> stateRoots)
@@ -370,4 +388,60 @@ public class StateReconstructor : IAdditionalRootsProvider
         }
     }
 
+    private void RestoreValidHdr()
+    {
+        if (!File.Exists(_validMarkerPath))
+        {
+            if (_logger.IsWarn)
+                _logger.Warn("StateReconstructor: no valid header marker found on startup, starting without valid header.");
+            return;
+        }
+
+        byte[] data = File.ReadAllBytes(_validMarkerPath);
+        if (data.Length != MarkerSize)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn("StateReconstructor: valid header marker file is corrupt, starting without valid header.");
+            return;
+        }
+
+        long blockNumber = BinaryPrimitives.ReadInt64BigEndian(data);
+        Hash256 storedHash = new Hash256(data.AsSpan(sizeof(long)));
+
+        BlockHeader? header = _blockTree.FindHeader(blockNumber, BlockTreeLookupOptions.RequireCanonical);
+        if (header is null)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn($"StateReconstructor: last valid block {blockNumber} not found in block tree on startup, starting without valid header.");
+            return;
+        }
+
+        if (header.Hash != storedHash)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn($"StateReconstructor: canonical block at {blockNumber} has hash {header.Hash} but marker has {storedHash} — block was reorged, starting without valid header.");
+            return;
+        }
+
+        if (!_trieStore.HasRoot(header.StateRoot!))
+        {
+            if (_logger.IsWarn)
+                _logger.Warn($"StateReconstructor: state root {header.StateRoot} for last valid block {blockNumber} not found in trie store on startup, starting without valid header.");
+            return;
+        }
+
+        _validHdr = header;
+        if (_logger.IsInfo)
+            _logger.Info($"StateReconstructor: restored last valid block {blockNumber} from marker file.");
+    }
+
+    private void PersistValidHdrMarker(long blockNumber, Hash256 hash)
+    {
+        if (_logger.IsInfo)
+            _logger.Info($"StateReconstructor: persisting valid header marker for block {blockNumber} with hash {hash}.");
+        byte[] buffer = new byte[MarkerSize];
+        BinaryPrimitives.WriteInt64BigEndian(buffer, blockNumber);
+        hash.Bytes.CopyTo(buffer.AsSpan(sizeof(long)));
+        File.WriteAllBytes(_validMarkerPath, buffer);
+    }
 }
