@@ -53,7 +53,7 @@ jobs:
 
       - name: Install Rust
         id: install-rust
-        uses: dtolnay/rust-toolchain@1.88.0
+        uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: wasm32-wasip1, wasm32-unknown-unknown
           components: rustfmt
