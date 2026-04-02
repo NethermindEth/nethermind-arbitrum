@@ -80,7 +80,7 @@ jobs:
     steps:
       - name: Install JFrog CLI
         id: jfrog
-        uses: jfrog/setup-jfrog-cli@v4
+        uses: jfrog/setup-jfrog-cli@v5
         env:
           JF_URL: https://nethermind.jfrog.io
         with:
