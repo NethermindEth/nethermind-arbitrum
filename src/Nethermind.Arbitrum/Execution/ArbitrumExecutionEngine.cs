@@ -580,8 +580,6 @@ public sealed class ArbitrumExecutionEngine(
 
         long validBlockNumber = blockNumberResult.Data;
 
-        Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
-
         // Verify the canonical block at validBlockNumber is canonical
         Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
         if (canonicalHash != parameters.ResultHash)
@@ -604,7 +602,6 @@ public sealed class ArbitrumExecutionEngine(
             _logger.Debug($"MarkValid: promoted candidate block {validHdr.Number} hash {validHdr.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
         }
 
-        Console.WriteLine($"--- header marked as valid: number {validHdr?.Number} (state root {validHdr?.StateRoot})");
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 
