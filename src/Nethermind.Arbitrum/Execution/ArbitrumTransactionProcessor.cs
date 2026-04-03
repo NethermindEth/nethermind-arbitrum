@@ -308,7 +308,7 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts)
+        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gasAfterExecution)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
