@@ -264,13 +264,6 @@ public class StateReconstructor : IAdditionalRootsProvider
             if (_validHdrCandidate.Number > validBlockNumber)
                 return null;
 
-            // Explicit regression guard: only advance _validHdr forward.
-            // Nitro relies on UpdateValidCandidateHdr never setting a candidate older than _validHdr
-            // to achieve this implicitly; we keep the check here for safety.
-            // Not sure it's a good idea for reorgs -- to make sure
-            // if (_validHdr is not null && _validHdr.Number >= validBlockNumber)
-            //     return null;
-
             // Verify the candidate is still canonical. If not, clear it.
             Hash256? canonicalHash = _blockTree
                 .FindHeader(_validHdrCandidate.Number, BlockTreeLookupOptions.RequireCanonical)?.Hash;
