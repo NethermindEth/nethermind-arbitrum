@@ -345,7 +345,7 @@ public class ArbitrumRpcModuleTests
 
         ResultWrapper<MessageResult> blockResult = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
         BlockHeader? header = chain.BlockTree.FindHeader(blockResult.Data.BlockHash);
-        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger());
+        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger<ArbitrumRpcModuleTests>());
 
         versionResult.Data.Should().Be(headerInfo.ArbOSFormatVersion);
     }
