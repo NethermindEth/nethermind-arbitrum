@@ -29,6 +29,7 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Stateless;
 using System.Diagnostics;
+using static Nethermind.Evm.EvmInstructions;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -429,6 +430,40 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (enableWitnessGeneration)
         {
             opcodes[(int)Instruction.EXTCODESIZE] = &ArbitrumEvmInstructions.InstructionExtCodeSize<ArbitrumGasPolicy, TTracingInst>;
+            opcodes[(int)Instruction.CALL] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+            {
+                (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OnFlag, OnFlag>,
+                (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OnFlag, OffFlag>,
+                (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OffFlag, OnFlag>,
+                (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OffFlag, OffFlag>,
+            };
+            opcodes[(int)Instruction.CALLCODE] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+            {
+                (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OnFlag, OnFlag>,
+                (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OnFlag, OffFlag>,
+                (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OffFlag, OnFlag>,
+                (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OffFlag, OffFlag>,
+            };
+            if (spec.DelegateCallEnabled)
+            {
+                opcodes[(int)Instruction.DELEGATECALL] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+                {
+                    (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OnFlag, OnFlag>,
+                    (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OnFlag, OffFlag>,
+                    (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OffFlag, OnFlag>,
+                    (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OffFlag, OffFlag>,
+                };
+            }
+            if (spec.StaticCallEnabled)
+            {
+                opcodes[(int)Instruction.STATICCALL] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+                {
+                    (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OnFlag, OnFlag>,
+                    (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OnFlag, OffFlag>,
+                    (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OffFlag, OnFlag>,
+                    (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OffFlag, OffFlag>,
+                };
+            }
         }
         return opcodes;
     }
