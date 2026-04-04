@@ -637,7 +637,12 @@ namespace Nethermind.Arbitrum.Execution
                 DecodedMaxFeePerGas = UInt256.Zero,
             };
             systemTx.Hash = systemTx.CalculateHash();
-            ((ITransactionProcessor)this).Execute(systemTx, NullTxTracer.Instance);
+            TransactionResult result = ((ITransactionProcessor)this).Execute(systemTx, NullTxTracer.Instance);
+            if (result != TransactionResult.Ok)
+            {
+                if (Logger.IsError)
+                    Logger.Error($"Failed to process parent block hash {prevHash} with error {result}");
+            }
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(
