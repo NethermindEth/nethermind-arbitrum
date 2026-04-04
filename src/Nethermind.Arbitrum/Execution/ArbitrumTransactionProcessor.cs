@@ -499,6 +499,16 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blCtx.Header.ParentHash!;
                 }
 
+                // For ArbOS versions >= 40, execute the EIP-2935 (Arbitrum variant) contract via EVM
+                // to record all state accesses (GetCode, STATICCALL to ArbSys, SSTORE) exactly as
+                // Nitro does in core.ProcessParentBlockHash. This is required for correct witness generation.
+                //
+                // Note: BlockProcessor.ProcessBlock also calls BlockhashStore.ApplyBlockhashStateChanges
+                // before ProcessTransactions — the EVM call here is idempotent for state but records
+                // additional accesses (GetCode(HistoryStorageCodeArbitrum), GetCode(ArbSys at 0x64) during STATICCALL gas calculation).
+                if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
+                    ProcessParentBlockHash(prevHash);
+
                 Dictionary<string, object> callArguments =
                     AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
 
@@ -612,6 +622,24 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return new(false, TransactionResult.Ok);
+        }
+
+        private void ProcessParentBlockHash(ValueHash256 prevHash)
+        {
+            Transaction systemTx = new()
+            {
+                Value = UInt256.Zero,
+                Data = prevHash.Bytes.ToArray(),
+                To = Eip2935Constants.BlockHashHistoryAddress,
+                SenderAddress = Address.SystemUser,
+                GasLimit = 30_000_000,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+            };
+            systemTx.Hash = systemTx.CalculateHash();
+            TransactionResult systemTxResult = base.Execute(systemTx, NullTxTracer.Instance);
+            if (systemTxResult != TransactionResult.Ok)
+                throw new InvalidOperationException($"ProcessParentBlockHash system transaction execution failed. TxHash={systemTx.Hash}, PrevHash={prevHash}, Result={systemTxResult}");
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(
