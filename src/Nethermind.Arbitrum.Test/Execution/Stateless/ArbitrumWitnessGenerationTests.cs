@@ -1282,11 +1282,11 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
-        recordResult.Preimages.Any(pair => pair.Key.Equals(Keccak.Compute(Arbitrum.Arbos.Precompiles.HistoryStorageCodeArbitrum))).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.HistoryStorageCodeHash).Should().BeTrue(
             "EIP-2935 history storage contract code should be recorded in witness " +
             "when ProcessParentBlockHash executes the contract via EVM");
 
-        recordResult.Preimages.Any(pair => pair.Key.Equals(Keccak.Compute(Arbitrum.Arbos.Precompiles.InvalidCode))).Should().BeTrue(
+        recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.InvalidCodeHash).Should().BeTrue(
             "ArbSys precompile code (0xfe) should be recorded in witness because the EIP-2935 " +
             "contract STATICCALLs ArbSys to get the current block number");
     }
