@@ -15,13 +15,15 @@ using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
+using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor : IAdditionalRootsProvider
+public class StateReconstructor : IDisposable
 {
     private readonly ReconstructedStateTrieStore _trieStore;
+    private readonly INodeStorage _mainNodeStorage;
     private readonly IBlockTree _blockTree;
     private readonly ArbitrumStateReconstructionBlockProcessingEnvFactory _envFactory;
     private readonly IReceiptStorage _receiptStorage;
@@ -54,6 +56,7 @@ public class StateReconstructor : IAdditionalRootsProvider
 
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
+        INodeStorage mainNodeStorage,
         IBlockTree blockTree,
         ArbitrumStateReconstructionBlockProcessingEnvFactory envFactory,
         IReceiptStorage receiptStorage,
@@ -64,6 +67,7 @@ public class StateReconstructor : IAdditionalRootsProvider
         ILogManager logManager)
     {
         _trieStore = trieStore;
+        _mainNodeStorage = mainNodeStorage;
         _blockTree = blockTree;
         _envFactory = envFactory;
         _receiptStorage = receiptStorage;
@@ -295,56 +299,46 @@ public class StateReconstructor : IAdditionalRootsProvider
             _trieStore.Dereference(parentStateRoot);
     }
 
-    /// <inheritdoc/>
-    public void CopyAdditionalStatesToNodeStorage(INodeStorage target, long? upToBlockNumberExclusive = null)
+    /// <summary>
+    /// Returns the canonical block headers from <see cref="_validHdr"/>.Number (inclusive)
+    /// up to <paramref name="pruningBaseBlock"/> (exclusive) that must be preserved during full pruning.
+    /// Returns an empty sequence if no valid header is known or if it is already covered by the pruning base block.
+    /// </summary>
+    public IEnumerable<BlockHeader> GetBlocksToPreserve(long pruningBaseBlock)
     {
         long? minBlock;
-        Hash256? minBlockHash;
         lock (_validHdrLock)
-        {
             minBlock = _validHdr?.Number;
-            minBlockHash = _validHdr?.Hash;
-        }
 
         if (minBlock is null)
         {
             if (_logger.IsWarn)
-                _logger.Warn("CopyAdditionalStatesToNodeStorage: no confirmed valid header, skipping. Careful: might lead to state still used being pruned");
-            return;
+                _logger.Warn("GetBlocksToPreserve: no confirmed valid header, no blocks to preserve. Careful: might lead to state still used being pruned");
+            yield break;
         }
 
-        // When upToBlockNumberExclusive is null (shutdown mode), copy only the validHdr block.
-        long endBlock = upToBlockNumberExclusive ?? (minBlock.Value + 1);
-
-        if (_logger.IsInfo)
+        if (minBlock.Value >= pruningBaseBlock)
         {
-            if (endBlock <= minBlock.Value)
-                // _validHdr is newer than baseBlock: MemDb overlay nodes survive in-memory and unchanged
-                // nodes are already covered by the regular CopyTree pass at baseBlock — nothing extra to copy.
-                _logger.Info($"Full Pruning: valid block {minBlock.Value} is newer than pruning base {endBlock - 1}, no additional state copying needed.");
-            else if (endBlock == minBlock.Value + 1)
-                _logger.Info($"Persisting MemDb trie nodes for valid block {minBlock.Value}");
-            else
-                _logger.Info($"Full Pruning: preserving additional states from block {minBlock.Value} to {endBlock - 1}.");
+            // _validHdr is newer than baseBlock: MemDb overlay nodes survive in-memory and unchanged
+            // nodes are already covered by the regular CopyTree pass at baseBlock — nothing extra to copy.
+            if (_logger.IsInfo)
+                _logger.Info($"Full Pruning: valid block {minBlock.Value} is newer than pruning base {pruningBaseBlock}, no additional state copying needed.");
+            yield break;
         }
 
-        for (long blockNum = minBlock.Value; blockNum < endBlock; blockNum++)
+        for (long blockNum = minBlock.Value; blockNum < pruningBaseBlock; blockNum++)
         {
             BlockHeader? header = _blockTree.FindHeader(blockNum, BlockTreeLookupOptions.RequireCanonical);
-            if (header?.StateRoot is null)
-            {
-                if (_logger.IsWarn)
-                    _logger.Warn($"CopyAdditionalStatesToNodeStorage: header or state root not found for block {blockNum}, skipping.");
-                continue;
-            }
-            _trieStore.TraverseTrieAndCopyTo(header.StateRoot, target);
+            if (header is not null)
+                yield return header;
+            else if (_logger.IsWarn)
+                _logger.Warn($"GetBlocksToPreserve: header not found for block {blockNum}, skipping.");
         }
+    }
 
-        // Persist the marker only on shutdown (upToBlockNumberExclusive is null) so that on restart
-        // _validHdr can be restored before full pruning may fire and MarkValid has not been called.
-        // Written after the node copy so the marker and the persisted nodes are always in sync.
-        if (upToBlockNumberExclusive is null)
-            PersistValidHdrMarker(minBlock.Value, minBlockHash!);
+    public void Dispose()
+    {
+        PersistOnShutdown();
     }
 
     public void PreparedAddTrim(List<Hash256> stateRoots)
@@ -426,6 +420,38 @@ public class StateReconstructor : IAdditionalRootsProvider
         _validHdr = header;
         if (_logger.IsInfo)
             _logger.Info($"StateReconstructor: restored last valid block {blockNumber} from marker file.");
+    }
+
+    private void PersistOnShutdown()
+    {
+        BlockHeader? validHdr;
+        lock (_validHdrLock)
+            validHdr = _validHdr;
+
+        if (validHdr is null)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn("StateReconstructor.Dispose: no confirmed valid header, skipping shutdown persistence.");
+            return;
+        }
+
+        if (_logger.IsInfo)
+            _logger.Info($"StateReconstructor.Dispose: persisting validator state for block {validHdr.Number}.");
+
+        // If state root is present, the whole state should be there!
+        if (_mainNodeStorage.Get(null, TreePath.Empty, validHdr.StateRoot!) is not null)
+        {
+            if (_logger.IsInfo)
+                _logger.Info($"StateReconstructor.Dispose: state for block {validHdr.Number} already exists in main node storage, skipping copy.");
+        }
+        else
+        {
+            _trieStore.TraverseTrieAndCopyTo(validHdr.StateRoot!, _mainNodeStorage);
+            // Flush to ensure nodes are on disk (TrieStore has already been disposed, so, won't benefit from PersistOnShutdown's flush)
+            _mainNodeStorage.Flush(onlyWal: false);
+        }
+
+        PersistValidHdrMarker(validHdr.Number, validHdr.Hash!);
     }
 
     private void PersistValidHdrMarker(long blockNumber, Hash256 hash)

@@ -133,24 +133,27 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
 
     /// <summary>
     /// Traverses all trie nodes reachable from <paramref name="stateRoot"/> and writes them to
-    /// <paramref name="store"/>. Reads from the MemDb overlay first, then falls back to the base
-    /// store (disk) via <see cref="TryLoadRlp"/>. Writing nodes already present on disk is idempotent.
-    /// Used for both full pruning copy (MemDb + disk) and shutdown persistence.
+    /// <paramref name="mainStateStore"/>. Reads from the MemDb overlay first, then falls back
+    /// to the main state store (disk) via. Writing nodes already present on disk is idempotent.
+    /// Used for shutdown persistence only.
     /// </summary>
-    public void TraverseTrieAndCopyTo(Hash256 stateRoot, INodeStorage store)
+    public void TraverseTrieAndCopyTo(Hash256 stateRoot, INodeStorage mainStateStore)
     {
         Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
         stack.Push((null, TreePath.Empty, stateRoot));
 
         while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
         {
-            byte[]? rlp = TryLoadRlp(item.addr, in item.p, item.h);
+            // Could call TryLoadRlp instead which would call baseStore.TryLoadRlp and even if base trie store has been disposed,
+            // fetching from the underlying node storage would still work, but clearer to just use the passed node storage here.
+            // Base trie store's underlying node storage is the same as this passed one.
+            byte[]? rlp = _nodeStorage.Get(item.addr, in item.p, item.h) ?? mainStateStore.Get(item.addr, in item.p, item.h);
             if (rlp is null)
                 continue;
 
             TupleStackSink stackSink = new(stack);
             PushChildren(rlp, item.addr, item.p, ref stackSink);
-            store.Set(item.addr, in item.p, item.h, rlp);
+            mainStateStore.Set(item.addr, in item.p, item.h, rlp);
         }
     }
 
