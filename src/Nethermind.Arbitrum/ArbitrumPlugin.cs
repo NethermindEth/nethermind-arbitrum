@@ -39,7 +39,6 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
-using Nethermind.Init;
 using Nethermind.Init.Modules;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
@@ -168,18 +167,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 blockhashCache,
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);
-        }
-
-        // Wire the Arbitrum validator's IAdditionalRootsProvider into both TrieStore (shutdown persistence)
-        // and FullPruner (full pruning copy pass), so the validator's active state range survives both.
-        MainPruningTrieStoreFactory? trieStoreFactory = _api.Context.ResolveOptional<MainPruningTrieStoreFactory>();
-        if (trieStoreFactory?.PruningTrieStore is TrieStore trieStore)
-        {
-            IAdditionalRootsProvider provider = _api.Context.Resolve<StateReconstructor>();
-            trieStore.AdditionalRootsProvider = provider;
-
-            if (trieStoreFactory.FullPruner is not null)
-                trieStoreFactory.FullPruner.AdditionalRootsProvider = provider;
         }
 
         return Task.CompletedTask;
@@ -326,6 +313,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
             .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
             .AddSingleton<StateReconstructor>()
+            .Bind<IAdditionalRootsProvider, StateReconstructor>()
             .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
             .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
 
