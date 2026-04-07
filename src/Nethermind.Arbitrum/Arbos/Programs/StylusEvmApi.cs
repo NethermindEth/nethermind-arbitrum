@@ -175,7 +175,8 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
         Address address = GetAddress(ref inputSpan);
         MultiGas gasCost = WasmGas.WasmAccountTouchCost(vmHostBridge, address, false);
 
-        if (vmHostBridge.WorldState.IsDeadAccount(address))
+        // Nitro returns zero hash only for truly non-existent accounts.
+        if (!vmHostBridge.WorldState.AccountExists(address))
             return new StylusEvmResponse(new byte[32], [], gasCost.SingleGas());
 
         ValueHash256 codeHash = vmHostBridge.WorldState.GetCodeHash(address);
