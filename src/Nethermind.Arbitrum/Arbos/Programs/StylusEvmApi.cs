@@ -177,7 +177,7 @@ public class StylusEvmApi(IStylusVmHost vmHostBridge, Address actingAddress, Sty
 
         // Nitro returns zero hash only for truly non-existent accounts.
         if (!vmHostBridge.WorldState.AccountExists(address))
-            return new StylusEvmResponse(new byte[32], [], gasCost.SingleGas());
+            return new StylusEvmResponse(new byte[Hash256Size], [], gasCost.SingleGas());
 
         ValueHash256 codeHash = vmHostBridge.WorldState.GetCodeHash(address);
         return new StylusEvmResponse(codeHash.ToByteArray(), [], gasCost.SingleGas());
