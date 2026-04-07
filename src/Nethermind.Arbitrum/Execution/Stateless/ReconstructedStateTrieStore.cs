@@ -42,6 +42,21 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     {
     }
 
+    /// <summary>
+    /// Atomically clears the entire MemDb overlay: removes all nodes and
+    /// resets all reference counts. Called by <see cref="StateReconstructor"/> after
+    /// full pruning commits so that all surviving validator state is on disk in the new DB.
+    /// </summary>
+    public void ClearOverlay()
+    {
+        lock (_refCountLock)
+        {
+            _parents.Clear();
+            _children.Clear();
+            _memDb.Clear();
+        }
+    }
+
     public TrieNode FindCachedOrUnknown(Hash256? address, in TreePath path, Hash256 hash)
         => baseStore.FindCachedOrUnknown(address, in path, hash);
 

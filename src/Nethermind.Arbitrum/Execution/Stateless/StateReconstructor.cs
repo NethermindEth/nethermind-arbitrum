@@ -6,6 +6,8 @@ using System.Collections.Concurrent;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Blockchain;
+using Nethermind.Db;
+using Nethermind.Db.FullPruning;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Blockchain.Tracing;
 using Nethermind.Consensus.Processing;
@@ -17,6 +19,8 @@ using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Trie;
 using Nethermind.Trie.Pruning;
+using System.Diagnostics;
+using Nethermind.Core.Extensions;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -28,11 +32,21 @@ public class StateReconstructor : IDisposable
     private readonly ArbitrumStateReconstructionBlockProcessingEnvFactory _envFactory;
     private readonly IReceiptStorage _receiptStorage;
     private readonly IEthereumEcdsa _ecdsa;
+    private readonly IFullPruningDb? _fullPruningDb;
     private readonly string _validMarkerPath;
     private static readonly int MarkerSize = sizeof(long) + Hash256.Size;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
     private readonly object _reconstructionLock = new();
+
+    /// <summary>
+    /// Set by <see cref="CopyStatesForFullPruning"/> after validator states are copied to the pruning DB.
+    /// Blocks <see cref="WaitForPruningGateAsync"/> callers until <see cref="OnPruningFinished"/> fires,
+    /// at which point MemDb is cleared and the gate is released.
+    /// Carries the headers that were actually copied so they can be restored after MemDb is cleared.
+    /// </summary>
+    private sealed record PruningGate(BlockHeader ValidHdr, TaskCompletionSource Tcs);
+    private volatile PruningGate? _pruningGate;
 
     /// <summary>
     /// Maximum number of state roots to keep pinned in the MemDb overlay simultaneously.
@@ -64,7 +78,9 @@ public class StateReconstructor : IDisposable
         IArbitrumSpecHelper specHelper,
         IArbitrumConfig arbitrumConfig,
         IInitConfig initConfig,
-        ILogManager logManager)
+        ILogManager logManager,
+        IPruningConfig pruningConfig,
+        IDbProvider dbProvider)
     {
         _trieStore = trieStore;
         _mainNodeStorage = mainNodeStorage;
@@ -76,6 +92,12 @@ public class StateReconstructor : IDisposable
         _logger = logManager.GetClassLogger();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
+
+        if (pruningConfig.Mode.IsFull() && dbProvider.StateDb is IFullPruningDb fullPruningDb)
+        {
+            _fullPruningDb = fullPruningDb;
+            fullPruningDb.PruningFinished += OnPruningFinished;
+        }
 
         RestoreValidHdr();
     }
@@ -300,44 +322,112 @@ public class StateReconstructor : IDisposable
     }
 
     /// <summary>
-    /// Returns the canonical block headers from <see cref="_validHdr"/>.Number (inclusive)
-    /// up to <paramref name="pruningBaseBlock"/> (exclusive) that must be preserved during full pruning.
-    /// Returns an empty sequence if no valid header is known or if it is already covered by the pruning base block.
+    /// Called during full pruning to copy the validator states (<see cref="_validHdr"/>)
+    /// to the pruning destination database via <paramref name="copyToNewDb"/>.
     /// </summary>
-    public IEnumerable<BlockHeader> GetBlocksToPreserve(long pruningBaseBlock)
+    /// <remarks>
+    /// <para>
+    /// Holds <see cref="_validHdrLock"/> throughout so that <see cref="TryPromoteValidCandidate"/>
+    /// cannot dereference <see cref="_validHdr"/> nodes while we are traversing them.
+    /// </para>
+    /// </remarks>
+    public void CopyStatesForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb)
     {
-        long? minBlock;
         lock (_validHdrLock)
-            minBlock = _validHdr?.Number;
-
-        if (minBlock is null)
         {
-            if (_logger.IsWarn)
-                _logger.Warn("GetBlocksToPreserve: no confirmed valid header, no blocks to preserve. Careful: might lead to state still used being pruned");
-            yield break;
-        }
+            BlockHeader? validHdr = _validHdr;
 
-        if (minBlock.Value >= pruningBaseBlock)
-        {
-            // _validHdr is newer than baseBlock: MemDb overlay nodes survive in-memory and unchanged
-            // nodes are already covered by the regular CopyTree pass at baseBlock — nothing extra to copy.
+            // validHdr should be null only if FullPruning happens before the first ever! successful MarkValid
+            // which should never happen if FullPruning's trigger is of reasonable size (not like a few Mbs).
+            if (validHdr is null)
+            {
+                if (_logger.IsError)
+                    _logger.Error("CopyStatesForFullPruning: no confirmed valid header, skipping validator state copy.");
+                return;
+            }
+
+            if (validHdr.Number >= pruningBaseBlock)
+            {
+                if (_logger.IsInfo)
+                    _logger.Info($"CopyStatesForFullPruning: valid header {validHdr.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
+                return;
+            }
+
             if (_logger.IsInfo)
-                _logger.Info($"Full Pruning: valid block {minBlock.Value} is newer than pruning base {pruningBaseBlock}, no additional state copying needed.");
-            yield break;
+                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHdr={validHdr.Number}");
+
+            copyToNewDb(validHdr);
+
+            // Set the pruning gate. Validator methods will block on this gate until
+            // OnPruningFinished fires (i.e. pruning.Commit() + context disposal complete).
+            // We save the header that was actually copied so OnPruningFinished can restore it after
+            // clearing MemDb — any advancement of _validHdr that occurs between now
+            // and commit references MemDb nodes that we are about to discard.
+            _pruningGate = new PruningGate(validHdr,
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        }
+    }
+
+    /// <summary>
+    /// Returns a <see cref="Task"/> that completes once the pruning gate is released by
+    /// <see cref="OnPruningFinished"/>. Returns a completed task when no pruning is in progress.
+    /// Callers (PrepareForRecord / RecordBlockCreation) must await this before touching any
+    /// MemDb state so they don't observe a partially-committed or already-cleared overlay.
+    /// </summary>
+    public Task WaitForPruningGateAsync() => _pruningGate?.Tcs.Task ?? Task.CompletedTask;
+
+    /// <summary>Synchronous variant of <see cref="WaitForPruningGateAsync"/> for sync callers.</summary>
+    public void WaitForPruningGate() => WaitForPruningGateAsync().GetAwaiter().GetResult();
+
+    private void OnPruningFinished(object? sender, PruningEventArgs args)
+    {
+        // Read the gate without nulling it yet. Callers blocked on gate.Tcs.Task must not be
+        // released until all cleanup below is done, and new callers must not bypass the gate
+        // until then either. Both happen once we null _pruningGate and call SetResult at the end.
+        PruningGate? gate = _pruningGate;
+        if (gate is null)
+            return;
+
+        if (!args.Success)
+        {
+            // Pruning failed: Commit() was never called, old DB still active, MemDb still valid.
+            // Just release the gate without touching anything.
+            if (_logger.IsWarn)
+                _logger.Warn("OnPruningFinished: pruning failed — keeping MemDb overlay intact.");
+            _pruningGate = null;
+            gate.Tcs.SetResult();
+            return;
         }
 
-        for (long blockNum = minBlock.Value; blockNum < pruningBaseBlock; blockNum++)
+        // Hold both locks for the entire cleanup so that no validator operation
+        // can observe a partially-cleared state.
+        lock (_validHdrLock)
+        lock (_reconstructionLock)
         {
-            BlockHeader? header = _blockTree.FindHeader(blockNum, BlockTreeLookupOptions.RequireCanonical);
-            if (header is not null)
-                yield return header;
-            else if (_logger.IsWarn)
-                _logger.Warn($"GetBlocksToPreserve: header not found for block {blockNum}, skipping.");
+            if (_logger.IsInfo)
+                _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHdr={gate.ValidHdr.Number}");
+
+            // Restore _validHdr to the value confirmed written to the new DB.
+            // Any (slight) advancement of this header between gate creation and now referenced MemDb nodes
+            // are about to get deleted; rolling back ensures they point to available (on-disk) state.
+            _validHdr = gate.ValidHdr;
+            _validHdrCandidate = null;
+
+            // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
+            _trieStore.ClearOverlay();
+            _preparedQueue.Clear();
+
+            // Null the gate first: new callers arriving after this point return Task.CompletedTask
+            // directly without waiting. Then unblock existing waiters with SetResult.
+            _pruningGate = null;
+            gate.Tcs.SetResult();
         }
     }
 
     public void Dispose()
     {
+        if (_fullPruningDb is not null)
+            _fullPruningDb.PruningFinished -= OnPruningFinished;
         PersistOnShutdown();
     }
 
@@ -458,6 +548,7 @@ public class StateReconstructor : IDisposable
     {
         if (_logger.IsInfo)
             _logger.Info($"StateReconstructor: persisting valid header marker for block {blockNumber} with hash {hash}.");
+
         byte[] buffer = new byte[MarkerSize];
         BinaryPrimitives.WriteInt64BigEndian(buffer, blockNumber);
         hash.Bytes.CopyTo(buffer.AsSpan(sizeof(long)));

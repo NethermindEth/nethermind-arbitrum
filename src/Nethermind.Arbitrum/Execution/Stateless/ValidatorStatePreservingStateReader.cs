@@ -47,7 +47,7 @@ public class ValidatorStatePreservingStateReader(
         if (treeVisitor is not ICopyTreeVisitor || baseBlock is null)
             return;
 
-        stateReconstructor.CopyAndCompactForFullPruning(validatorBlock =>
+        stateReconstructor.CopyStatesForFullPruning(baseBlock.Number, validatorBlock =>
         {
             if (_logger.IsInfo)
                 _logger.Info($"ValidatorStatePreservingStateReader: copying validator state for block {validatorBlock.Number} to pruning destination.");

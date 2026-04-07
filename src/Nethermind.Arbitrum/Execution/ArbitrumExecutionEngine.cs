@@ -444,6 +444,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
     {
+        await stateReconstructor.WaitForPruningGateAsync();
         long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
         if (blockNumber == 0)
         {
@@ -532,6 +533,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
     {
+        stateReconstructor.WaitForPruningGate();
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 
@@ -574,6 +576,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
     {
+        stateReconstructor.WaitForPruningGate();
         ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
         if (blockNumberResult.Result != Result.Success)
             return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
