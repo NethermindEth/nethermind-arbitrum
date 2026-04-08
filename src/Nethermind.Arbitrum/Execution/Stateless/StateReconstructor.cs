@@ -37,7 +37,7 @@ public class StateReconstructor : IDisposable
     private static readonly int MarkerSize = sizeof(long) + Hash256.Size;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
-    private readonly object _reconstructionLock = new();
+    private readonly Lock _reconstructionLock = new();
 
     /// <summary>
     /// Set by <see cref="CopyStatesForFullPruning"/> after validator states are copied to the pruning DB.
@@ -57,7 +57,7 @@ public class StateReconstructor : IDisposable
     /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
 
-    private readonly object _validHdrLock = new();
+    private readonly Lock _validHdrLock = new();
 
     /// <summary>
     /// The oldest eligible candidate header whose MemDb nodes are pinned with an extra reference.

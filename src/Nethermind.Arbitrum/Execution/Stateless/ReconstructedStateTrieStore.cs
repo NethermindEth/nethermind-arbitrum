@@ -34,7 +34,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     private readonly Dictionary<byte[], List<byte[]>> _children = new(Bytes.EqualityComparer);
 
     /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="Reference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
-    private readonly object _refCountLock = new();
+    private readonly Lock _refCountLock = new();
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
