@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      # Versions managed manually based on Nitro compatibility
+      - dependency-name: "dtolnay/rust-toolchain"
+      - dependency-name: "foundry-rs/foundry-toolchain"
 
   - package-ecosystem: "nuget"
     directory: "/src"
@@ -23,4 +27,3 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
-

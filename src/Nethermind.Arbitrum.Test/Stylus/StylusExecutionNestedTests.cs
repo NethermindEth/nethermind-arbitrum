@@ -65,7 +65,6 @@ public class StylusExecutionNestedTests
         ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
         callResult.Result.Should().Be(Result.Success);
         TxReceipt txReceipt = chain.LatestReceipts()[1];
-        Console.WriteLine($"Tx {txReceipt.BlockHash} {txReceipt.TxHash}");
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.GasUsed.Should().Be(expectedGas);
     }

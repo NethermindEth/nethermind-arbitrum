@@ -22,8 +22,8 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
 {
     public PrecompileTestContextBuilder WithArbosState()
     {
-        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger());
-        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger<ArbosState>());
+        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
         return this;
     }
 

@@ -13,8 +13,8 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -53,9 +53,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return StylusParams.CreateFromStorage(paramsStorage, ArbosVersion);
     }
 
-    public ProgramActivationResult ActivateProgram(Address address, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode)
+    public ProgramActivationResult ActivateProgram(Address address, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode, IHashSetEnumerableCollection<Address> destroyList)
     {
-        if (state.IsDeadAccount(address))
+        if (destroyList.Contains(address))
             return ProgramActivationResult.Failure(takeAllGas: false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
 
         ValueHash256 codeHash = state.GetCodeHash(address);

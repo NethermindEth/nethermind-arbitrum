@@ -89,7 +89,7 @@ public class StateReconstructor : IDisposable
         _receiptStorage = receiptStorage;
         _ecdsa = ecdsa;
         _validMarkerPath = Path.Combine(initConfig.BaseDbPath.GetApplicationResourcePath(), "validator-last-valid");
-        _logger = logManager.GetClassLogger();
+        _logger = logManager.GetClassLogger<StateReconstructor>();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
 
