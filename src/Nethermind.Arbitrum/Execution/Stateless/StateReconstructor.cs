@@ -114,12 +114,9 @@ public class StateReconstructor : IDisposable
 
         lock (_reconstructionLock)
         {
-            // Re-check after acquiring the lock: another thread may have reconstructed while we waited.
-            if (_trieStore.HasRoot(stateRoot))
+            // Atomically check and pin state if exists
+            if (_trieStore.TryReference(stateRoot))
             {
-                // Pin the state root if it lives in the MemDb overlay
-                _trieStore.Reference(stateRoot);
-
                 if (_logger.IsDebug)
                     _logger.Debug($"State already available for block {targetParent.Number} (root {stateRoot})");
 
@@ -130,8 +127,6 @@ public class StateReconstructor : IDisposable
                 _logger.Info($"State not available for block {targetParent.Number} (root {stateRoot}), reconstructing...");
 
             BlockHeader lastAvailable = FindLastAvailableState(targetParent);
-            // Pin the lastAvailable's state root if it lives in the MemDb overlay
-            _trieStore.Reference(lastAvailable.StateRoot!);
 
             if (_logger.IsInfo)
                 _logger.Info($"Found available state at block {lastAvailable.Number} (root {lastAvailable.StateRoot}), re-executing {targetParent.Number - lastAvailable.Number} blocks forward");
@@ -153,7 +148,8 @@ public class StateReconstructor : IDisposable
 
         while (true)
         {
-            if (_trieStore.HasRoot(current.StateRoot!))
+            // Check whether state trie exists, and pin it if it lives in the MemDb overlay
+            if (_trieStore.TryReference(current.StateRoot!))
                 return current;
 
             if (current.Number <= _genesisBlockNumber)
@@ -212,7 +208,9 @@ public class StateReconstructor : IDisposable
                     Hash256 currentStateRoot = processedBlock.Header.StateRoot!;
 
                     // Pin the newly reconstructed state
-                    _trieStore.Reference(currentStateRoot);
+                    if (!_trieStore.TryReference(currentStateRoot) && _logger.IsError)
+                        _logger.Error($"Failed to reference state root {currentStateRoot} for block {blockNumber} just reconstructed");
+
                     // Dereference the previous block's state (temporary reference only)
                     _trieStore.Dereference(prevStateRoot);
 
@@ -254,14 +252,11 @@ public class StateReconstructor : IDisposable
             if (_validHeader is not null && _validHeader.Number >= header.Number)
                 return;
 
-            // Pin the new candidate in the MemDb overlay; warn if nodes are unavailable.
-            if (_trieStore.HasRoot(header.StateRoot!))
+            // Atomically check and pin the new candidate; warn if nodes are unavailable.
+            if (!_trieStore.TryReference(header.StateRoot!))
             {
-                _trieStore.Reference(header.StateRoot!);
-            }
-            else if (_logger.IsWarn)
-            {
-                _logger.Warn($"UpdateValidCandidateHeader: state for block {header.Number} (root {header.StateRoot}) not available");
+                if (_logger.IsWarn)
+                    _logger.Warn($"UpdateValidCandidateHeader: state for block {header.Number} (root {header.StateRoot}) not available");
                 return;
             }
 

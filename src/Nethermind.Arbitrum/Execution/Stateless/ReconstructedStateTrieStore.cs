@@ -27,13 +27,13 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     private readonly INodeStorage _nodeStorage = new NodeStorage(memDb);
     private readonly MemDb _memDb = memDb;
 
-    /// <summary>How many references each MemDb node has: one per trie-parent that was committed referencing it, plus one per external <see cref="Reference"/> call on it (state roots only).</summary>
+    /// <summary>How many references each MemDb node has: one per trie-parent that was committed referencing it, plus one per external <see cref="TryReference"/> call on it (state roots only).</summary>
     private readonly Dictionary<byte[], int> _parents = new(Bytes.EqualityComparer);
 
     /// <summary>MemDb keys of each committed node's children that are also in MemDb. Used for cascade dereference without traversal.</summary>
     private readonly Dictionary<byte[], List<byte[]>> _children = new(Bytes.EqualityComparer);
 
-    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="Reference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
+    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="TryReference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
     private readonly Lock _refCountLock = new();
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
@@ -95,18 +95,26 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         => new TrackingCommitter(this, new RawScopedTrieStore.Committer(_nodeStorage, address, writeFlags), address);
 
     /// <summary>
-    /// Increments the reference count for the given state root node in the MemDb overlay. O(1).
-    /// No-op if the root is not in the overlay (disk-resident roots need no tracking).
+    /// Atomically checks whether the state root is available and, if MemDb-resident, increments
+    /// its reference count (O(1)) in a single lock operation to avoid a check-then-act race.
+    /// No increment if the root is not in the overlay (disk-resident roots need no tracking).
     /// Call when adding a state root to the alive set.
+    /// Returns <see langword="true"/> if the root is available (pinned if MemDb-resident, no-op if disk-resident).
+    /// Returns <see langword="false"/> if the root is not found in either the overlay or the base store.
     /// </summary>
-    public void Reference(Hash256 stateRoot)
+    public bool TryReference(Hash256 stateRoot)
     {
         byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
         lock (_refCountLock)
         {
             if (_parents.TryGetValue(key, out int count))
+            {
                 _parents[key] = count + 1;
+                return true;
+            }
         }
+        // Not in MemDb overlay — check disk (disk-resident roots need no reference tracking)
+        return baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot) is not null;
     }
 
     /// <summary>
