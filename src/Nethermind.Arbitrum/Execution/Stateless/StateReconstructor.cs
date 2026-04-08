@@ -474,11 +474,21 @@ public class StateReconstructor : IDisposable
             return;
         }
 
-        byte[] data = File.ReadAllBytes(_validMarkerPath);
+        byte[] data;
+        try
+        {
+            data = File.ReadAllBytes(_validMarkerPath);
+        }
+        catch (IOException ex)
+        {
+            if (_logger.IsError)
+                _logger.Error($"StateReconstructor: failed to read valid header marker: {ex.Message}, starting without valid header.");
+            return;
+        }
         if (data.Length != MarkerSize)
         {
-            if (_logger.IsWarn)
-                _logger.Warn("StateReconstructor: valid header marker file is corrupt, starting without valid header.");
+            if (_logger.IsError)
+                _logger.Error("StateReconstructor: valid header marker file is corrupt, starting without valid header.");
             return;
         }
 
@@ -488,22 +498,22 @@ public class StateReconstructor : IDisposable
         BlockHeader? header = _blockTree.FindHeader(blockNumber, BlockTreeLookupOptions.RequireCanonical);
         if (header is null)
         {
-            if (_logger.IsWarn)
-                _logger.Warn($"StateReconstructor: last valid block {blockNumber} not found in block tree on startup, starting without valid header.");
+            if (_logger.IsError)
+                _logger.Error($"StateReconstructor: last valid block {blockNumber} not found in block tree on startup, starting without valid header.");
             return;
         }
 
         if (header.Hash != storedHash)
         {
-            if (_logger.IsWarn)
-                _logger.Warn($"StateReconstructor: canonical block at {blockNumber} has hash {header.Hash} but marker has {storedHash} — block was reorged, starting without valid header.");
+            if (_logger.IsError)
+                _logger.Error($"StateReconstructor: canonical block at {blockNumber} has hash {header.Hash} but marker has {storedHash} — block was reorged, starting without valid header.");
             return;
         }
 
         if (!_trieStore.HasRoot(header.StateRoot!))
         {
-            if (_logger.IsWarn)
-                _logger.Warn($"StateReconstructor: state root {header.StateRoot} for last valid block {blockNumber} not found in trie store on startup, starting without valid header.");
+            if (_logger.IsError)
+                _logger.Error($"StateReconstructor: state root {header.StateRoot} for last valid block {blockNumber} not found in trie store on startup, starting without valid header.");
             return;
         }
 
