@@ -25,8 +25,8 @@ public class MarkValidTests
 
     /// <summary>
     /// PrepareForRecord(start, end) reconstructs state for blocks [start-1, end) and sets
-    /// _validHdrCandidate to the oldest block in the range (start-1).
-    /// MarkValid then promotes that candidate to _validHdr.
+    /// _validHeaderCandidate to the oldest block in the range (start-1).
+    /// MarkValid then promotes that candidate to _validHeader.
     /// </summary>
     [Test]
     public void MarkValid_AfterPrepareForRecord_PromotesCandidateToValidHeader()
@@ -39,20 +39,20 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
             .Result.Should().Be(Result.Success);
 
-        // _validHdrCandidate is block start-1=2 (the oldest block PrepareForRecord touches).
+        // _validHeaderCandidate is block start-1=2 (the oldest block PrepareForRecord touches).
         // MarkValid at pos=end promotes it because candidate.Number (2) <= blockNumber(end) (5).
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
             .Result.Should().Be(Result.Success);
 
-        BlockHeader? validHdr = ReadValidHdr(chain.Container.Resolve<StateReconstructor>());
-        validHdr.Should().NotBeNull();
-        validHdr!.Number.Should().Be((long)start - 1);
+        BlockHeader? validHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        validHeader.Should().NotBeNull();
+        validHeader!.Number.Should().Be((long)start - 1);
     }
 
     /// <summary>
-    /// RecordBlockCreation(index) sets _validHdrCandidate to the parent block (index-1).
-    /// MarkValid then promotes it to _validHdr.
+    /// RecordBlockCreation(index) sets _validHeaderCandidate to the parent block (index-1).
+    /// MarkValid then promotes it to _validHeader.
     /// </summary>
     [Test]
     public async Task MarkValid_AfterRecordBlockCreation_UpdatesValidHeader()
@@ -65,27 +65,27 @@ public class MarkValidTests
             new RecordBlockCreationParameters(lastMessage.Index, lastMessage.Message, WasmTargets: []));
         recordResult.Result.Should().Be(Result.Success);
 
-        // RecordBlockCreation sets _validHdrCandidate to the parent (lastMessage.Index - 1).
+        // RecordBlockCreation sets _validHeaderCandidate to the parent (lastMessage.Index - 1).
         // MarkValid at lastMessage.Index promotes it.
         BlockHeader lastHeader = chain.BlockTree.FindHeader((long)lastMessage.Index, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(lastMessage.Index, lastHeader.Hash!))
             .Result.Should().Be(Result.Success);
 
-        BlockHeader? validHdr = ReadValidHdr(chain.Container.Resolve<StateReconstructor>());
-        validHdr.Should().NotBeNull();
-        validHdr!.Number.Should().Be((long)lastMessage.Index - 1);
+        BlockHeader? validHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        validHeader.Should().NotBeNull();
+        validHeader!.Number.Should().Be((long)lastMessage.Index - 1);
     }
 
     /// <summary>
-    /// After PrepareForRecord + MarkValid advances _validHdr, a subsequent RecordBlockCreation
-    /// followed by MarkValid advances _validHdr again to the recorded block's parent.
+    /// After PrepareForRecord + MarkValid advances _validHeader, a subsequent RecordBlockCreation
+    /// followed by MarkValid advances _validHeader again to the recorded block's parent.
     /// </summary>
     [Test]
     public async Task MarkValid_CalledTwice_AdvancesValidHeaderEachTime()
     {
         using ArbitrumRpcTestBlockchain chain = BuildChain();
 
-        // First promotion: PrepareForRecord(3, 5) → MarkValid(5) → _validHdr = block 2
+        // First promotion: PrepareForRecord(3, 5) → MarkValid(5) → _validHeader = block 2
         ulong start = 3;
         ulong end = 5;
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
@@ -94,10 +94,10 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
             .Result.Should().Be(Result.Success);
 
-        BlockHeader? firstValidHdr = ReadValidHdr(chain.Container.Resolve<StateReconstructor>());
-        firstValidHdr!.Number.Should().Be((long)start - 1, "first MarkValid should promote block start-1");
+        BlockHeader? firstValidHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        firstValidHeader!.Number.Should().Be((long)start - 1, "first MarkValid should promote block start-1");
 
-        // Second promotion: RecordBlockCreation → MarkValid → _validHdr = parent of last block
+        // Second promotion: RecordBlockCreation → MarkValid → _validHeader = parent of last block
         DigestMessageParameters lastMessage = GetLastDigestedMessage();
         await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(lastMessage.Index, lastMessage.Message, WasmTargets: []));
@@ -106,11 +106,11 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(lastMessage.Index, lastHeader.Hash!))
             .Result.Should().Be(Result.Success);
 
-        BlockHeader? secondValidHdr = ReadValidHdr(chain.Container.Resolve<StateReconstructor>());
-        secondValidHdr!.Number.Should().Be((long)lastMessage.Index - 1,
-            "second MarkValid should advance _validHdr to the recorded block's parent");
-        secondValidHdr.Number.Should().BeGreaterThan(firstValidHdr.Number,
-            "_validHdr should only advance forward");
+        BlockHeader? secondValidHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        secondValidHeader!.Number.Should().Be((long)lastMessage.Index - 1,
+            "second MarkValid should advance _validHeader to the recorded block's parent");
+        secondValidHeader.Number.Should().BeGreaterThan(firstValidHeader.Number,
+            "_validHeader should only advance forward");
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, Keccak.Zero))
             .Result.Should().Be(Result.Success); // returns success but silently skips
 
-        ReadValidHdr(chain.Container.Resolve<StateReconstructor>()).Should().BeNull(
+        ReadValidHeader(chain.Container.Resolve<StateReconstructor>()).Should().BeNull(
             "wrong ResultHash should not promote the candidate");
     }
 
@@ -140,7 +140,7 @@ public class MarkValidTests
     /// This means RunTreeVisitor goes through ValidatorStatePreservingStateReader, which calls
     /// CopyStatesForFullPruning to copy the validator state into the pruning context alongside
     /// the main state.  After Commit + Dispose fire PruningFinished, OnPruningFinished clears
-    /// the MemDb overlay and restores _validHdr.
+    /// the MemDb overlay and restores _validHeader.
     ///
     /// PruningBoundary is set to 0 so FullPruner only needs Head.Number > stateToCopy (not +64).
     /// Three extra blocks from the recording are digested one-by-one to satisfy FullPruner's
@@ -173,13 +173,13 @@ public class MarkValidTests
 
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-        BlockHeader? validHdr = ReadValidHdr(stateReconstructor);
-        validHdr!.Number.Should().Be((long)start - 1);
+        BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
+        validHeader!.Number.Should().Be((long)start - 1);
 
         // PrepareForRecord reconstructs blocks [start-1, end) into the overlay, so block `start`
         // (= block 3) is present in the MemDb overlay before pruning.
-        BlockHeader? intermediateHdr = chain.BlockTree.FindHeader((long)start, BlockTreeLookupOptions.RequireCanonical)!;
-        reconStore.HasRoot(intermediateHdr.StateRoot!).Should().BeTrue(
+        BlockHeader? intermediateHeader = chain.BlockTree.FindHeader((long)start, BlockTreeLookupOptions.RequireCanonical)!;
+        reconStore.HasRoot(intermediateHeader.StateRoot!).Should().BeTrue(
             "block 3 state should be in the MemDb overlay after PrepareForRecord");
 
         // Subscribe before triggering so we don't miss the PruningFinished event.
@@ -217,15 +217,15 @@ public class MarkValidTests
         bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         success.Should().BeTrue("full pruning should complete successfully");
 
-        ReadValidHdr(stateReconstructor)!.Number.Should().Be(validHdr!.Number,
-            "_validHdr should be restored to the header that was copied to the new DB");
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(validHeader!.Number,
+            "_validHeader should be restored to the header that was copied to the new DB");
 
         // Only the last-valid state was copied to the new DB by CopyStatesForFullPruning.
         // Other states reconstructed into the overlay (e.g. block 3) were not copied, so after
         // ClearOverlay() they are gone entirely — this proves the overlay was cleared.
-        reconStore.HasRoot(validHdr.StateRoot!).Should().BeTrue(
+        reconStore.HasRoot(validHeader.StateRoot!).Should().BeTrue(
             "state root of last valid block must still be accessible via the new pruned DB");
-        reconStore.HasRoot(intermediateHdr.StateRoot!).Should().BeFalse(
+        reconStore.HasRoot(intermediateHeader.StateRoot!).Should().BeFalse(
             "block 3 state was in the overlay before pruning but not copied → overlay must be cleared");
 
     }
@@ -248,8 +248,8 @@ public class MarkValidTests
             .Result.Should().Be(Result.Success);
 
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
-        BlockHeader? validHdr = ReadValidHdr(stateReconstructor);
-        validHdr!.Number.Should().Be(2);
+        BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
+        validHeader!.Number.Should().Be(2);
 
         string markerPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         SetMarkerPath(stateReconstructor, markerPath);
@@ -264,8 +264,8 @@ public class MarkValidTests
             long storedBlockNumber = BinaryPrimitives.ReadInt64BigEndian(bytes);
             Hash256 storedHash = new Hash256(bytes.AsSpan(sizeof(long)));
 
-            storedBlockNumber.Should().Be(validHdr!.Number);
-            storedHash.Should().Be(validHdr.Hash!);
+            storedBlockNumber.Should().Be(validHeader!.Number);
+            storedHash.Should().Be(validHeader.Hash!);
         }
         finally
         {
@@ -274,7 +274,7 @@ public class MarkValidTests
     }
 
     /// <summary>
-    /// RestoreValidHdr reads the marker file written by PersistOnShutdown and restores _validHdr
+    /// RestoreValidHeader reads the marker file written by PersistOnShutdown and restores _validHeader
     /// to the block it encodes, provided the block is still canonical and its state is accessible.
     /// </summary>
     [Test]
@@ -291,8 +291,8 @@ public class MarkValidTests
             .Result.Should().Be(Result.Success);
 
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
-        BlockHeader? validHdr = ReadValidHdr(stateReconstructor);
-        validHdr.Should().NotBeNull();
+        BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
+        validHeader.Should().NotBeNull();
 
         string markerPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         SetMarkerPath(stateReconstructor, markerPath);
@@ -303,15 +303,15 @@ public class MarkValidTests
             InvokePersistOnShutdown(stateReconstructor);
 
             // Simulate restart
-            SetValidHdr(stateReconstructor, null);
-            ReadValidHdr(stateReconstructor).Should().BeNull("sanity: _validHdr cleared");
+            SetValidHeader(stateReconstructor, null);
+            ReadValidHeader(stateReconstructor).Should().BeNull("sanity: _validHeader cleared");
 
-            InvokeRestoreValidHdr(stateReconstructor);
+            InvokeRestoreValidHeader(stateReconstructor);
 
-            BlockHeader? restored = ReadValidHdr(stateReconstructor);
-            restored.Should().NotBeNull("RestoreValidHdr should restore _validHdr from the marker file");
-            restored!.Number.Should().Be(validHdr!.Number);
-            restored.Hash.Should().Be(validHdr.Hash!);
+            BlockHeader? restored = ReadValidHeader(stateReconstructor);
+            restored.Should().NotBeNull("RestoreValidHeader should restore _validHeader from the marker file");
+            restored!.Number.Should().Be(validHeader!.Number);
+            restored.Hash.Should().Be(validHeader.Hash!);
         }
         finally
         {
@@ -330,14 +330,14 @@ public class MarkValidTests
         return recording.GetDigestMessages().Last();
     }
 
-    private static BlockHeader? ReadValidHdr(StateReconstructor stateReconstructor) =>
+    private static BlockHeader? ReadValidHeader(StateReconstructor stateReconstructor) =>
         (BlockHeader?)typeof(StateReconstructor)
-            .GetField("_validHdr", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetField("_validHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(stateReconstructor);
 
-    private static void SetValidHdr(StateReconstructor stateReconstructor, BlockHeader? value) =>
+    private static void SetValidHeader(StateReconstructor stateReconstructor, BlockHeader? value) =>
         typeof(StateReconstructor)
-            .GetField("_validHdr", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetField("_validHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(stateReconstructor, value);
 
     private static void SetMarkerPath(StateReconstructor stateReconstructor, string path) =>
@@ -350,8 +350,8 @@ public class MarkValidTests
             .GetMethod("PersistOnShutdown", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(reconstructor, null);
 
-    private static void InvokeRestoreValidHdr(StateReconstructor reconstructor) =>
+    private static void InvokeRestoreValidHeader(StateReconstructor reconstructor) =>
         typeof(StateReconstructor)
-            .GetMethod("RestoreValidHdr", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetMethod("RestoreValidHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(reconstructor, null);
 }

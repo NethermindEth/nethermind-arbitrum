@@ -45,7 +45,7 @@ public class StateReconstructor : IDisposable
     /// at which point MemDb is cleared and the gate is released.
     /// Carries the headers that were actually copied so they can be restored after MemDb is cleared.
     /// </summary>
-    private sealed record PruningGate(BlockHeader ValidHdr, TaskCompletionSource Tcs);
+    private sealed record PruningGate(BlockHeader ValidHeader, TaskCompletionSource Tcs);
     private volatile PruningGate? _pruningGate;
 
     /// <summary>
@@ -57,16 +57,16 @@ public class StateReconstructor : IDisposable
     /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
 
-    private readonly Lock _validHdrLock = new();
+    private readonly Lock _validHeaderLock = new();
 
     /// <summary>
     /// The oldest eligible candidate header whose MemDb nodes are pinned with an extra reference.
-    /// Promoted to <see cref="_validHdr"/> by <see cref="TryPromoteValidCandidate"/>.
+    /// Promoted to <see cref="_validHeader"/> by <see cref="TryPromoteValidCandidate"/>.
     /// </summary>
-    private BlockHeader? _validHdrCandidate;
+    private BlockHeader? _validHeaderCandidate;
 
     /// <summary>Last confirmed valid header, used to prevent regression in candidate selection.</summary>
-    private BlockHeader? _validHdr;
+    private BlockHeader? _validHeader;
 
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
@@ -99,7 +99,7 @@ public class StateReconstructor : IDisposable
             fullPruningDb.PruningFinished += OnPruningFinished;
         }
 
-        RestoreValidHdr();
+        RestoreValidHeader();
     }
 
     /// <summary>
@@ -241,17 +241,17 @@ public class StateReconstructor : IDisposable
     /// Updates the valid candidate header, keeping the oldest eligible one pinned in the MemDb overlay.
     /// Should be called for each header prepared in <see cref="PrepareForRecord"/>.
     /// </summary>
-    public void UpdateValidCandidateHdr(BlockHeader header)
+    public void UpdateValidCandidateHeader(BlockHeader header)
     {
-        lock (_validHdrLock)
+        lock (_validHeaderLock)
         {
             // Keep the oldest candidate — it will be validated first by the consensus layer.
             // Don't need a candidate that's newer than the current one.
-            if (_validHdrCandidate is not null && _validHdrCandidate.Number <= header.Number)
+            if (_validHeaderCandidate is not null && _validHeaderCandidate.Number <= header.Number)
                 return;
 
             // Don't set a candidate older than the already-confirmed valid header.
-            if (_validHdr is not null && _validHdr.Number >= header.Number)
+            if (_validHeader is not null && _validHeader.Number >= header.Number)
                 return;
 
             // Pin the new candidate in the MemDb overlay; warn if nodes are unavailable.
@@ -261,15 +261,15 @@ public class StateReconstructor : IDisposable
             }
             else if (_logger.IsWarn)
             {
-                _logger.Warn($"UpdateValidCandidateHdr: state for block {header.Number} (root {header.StateRoot}) not available");
+                _logger.Warn($"UpdateValidCandidateHeader: state for block {header.Number} (root {header.StateRoot}) not available");
                 return;
             }
 
             // Release the previous candidate's extra pin.
-            if (_validHdrCandidate is not null)
-                _trieStore.Dereference(_validHdrCandidate.StateRoot!);
+            if (_validHeaderCandidate is not null)
+                _trieStore.Dereference(_validHeaderCandidate.StateRoot!);
 
-            _validHdrCandidate = header;
+            _validHeaderCandidate = header;
         }
     }
 
@@ -281,37 +281,37 @@ public class StateReconstructor : IDisposable
     /// </summary>
     public BlockHeader? TryPromoteValidCandidate(long validBlockNumber)
     {
-        lock (_validHdrLock)
+        lock (_validHeaderLock)
         {
-            if (_validHdrCandidate is null)
+            if (_validHeaderCandidate is null)
                 return null;
 
             // Candidate must not be ahead of the validated position.
-            if (_validHdrCandidate.Number > validBlockNumber)
+            if (_validHeaderCandidate.Number > validBlockNumber)
                 return null;
 
             // Verify the candidate is still canonical. If not, clear it.
             Hash256? canonicalHash = _blockTree
-                .FindHeader(_validHdrCandidate.Number, BlockTreeLookupOptions.RequireCanonical)?.Hash;
-            if (canonicalHash != _validHdrCandidate.Hash)
+                .FindHeader(_validHeaderCandidate.Number, BlockTreeLookupOptions.RequireCanonical)?.Hash;
+            if (canonicalHash != _validHeaderCandidate.Hash)
             {
                 if (_logger.IsError)
-                    _logger.Error($"MarkValid: candidate at block {_validHdrCandidate.Number} is no longer canonical " +
-                                  $"(candidate={_validHdrCandidate.Hash}, canonical={canonicalHash}), clearing");
-                _trieStore.Dereference(_validHdrCandidate.StateRoot!);
-                _validHdrCandidate = null;
+                    _logger.Error($"MarkValid: candidate at block {_validHeaderCandidate.Number} is no longer canonical " +
+                                  $"(candidate={_validHeaderCandidate.Hash}, canonical={canonicalHash}), clearing");
+                _trieStore.Dereference(_validHeaderCandidate.StateRoot!);
+                _validHeaderCandidate = null;
                 return null;
             }
 
             // Release the old valid header's MemDb pin before replacing it.
-            // The candidate's reference is transferred to _validHdr
-            if (_validHdr is not null)
-                _trieStore.Dereference(_validHdr.StateRoot!);
+            // The candidate's reference is transferred to _validHeader
+            if (_validHeader is not null)
+                _trieStore.Dereference(_validHeader.StateRoot!);
 
-            _validHdr = _validHdrCandidate;
-            _validHdrCandidate = null;
+            _validHeader = _validHeaderCandidate;
+            _validHeaderCandidate = null;
 
-            return _validHdr;
+            return _validHeader;
         }
     }
 
@@ -322,48 +322,48 @@ public class StateReconstructor : IDisposable
     }
 
     /// <summary>
-    /// Called during full pruning to copy the validator states (<see cref="_validHdr"/>)
+    /// Called during full pruning to copy the validator states (<see cref="_validHeader"/>)
     /// to the pruning destination database via <paramref name="copyToNewDb"/>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Holds <see cref="_validHdrLock"/> throughout so that <see cref="TryPromoteValidCandidate"/>
-    /// cannot dereference <see cref="_validHdr"/> nodes while we are traversing them.
+    /// Holds <see cref="_validHeaderLock"/> throughout so that <see cref="TryPromoteValidCandidate"/>
+    /// cannot dereference <see cref="_validHeader"/> nodes while we are traversing them.
     /// </para>
     /// </remarks>
     public void CopyStatesForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb)
     {
-        lock (_validHdrLock)
+        lock (_validHeaderLock)
         {
-            BlockHeader? validHdr = _validHdr;
+            BlockHeader? validHeader = _validHeader;
 
-            // validHdr should be null only if FullPruning happens before the first ever! successful MarkValid
+            // validHeader should be null only if FullPruning happens before the first ever! successful MarkValid
             // which should never happen if FullPruning's trigger is of reasonable size (not like a few Mbs).
-            if (validHdr is null)
+            if (validHeader is null)
             {
                 if (_logger.IsError)
                     _logger.Error("CopyStatesForFullPruning: no confirmed valid header, skipping validator state copy.");
                 return;
             }
 
-            if (validHdr.Number >= pruningBaseBlock)
+            if (validHeader.Number >= pruningBaseBlock)
             {
                 if (_logger.IsInfo)
-                    _logger.Info($"CopyStatesForFullPruning: valid header {validHdr.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
+                    _logger.Info($"CopyStatesForFullPruning: valid header {validHeader.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
                 return;
             }
 
             if (_logger.IsInfo)
-                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHdr={validHdr.Number}");
+                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHeader={validHeader.Number}");
 
-            copyToNewDb(validHdr);
+            copyToNewDb(validHeader);
 
             // Set the pruning gate. Validator methods will block on this gate until
             // OnPruningFinished fires (i.e. pruning.Commit() + context disposal complete).
             // We save the header that was actually copied so OnPruningFinished can restore it after
-            // clearing MemDb — any advancement of _validHdr that occurs between now
+            // clearing MemDb — any advancement of _validHeader that occurs between now
             // and commit references MemDb nodes that we are about to discard.
-            _pruningGate = new PruningGate(validHdr,
+            _pruningGate = new PruningGate(validHeader,
                 new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
         }
     }
@@ -401,17 +401,17 @@ public class StateReconstructor : IDisposable
 
         // Hold both locks for the entire cleanup so that no validator operation
         // can observe a partially-cleared state.
-        lock (_validHdrLock)
+        lock (_validHeaderLock)
         lock (_reconstructionLock)
         {
             if (_logger.IsInfo)
-                _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHdr={gate.ValidHdr.Number}");
+                _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
 
-            // Restore _validHdr to the value confirmed written to the new DB.
+            // Restore _validHeader to the value confirmed written to the new DB.
             // Any (slight) advancement of this header between gate creation and now referenced MemDb nodes
             // are about to get deleted; rolling back ensures they point to available (on-disk) state.
-            _validHdr = gate.ValidHdr;
-            _validHdrCandidate = null;
+            _validHeader = gate.ValidHeader;
+            _validHeaderCandidate = null;
 
             // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
             _trieStore.ClearOverlay();
@@ -465,7 +465,7 @@ public class StateReconstructor : IDisposable
         }
     }
 
-    private void RestoreValidHdr()
+    private void RestoreValidHeader()
     {
         if (!File.Exists(_validMarkerPath))
         {
@@ -517,18 +517,18 @@ public class StateReconstructor : IDisposable
             return;
         }
 
-        _validHdr = header;
+        _validHeader = header;
         if (_logger.IsInfo)
             _logger.Info($"StateReconstructor: restored last valid block {blockNumber} from marker file.");
     }
 
     private void PersistOnShutdown()
     {
-        BlockHeader? validHdr;
-        lock (_validHdrLock)
-            validHdr = _validHdr;
+        BlockHeader? validHeader;
+        lock (_validHeaderLock)
+            validHeader = _validHeader;
 
-        if (validHdr is null)
+        if (validHeader is null)
         {
             if (_logger.IsWarn)
                 _logger.Warn("StateReconstructor.Dispose: no confirmed valid header, skipping shutdown persistence.");
@@ -536,25 +536,25 @@ public class StateReconstructor : IDisposable
         }
 
         if (_logger.IsInfo)
-            _logger.Info($"StateReconstructor.Dispose: persisting validator state for block {validHdr.Number}.");
+            _logger.Info($"StateReconstructor.Dispose: persisting validator state for block {validHeader.Number}.");
 
         // If state root is present, the whole state should be there!
-        if (_mainNodeStorage.Get(null, TreePath.Empty, validHdr.StateRoot!) is not null)
+        if (_mainNodeStorage.Get(null, TreePath.Empty, validHeader.StateRoot!) is not null)
         {
             if (_logger.IsInfo)
-                _logger.Info($"StateReconstructor.Dispose: state for block {validHdr.Number} already exists in main node storage, skipping copy.");
+                _logger.Info($"StateReconstructor.Dispose: state for block {validHeader.Number} already exists in main node storage, skipping copy.");
         }
         else
         {
-            _trieStore.TraverseTrieAndCopyTo(validHdr.StateRoot!, _mainNodeStorage);
+            _trieStore.TraverseTrieAndCopyTo(validHeader.StateRoot!, _mainNodeStorage);
             // Flush to ensure nodes are on disk (TrieStore has already been disposed, so, won't benefit from PersistOnShutdown's flush)
             _mainNodeStorage.Flush(onlyWal: false);
         }
 
-        PersistValidHdrMarker(validHdr.Number, validHdr.Hash!);
+        PersistValidHeaderMarker(validHeader.Number, validHeader.Hash!);
     }
 
-    private void PersistValidHdrMarker(long blockNumber, Hash256 hash)
+    private void PersistValidHeaderMarker(long blockNumber, Hash256 hash)
     {
         if (_logger.IsInfo)
             _logger.Info($"StateReconstructor: persisting valid header marker for block {blockNumber} with hash {hash}.");

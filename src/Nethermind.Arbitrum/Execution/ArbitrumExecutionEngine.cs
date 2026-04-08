@@ -507,7 +507,7 @@ public sealed class ArbitrumExecutionEngine(
                     if (canonicalHash != builtBlock.Hash)
                         return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
-                    stateReconstructor.UpdateValidCandidateHdr(parent);
+                    stateReconstructor.UpdateValidCandidateHeader(parent);
 
                     RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
                     return ResultWrapper<RecordResult>.Success(result);
@@ -525,7 +525,7 @@ public sealed class ArbitrumExecutionEngine(
         finally
         {
             // Removes temporary reference to parent trie
-            // Gets removed by any execution path and after call to UpdateValidCandidateHdr
+            // Gets removed by any execution path and after call to UpdateValidCandidateHeader
             stateReconstructor.DereferenceRoot(parent.StateRoot!);
         }
     }
@@ -558,7 +558,7 @@ public sealed class ArbitrumExecutionEngine(
             try
             {
                 stateReconstructor.EnsureStateAvailable(header);
-                stateReconstructor.UpdateValidCandidateHdr(header);
+                stateReconstructor.UpdateValidCandidateHeader(header);
                 referencedStateRoots.Add(header.StateRoot!);
             }
             catch (Exception ex)
@@ -592,16 +592,16 @@ public sealed class ArbitrumExecutionEngine(
         }
 
         // Promote the candidate (its block number must be ≤ validBlockNumber)
-        BlockHeader? validHdr = stateReconstructor.TryPromoteValidCandidate(validBlockNumber);
+        BlockHeader? validHeader = stateReconstructor.TryPromoteValidCandidate(validBlockNumber);
 
-        if (validHdr is null)
+        if (validHeader is null)
         {
             if (_logger.IsWarn)
                 _logger.Warn($"MarkValid: no candidate to promote for block {validBlockNumber}");
         }
         else if (_logger.IsDebug)
         {
-            _logger.Debug($"MarkValid: promoted candidate block {validHdr.Number} hash {validHdr.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
+            _logger.Debug($"MarkValid: promoted candidate block {validHeader.Number} hash {validHeader.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
         }
 
         return ResultWrapper<EmptyResponse>.Success(default);
