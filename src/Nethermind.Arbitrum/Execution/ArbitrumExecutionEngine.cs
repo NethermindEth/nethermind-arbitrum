@@ -473,61 +473,60 @@ public sealed class ArbitrumExecutionEngine(
         if (!wasmTargets.Contains(localTarget))
             wasmTargets = wasmTargets.Append(localTarget).ToArray();
 
-        Block builtBlock;
-        ArbitrumWitness witness;
         try
         {
             using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
             IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-            (builtBlock, witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+            (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+
+            using (witness)
+            {
+                if (builtBlock.Hash is null)
+                    return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
+
+                TaskCompletionSource<Hash256> blockAddedTcs = new();
+
+                void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
+                {
+                    if (e.Block.Number == blockNumber)
+                        blockAddedTcs.TrySetResult(e.Block.Hash!);
+                }
+
+                blockTree.BlockAddedToMain += OnBlockAddedToMain;
+
+                try
+                {
+                    // Check immediately in case the block was committed before we subscribed
+                    Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+                    if (canonicalHash is null)
+                    {
+                        using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+                        canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
+                    }
+
+                    if (canonicalHash != builtBlock.Hash)
+                        return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+                    stateReconstructor.UpdateValidCandidateHdr(parent);
+
+                    RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+                    return ResultWrapper<RecordResult>.Success(result);
+                }
+                catch (OperationCanceledException)
+                {
+                    return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+                }
+                finally
+                {
+                    blockTree.BlockAddedToMain -= OnBlockAddedToMain;
+                }
+            }
         }
         finally
         {
             // Removes temporary reference to parent trie
+            // Gets removed by any execution path and after call to UpdateValidCandidateHdr
             stateReconstructor.DereferenceRoot(parent.StateRoot!);
-        }
-
-        using (witness)
-        {
-            if (builtBlock.Hash is null)
-                return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
-
-            TaskCompletionSource<Hash256> blockAddedTcs = new();
-
-            void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
-            {
-                if (e.Block.Number == blockNumber)
-                    blockAddedTcs.TrySetResult(e.Block.Hash!);
-            }
-
-            blockTree.BlockAddedToMain += OnBlockAddedToMain;
-
-            try
-            {
-                // Check immediately in case the block was committed before we subscribed
-                Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
-                if (canonicalHash is null)
-                {
-                    using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
-                    canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
-                }
-
-                if (canonicalHash != builtBlock.Hash)
-                    return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
-
-                stateReconstructor.UpdateValidCandidateHdr(parent);
-
-                RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
-                return ResultWrapper<RecordResult>.Success(result);
-            }
-            catch (OperationCanceledException)
-            {
-                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
-            }
-            finally
-            {
-                blockTree.BlockAddedToMain -= OnBlockAddedToMain;
-            }
         }
     }
 
