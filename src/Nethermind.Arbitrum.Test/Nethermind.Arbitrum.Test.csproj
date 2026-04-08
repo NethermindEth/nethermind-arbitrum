@@ -43,6 +43,9 @@
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Specs\Nethermind.Specs.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.State\Nethermind.State.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Trie\Nethermind.Trie.csproj" />
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Analyzers\Nethermind.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Test.Analyzers\Nethermind.Test.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Test.Analyzers.CodeFixes\Nethermind.Test.Analyzers.CodeFixes.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
