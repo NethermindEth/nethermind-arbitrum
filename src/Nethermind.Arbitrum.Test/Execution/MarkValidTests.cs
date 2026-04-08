@@ -298,7 +298,6 @@ public class MarkValidTests
         SetMarkerPath(stateReconstructor, markerPath);
         try
         {
-            Console.WriteLine($"-- markerPath: {markerPath}");
             // Simulate shutdown
             InvokePersistOnShutdown(stateReconstructor);
 
