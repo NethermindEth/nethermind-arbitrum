@@ -397,26 +397,26 @@ public class StateReconstructor : IDisposable
         // Hold both locks for the entire cleanup so that no validator operation
         // can observe a partially-cleared state.
         lock (_validHeaderLock)
-        lock (_reconstructionLock)
-        {
-            if (_logger.IsInfo)
-                _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
+            lock (_reconstructionLock)
+            {
+                if (_logger.IsInfo)
+                    _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
 
-            // Restore _validHeader to the value confirmed written to the new DB.
-            // Any (slight) advancement of this header between gate creation and now referenced MemDb nodes
-            // are about to get deleted; rolling back ensures they point to available (on-disk) state.
-            _validHeader = gate.ValidHeader;
-            _validHeaderCandidate = null;
+                // Restore _validHeader to the value confirmed written to the new DB.
+                // Any (slight) advancement of this header between gate creation and now referenced MemDb nodes
+                // are about to get deleted; rolling back ensures they point to available (on-disk) state.
+                _validHeader = gate.ValidHeader;
+                _validHeaderCandidate = null;
 
-            // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
-            _trieStore.ClearOverlay();
-            _preparedQueue.Clear();
+                // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
+                _trieStore.ClearOverlay();
+                _preparedQueue.Clear();
 
-            // Null the gate first: new callers arriving after this point return Task.CompletedTask
-            // directly without waiting. Then unblock existing waiters with SetResult.
-            _pruningGate = null;
-            gate.Tcs.SetResult();
-        }
+                // Null the gate first: new callers arriving after this point return Task.CompletedTask
+                // directly without waiting. Then unblock existing waiters with SetResult.
+                _pruningGate = null;
+                gate.Tcs.SetResult();
+            }
     }
 
     public void Dispose()
