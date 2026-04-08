@@ -327,9 +327,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
             .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
             .AddSingleton<StateReconstructor>()
-            .AddSingleton<FullPrunerStateReaderFactory, StateReconstructor, ReconstructedStateTrieStore, ILogManager>(
-                (rec, reconStore, logManager) => new FullPrunerStateReaderFactory(
-                    inner => new ValidatorStatePreservingStateReader(inner, rec, reconStore, logManager)))
+            .AddSingleton<IFullPrunerFactory, ArbitrumFullPrunerFactory>()
             .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
             .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
 
