@@ -308,9 +308,22 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
-            // Execution recording (state reconstruction + witness generation)
+        builder
+            .AddModule(new ArbitrumValidatorModule())
+            .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
+
+        if (blocksConfig.BuildBlocksOnMainState)
+            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
+        else
+            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
+    }
+
+    private class ArbitrumValidatorModule : Module
+    {
+        protected override void Load(ContainerBuilder builder) => builder
+            // Execution recording (witness generation + state reconstruction)
             .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
             .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
             .AddSingleton<StateReconstructor>()
@@ -320,15 +333,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
             .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
 
+            // Not used in validator mode but related
             .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
-
-        builder
-            .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
-
-        if (blocksConfig.BuildBlocksOnMainState)
-            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
-        else
-            builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
