@@ -26,7 +26,7 @@ namespace Nethermind.Arbitrum.Test.Data
         [OneTimeSetUp]
         public void Setup()
         {
-            _logger = LimboLogs.Instance.GetClassLogger();
+            _logger = LimboLogs.Instance.GetClassLogger<ArbitrumBlockHeaderInfoTests>();
             (_validHeader, _expectedSendRoot) = CreateValidBlockHeader();
         }
 
