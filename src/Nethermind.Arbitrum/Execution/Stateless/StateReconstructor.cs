@@ -40,7 +40,7 @@ public class StateReconstructor : IDisposable
     private readonly Lock _reconstructionLock = new();
 
     /// <summary>
-    /// Set by <see cref="CopyStatesForFullPruning"/> after validator states are copied to the pruning DB.
+    /// Set by <see cref="CopyLastValidStateForFullPruning"/> after validator states are copied to the pruning DB.
     /// Blocks <see cref="WaitForPruningGateAsync"/> callers until <see cref="OnPruningFinished"/> fires,
     /// at which point MemDb is cleared and the gate is released.
     /// Carries the headers that were actually copied so they can be restored after MemDb is cleared.
@@ -326,7 +326,7 @@ public class StateReconstructor : IDisposable
     /// cannot dereference <see cref="_validHeader"/> nodes while we are traversing them.
     /// </para>
     /// </remarks>
-    public void CopyStatesForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb)
+    public void CopyLastValidStateForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb)
     {
         lock (_validHeaderLock)
         {
