@@ -583,9 +583,6 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
             => rpc.PrepareForRecord(parameters);
 
-        public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
-            => rpc.MarkValid(parameters);
-
         public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
             => rpc.StartSequencing(parameters);
 

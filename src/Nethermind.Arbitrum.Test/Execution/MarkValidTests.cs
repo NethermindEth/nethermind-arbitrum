@@ -7,6 +7,7 @@ using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.FullPruning;
@@ -42,8 +43,8 @@ public class MarkValidTests
         // _validHeaderCandidate is block start-1=2 (the oldest block PrepareForRecord touches).
         // MarkValid at pos=end promotes it because candidate.Number (2) <= blockNumber(end) (5).
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        SetFinalityDataParams finalityData = new() { ValidatedFinalityData = new RpcFinalityData() { MsgIdx = end, BlockHash = endHeader.Hash! } };
+        chain.ArbitrumRpcModule.SetFinalityData(finalityData).Should().RequestSucceed();
 
         BlockHeader? validHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
         validHeader.Should().NotBeNull();
@@ -68,8 +69,7 @@ public class MarkValidTests
         // RecordBlockCreation sets _validHeaderCandidate to the parent (lastMessage.Index - 1).
         // MarkValid at lastMessage.Index promotes it.
         BlockHeader lastHeader = chain.BlockTree.FindHeader((long)lastMessage.Index, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(lastMessage.Index, lastHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = lastMessage.Index, BlockHash = lastHeader.Hash! } }).Should().RequestSucceed();
 
         BlockHeader? validHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
         validHeader.Should().NotBeNull();
@@ -91,20 +91,18 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
             .Result.Should().Be(Result.Success);
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
         BlockHeader? firstValidHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
-        firstValidHeader!.Number.Should().Be((long)start - 1, "first MarkValid should promote block start-1");
+        firstValidHeader!.Number.Should().Be((long)start - 1, "first SetFinalityData should promote block start-1");
 
-        // Second promotion: RecordBlockCreation → MarkValid → _validHeader = parent of last block
+        // Second promotion: RecordBlockCreation → SetFinalityData → _validHeader = parent of last block
         DigestMessageParameters lastMessage = GetLastDigestedMessage();
         await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(lastMessage.Index, lastMessage.Message, WasmTargets: []));
 
         BlockHeader lastHeader = chain.BlockTree.FindHeader((long)lastMessage.Index, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(lastMessage.Index, lastHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = lastMessage.Index, BlockHash = lastHeader.Hash! } }).Should().RequestSucceed();
 
         BlockHeader? secondValidHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
         secondValidHeader!.Number.Should().Be((long)lastMessage.Index - 1,
@@ -126,8 +124,9 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
             .Result.Should().Be(Result.Success);
 
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, Keccak.Zero))
-            .Result.Should().Be(Result.Success); // returns success but silently skips
+        SetFinalityDataParams finalityData = new() { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = Keccak.Zero } };
+        // Fails when calling ValidateAndGetBlockHash, even before reaching MarkValid
+        chain.ArbitrumRpcModule.SetFinalityData(finalityData).Should().RequestFail(ArbitrumRpcErrors.InternalError);
 
         ReadValidHeader(chain.Container.Resolve<StateReconstructor>()).Should().BeNull(
             "wrong ResultHash should not promote the candidate");
@@ -156,6 +155,7 @@ public class MarkValidTests
         // Digest only the first 5 messages so blocks 6-8 are available for driving FullPruner.
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording, numberToDigest: 5)
+            .WithArbitrumConfig(config => config.ValidationEnabled = true)
             .Build(c =>
             {
                 c.WorldStateManager.FlushCache(CancellationToken.None);
@@ -168,8 +168,7 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
             .Result.Should().Be(Result.Success);
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
@@ -244,8 +243,7 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
             .Result.Should().Be(Result.Success);
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
@@ -287,8 +285,7 @@ public class MarkValidTests
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
             .Result.Should().Be(Result.Success);
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
-        chain.ArbitrumRpcModule.MarkValid(new MarkValidParameters(end, endHeader.Hash!))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
@@ -321,6 +318,7 @@ public class MarkValidTests
     private static ArbitrumRpcTestBlockchain BuildChain() =>
         new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath))
+            .WithArbitrumConfig(config => config.ValidationEnabled = true)
             .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
     private static DigestMessageParameters GetLastDigestedMessage()
