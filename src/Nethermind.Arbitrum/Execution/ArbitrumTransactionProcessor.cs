@@ -292,20 +292,25 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)
         {
-            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
+            // baseFee is header.BaseFeePerGas — matches Nitro's evm.Context.BaseFee:
+            //   - During block processing: the real base fee (same as OriginalBaseFee)
+            //   - During eth_call/eth_createAccessList: zeroed to 0 (NoBaseFee mode)
+            // We intentionally use baseFee (not GetEffectiveBaseFeeForGasCalculations/OriginalBaseFee)
+            // to match Nitro's tip-drop check (go-ethereum:consensus-v51/core/state_transition.go:execute) which
+            // compares against evm.Context.BaseFee, not BaseFeeInBlock.
 
-            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee, out _);
+            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in baseFee, out _);
 
-            // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
-            // which is then used for effectiveTip (premiumPerGas)
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
-                effectiveGasPrice > effectiveBaseFee)
+            // Mirrors Nitro (go-ethereum:consensus-v51/core/state_transition.go:execute): when tips are not
+            // collected and the effective gas price exceeds the base fee (i.e. there is a tip
+            // component), drop it. In Nitro this is done by setting msg.GasTipCap = 0.
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > baseFee)
             {
                 premiumPerGas = UInt256.Zero;
                 return true;
             }
 
-            return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
+            return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
         }
 
         protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gasAfterExecution)
