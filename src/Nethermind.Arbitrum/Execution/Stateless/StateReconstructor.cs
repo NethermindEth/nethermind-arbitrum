@@ -51,7 +51,7 @@ public class StateReconstructor
         _envFactory = envFactory;
         _receiptStorage = receiptStorage;
         _ecdsa = ecdsa;
-        _logger = logManager.GetClassLogger();
+        _logger = logManager.GetClassLogger<StateReconstructor>();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
     }

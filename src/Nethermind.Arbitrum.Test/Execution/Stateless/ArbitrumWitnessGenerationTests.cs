@@ -1254,6 +1254,43 @@ public class ArbitrumWitnessGenerationTests
         }
     }
 
+    /// <summary>
+    /// Verifies that ProcessParentBlockHash (called from the StartBlock ArbitrumInternalTransaction
+    /// for ArbOS >= 40) records the EIP-2935 history storage contract code and the ArbSys precompile
+    /// code in the witness. The Arbitrum EIP-2935 contract STATICCALLs ArbSys (0x64) via
+    /// arbBlockNumber() to get the current L2 block number, which triggers GetCode(ArbSys) during
+    /// dynamic gas calculation for the STATICCALL instruction.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_ProcessParentBlockHash_RecordsHistoryStorageAndArbSysCodesInWitness()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee, arbosVersion: ArbosVersion.Forty)
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+
+        // EndOfBlock message produces a block with only the StartBlock internal tx (no user txs).
+        // ProcessParentBlockHash executes the EIP-2935 contract via EVM, which STATICCALLs ArbSys
+        // to get the current block number — recording both codes in the witness.
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestEndOfBlock(l1BaseFee));
+        result.Result.Should().Be(Result.Success);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.HistoryStorageCodeHash).Should().BeTrue(
+            "EIP-2935 history storage contract code should be recorded in witness " +
+            "when ProcessParentBlockHash executes the contract via EVM");
+
+        recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.InvalidCodeHash).Should().BeTrue(
+            "ArbSys precompile code (0xfe) should be recorded in witness because the EIP-2935 " +
+            "contract STATICCALLs ArbSys to get the current block number");
+    }
+
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
     {
         // 18 blocks in the test where this test case source is used

@@ -41,7 +41,7 @@ public class UserTxSequencingTests
             [Rlp.Encode(tx).Bytes], 0, timestamp, 1);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
-            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger());
+            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger<UserTxSequencingTests>());
 
         parsed.Should().HaveCount(1);
         parsed[0].To.Should().Be(tx.To!);
@@ -79,7 +79,7 @@ public class UserTxSequencingTests
             [Rlp.Encode(tx1).Bytes, Rlp.Encode(tx2).Bytes], 0, timestamp, 1);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
-            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger());
+            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger<UserTxSequencingTests>());
 
         parsed.Should().HaveCount(2);
         parsed[0].To.Should().Be(tx1.To!);

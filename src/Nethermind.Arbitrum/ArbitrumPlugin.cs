@@ -53,6 +53,8 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.Trie.Pruning;
+using Nethermind.Blockchain.Blocks;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum;
 
@@ -271,6 +273,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
+            // IBlockhashStore is used only in ArbitrumBlockProcessor and we pass a NoOp because ApplyBlockhashStateChanges
+            // should not get called as disabled in nitro and is taken care of in tx processor ProcessParentBlockHash()
+            .AddScoped<IBlockhashStore, NoOpBlockhashStore>()
             .AddScoped<IBlockhashProvider, ArbitrumBlockhashProvider>()
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
@@ -326,6 +331,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
         else
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
+    }
+
+    private sealed class NoOpBlockhashStore : IBlockhashStore
+    {
+        public void ApplyBlockhashStateChanges(BlockHeader blockHeader, IReleaseSpec spec) { }
+        public Hash256? GetBlockHashFromState(BlockHeader currentBlockHeader, long requiredBlockNumber, IReleaseSpec spec) => null;
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
