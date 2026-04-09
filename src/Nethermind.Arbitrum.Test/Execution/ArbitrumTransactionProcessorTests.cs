@@ -1616,7 +1616,8 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ArbitrumTransaction_WithArbitrumBlockHeader_ProcessesCorrectly()
     {
-        // Test NEW ArbitrumBlockHeader approach: EVM sees 0, gas calculations use original base fee
+        // Test ArbitrumBlockHeader approach: EVM sees BaseFeePerGas=0, gas calculations use OriginalBaseFee.
+        // In NoBaseFee mode, tip-drop compares against baseFee (0), so effective gas price becomes 0.
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -1688,21 +1689,16 @@ public class ArbitrumTransactionProcessorTests
         ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
         TransactionResult result = processor.Execute(transaction, tracer);
 
-        // Assert transaction executes successfully
         result.Should().Be(TransactionResult.Ok);
         transaction.SpentGas.Should().BeGreaterThan(0);
 
-        UInt256 initialBalance = requiredBalance;
         UInt256 finalBalance = worldState.GetBalance(sender);
-        UInt256 actualGasCost = initialBalance - finalBalance - value;
-        UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
+        UInt256 actualGasCost = requiredBalance - finalBalance - value;
 
-        // The critical test: Gas should be charged using originalBaseFee from ArbitrumBlockHeader
-        actualGasCost.Should().Be(expectedGasCost,
-            "Gas should be charged using original base fee (1000) from ArbitrumBlockHeader.OriginalBaseFee");
-
-        actualGasCost.Should().BeGreaterThan(0,
-            "Some gas should be charged - proves the ArbitrumBlockHeader approach is working");
+        // In NoBaseFee mode, tip-drop sets effective gas price to baseFee (0), matching Nitro.
+        actualGasCost.Should().Be(UInt256.Zero,
+            "In NoBaseFee mode, tip-drop sets effective gas price to header.BaseFeePerGas (0), "
+            + "matching Nitro's state_transition.go:execute which uses evm.Context.BaseFee");
     }
 
     [Test]
@@ -1787,8 +1783,8 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ArbitrumTransaction_WithArbitrumBlockHeader_UsesOriginalBaseFeeForGasCalculations()
     {
-        // Test that with ArbitrumBlockHeader, transactions use original base fee for gas calculations
-        // but EVM sees 0 base fee
+        // Test that ArbitrumBlockHeader stores OriginalBaseFee while EVM sees BaseFeePerGas=0.
+        // In NoBaseFee mode, tip-drop compares against baseFee (0), so effective gas price becomes 0.
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -1859,15 +1855,13 @@ public class ArbitrumTransactionProcessorTests
         result.Should().Be(TransactionResult.Ok);
         transaction.SpentGas.Should().BeGreaterThan(0);
 
-        // Verify gas was charged using original BaseFee (for gas calculations)
-        // even though EVM sees BaseFee = 0
-        UInt256 initialBalance = requiredBalance;
         UInt256 finalBalance = worldState.GetBalance(sender);
-        UInt256 actualGasCost = initialBalance - finalBalance - value;
-        UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
+        UInt256 actualGasCost = requiredBalance - finalBalance - value;
 
-        actualGasCost.Should().Be(expectedGasCost,
-            $"With ArbitrumBlockHeader, gas should be charged using original BaseFee ({originalBaseFee}) for gas calculations");
+        // In NoBaseFee mode, tip-drop sets effective gas price to baseFee (0), matching Nitro.
+        actualGasCost.Should().Be(UInt256.Zero,
+            "In NoBaseFee mode, tip-drop sets effective gas price to header.BaseFeePerGas (0), "
+            + "matching Nitro's state_transition.go:execute which uses evm.Context.BaseFee");
     }
 
     [Test]
@@ -3900,5 +3894,76 @@ public class ArbitrumTransactionProcessorTests
         UInt256 expectedInfraCost = minBaseFee * gasLimit;
         actualInfraFee.Should().Be(expectedInfraCost,
             $"When minBaseFee ({minBaseFee}) < effectiveBaseFee ({effectiveBaseFee}), should use minBaseFee");
+    }
+
+    [Test]
+    public void CalculateEffectiveGasPrice_NoBaseFeeTipDrop_ChargesAtZeroNotOriginalBaseFee()
+    {
+        // Simulates eth_call with non-zero gasPrice where tip gets dropped.
+        // In Nitro go-ethereum:consensus-v51/core/state_transition.go:execute, the tip-drop sets msg.GasPrice = evm.Context.BaseFee,
+        // which is 0 during eth_call. Nethermind should match: charge at BaseFeePerGas (0), not OriginalBaseFee.
+
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
+            new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
+            GetSpecProvider(),
+            _logManager
+        );
+
+        UInt256 originalBaseFee = (UInt256)1000;
+        UInt256 gasPrice = (UInt256)5000; // Higher than originalBaseFee → triggers tip-drop
+
+        ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
+        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
+        arbitrumHeader.BaseFeePerGas = 0; // NoBaseFee mode (eth_call)
+
+        BlockExecutionContext blCtx = new(arbitrumHeader, GetSpecProvider().GetSpec(arbitrumHeader));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor processor = new(
+            BlobBaseFeeCalculator.Instance,
+            GetSpecProvider(),
+            worldState,
+            TestWasmStore.Create(),
+            virtualMachine,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        Address sender = TestItem.AddressA;
+        Address to = TestItem.AddressB;
+        UInt256 value = 100;
+        long gasLimit = 30000;
+
+        Transaction transaction = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(to)
+            .WithValue(value)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(gasPrice)
+            .WithNonce(0)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        // Give sender enough balance to pass validation (gasPrice * gasLimit + value)
+        UInt256 requiredBalance = gasPrice * (ulong)gasLimit + value;
+        worldState.CreateAccount(sender, requiredBalance, 0);
+
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+        TransactionResult result = processor.Execute(transaction, tracer);
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 finalBalance = worldState.GetBalance(sender);
+        UInt256 actualGasCost = requiredBalance - finalBalance - value;
+
+        actualGasCost.Should().Be(UInt256.Zero,
+            "In NoBaseFee mode with tip-drop, effective gas price should be header.BaseFeePerGas (0), "
+            + "not OriginalBaseFee — matching Nitro's state_transition.go:execute which uses evm.Context.BaseFee");
     }
 }
