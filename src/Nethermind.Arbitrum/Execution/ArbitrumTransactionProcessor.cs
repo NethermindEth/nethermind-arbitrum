@@ -305,7 +305,10 @@ namespace Nethermind.Arbitrum.Execution
                 return true;
             }
 
-            return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
+            // Use header.BaseFeePerGas (the baseFee parameter) for validation so that NoBaseFee mode
+            // (header.BaseFeePerGas = 0 during eth_call) allows transactions with any gasPrice.
+            // During normal block processing, baseFee == effectiveBaseFee, so there is no behaviour change.
+            return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
         }
 
         protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gasAfterExecution)
