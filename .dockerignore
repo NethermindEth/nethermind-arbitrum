@@ -46,10 +46,6 @@ Thumbs.db
 **/Dockerfile*
 **/docker-compose*
 
-# Documentation
-**/*.md
-**/docs/
-
 # Scripts not needed for build
 **/scripts/
 **/deployment/
@@ -119,6 +115,7 @@ arbitrum-nitro-testnode/
 **/docs/
 **/examples/
 **/*.md
+!**/AnalyzerReleases.*.md
 !README.md
 
 # Git and CI files

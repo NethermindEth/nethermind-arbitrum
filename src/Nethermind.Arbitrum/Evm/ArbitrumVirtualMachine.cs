@@ -509,6 +509,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
             SpecHelper = specHelper,
+            DestroyList = state.AccessTracker.DestroyList,
         };
 
         return precompile.IsDebug

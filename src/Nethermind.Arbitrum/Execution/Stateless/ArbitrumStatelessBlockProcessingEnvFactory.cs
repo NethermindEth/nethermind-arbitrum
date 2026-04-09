@@ -107,7 +107,6 @@ public class ArbitrumStatelessBlockProcessingEnvFactory(ILifetimeScope rootLifet
                 .AddScoped<IRewardCalculator>(_ => NoBlockRewards.Instance)
                 .AddScoped<IReceiptStorage>(_ => NullReceiptStorage.Instance)
                 .AddScoped<CachedL1PriceData, ILogManager>(logManager => new CachedL1PriceData(logManager))
-                .AddScoped<IBlockhashStore, IWorldState>(worldState => new BlockhashStore(worldState))
 
                 .AddScoped<IBeaconBlockRootHandler, ITransactionProcessor, IWorldState>(
                     (txProcessor, worldState) => new BeaconBlockRootHandler(txProcessor, worldState))

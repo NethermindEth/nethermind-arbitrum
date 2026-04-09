@@ -284,7 +284,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 ArbosState arbosState = ArbosState.OpenArbosState(
                     MainWorldState,
                     new SystemBurner(),
-                    LogManager.GetClassLogger());
+                    LogManager.GetClassLogger<ArbosState>());
 
                 StylusPrograms programs = arbosState.Programs;
 
@@ -292,7 +292,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                     WasmDB,
                     StylusTargetConfig,
                     programs,
-                    LogManager.GetClassLogger());
+                    LogManager.GetClassLogger<WasmStoreRebuilder>());
 
                 rebuilder.RebuildWasmStore(
                     CodeDB,

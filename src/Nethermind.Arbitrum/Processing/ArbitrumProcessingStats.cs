@@ -82,7 +82,7 @@ public class ArbitrumProcessingStats : IProcessingStats
     {
         _executeFromThreadPool = ExecuteFromThreadPool;
         _stateReader = stateReader;
-        _logger = logManager.GetClassLogger();
+        _logger = logManager.GetClassLogger<ArbitrumProcessingStats>();
 
 #if DEBUG
         _logger.SetDebugMode();

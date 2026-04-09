@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -36,6 +37,8 @@ public class StylusProgramsTests
     private const long CallBudget = 1_000_000;
 
     private const ulong DefaultArbosVersion = ArbosVersion.Forty;
+
+    private static readonly JournalSet<Address> EmptyDestroyList = new(Address.EqualityComparer);
 
     [Test]
     public void Initialize_EmptyState_InitializesState()
@@ -81,7 +84,7 @@ public class StylusProgramsTests
     }
 
     [Test]
-    public void ActivateProgram_NoProgram_Fails()
+    public void ActivateProgram_NonExistentAccount_DoesNotReturnSelfDestructError()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         IWasmStore wasmStore = TestWasmStore.Create();
@@ -89,7 +92,24 @@ public class StylusProgramsTests
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 
         Address randomAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotWasm);
+    }
+
+    [Test]
+    public void ActivateProgram_SelfDestructedAccount_FailsWithSelfDestructError()
+    {
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        IWasmStore wasmStore = TestWasmStore.Create();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
+
+        Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
+        JournalSet<Address> destroyList = new(Address.EqualityComparer) { address };
+
+        ProgramActivationResult result = programs.ActivateProgram(address, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true, destroyList);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
         result.IsSuccess.Should().BeFalse();
@@ -111,7 +131,7 @@ public class StylusProgramsTests
         state.Commit(specProvider.GenesisSpec);
         state.CommitTree(0);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, 0, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, 0, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotWasm);
@@ -127,7 +147,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, prependStylusPrefix: false);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.InvalidByteCode, "Specified bytecode is not a Stylus program", []));
         result.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
@@ -142,7 +162,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, compress: false);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Failed to decompress data", []));
         result.IsSuccess.Should().BeFalse();
@@ -158,7 +178,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(true, new(StylusOperationResultType.ActivationFailed, "out of gas", []));
         result.IsSuccess.Should().BeFalse();
@@ -174,7 +194,7 @@ public class StylusProgramsTests
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
 
         result.IsSuccess.Should().BeTrue();
         result.ModuleHash.Should().Be(new ValueHash256("0xdfa80e333e8a1bf4e46c4bf27eadd9abfe33b873f4118db208c03acbb671e223"));
@@ -219,7 +239,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -251,7 +271,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -284,7 +304,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
@@ -312,7 +332,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
@@ -351,7 +371,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
@@ -421,7 +441,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -464,7 +484,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -505,7 +525,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -545,7 +565,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -586,7 +606,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -625,7 +645,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true);
+        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();

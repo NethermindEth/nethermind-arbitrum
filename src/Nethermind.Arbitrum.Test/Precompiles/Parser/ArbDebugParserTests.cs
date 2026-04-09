@@ -50,7 +50,7 @@ public class ArbDebugParserTests
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
         _context.ResetGasLeft();
 
-        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
     }
 
     [TearDown]
