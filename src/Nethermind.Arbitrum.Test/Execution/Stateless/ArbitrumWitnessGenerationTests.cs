@@ -1351,7 +1351,7 @@ public class ArbitrumWitnessGenerationTests
 
     private static void AssertWitnessMatchesRecordResult(ArbitrumWitness witness, RecordResult recordResult)
     {
-        RecordResult fromWitness = new(recordResult.Index, recordResult.BlockHash, witness);
+        RecordResult fromWitness = new(recordResult.Pos, recordResult.BlockHash, witness);
         fromWitness.Should().BeEquivalentTo(recordResult);
     }
 

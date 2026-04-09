@@ -5,12 +5,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Core.Crypto;
+using Nethermind.Serialization.Json;
 
 namespace Nethermind.Arbitrum.Data;
 
 public sealed class RecordResult
 {
-    public ulong Index { get; }
+    [JsonConverter(typeof(ULongRawJsonConverter))]
+    public ulong Pos { get; }
 
     public Hash256 BlockHash { get; }
 
@@ -18,15 +20,15 @@ public sealed class RecordResult
     public Dictionary<Hash256, byte[]?> Preimages { get; }
 
     [JsonConverter(typeof(UserWasmsConverter))]
-    public Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>>? UserWasms { get; }
+    public Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> UserWasms { get; }
 
     public RecordResult(ulong messageIndex, Hash256 blockHash, ArbitrumWitness arbWitness)
     {
-        Index = messageIndex;
+        Pos = messageIndex;
         BlockHash = blockHash;
         UserWasms = arbWitness.UserWasms?.ToDictionary(
             kvp => kvp.Key.ToHash256(),
-            kvp => kvp.Value);
+            kvp => kvp.Value) ?? new();
 
         // Witness codes, states and headers should all be unique, so, using Add() is safe here
         Preimages = new();
