@@ -1,0 +1,133 @@
+/* Node Runner TUI Styles */
+
+Screen {
+    layout: vertical;
+}
+
+/* ── Status bar at top ── */
+
+#status-bar {
+    dock: top;
+    height: 1;
+    background: $primary-background-darken-2;
+    color: $text;
+    padding: 0 1;
+}
+
+#status-bar .mode-label {
+    color: $accent;
+    text-style: bold;
+}
+
+#status-bar .network-label {
+    color: $secondary;
+    margin: 0 1;
+}
+
+/* ── Split pane container ── */
+
+#split-container {
+    height: 1fr;
+}
+
+#split-container.two-pane {
+    layout: horizontal;
+}
+
+#split-container.three-pane {
+    layout: grid;
+    grid-size: 2 2;
+    grid-gutter: 0;
+}
+
+/* ── Combined view container ── */
+
+#combined-container {
+    height: 1fr;
+    display: none;
+}
+
+/* ── Process log pane ── */
+
+ProcessLogPane {
+    height: 1fr;
+    width: 1fr;
+    border: solid $primary-background-lighten-2;
+    padding: 0;
+}
+
+ProcessLogPane.focused-pane {
+    border: solid $accent;
+}
+
+/* Third pane spans full width in 3-pane grid */
+ProcessLogPane.span-full {
+    column-span: 2;
+}
+
+.pane-header {
+    dock: top;
+    height: 1;
+    padding: 0 1;
+    background: $primary-background-darken-1;
+    text-style: bold;
+}
+
+.pane-header .process-name {
+    color: $text;
+}
+
+.pane-header .status-healthy {
+    color: $success;
+}
+
+.pane-header .status-starting {
+    color: $warning;
+}
+
+.pane-header .status-error {
+    color: $error;
+}
+
+.pane-header .error-count {
+    color: $error;
+    dock: right;
+}
+
+.log-view {
+    height: 1fr;
+    scrollbar-size: 1 1;
+}
+
+/* ── Footer / help bar ── */
+
+#help-bar {
+    dock: bottom;
+    height: 1;
+    background: $primary-background-darken-2;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+/* ── Log level colors ── */
+
+.log-error {
+    color: $error;
+    text-style: bold;
+}
+
+.log-warn {
+    color: $warning;
+}
+
+.log-info {
+    color: $text;
+}
+
+.log-debug {
+    color: $text-muted;
+}
+
+.log-trace {
+    color: $text-disabled;
+}
