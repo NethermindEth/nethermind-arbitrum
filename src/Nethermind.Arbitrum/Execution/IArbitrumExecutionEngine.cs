@@ -30,7 +30,6 @@ public interface IArbitrumExecutionEngine
     Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex);
     Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
     ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters);
-    ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters);
 
     Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
     Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error);

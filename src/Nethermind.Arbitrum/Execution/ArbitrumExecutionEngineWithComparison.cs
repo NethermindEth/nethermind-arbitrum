@@ -319,7 +319,4 @@ public sealed class ArbitrumExecutionEngineWithComparison(
 
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
         => innerEngine.PrepareForRecord(parameters);
-
-    public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
-        => innerEngine.MarkValid(parameters);
 }

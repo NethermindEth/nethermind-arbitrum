@@ -200,6 +200,9 @@ public sealed class ArbitrumExecutionEngine(
             // Set finality data
             _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
 
+            if (arbitrumConfig.ValidationEnabled && validatedFinalityData.HasValue)
+                MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
+
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
 
@@ -573,7 +576,7 @@ public sealed class ArbitrumExecutionEngine(
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
+    private ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
     {
         stateReconstructor.WaitForPruningGate();
         ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);

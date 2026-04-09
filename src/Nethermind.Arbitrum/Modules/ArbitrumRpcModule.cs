@@ -69,9 +69,6 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
         => engine.PrepareForRecord(parameters);
 
-    public ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
-        => engine.MarkValid(parameters);
-
     public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
         => engine.StartSequencingAsync(parameters.L1BlockNumber, parameters.L1Timestamp, parameters.Timestamp);
 
