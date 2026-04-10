@@ -109,4 +109,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
 
     public Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission)
         => engine.PublishExpressLaneTransactionAsync(submission);
+
+    public Task<ResultWrapper<bool>> nitroexecution_pruneHistory()
+        => engine.PruneHistory();
 }

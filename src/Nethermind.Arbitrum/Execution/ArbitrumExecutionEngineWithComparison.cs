@@ -108,6 +108,8 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc submission)
         => innerEngine.PublishExpressLaneTransactionAsync(submission);
 
+    public Task<ResultWrapper<bool>> PruneHistory() => innerEngine.PruneHistory();
+
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
     {
         // Get a block number for comparison interval check

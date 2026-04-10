@@ -47,7 +47,8 @@ public sealed class ArbitrumExecutionEngine(
     IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
     IEthereumEcdsa ethereumEcdsa,
-    StateReconstructor stateReconstructor)
+    StateReconstructor stateReconstructor,
+    IArbitrumHistoryPruner historyPruner)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -94,6 +95,8 @@ public sealed class ArbitrumExecutionEngine(
         ResultWrapper<Block> blockResult = await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<MessageResult>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+        historyPruner.SchedulePruning();
 
         return ResultWrapper<MessageResult>.Success(new()
         {
@@ -711,5 +714,15 @@ public sealed class ArbitrumExecutionEngine(
             BlockHash = genesisHeader.Hash ?? throw new InvalidOperationException("Genesis hash is null"),
             SendRoot = Hash256.Zero
         });
+    }
+
+    public Task<ResultWrapper<bool>> PruneHistory()
+    {
+        BlockHeader? blockHeader = historyPruner.OldestBlockHeader;
+        _logger.Info($"Oldest header is {blockHeader?.ToString(BlockHeader.Format.Short)}");
+
+        historyPruner.SchedulePruning();
+
+        return Task.FromResult(ResultWrapper<bool>.Success(true));
     }
 }
