@@ -135,7 +135,7 @@ internal static partial class ArbitrumEvmInstructions
         if (spec.IsEip7907Enabled)
         {
             uint excessContractSize = (uint)System.Math.Max(0, codeInfo.CodeSpan.Length - CodeSizeConstants.MaxCodeSizeEip170);
-            if (excessContractSize > 0 && !EvmInstructions.ChargeForLargeContractAccess(excessContractSize, codeSource, in vm.VmState.AccessTracker, ref gas))
+            if (excessContractSize > 0 && !TGasPolicy.ConsumeLargeContractAccessGas(ref gas, excessContractSize, codeSource, in vm.VmState.AccessTracker))
                 goto OutOfGas;
         }
 
