@@ -79,6 +79,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<MessageResult>> DigestMessageAsync(DigestMessageParameters parameters)
     {
+        Console.WriteLine($"--- Inside DigestMessageAsync for message index {parameters.Index} ---");
         // Handle init message (Kind = Initialize) - used by external consensus layers like Nitro
         if (parameters.Message.Message.Header.Kind == ArbitrumL1MessageKind.Initialize)
             return HandleInitMessageFromDigest(parameters);
@@ -185,6 +186,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
     {
+        Console.WriteLine($"--- Inside SetFinalityData ---");
         try
         {
             if (_logger.IsDebug)
@@ -447,7 +449,12 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
     {
+        var totalSw = System.Diagnostics.Stopwatch.StartNew();
+
         await stateReconstructor.WaitForPruningGateAsync();
+        Console.WriteLine($"--- RecordBlockCreation ({parameters.Index}): past pruning gate ---");
+        var pruningGateElapsed = totalSw.Elapsed;
+
         long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
         if (blockNumber == 0)
         {
@@ -470,6 +477,14 @@ public sealed class ArbitrumExecutionEngine(
 
         // References temporarily parent trie
         stateReconstructor.EnsureStateAvailable(parent);
+        var ensureStateElapsed = totalSw.Elapsed - pruningGateElapsed;
+
+        if (blockNumber % 200 == 0)
+        {
+            int overlayNodeCount = stateReconstructor.OverlayNodeCount;
+            long overlayTotalBytes = stateReconstructor.OverlayTotalBytes;
+            _logger.Info($"[RecordBlockCreation] block {blockNumber}, overlayNodeCount={overlayNodeCount}, overlayTotalBytes={overlayTotalBytes / 1_048_576:F1} MB");
+        }
 
         string[] wasmTargets = parameters.WasmTargets;
         string localTarget = StylusTargets.GetLocalTargetName();
@@ -481,6 +496,7 @@ public sealed class ArbitrumExecutionEngine(
             using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
             IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
             (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+            var buildBlockElapsed = totalSw.Elapsed - pruningGateElapsed - ensureStateElapsed;
 
             using (witness)
             {
@@ -507,10 +523,14 @@ public sealed class ArbitrumExecutionEngine(
                         canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
                     }
 
+                    var waitCanonicalElapsed = totalSw.Elapsed - pruningGateElapsed - ensureStateElapsed - buildBlockElapsed;
+
                     if (canonicalHash != builtBlock.Hash)
                         return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
                     stateReconstructor.UpdateValidCandidateHeader(parent);
+
+                    _logger.Info($"[RecordBlockCreation] block {blockNumber} phases: pruningGate={pruningGateElapsed.TotalMilliseconds:F1}ms, ensureState={ensureStateElapsed.TotalMilliseconds:F1}ms, buildBlock={buildBlockElapsed.TotalMilliseconds:F1}ms, waitCanonical={waitCanonicalElapsed.TotalMilliseconds:F1}ms, total={totalSw.Elapsed.TotalMilliseconds:F1}ms");
 
                     RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
                     return ResultWrapper<RecordResult>.Success(result);
@@ -536,6 +556,8 @@ public sealed class ArbitrumExecutionEngine(
     public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
     {
         stateReconstructor.WaitForPruningGate();
+        Console.WriteLine($"--- PrepareForRecord [{parameters.Start}-{parameters.End}]: past pruning gate ---");
+
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 
@@ -579,11 +601,15 @@ public sealed class ArbitrumExecutionEngine(
     private ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
     {
         stateReconstructor.WaitForPruningGate();
+        Console.WriteLine($"--- MarkValid ({parameters.Pos}): past pruning gate ---");
+
         ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
         if (blockNumberResult.Result != Result.Success)
             return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
 
         long validBlockNumber = blockNumberResult.Data;
+
+        Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
 
         // Verify the canonical block at validBlockNumber is canonical
         Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
@@ -607,6 +633,7 @@ public sealed class ArbitrumExecutionEngine(
             _logger.Debug($"MarkValid: promoted candidate block {validHeader.Number} hash {validHeader.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
         }
 
+        Console.WriteLine($"--- header marked as valid: number {validHeader?.Number} hash {validHeader?.Hash} (validated at block {validBlockNumber})");
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 

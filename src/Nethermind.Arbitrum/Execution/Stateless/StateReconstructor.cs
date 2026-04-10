@@ -45,7 +45,7 @@ public class StateReconstructor : IDisposable
     /// at which point MemDb is cleared and the gate is released.
     /// Carries the headers that were actually copied so they can be restored after MemDb is cleared.
     /// </summary>
-    private sealed record PruningGate(BlockHeader ValidHeader, TaskCompletionSource Tcs);
+    private sealed record PruningGate(BlockHeader ValidHeader, TaskCompletionSource Tcs, long StartedAt = 0);
     private volatile PruningGate? _pruningGate;
 
     /// <summary>
@@ -68,6 +68,11 @@ public class StateReconstructor : IDisposable
     /// <summary>Last confirmed valid header, used to prevent regression in candidate selection.</summary>
     private BlockHeader? _validHeader;
 
+    public BlockHeader? lastReExecutedHeader { get; private set; }
+
+    public int OverlayNodeCount => _trieStore.OverlayNodeCount;
+    public long OverlayTotalBytes => _trieStore.OverlayTotalBytes;
+
     public StateReconstructor(
         ReconstructedStateTrieStore trieStore,
         INodeStorage mainNodeStorage,
@@ -89,6 +94,7 @@ public class StateReconstructor : IDisposable
         _receiptStorage = receiptStorage;
         _ecdsa = ecdsa;
         _validMarkerPath = Path.Combine(initConfig.BaseDbPath.GetApplicationResourcePath(), "validator-last-valid");
+        Console.WriteLine($"StateReconstructor: valid marker path: {_validMarkerPath}");
         _logger = logManager.GetClassLogger<StateReconstructor>();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
@@ -135,6 +141,8 @@ public class StateReconstructor : IDisposable
 
             if (!_trieStore.HasRoot(stateRoot))
                 throw new InvalidOperationException($"State reconstruction failed: root {stateRoot} not available after re-execution");
+
+            lastReExecutedHeader = targetParent;
         }
     }
 
@@ -331,6 +339,9 @@ public class StateReconstructor : IDisposable
         lock (_validHeaderLock)
         {
             BlockHeader? validHeader = _validHeader;
+            BlockHeader? validHeaderCandidate = _validHeaderCandidate;
+
+            Console.WriteLine($"--- CopyStatesForFullPruning: validHeader={validHeader?.Number} -- validHeaderCandidate={validHeaderCandidate?.Number} -- lastReExecutedHeader: {lastReExecutedHeader?.Number}");
 
             // validHeader should be null only if FullPruning happens before the first ever! successful MarkValid
             // which should never happen if FullPruning's trigger is of reasonable size (not like a few Mbs).
@@ -349,9 +360,12 @@ public class StateReconstructor : IDisposable
             }
 
             if (_logger.IsInfo)
-                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHeader={validHeader.Number}");
+                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHeader={validHeader.Number}, validHeaderCandidate={validHeaderCandidate?.Number}");
 
             copyToNewDb(validHeader);
+
+            // if (validHeaderCandidate?.StateRoot is not null && validHeaderCandidate.StateRoot != validHeader.StateRoot)
+            //     copyToNewDb(validHeaderCandidate);
 
             // Set the pruning gate. Validator methods will block on this gate until
             // OnPruningFinished fires (i.e. pruning.Commit() + context disposal complete).
@@ -359,9 +373,13 @@ public class StateReconstructor : IDisposable
             // clearing MemDb — any advancement of _validHeader that occurs between now
             // and commit references MemDb nodes that we are about to discard.
             _pruningGate = new PruningGate(validHeader,
-                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously), Stopwatch.GetTimestamp());
+
+            Console.WriteLine($"--- CopyStatesForFullPruning: gate set, validHeader={validHeader.Number}, validHeaderCandidate={validHeaderCandidate?.Number}");
         }
     }
+
+    // Maybe we can register/wire TrieStoreBoundaryWatcher in the test chains as claude says it's not registered now
 
     /// <summary>
     /// Returns a <see cref="Task"/> that completes once the pruning gate is released by
@@ -376,12 +394,15 @@ public class StateReconstructor : IDisposable
 
     private void OnPruningFinished(object? sender, PruningEventArgs args)
     {
+        Console.WriteLine($"--- OnPruningFinished: pruning finished event received, sender={sender} success={args.Success}, gate={_pruningGate is not null}");
         // Read the gate without nulling it yet. Callers blocked on gate.Tcs.Task must not be
         // released until all cleanup below is done, and new callers must not bypass the gate
         // until then either. Both happen once we null _pruningGate and call SetResult at the end.
         PruningGate? gate = _pruningGate;
         if (gate is null)
             return;
+        long secondTime = Stopwatch.GetTimestamp();
+        Console.WriteLine($"--- OnPruningFinished: elapsed time since gate set: {Stopwatch.GetElapsedTime(gate.StartedAt, secondTime).TotalMilliseconds:F1}ms");
 
         if (!args.Success)
         {
@@ -399,6 +420,8 @@ public class StateReconstructor : IDisposable
         lock (_validHeaderLock)
             lock (_reconstructionLock)
             {
+                long thirdTime = Stopwatch.GetTimestamp();
+                Console.WriteLine($"--- OnPruningFinished: time to get locks: {Stopwatch.GetElapsedTime(secondTime, thirdTime).TotalMilliseconds:F1}ms");
                 if (_logger.IsInfo)
                     _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
 
@@ -407,10 +430,19 @@ public class StateReconstructor : IDisposable
                 // are about to get deleted; rolling back ensures they point to available (on-disk) state.
                 _validHeader = gate.ValidHeader;
                 _validHeaderCandidate = null;
+                // _validHeaderCandidate = gate.ValidHeaderCandidate;
 
                 // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
+                long totalBytes = _trieStore.OverlayTotalBytes;
+                long count = _trieStore.OverlayNodeCount;
                 _trieStore.ClearOverlay();
                 _preparedQueue.Clear();
+
+                long fourthTime = Stopwatch.GetTimestamp();
+                Console.WriteLine($"--- OnPruningFinished: time to clear memDb of size {totalBytes / 1.MiB:F1} MiB ({count} nodes) -> time {Stopwatch.GetElapsedTime(thirdTime, fourthTime).TotalMilliseconds:F1}ms");
+                Console.WriteLine($"--- OnPruningFinished: total time since gate set: {Stopwatch.GetElapsedTime(gate.StartedAt, fourthTime).TotalMilliseconds:F1}ms");
+                // if (_logger.IsInfo)
+                //     _logger.Info($"OnPruningFinished: pruning gate held for {elapsedMs:F1}ms (from CopyStatesForFullPruning to commit).");
 
                 // Null the gate first: new callers arriving after this point return Task.CompletedTask
                 // directly without waiting. Then unblock existing waiters with SetResult.
@@ -421,6 +453,7 @@ public class StateReconstructor : IDisposable
 
     public void Dispose()
     {
+        Console.WriteLine($"--- Inside StateReconstructor.Dispose ---");
         if (_fullPruningDb is not null)
             _fullPruningDb.PruningFinished -= OnPruningFinished;
         PersistOnShutdown();

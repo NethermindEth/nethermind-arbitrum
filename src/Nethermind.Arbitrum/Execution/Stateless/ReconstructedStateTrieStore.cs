@@ -37,6 +37,18 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     private readonly Lock _refCountLock = new();
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
+    // private bool _isShuttingDown = false; // For logging purposes only: true if called from TrieStore.Dispose → PersistOnShutdown.
+
+    /// <summary>Byte size of each MemDb node, keyed by its storage key. Used to compute <see cref="OverlayTotalBytes"/> without re-reading from MemDb on removal.</summary>
+    private readonly Dictionary<byte[], int> _nodeSizes = new(Bytes.EqualityComparer);
+
+    /// <summary>Running total of RLP bytes stored across all nodes currently in the MemDb overlay.</summary>
+    private long _totalBytes;
+
+    public int OverlayNodeCount => _memDb.Count;
+
+    /// <summary>Total RLP byte size of all nodes currently stored in the MemDb overlay.</summary>
+    public long OverlayTotalBytes => Interlocked.Read(ref _totalBytes);
 
     public void Dispose()
     {
@@ -53,7 +65,9 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         {
             _parents.Clear();
             _children.Clear();
+            _nodeSizes.Clear();
             _memDb.Clear();
+            Interlocked.Exchange(ref _totalBytes, 0);
         }
     }
 
@@ -142,6 +156,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 }
 
                 _parents.Remove(key, out _);
+                if (_nodeSizes.Remove(key, out int nodeSize))
+                    Interlocked.Add(ref _totalBytes, -nodeSize);
                 _memDb.Remove(key);
 
                 if (_children.TryGetValue(key, out List<byte[]>? childKeys))
@@ -162,6 +178,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     /// </summary>
     public void TraverseTrieAndCopyTo(Hash256 stateRoot, INodeStorage mainStateStore)
     {
+        // _isShuttingDown = true;
         Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
         stack.Push((null, TreePath.Empty, stateRoot));
 
@@ -171,6 +188,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             // fetching from the underlying node storage would still work, but clearer to just use the passed node storage here.
             // Base trie store's underlying node storage is the same as this passed one.
             byte[]? rlp = _nodeStorage.Get(item.addr, in item.p, item.h) ?? mainStateStore.Get(item.addr, in item.p, item.h);
+            Console.WriteLine($"Shutdown copy -- rlp: {rlp?.ToHexString()}");
             if (rlp is null)
                 continue;
 
@@ -178,6 +196,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             PushChildren(rlp, item.addr, item.p, ref stackSink);
             mainStateStore.Set(item.addr, in item.p, item.h, rlp);
         }
+        // _isShuttingDown = false;
     }
 
     /// <summary>
@@ -195,6 +214,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 return;
 
             _parents[nodeKey] = 0;
+            _nodeSizes[nodeKey] = fullRlp.Length;
+            Interlocked.Add(ref _totalBytes, fullRlp.Length);
         }
 
         // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
@@ -227,6 +248,11 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         public TrieNode CommitNode(ref TreePath path, TrieNode node)
         {
             TrieNode result = inner.CommitNode(ref path, node);
+            // Only track nodes that were actually written to NodeStorage as a real, hash-keyed entry:
+            // - Keccak is null for inline nodes (RLP < 32 bytes), which are embedded in their parent
+            //   and never stored separately — no MemDb entry exists to track.
+            // - Boundary proof nodes are hash-only stubs (no RLP content, children not in MemDb)
+            //   committed as placeholders.
             if (!node.IsBoundaryProofNode && node.Keccak is not null)
             {
                 byte[] nodeKey = NodeStorage.GetHalfPathNodeStoragePath(address, path, node.Keccak);
