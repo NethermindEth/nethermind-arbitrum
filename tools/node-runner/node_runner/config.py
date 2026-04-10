@@ -55,14 +55,14 @@ NETWORKS: Final[dict[Network, NetworkConfig]] = {
         parent_chain_id=11155111,
         l1_rpc="wss://sepolia.drpc.org",
         l1_beacon="https://ethereum-sepolia-beacon-api.publicnode.com",
-        nethermind_config_name="arbitrum-sepolia",
+        nethermind_config_name="arbitrum-sepolia-with-validation",
     ),
     Network.MAINNET: NetworkConfig(
         chain_id=42161,
         parent_chain_id=1,
         l1_rpc="wss://ethereum.drpc.org",
         l1_beacon="https://ethereum-beacon-api.publicnode.com",
-        nethermind_config_name="arbitrum-mainnet",
+        nethermind_config_name="arbitrum-mainnet-with-validation",
     ),
 }
 

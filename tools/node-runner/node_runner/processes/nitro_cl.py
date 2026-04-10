@@ -59,6 +59,14 @@ class NitroCLProcess(BaseProcess):
             "--node.staker.enable=false",
             "--node.feed.input.url=",
             "--execution.forwarding-target=null",
+            # Block validation
+            "--node.block-validator.enable=true",
+            "--node.block-validator.validation-server.url=self-auth",
+            "--node.block-validator.current-module-root=latest",
+            "--validation.wasm.enable-wasmroots-check=false",
+            f"--validation.wasm.root-path={self.config.nitro_path / 'target' / 'machines'}",
+            f"--validation.jit.jit-path={self.config.nitro_path / 'target' / 'bin' / 'jit'}",
+            "--validation.use-jit=true",
             # Auth
             f"--auth.jwtsecret={self.config.jwt_secret}",
             # CL RPC endpoints

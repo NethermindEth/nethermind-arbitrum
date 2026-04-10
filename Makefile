@@ -1,4 +1,5 @@
 ROOT_DIR := $(shell pwd)
+EXTERNAL_DIR := /Volumes/S990Pro
 BUILD_OUTPUT_DIR := $(ROOT_DIR)/src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/debug
 
 # JWT secret file - shared between Nethermind and Nitro
@@ -70,6 +71,53 @@ clean-mainnet-archive: ## Clean Mainnet Archive data
 clean-run-mainnet: clean-mainnet run-mainnet ## Clean and run Mainnet
 
 clean-run-mainnet-archive: clean-mainnet-archive run-mainnet-archive ## Clean and run Mainnet Archive
+
+
+# =============================================================================
+# My targets
+# =============================================================================
+
+run-my-sepolia-archive: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
+	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
+	$(call ensure-stylus-host-runtime)
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-archive --data-dir $(EXTERNAL_DIR)/sepolia/nmc_data --JsonRpc.JwtSecretFile=$(JWT_FILE) --log debug $(NETHERMIND_ARGS)
+
+run-my-sepolia: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
+	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
+	$(call ensure-stylus-host-runtime)
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-with-validation --data-dir $(EXTERNAL_DIR)/sepolia/nmc_data --JsonRpc.JwtSecretFile=$(JWT_FILE) --log debug $(NETHERMIND_ARGS)
+
+run-my-sepolia-for-docker-nitro: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data
+	@echo "Starting Nethermind Arbitrum node (Sepolia)..."
+	$(call ensure-stylus-host-runtime)
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-sepolia-with-validation --data-dir $(EXTERNAL_DIR)/sepolia/nmc_data --JsonRpc.JwtSecretFile=$(JWT_FILE) --JsonRpc.EngineHost=0.0.0.0 --log debug $(NETHERMIND_ARGS)
+
+run-my-sepolia-for-cl-comparison: ## Start Nethermind Arbitrum node (Sepolia) without cleaning .data, with open RPC for Nitro CL
+	@echo "Starting Nethermind Arbitrum node (Sepolia) with open RPC for Nitro CL..."
+	$(call ensure-stylus-host-runtime)
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll \
+		-c arbitrum-sepolia-with-validation \
+		--data-dir /Volumes/S990Pro/sepolia/nethermind \
+		--JsonRpc.JwtSecretFile=/Users/gugz/.arbitrum/jwt.hex \
+		--JsonRpc.Port=20545 \
+		--JsonRpc.EnginePort=20551 \
+		--JsonRpc.Host=0.0.0.0 \
+		--JsonRpc.EngineHost=0.0.0.0 \
+		--log debug
+
+run-my-mainnet: ## Start Nethermind Arbitrum node (Mainnet) without cleaning .data
+	@echo "Starting Nethermind Arbitrum node (Mainnet)..."
+	$(call ensure-stylus-host-runtime)
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-with-validation --data-dir $(EXTERNAL_DIR)/mainnet/nmc_data --JsonRpc.JwtSecretFile=$(JWT_FILE) --log debug $(NETHERMIND_ARGS)
+
+run-my-mainnet-archive-unsafe: ## Start Nethermind Arbitrum node (Mainnet) WITHOUT JWT auth
+	@echo "Starting Nethermind Arbitrum node (Mainnet) without JWT auth..."
+	cd $(BUILD_OUTPUT_DIR) && dotnet nethermind.dll -c arbitrum-mainnet-archive \
+		--data-dir $(EXTERNAL_DIR)/mainnet/nmc_data \
+		--JsonRpc.UnsecureDevNoRpcAuthentication=true \
+		--Snapshot.Enabled false \
+		--Snapshot.DownloadUrl "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip" \
+		$(NETHERMIND_ARGS)
 
 # =============================================================================
 # Sepolia targets
@@ -228,3 +276,17 @@ list-system-test-configs: ## Show system test examples
 	@echo "  make run-system-test ARBOS_VERSION=51"
 	@echo "  make run-system-test ACCOUNTS_FILE=src/Nethermind.Arbitrum/Properties/accounts/contract-tx.json"
 	@echo "  make clean-run-system-test ARBOS_VERSION=30"
+
+
+# Different ways of running newer version of nitro with plugin
+
+# Solution 1 (nitro-cl & plugin-el): nitro using docker (docker compose up nitro) WITH plugin run-my-sepolia-for-docker-nitro
+
+# Solution 2 (nitro-cl & plugin-el): nitro using ~/Documents/arbitrum/nitro (run-nitro-nethermind) WITH plugin run-my-sepolia (or run-my-sepolia-for-docker-nitro, not sure exactly)
+
+# Solution 3 (nitro-cl & nitro-el & plugin-el): node runner (tools/node-runner): uv run node-runner comparison --network sepolia --data-dir /Volumes/S990Pro
+
+# Solution 4 (nitro-cl & nitro-el & plugin-el): node runner manually (run 3 terminals) -- Be careful because by default, commands delete your DB (normally i commented those lines out)
+# - terminal 1 (nitro-el): init-el-sepolia-with-validation and then run-el-sepolia-with-validation
+# - terminal 2 (plugin-el): run-my-sepolia-for-cl-comparison
+# - terminal 3 (nitro-cl): run-cl-comparison-sepolia-with-validation
