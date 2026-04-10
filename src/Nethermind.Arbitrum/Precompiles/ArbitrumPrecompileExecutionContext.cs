@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -28,6 +29,8 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
+    private static readonly IHashSetEnumerableCollection<Address> _emptyDestroyList = new JournalSet<Address>(Address.EqualityComparer);
+
     public bool ReadOnly { get; set; }
 
     public bool IsCallStatic { get; init; }
@@ -73,6 +76,8 @@ public record ArbitrumPrecompileExecutionContext(
     public ulong Burned => GasSupplied - GasLeft;
 
     public IArbitrumSpecHelper? SpecHelper { get; init; }
+
+    public IHashSetEnumerableCollection<Address> DestroyList { get; init; } = _emptyDestroyList;
 
     private ulong _gasLeft = GasSupplied;
 

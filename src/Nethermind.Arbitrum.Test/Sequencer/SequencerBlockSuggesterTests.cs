@@ -24,7 +24,7 @@ public class SequencerBlockSuggesterTests
         IBlockTree blockTree = Build.A.BlockTree().WithBlocks(genesis).TestObject;
         FakeBlockProducerRunner runner = new();
 
-        using ArbitrumSequencerBlockSuggester suggester = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
+        using ArbitrumSequencerBlockSuggester _ = new(blockTree, runner, BlocksConfig, NullLogManager.Instance);
 
         Block block = Build.A.Block.WithParent(genesis).TestObject;
         runner.RaiseBlockProduced(block);
