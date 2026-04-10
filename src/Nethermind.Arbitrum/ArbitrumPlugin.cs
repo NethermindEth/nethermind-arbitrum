@@ -103,6 +103,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         if (!_specHelper.Enabled)
             return Task.CompletedTask;
 
+        ILogger logger = _api.LogManager.GetClassLogger<ArbitrumPlugin>();
+
         IArbitrumExecutionEngine engine = _api.Context.Resolve<IArbitrumExecutionEngine>();
 
         if (arbitrumConfig.SequencerEnabled)
@@ -118,7 +120,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             if (string.IsNullOrWhiteSpace(verifyBlockHashConfig.ArbNodeRpcUrl))
                 throw new InvalidOperationException("Block hash verification is enabled but ArbNodeRpcUrl is not specified. Please configure VerifyBlockHash.ArbNodeRpcUrl or disable verification.");
 
-            ILogger logger = _api.LogManager.GetClassLogger<ArbitrumPlugin>();
             if (logger.IsInfo)
                 logger.Info($"Block hash verification enabled: verify every {verifyBlockHashConfig.VerifyEveryNBlocks} blocks, url={verifyBlockHashConfig.ArbNodeRpcUrl}");
 
@@ -171,6 +172,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);
         }
+
+        if (logger.IsInfo)
+            logger.Info("Arbitrum execution client initialized. Waiting for connection from consensus layer...");
 
         return Task.CompletedTask;
     }
