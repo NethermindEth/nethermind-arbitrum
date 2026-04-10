@@ -30,7 +30,7 @@ public partial class ArbitrumEthRpcModuleTests
 {
     private static readonly AbiSignature TransferSignature = new("transfer", AbiType.Address, AbiType.UInt256);
     private static readonly AbiSignature BalanceOfSignature = new("balanceOf", AbiType.Address);
-    private static readonly ILogger TestLogger = LimboLogs.Instance.GetClassLogger();
+    private static readonly ILogger TestLogger = LimboLogs.Instance.GetClassLogger<ArbitrumEthRpcModuleTests>();
 
     private ArbitrumRpcTestBlockchain _chain = null!;
     private EthereumEcdsa _ethereumEcdsa = null!;
