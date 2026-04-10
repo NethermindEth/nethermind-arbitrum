@@ -109,4 +109,10 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
 
     public Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission)
         => engine.PublishExpressLaneTransactionAsync(submission);
+
+    public Task<ResultWrapper<RecordResult>> nitroexecution_recordBlockCreation(ulong pos, MessageWithMetadata message, string[] wasmTargets)
+        => engine.RecordBlockCreation(new RecordBlockCreationParameters(pos, message, wasmTargets));
+
+    public ResultWrapper<EmptyResponse> nitroexecution_prepareForRecord(ulong start, ulong end)
+        => engine.PrepareForRecord(new PrepareForRecordParameters(start, end));
 }
