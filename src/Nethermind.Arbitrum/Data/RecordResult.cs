@@ -16,8 +16,21 @@ public sealed class RecordResult
 
     public Hash256 BlockHash { get; }
 
+    /// <summary>
+    /// Preimages is a dictionary of full trie node rlp byte[] mapped by their hash.
+    /// This includes all states' rlps, headers' rlp and plain bytecodes in the witness.
+    /// All of which are expected to be unique, so there should be no hash collisions.
+    /// The byte[] values are base64-encoded in JSON to match Go's default byte[] encoding.
+    /// </summary>
     [JsonConverter(typeof(PreimagesConverter))]
     public Dictionary<Hash256, byte[]?> Preimages { get; }
+
+    /// <summary>
+    /// UserWasms is a dictionary of wasm module hash (one per contract bytecode)
+    /// to a mapping of a target (host/wavm/amd64/arm64) to the corresponding compiled wasm,
+    /// or also called asm, (machine) code, used for stylus contracts execution.
+    /// The byte[] values are base64-encoded in JSON to match Go's default byte[] encoding.
+    /// </summary>
 
     [JsonConverter(typeof(UserWasmsConverter))]
     public Dictionary<Hash256, IReadOnlyDictionary<string, byte[]>> UserWasms { get; }
