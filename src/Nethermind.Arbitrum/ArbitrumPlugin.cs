@@ -172,8 +172,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             _api.RpcModuleProvider.RegisterSingle(debugModule);
         }
 
-        ThisNodeInfo.AddInfo("Arbitrum     :", "Waiting for connection from consensus layer...");
-
         return Task.CompletedTask;
     }
 
@@ -246,8 +244,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
-            .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
-            .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
+            .AddSingleton<ArbitrumClHealthTracker>()
+            .Bind<IClHealthTracker, ArbitrumClHealthTracker>()
+            .Bind<IEngineRequestsTracker, ArbitrumClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
