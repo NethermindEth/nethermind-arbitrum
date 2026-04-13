@@ -484,9 +484,100 @@ public class StateReconstructorTests
         }
     }
 
+    /// <summary>
+    /// Verifies that MaybeCap spills the oldest reconstructed state roots from the MemDb overlay to
+    /// the main state DB when the configured size threshold is exceeded, while keeping recently
+    /// prepared state roots accessible in the overlay.
+    ///
+    /// Flow:
+    /// 1. First PrepareForRecord(1, 9) fills MemDb with 10 reconstructed state roots (blocks 0–9).
+    ///    MaybeCap fires during reconstruction but the _preparedQueue is still empty at that point
+    ///    (PreparedAddTrim hasn't run yet), so it is a no-op.
+    ///    After the call _preparedQueue = [block0, block1, …, block9].
+    ///
+    /// 2. Second PrepareForRecord(11, 18) reconstructs blocks 10–18 one at a time.
+    ///    Each single-block ReExecuteBlocks calls MaybeCap (threshold = 0 → targetSize = -BytesToEvictFromMemDb < 0,
+    ///    so DirtySize > targetSize is always true). The first MaybeCap firing (during block 10 reconstruction)
+    ///    drains the entire _preparedQueue in one pass:
+    ///      - block0 → short-circuit (already on disk, not in _parents) → MemDb unchanged.
+    ///      - blocks 1–9 → DereferenceAndSpill: short-circuits via mainStateDb.KeyExists (nodes were
+    ///        already flushed by FlushCache), then DereferenceLockHeld evicts each root's exclusive nodes
+    ///        from the MemDb overlay. Net effect: same as spilling.
+    ///    Subsequent MaybeCap calls find an empty queue and are no-ops.
+    ///
+    /// Assertions:
+    /// - DirtySize is positive before the second PrepareForRecord (MemDb is populated).
+    /// - DirtySize is positive after the second PrepareForRecord (recent roots still in MemDb).
+    /// - Blocks 1–9 are no longer in the MemDb overlay (HasRoot false) but ARE present
+    ///   in the main state DB (either spilled by DereferenceAndSpill or pre-existing from FlushCache).
+    /// - Blocks 10–18 are still accessible via HasRoot (still in the MemDb overlay).
+    /// </summary>
+    [Test]
+    public void PrepareForRecord_WhenMemDbExceedsThreshold_SpillsOldestRootsToDiskAndPreservesNewRoots()
+    {
+        SwitchableReadOnlyTrieStore switchableStore = new();
+        // ValidatorReconstructedStateMemDBMaxSizeMb = 0 → limit = 0 bytes → MaybeCap fires after every block
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxMemDbSizeMb: 0);
+
+        // Only genesis is accessible from the base store. All reconstructed roots live in MemDb.
+        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
+        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+        IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
+
+        // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
+        // After this call _preparedQueue = [block0, block1, …, block9].
+        ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(Start: 1, End: 9));
+        firstResult.Result.Should().Be(Result.Success);
+
+        // MemDb has state BEFORE the PrepareForRecord that will trigger actual spilling.
+        long sizeBeforeSecondPrepare = trieStore.DirtySize;
+        sizeBeforeSecondPrepare.Should().BeGreaterThan(0,
+            "first PrepareForRecord should have added reconstructed trie nodes to the MemDb overlay");
+
+        // MaybeCap fires 9 times (once per block 10–18 reconstruction).
+        // The populated _preparedQueue is drained: block0 is short-circuited (already on disk),
+        // then blocks 1–9 are spilled via DereferenceAndSpill.
+        ResultWrapper<EmptyResponse> secondResult = chain.ArbitrumRpcModule.PrepareForRecord(
+            new PrepareForRecordParameters(Start: 11, End: 18));
+        secondResult.Result.Should().Be(Result.Success);
+
+        // MemDb still has state AFTER capping (blocks 10–18 are still present).
+        long sizeAfterSecondPrepare = trieStore.DirtySize;
+        sizeAfterSecondPrepare.Should().BeGreaterThan(0,
+            "MemDb overlay should still hold state for blocks 10–18 after MaybeCap");
+
+        // Blocks 1–9 were spilled — state root evicted from MemDb but present on disk.
+        for (long blockNum = 1; blockNum <= 9; blockNum++)
+        {
+            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
+
+            // HasRoot checks MemDb overlay first, then baseStore (blocked for non-genesis by
+            // SwitchableReadOnlyTrieStore). A false result confirms the root left the overlay.
+            trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
+                $"block {blockNum} state root should have been spilled from the MemDb overlay");
+
+            // DereferenceAndSpill writes the root node to the main state DB via a write batch.
+            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!);
+            mainStateDb[key].Should().NotBeNull(
+                $"block {blockNum} state root should be present in the main state DB after spill");
+        }
+
+        // State roots prepared in the second PrepareForRecord are still in the MemDb overlay.
+        for (long blockNum = 10; blockNum <= 18; blockNum++)
+        {
+            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
+            trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
+                $"block {blockNum} state root should still be accessible in the MemDb overlay after MaybeCap");
+        }
+    }
+
     private static ArbitrumRpcTestBlockchain BuildChainWithRecording(
         SwitchableReadOnlyTrieStore? switchableStore = null,
-        int? maxStateRootsInMem = null)
+        int? maxStateRootsInMem = null,
+        int? maxMemDbSizeMb = null)
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
 
@@ -499,6 +590,9 @@ public class StateReconstructorTests
 
         if (maxStateRootsInMem.HasValue)
             builder.WithArbitrumConfig(cfg => cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem.Value);
+
+        if (maxMemDbSizeMb.HasValue)
+            builder.WithArbitrumConfig(cfg => cfg.ValidatorReconstructedStateMemDBMaxSizeMb = maxMemDbSizeMb.Value);
 
         // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore
         return builder.Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
