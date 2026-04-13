@@ -23,7 +23,7 @@ public sealed class ArbAddressTableTests
 
     private IWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
-    private BlockHeader _genesisBlockHeader;
+    private BlockHeader _genesisBlockHeader = null!;
     private PrecompileTestContextBuilder _context = null!;
 
     [SetUp]
