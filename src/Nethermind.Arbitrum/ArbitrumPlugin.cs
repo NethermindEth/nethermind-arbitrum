@@ -135,7 +135,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         // Register nitroexecution namespace
-        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine);
+        ArbitrumClHealthTracker clHealthTracker = _api.Context.Resolve<ArbitrumClHealthTracker>();
+        _ = clHealthTracker.StartAsync();
+        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine, clHealthTracker);
         _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
@@ -246,7 +248,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<ArbitrumClHealthTracker>()
             .Bind<IClHealthTracker, ArbitrumClHealthTracker>()
-            .Bind<IEngineRequestsTracker, ArbitrumClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))

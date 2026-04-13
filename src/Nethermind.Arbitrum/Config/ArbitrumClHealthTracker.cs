@@ -4,13 +4,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Nethermind.Api;
 using Nethermind.HealthChecks;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Config;
 
-public class ArbitrumClHealthTracker(ILogManager logManager) : IClHealthTracker, IEngineRequestsTracker, IAsyncDisposable
+public class ArbitrumClHealthTracker(ILogManager logManager) : IClHealthTracker, IAsyncDisposable
 {
     private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(30);
@@ -27,11 +26,7 @@ public class ArbitrumClHealthTracker(ILogManager logManager) : IClHealthTracker,
 
     public bool CheckClAlive() => _connected;
 
-    public void OnForkchoiceUpdatedCalled() => MarkConnected();
-
-    public void OnNewPayloadCalled() => MarkConnected();
-
-    private void MarkConnected()
+    public void MarkConnected()
     {
         if (_connected) return;
         _connected = true;
