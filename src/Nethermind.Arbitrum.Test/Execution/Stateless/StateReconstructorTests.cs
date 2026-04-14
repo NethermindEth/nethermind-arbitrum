@@ -573,7 +573,7 @@ public class StateReconstructorTests
     [Test]
     public void PrepareForRecord_WhenMemDbExceedsThreshold_SpillsOldestRootsToDiskAndPreservesNewRoots()
     {
-         // ValidatorReconstructedStateMemDBMaxSizeMb = 0 → limit = 0 bytes → MaybeCap fires after every block
+        // ValidatorReconstructedStateMemDBMaxSizeMb = 0 → limit = 0 bytes → MaybeCap fires after every block
         using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(maxMemDbSizeMb: 0);
 
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
