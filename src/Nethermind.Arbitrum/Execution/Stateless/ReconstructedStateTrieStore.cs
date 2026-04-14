@@ -36,7 +36,12 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="TryReference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
     private readonly Lock _refCountLock = new();
 
+    /// <summary>Approximate total byte size of values in the MemDb overlay. Updated under <see cref="_refCountLock"/>.</summary>
+    private long _memDbBytes;
+
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
+
+    public long DirtySize => Interlocked.Read(ref _memDbBytes);
 
     public void Dispose()
     {
@@ -54,6 +59,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             _parents.Clear();
             _children.Clear();
             _memDb.Clear();
+            _memDbBytes = 0;
         }
     }
 
@@ -126,57 +132,124 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     {
         byte[] rootKey = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
         lock (_refCountLock)
-        {
-            Stack<byte[]> stack = new();
-            stack.Push(rootKey);
+            DereferenceLockHeld(rootKey);
+    }
 
-            while (stack.TryPop(out byte[]? key))
+    /// <summary>
+    /// Spills the MemDb-resident subtree of <paramref name="stateRoot"/> to disk via
+    /// <paramref name="rawBatch"/> and cascade-dereferences the root in a single pass.
+    /// Nodes in "cascade mode" (exclusively referenced by this root) are evicted from MemDb.
+    /// Nodes below a shared ancestor switch to "spill-only mode": written to the batch but
+    /// left in MemDb for the other root(s) that still reference them.
+    /// </summary>
+    /// <param name="stateRoot">The state root to spill and dereference.</param>
+    /// <param name="rawBatch">A raw <see cref="IWriteBatch"/> against the main state DB.
+    /// The caller is responsible for disposing (flushing) the batch after this call returns.</param>
+    /// <param name="mainStateDb">The main state DB, used for the root-level short-circuit check.</param>
+    public void DereferenceAndSpill(Hash256 stateRoot, IWriteBatch rawBatch, IKeyValueStore mainStateDb)
+    {
+        byte[] rootKey = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
+        lock (_refCountLock)
+        {
+            // No need to spill the state as it already exists in DB
+            // only dereference the state from memDb
+            if (mainStateDb.KeyExists(rootKey))
             {
-                if (!_parents.TryGetValue(key, out int count))
+                DereferenceLockHeld(rootKey);
+                return;
+            }
+
+            Stack<(byte[] Key, bool SpillOnly)> stack = new();
+            stack.Push((rootKey, false));
+
+            while (stack.TryPop(out var entry))
+            {
+                if (!_parents.TryGetValue(entry.Key, out int count))
                     continue;
 
-                if (count > 1)
+                byte[] rlp = _memDb[entry.Key]!;
+                rawBatch.PutSpan(entry.Key, rlp);
+
+                if (entry.SpillOnly)
                 {
-                    _parents[key] = count - 1;
+                    if (_children.TryGetValue(entry.Key, out var spillChildren))
+                        foreach (byte[] c in spillChildren)
+                            stack.Push((c, true));
                     continue;
                 }
 
-                _parents.Remove(key, out _);
-                _memDb.Remove(key);
-
-                if (_children.TryGetValue(key, out List<byte[]>? childKeys))
+                if (count > 1)
                 {
-                    _children.Remove(key, out _);
-                    foreach (byte[] childKey in childKeys)
-                        stack.Push(childKey);
+                    _parents[entry.Key] = count - 1;
+                    if (_children.TryGetValue(entry.Key, out var sharedChildren))
+                        foreach (byte[] c in sharedChildren)
+                            stack.Push((c, true));
+                }
+                else
+                {
+                    _parents.Remove(entry.Key);
+                    _memDbBytes -= rlp.Length;
+                    _memDb.Remove(entry.Key);
+                    if (_children.Remove(entry.Key, out var exclusiveChildren))
+                        foreach (byte[] c in exclusiveChildren)
+                            stack.Push((c, false));
                 }
             }
         }
     }
 
+    private void DereferenceLockHeld(byte[] rootKey)
+    {
+        Stack<byte[]> stack = new();
+        stack.Push(rootKey);
+
+        while (stack.TryPop(out byte[]? key))
+        {
+            if (!_parents.TryGetValue(key, out int count))
+                continue;
+
+            if (count > 1)
+            {
+                _parents[key] = count - 1;
+                continue;
+            }
+
+            _parents.Remove(key, out _);
+            _memDbBytes -= _memDb[key]!.Length;
+            _memDb.Remove(key);
+
+            if (_children.Remove(key, out List<byte[]>? childKeys))
+                foreach (byte[] childKey in childKeys)
+                    stack.Push(childKey);
+        }
+    }
+
     /// <summary>
-    /// Traverses all trie nodes reachable from <paramref name="stateRoot"/> and writes them to
-    /// <paramref name="mainStateStore"/>. Reads from the MemDb overlay first, then falls back
-    /// to the main state store (disk) via. Writing nodes already present on disk is idempotent.
+    /// Traverses all trie nodes reachable from <paramref name="stateRoot"/> that live in the MemDb
+    /// overlay and writes them to <paramref name="rawBatch"/>. Nodes absent from the overlay are
+    /// already on disk (and by the Merkle hash invariant their entire subtrees are too), so they
+    /// are skipped entirely. The caller is responsible for disposing (flushing) the batch.
     /// Used for shutdown persistence only.
     /// </summary>
-    public void TraverseTrieAndCopyTo(Hash256 stateRoot, INodeStorage mainStateStore)
+    public void TraverseTrieAndCopyTo(Hash256 stateRoot, IWriteBatch rawBatch)
     {
         Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
         stack.Push((null, TreePath.Empty, stateRoot));
 
         while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
         {
-            // Could call TryLoadRlp instead which would call baseStore.TryLoadRlp and even if base trie store has been disposed,
-            // fetching from the underlying node storage would still work, but clearer to just use the passed node storage here.
-            // Base trie store's underlying node storage is the same as this passed one.
-            byte[]? rlp = _nodeStorage.Get(item.addr, in item.p, item.h) ?? mainStateStore.Get(item.addr, in item.p, item.h);
+            // Compute the key once and reuse it for both the MemDb read and the batch write.
+            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(item.addr, in item.p, item.h);
+            byte[]? rlp = _memDb[key];
             if (rlp is null)
+                // Not in MemDb overlay — already on disk. By the Merkle hash invariant, its entire
+                // subtree is also on disk (disk-resident nodes can only reference other disk-resident nodes),
+                // so we can skip both the write and child traversal.
                 continue;
 
             TupleStackSink stackSink = new(stack);
             PushChildren(rlp, item.addr, item.p, ref stackSink);
-            mainStateStore.Set(item.addr, in item.p, item.h, rlp);
+            rawBatch.PutSpan(key, rlp);
         }
     }
 
@@ -195,6 +268,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 return;
 
             _parents[nodeKey] = 0;
+            _memDbBytes += fullRlp.Length;
         }
 
         // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
