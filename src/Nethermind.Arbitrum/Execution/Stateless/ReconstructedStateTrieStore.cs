@@ -75,7 +75,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     }
 
     public byte[]? TryLoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
-        => _nodeStorage.Get(address, in path, hash, flags) ?? baseStore.TryLoadRlp(address, in path, hash, flags);
+        => _nodeStorage.Get(address, in path, hash, flags) ?? baseStore.TryLoadRlp(address, in path, hash, flags | ReadFlags.SkipDuplicateRead);
 
     /// <summary>
     /// Checks the local overlay first, then falls back to reading from the base store's persistent
@@ -87,7 +87,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     /// </summary>
     public bool HasRoot(Hash256 stateRoot)
         => _nodeStorage.Get(null, TreePath.Empty, stateRoot) is not null
-        || baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot) is not null;
+        || baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot, ReadFlags.SkipDuplicateRead) is not null;
 
     public IDisposable BeginScope(BlockHeader? baseBlock) => new Reactive.AnonymousDisposable(() => { });
 
@@ -120,7 +120,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             }
         }
         // Not in MemDb overlay — check disk (disk-resident roots need no reference tracking)
-        return baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot) is not null;
+        return baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot, ReadFlags.SkipDuplicateRead) is not null;
     }
 
     /// <summary>
