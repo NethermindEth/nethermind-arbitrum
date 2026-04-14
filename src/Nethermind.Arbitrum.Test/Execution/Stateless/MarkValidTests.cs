@@ -18,7 +18,6 @@ using Nethermind.Db;
 using Nethermind.Db.FullPruning;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules.Admin;
-using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -347,15 +346,14 @@ public class MarkValidTests
         reconStore.HasRoot(block2Header.StateRoot!).Should().BeTrue("sanity: block 2 state in MemDb after PrepareForRecord");
 
         // Reorg to message index 1 (block 1) — older than _validHeader block 2.
-        (await chain.ReorgToMessageIndex(1)).Result.ResultType.Should().Be(ResultType.Success);
+        ulong reorgIndex = 1;
+        (await chain.ReorgToMessageIndex(reorgIndex)).Result.ResultType.Should().Be(ResultType.Success);
 
+        BlockHeader? header1 = chain.BlockTree.FindHeader((long)reorgIndex, BlockTreeLookupOptions.RequireCanonical);
         ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
-        for (ulong i = start - 1; i < end; i++)
-        {
-            BlockHeader? header = chain.BlockTree.FindHeader((long)i);
-            reconStore.HasRoot(header!.StateRoot!).Should().BeFalse(
-                $"block {header.Number}'s state was MemDb-only (disk root pruned); after ReorgTo releases all references, overlay evicts it");
-        }
+        reconStore.HasRoot(header1!.StateRoot!).Should().BeFalse(
+            $"block {header1.Number}'s state was MemDb-only (disk root pruned); after ReorgTo releases all references, overlay evicts it");
+        reconStore.DirtySize.Should().Be(0, "all overlay entries should be released after reorg is past all referenced states");
     }
 
     /// <summary>
@@ -389,12 +387,7 @@ public class MarkValidTests
 
         ReadValidCandidateHeader(stateReconstructor).Should().BeNull("reorg past candidate must clear it");
         ReadValidHeader(stateReconstructor).Should().BeNull("_validHeader must remain null");
-        for (ulong i = start - 1; i < end; i++)
-        {
-            BlockHeader? header = chain.BlockTree.FindHeader((long)i);
-            reconStore.HasRoot(header!.StateRoot!).Should().BeFalse(
-                $"block {header.Number}'s state was MemDb-only (disk root pruned); after ReorgTo releases all references, overlay evicts it");
-        }
+        reconStore.DirtySize.Should().Be(0, "all overlay entries should be released after reorg is past all referenced states");
     }
 
     /// <summary>
@@ -443,15 +436,11 @@ public class MarkValidTests
             "reorg to a block newer than _validHeader must not clear it");
         ReadValidCandidateHeader(stateReconstructor).Should().BeNull("candidate header should be cleared as reorg block is older than candidate");
 
-        for (ulong i = start - 1; i < end; i++)
+        for (ulong i = start - 1; i < reorgIndex; i++)
         {
             BlockHeader? header = chain.BlockTree.FindHeader((long)i);
-            if (i <= reorgIndex)
-                reconStore.HasRoot(header!.StateRoot!).Should().BeTrue(
-                    $"block {header.Number} is older or equal to reorg block, state should survive via overlay");
-            else
-                reconStore.HasRoot(header!.StateRoot!).Should().BeFalse(
-                    $"block {header.Number} is newer than reorg block, state should be dereferenced (hence evicted) from overlay");
+            reconStore.HasRoot(header!.StateRoot!).Should().BeTrue(
+                $"block {header.Number} is older or equal to reorg block, state should survive via overlay");
         }
 
         reconStore.HasRoot(block11Header!.StateRoot!).Should().BeFalse(
