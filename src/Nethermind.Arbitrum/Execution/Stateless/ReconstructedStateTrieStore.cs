@@ -27,19 +27,34 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     private readonly INodeStorage _nodeStorage = new NodeStorage(memDb);
     private readonly MemDb _memDb = memDb;
 
-    /// <summary>How many references each MemDb node has: one per trie-parent that was committed referencing it, plus one per external <see cref="Reference"/> call on it (state roots only).</summary>
+    /// <summary>How many references each MemDb node has: one per trie-parent that was committed referencing it, plus one per external <see cref="TryReference"/> call on it (state roots only).</summary>
     private readonly Dictionary<byte[], int> _parents = new(Bytes.EqualityComparer);
 
     /// <summary>MemDb keys of each committed node's children that are also in MemDb. Used for cascade dereference without traversal.</summary>
     private readonly Dictionary<byte[], List<byte[]>> _children = new(Bytes.EqualityComparer);
 
-    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="Reference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
-    private readonly object _refCountLock = new();
+    /// <summary>Protects <see cref="_parents"/>, <see cref="_children"/>, and MemDb deletions in <see cref="TryReference"/>, <see cref="Dereference"/>, and <see cref="TrackCommittedNode"/>.</summary>
+    private readonly Lock _refCountLock = new();
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
     public void Dispose()
     {
+    }
+
+    /// <summary>
+    /// Atomically clears the entire MemDb overlay: removes all nodes and
+    /// resets all reference counts. Called by <see cref="StateReconstructor"/> after
+    /// full pruning commits so that all surviving validator state is on disk in the new DB.
+    /// </summary>
+    public void ClearOverlay()
+    {
+        lock (_refCountLock)
+        {
+            _parents.Clear();
+            _children.Clear();
+            _memDb.Clear();
+        }
     }
 
     public TrieNode FindCachedOrUnknown(Hash256? address, in TreePath path, Hash256 hash)
@@ -80,18 +95,26 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         => new TrackingCommitter(this, new RawScopedTrieStore.Committer(_nodeStorage, address, writeFlags), address);
 
     /// <summary>
-    /// Increments the reference count for the given state root node in the MemDb overlay. O(1).
-    /// No-op if the root is not in the overlay (disk-resident roots need no tracking).
+    /// Atomically checks whether the state root is available and, if MemDb-resident, increments
+    /// its reference count (O(1)) in a single lock operation to avoid a check-then-act race.
+    /// No increment if the root is not in the overlay (disk-resident roots need no tracking).
     /// Call when adding a state root to the alive set.
+    /// Returns <see langword="true"/> if the root is available (pinned if MemDb-resident, no-op if disk-resident).
+    /// Returns <see langword="false"/> if the root is not found in either the overlay or the base store.
     /// </summary>
-    public void Reference(Hash256 stateRoot)
+    public bool TryReference(Hash256 stateRoot)
     {
         byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
         lock (_refCountLock)
         {
             if (_parents.TryGetValue(key, out int count))
+            {
                 _parents[key] = count + 1;
+                return true;
+            }
         }
+        // Not in MemDb overlay — check disk (disk-resident roots need no reference tracking)
+        return baseStore.TryLoadRlp(null, TreePath.Empty, stateRoot) is not null;
     }
 
     /// <summary>
@@ -132,6 +155,32 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     }
 
     /// <summary>
+    /// Traverses all trie nodes reachable from <paramref name="stateRoot"/> and writes them to
+    /// <paramref name="mainStateStore"/>. Reads from the MemDb overlay first, then falls back
+    /// to the main state store (disk) via. Writing nodes already present on disk is idempotent.
+    /// Used for shutdown persistence only.
+    /// </summary>
+    public void TraverseTrieAndCopyTo(Hash256 stateRoot, INodeStorage mainStateStore)
+    {
+        Stack<(Hash256? address, TreePath path, Hash256 hash)> stack = new();
+        stack.Push((null, TreePath.Empty, stateRoot));
+
+        while (stack.TryPop(out (Hash256? addr, TreePath p, Hash256 h) item))
+        {
+            // Could call TryLoadRlp instead which would call baseStore.TryLoadRlp and even if base trie store has been disposed,
+            // fetching from the underlying node storage would still work, but clearer to just use the passed node storage here.
+            // Base trie store's underlying node storage is the same as this passed one.
+            byte[]? rlp = _nodeStorage.Get(item.addr, in item.p, item.h) ?? mainStateStore.Get(item.addr, in item.p, item.h);
+            if (rlp is null)
+                continue;
+
+            TupleStackSink stackSink = new(stack);
+            PushChildren(rlp, item.addr, item.p, ref stackSink);
+            mainStateStore.Set(item.addr, in item.p, item.h, rlp);
+        }
+    }
+
+    /// <summary>
     /// Called by <see cref="TrackingCommitter"/> for each node written to the MemDb overlay.
     /// Initialises this node's parent count and increments the parent count of its MemDb-resident children.
     /// Since Patricia tries commit bottom-up (children before parents), children are already tracked
@@ -150,7 +199,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
 
         // Decode children outside the lock: RLP decoding is pure CPU work with no shared state.
         List<byte[]> childKeys = [];
-        PushChildren(fullRlp, address, path, childKeys);
+        KeyListSink keySink = new(childKeys);
+        PushChildren(fullRlp, address, path, ref keySink);
 
         if (childKeys.Count == 0)
             return;
@@ -186,11 +236,11 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         }
     }
 
-    private static void PushChildren(
+    private static void PushChildren<TSink>(
         CappedArray<byte> rlp,
         Hash256? address,
         TreePath path,
-        List<byte[]> childKeys)
+        ref TSink sink) where TSink : struct, IChildSink
     {
         ValueRlpStream stream = new ValueRlpStream(rlp);
         stream.ReadSequenceLength();
@@ -203,7 +253,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             {
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path.Append(i), stream.DecodeKeccak()!));
+                    sink.Add(address, path.Append(i), stream.DecodeKeccak()!);
                 else
                     stream.SkipItem();
             }
@@ -227,7 +277,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                         // which is the address key used by NodeStorage for storage trie nodes.
                         TreePath fullPath = path.Append(pathNibbles);
                         Hash256 addressHash = new Hash256(in fullPath.Path);
-                        childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(addressHash, TreePath.Empty, storageRoot));
+                        sink.Add(addressHash, TreePath.Empty, storageRoot);
                     }
                 }
                 // Storage trie leaf: value is a storage slot — no child nodes.
@@ -237,7 +287,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                 // Extension node: single hash-referenced child, path extended by pathNibbles.
                 (int _, int contentLength) = stream.PeekPrefixAndContentLength();
                 if (contentLength == 32)
-                    childKeys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path.Append(pathNibbles), stream.DecodeKeccak()!));
+                    sink.Add(address, path.Append(pathNibbles), stream.DecodeKeccak()!);
                 // Inline child (< 32 bytes) is embedded in the parent — not a separate MemDb entry.
             }
         }
@@ -248,5 +298,22 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
         Rlp.ValueDecoderContext ctx = new Rlp.ValueDecoderContext(accountRlp);
         Hash256 storageRoot = _accountDecoder.DecodeStorageRootOnly(ref ctx);
         return storageRoot == Keccak.EmptyTreeHash ? null : storageRoot;
+    }
+
+    private interface IChildSink
+    {
+        void Add(Hash256? address, TreePath path, Hash256 hash);
+    }
+
+    private struct KeyListSink(List<byte[]> keys) : IChildSink
+    {
+        public void Add(Hash256? address, TreePath path, Hash256 hash)
+            => keys.Add(NodeStorage.GetHalfPathNodeStoragePath(address, path, hash));
+    }
+
+    private struct TupleStackSink(Stack<(Hash256? address, TreePath path, Hash256 hash)> stack) : IChildSink
+    {
+        public void Add(Hash256? address, TreePath path, Hash256 hash)
+            => stack.Push((address, path, hash));
     }
 }

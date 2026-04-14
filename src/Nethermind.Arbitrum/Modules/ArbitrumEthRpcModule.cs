@@ -335,7 +335,7 @@ namespace Nethermind.Arbitrum.Modules
                 return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
             }
 
-            protected override Result<Transaction> Prepare(TransactionForRpc call)
+            protected override Result<Transaction> Prepare(TransactionForRpc call, BlockHeader header)
             {
                 Result<Transaction> result = call.ToTransaction(validateUserInput: true);
                 if (result.IsError)
