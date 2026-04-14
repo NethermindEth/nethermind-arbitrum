@@ -183,7 +183,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         StepDependencyException.ThrowIfNull(_api.SpecProvider);
         StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
 
-        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.CreatePersistent();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,
