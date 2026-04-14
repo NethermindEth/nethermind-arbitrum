@@ -407,7 +407,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<SequencerState>().Activate();
         }
 
-        chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine);
+        chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine, chain.Container.Resolve<ArbitrumClHealthTracker>());
         chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
 
         return chain;
