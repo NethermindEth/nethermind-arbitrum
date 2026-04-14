@@ -28,14 +28,17 @@ public class ArbitrumClHealthTracker(ILogManager logManager) : IClHealthTracker,
 
     public void MarkConnected()
     {
-        if (_connected) return;
+        if (_connected)
+            return;
+
         _connected = true;
         _timer?.Change(Timeout.Infinite, 0);
     }
 
     private void CheckConnection(object? _)
     {
-        if (_connected) return;
+        if (_connected)
+            return;
 
         if (_logger.IsInfo)
             _logger.Info("Waiting for connection from consensus layer...");
@@ -44,6 +47,7 @@ public class ArbitrumClHealthTracker(ILogManager logManager) : IClHealthTracker,
     public async ValueTask DisposeAsync()
     {
         _timer?.Change(Timeout.Infinite, 0);
-        if (_timer is not null) await _timer.DisposeAsync();
+        if (_timer is not null)
+            await _timer.DisposeAsync();
     }
 }
