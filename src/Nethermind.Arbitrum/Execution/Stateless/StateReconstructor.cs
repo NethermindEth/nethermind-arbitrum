@@ -417,7 +417,7 @@ public class StateReconstructor : IDisposable
         PruningGate? gate = _pruningGate;
         if (gate is null)
         {
-            _fullPruningCts = new CancellationTokenSource();
+            ResetFullPruningCts();
             return;
         }
 
@@ -427,7 +427,7 @@ public class StateReconstructor : IDisposable
             // Just release the gate without touching anything.
             if (_logger.IsWarn)
                 _logger.Warn("OnPruningFinished: full pruning failed — keeping MemDb overlay intact.");
-            _fullPruningCts = new CancellationTokenSource();
+            ResetFullPruningCts();
             _pruningGate = null;
             gate.Tcs.SetResult();
             return;
@@ -454,12 +454,22 @@ public class StateReconstructor : IDisposable
 
                 // Reset token after clearing memDB so that any pending capping logic
                 // just cancels as memDB size is now 0 (under limit)
-                _fullPruningCts = new CancellationTokenSource();
+                ResetFullPruningCts();
                 // Null the gate first: new callers arriving after this point return Task.CompletedTask
                 // directly without waiting. Then unblock existing waiters with SetResult.
                 _pruningGate = null;
                 gate.Tcs.SetResult();
             }
+    }
+
+    /// <summary>
+    /// Replaces <see cref="_fullPruningCts"/> with a fresh, uncancelled token source and
+    /// disposes the previous instance to release its registrations and handles.
+    /// </summary>
+    private void ResetFullPruningCts()
+    {
+        _fullPruningCts.Dispose();
+        _fullPruningCts = new CancellationTokenSource();
     }
 
     public void Dispose()
@@ -469,6 +479,7 @@ public class StateReconstructor : IDisposable
             _fullPruningDb.PruningStarted -= OnPruningStarted;
             _fullPruningDb.PruningFinished -= OnPruningFinished;
         }
+        _fullPruningCts.Dispose();
         PersistOnShutdown();
     }
 
@@ -645,7 +656,7 @@ public class StateReconstructor : IDisposable
         }
         else
         {
-            IWriteBatch rawBatch = _mainStateDb.StartWriteBatch();
+            using IWriteBatch rawBatch = _mainStateDb.StartWriteBatch();
             _trieStore.TraverseTrieAndCopyTo(validHeader.StateRoot!, rawBatch);
         }
 
