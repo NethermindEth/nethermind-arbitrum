@@ -71,6 +71,11 @@ public record PrepareForRecordParameters(
     [property: JsonPropertyName("end")] ulong End
 );
 
+public record MarkValidParameters(
+    [property: JsonPropertyName("pos")] ulong Pos,
+    [property: JsonPropertyName("resultHash")] Hash256 ResultHash
+);
+
 public record EnqueueDelayedMessagesParams(
     [property: JsonPropertyName("messages")] L1IncomingMessage[] Messages,
     [property: JsonPropertyName("firstMsgIdx")] ulong FirstMsgIdx

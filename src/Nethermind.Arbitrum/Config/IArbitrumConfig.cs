@@ -29,6 +29,9 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Maximum number of state roots to keep pinned in the MemDb overlay simultaneously", DefaultValue = "1000")]
     int ValidatorMaxStateRootsInMem { get; set; }
 
+    [ConfigItem(Description = "Whether validation is enabled", DefaultValue = "false")]
+    bool ValidationEnabled { get; set; }
+
     [ConfigItem(Description = "Whether to enable sequencer mode", DefaultValue = "false")]
     bool SequencerEnabled { get; set; }
 

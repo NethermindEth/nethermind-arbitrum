@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
@@ -40,7 +41,7 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, IReleaseSpec? spec = null)
     {
         return new ArbitrumInternalTransaction
         {
@@ -91,7 +92,7 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
         Value = transaction.Value;
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, IReleaseSpec? spec = null)
     {
         return new ArbitrumDepositTransaction
         {
@@ -153,7 +154,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, IReleaseSpec? spec = null)
     {
         return new ArbitrumUnsignedTransaction
         {
@@ -236,7 +237,7 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
         SubmissionFeeRefund = retryTx?.SubmissionFeeRefund;
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, IReleaseSpec? spec = null)
     {
         return new ArbitrumRetryTransaction
         {
@@ -337,7 +338,7 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, IReleaseSpec? spec = null)
     {
         return new ArbitrumSubmitRetryableTransaction
         {
@@ -411,7 +412,7 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, IReleaseSpec? spec = null)
     {
         return new ArbitrumContractTransaction
         {
