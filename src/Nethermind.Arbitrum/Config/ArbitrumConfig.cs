@@ -14,6 +14,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public int MessageLagMs { get; set; } = 1000;
     public bool ExposeMultiGas { get; set; } = false;
     public int ValidatorMaxStateRootsInMem { get; set; } = 1000;
+    public int ValidatorReconstructedStateMemDBMaxSizeMb { get; set; } = 1024;
     public bool ValidationEnabled { get; set; } = false;
     public bool SequencerEnabled { get; set; } = false;
     public int SequencerNonceCacheSize { get; set; } = 1024;
