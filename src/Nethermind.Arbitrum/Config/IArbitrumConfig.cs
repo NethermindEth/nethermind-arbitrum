@@ -29,6 +29,9 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Maximum number of state roots to keep pinned in the MemDb overlay simultaneously", DefaultValue = "1000")]
     int ValidatorMaxStateRootsInMem { get; set; }
 
+    [ConfigItem(Description = "Maximum size in MB of the reconstructed state MemDb overlay before oldest roots are spilled to disk", DefaultValue = "1024")]
+    int ValidatorReconstructedStateMemDBMaxSizeMb { get; set; }
+
     [ConfigItem(Description = "Whether validation is enabled", DefaultValue = "false")]
     bool ValidationEnabled { get; set; }
 
