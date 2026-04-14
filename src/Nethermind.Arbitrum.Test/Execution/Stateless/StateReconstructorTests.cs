@@ -645,14 +645,17 @@ public class StateReconstructorTests
         }
     }
 
-    private void SimulatePruning(ArbitrumRpcTestBlockchain chain, long blockNumberToKeep)
+    /// <summary>
+    /// Simulates disk pruning by removing all state-root keys from the main state DB except for
+    /// <paramref name="blockNumberToKeep"/>. After <see cref="ArbitrumTestBlockchainBuilder.Build"/>
+    /// calls <c>FlushCache</c>, every block's state root is on disk; this helper then deletes all but
+    /// one, leaving the rest accessible only through the MemDb overlay (if referenced) or not at all.
+    /// </summary>
+    public static void SimulatePruning(ArbitrumRpcTestBlockchain chain, long blockNumberToKeep)
     {
-        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
-        // Simulate pruning: physically delete all state root keys from the main state DB (except the one we want to keep).
-        // After FlushCache (done by the builder), all trie nodes are in the underlying MemDb (simulating disk).
-        // Deleting the root keys makes HasRoot return false for those blocks (not in overlay, not on disk).
         long headNumber = chain.BlockTree.Head!.Number;
         for (long blockNum = 0; blockNum <= headNumber; blockNum++)
         {
@@ -663,7 +666,6 @@ public class StateReconstructorTests
             mainStateDb.Remove(NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!));
         }
 
-        // Verify: state to keep is still accessible, all other states are not accessible.
         for (long blockNum = 0; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;

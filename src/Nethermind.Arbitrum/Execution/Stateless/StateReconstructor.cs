@@ -69,7 +69,7 @@ public class StateReconstructor : IDisposable
     const long BytesToEvictFromMemDb = 100 * 1024; // 100 KiB
 
     /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
-    private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
+    private ConcurrentQueue<BlockHeader> _preparedQueue = new();
 
     private readonly Lock _validHeaderLock = new();
 
@@ -462,6 +462,50 @@ public class StateReconstructor : IDisposable
             }
     }
 
+    public void ReorgTo(BlockHeader header)
+    {
+        lock (_validHeaderLock)
+        {
+            if (_validHeader is not null && _validHeader.Number > header.Number)
+            {
+                if (_logger.IsWarn)
+                    _logger.Warn($"ReorgTo: reorging to block older than previously-marked valid block: reorg target {header.Number} with hash {header.Hash} and header marked as last valid {_validHeader.Number} with hash {_validHeader.Hash}");
+                _trieStore.Dereference(_validHeader.StateRoot!);
+                _validHeader = null;
+            }
+
+            if (_validHeaderCandidate is not null && _validHeaderCandidate.Number > header.Number)
+            {
+                if (_logger.IsInfo)
+                    _logger.Info($"ReorgTo: reorging to block older than valid candidate block: reorg target {header.Number} with hash {header.Hash} and candidate header {_validHeaderCandidate.Number} with hash {_validHeaderCandidate.Hash}");
+                _trieStore.Dereference(_validHeaderCandidate.StateRoot!);
+                _validHeaderCandidate = null;
+            }
+        }
+
+        PreparedTrimBeyond(header);
+    }
+
+    private void PreparedTrimBeyond(BlockHeader header)
+    {
+        ConcurrentQueue<BlockHeader> validHeaders = new();
+        List<BlockHeader> invalidRoots = [];
+        lock (_reconstructionLock)
+        {
+            foreach (BlockHeader referencedHeader in _preparedQueue)
+            {
+                if (referencedHeader.Number > header.Number)
+                    invalidRoots.Add(referencedHeader);
+                else
+                    validHeaders.Enqueue(referencedHeader);
+            }
+            _preparedQueue = validHeaders;
+        }
+
+        foreach (BlockHeader invalidHeader in invalidRoots)
+            _trieStore.Dereference(invalidHeader.StateRoot!);
+    }
+
     /// <summary>
     /// Replaces <see cref="_fullPruningCts"/> with a fresh, uncancelled token source and
     /// disposes the previous instance to release its registrations and handles.
@@ -483,11 +527,11 @@ public class StateReconstructor : IDisposable
         PersistOnShutdown();
     }
 
-    public void PreparedAddTrim(List<Hash256> stateRoots)
+    public void PreparedAddTrim(List<BlockHeader> stateRoots)
     {
         lock (_reconstructionLock)
         {
-            foreach (Hash256 stateRoot in stateRoots)
+            foreach (BlockHeader stateRoot in stateRoots)
                 _preparedQueue.Enqueue(stateRoot);
 
             if (_preparedQueue.Count > _maxStateRootsInMem)
@@ -495,8 +539,8 @@ public class StateReconstructor : IDisposable
                 int toEvict = _preparedQueue.Count - _maxStateRootsInMem;
                 for (int i = 0; i < toEvict; i++)
                 {
-                    if (_preparedQueue.TryDequeue(out Hash256? oldStateRoot))
-                        _trieStore.Dereference(oldStateRoot);
+                    if (_preparedQueue.TryDequeue(out BlockHeader? oldStateRoot))
+                        _trieStore.Dereference(oldStateRoot.StateRoot!);
                 }
             }
         }
@@ -545,10 +589,10 @@ public class StateReconstructor : IDisposable
                     break;
                 }
 
-                if (!_preparedQueue.TryDequeue(out Hash256? stateRoot))
+                if (!_preparedQueue.TryDequeue(out BlockHeader? header))
                     break;
 
-                _trieStore.DereferenceAndSpill(stateRoot, rawBatch, _mainStateDb);
+                _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
                 count++;
             }
         }
