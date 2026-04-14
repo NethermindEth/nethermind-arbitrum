@@ -1291,6 +1291,144 @@ public class ArbitrumWitnessGenerationTests
             "contract STATICCALLs ArbSys to get the current block number");
     }
 
+    /// <summary>
+    /// Verifies that when a CALL with value transfer runs out of gas during its gas calculation
+    /// phase inside InstructionCall, the target address is still recorded in the witness.
+    ///
+    /// In Nitro (go-ethereum), gasCall() is a pure accumulator: StateDB.Empty(address) always
+    /// executes before the single OOG check in the interpreter. In Nethermind, gas is deducted
+    /// inline, so the fix moves the IsDeadAccount (and AccountExists) state reads before any gas
+    /// deduction that could abort early.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_CallWithValueOogDuringGasCalculation_StillRecordsTargetAddressInWitness()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender so it can pay transaction fees.
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(new TestEthDeposit(
+            Keccak.Compute("deposit"), l1BaseFee, sender, sender, 100.Ether));
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Create an account for the target address so that it creates some trie nodes unique to it,
+        // so that we can assert the resulting witness contains those nodes that would not get
+        // recorded without the fix.
+        Address target = TestItem.AddressA;
+        chain.AppendBlock(c =>
+        {
+            c.MainWorldState.CreateAccount(target, balance: 0, nonce: 1);
+        });
+
+        // Deploy a contract that executes a value-transferring CALL to target.
+        // The sub-call gas (0) is irrelevant — the OOG happens in the CALLER's frame
+        // during InstructionCall gas calculation, before the sub-call ever starts.
+        //
+        // Stack layout for CALL (top to bottom): gas, addr, value, argsOffset, argsLength, retOffset, retLength
+        byte[] callerRuntimeCode = Prepare.EvmCode
+            .PushData(0)         // retLength
+            .PushData(0)         // retOffset
+            .PushData(0)         // argsLength
+            .PushData(0)         // argsOffset
+            .PushData(1)         // value = 1 (non-zero so the IsDeadAccount path is reached, but actually the AccountExists path would also work)
+            .PushData(target)    // target: existing, non-dead account
+            .PushData(0)         // gas forwarded to sub-call
+            .Op(Instruction.CALL)
+            .Op(Instruction.STOP)
+            .Done;
+
+        byte[] callerInitCode = Prepare.EvmCode
+            .ForInitOf(callerRuntimeCode)
+            .Done;
+
+        Transaction deployTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            deployTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(null)
+                .WithData(callerInitCode)
+                .WithMaxFeePerGas(10.GWei)
+                .WithGasLimit(500_000)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        ResultWrapper<MessageResult> deployResult = await chain.Digest(new TestL2Transactions(l1BaseFee, sender, deployTx));
+        deployResult.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "contract deployment should succeed");
+
+        Address callerAddress = ContractAddress.From(sender, deployTx.Nonce);
+
+        // Parent state: target's account trie proof is collected from here for the assertion below.
+        BlockHeader parentHeader = chain.BlockTree.Head!.Header;
+
+        // Call the contract with a gas limit calibrated to have the CALL instruction OOGs at the first gas deducing step
+        // and make sure the target address is still recorded in the witness.
+        //
+        // Intrinsic (21_000) + 7 PUSH1 opcodes + not enough gas for the 1st gas cost in CALL instruction,
+        // which will fail (ConsumeCallValueTransfer(9_000))
+        const long callGasLimit = GasCostOf.Transaction + GasCostOf.VeryLow * 7 + (GasCostOf.CallValue - 1);
+
+        Transaction callTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            callTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(callerAddress)
+                .WithData([])
+                .WithMaxFeePerGas(10.GWei)
+                .WithGasLimit(callGasLimit)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> callResult, DigestMessageParameters callParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, callTx));
+        callResult.Result.Should().Be(Result.Success);
+        // The user transaction should fail: CALL OOGs at ConsumeCallValueTransfer.
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Failure,
+            "transaction should fail: CALL OOGs during gas calculation inside InstructionCall");
+
+        // Flush trie nodes to make state roots accessible during witness generation.
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
+
+        // Collect the account trie proof for target from the parent state.
+        // If IsDeadAccount was called (as the fix ensures), the trie nodes along
+        // the path to target are traversed and captured in the witness.
+        //
+        // Without the fix, IsDeadAccount is never reached (OOG fires first), so those
+        // trie nodes are absent from the witness.
+        AccountProofCollector collector = new(target);
+        chain.StateReader.RunTreeVisitor(collector, parentHeader);
+        AccountProof accountProof = collector.BuildResult();
+
+        byte[][] accountProofNodes = accountProof.Proof!;
+
+        accountProofNodes.Should().NotBeEmpty(
+            "target should have a non-empty account trie proof in the parent state");
+
+        foreach (byte[] proofNode in accountProofNodes)
+        {
+            recordResult.Preimages.ContainsKey(Keccak.Compute(proofNode)).Should().BeTrue(
+                "witness should contain account trie proof node for target address even when " +
+                "CALL OOGs at ConsumeCallValueTransfer — IsDeadAccount must be evaluated before any gas deduction");
+        }
+    }
+
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
     {
         // 18 blocks in the test where this test case source is used
@@ -1351,7 +1489,7 @@ public class ArbitrumWitnessGenerationTests
 
     private static void AssertWitnessMatchesRecordResult(ArbitrumWitness witness, RecordResult recordResult)
     {
-        RecordResult fromWitness = new(recordResult.Index, recordResult.BlockHash, witness);
+        RecordResult fromWitness = new(recordResult.Pos, recordResult.BlockHash, witness);
         fromWitness.Should().BeEquivalentTo(recordResult);
     }
 

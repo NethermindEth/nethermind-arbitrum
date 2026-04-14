@@ -55,8 +55,6 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
@@ -143,7 +141,6 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
@@ -172,7 +169,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 value = 0;
         long gasLimit = GasCostOf.Transaction;
 
-        ArbitrumRetryTransaction transaction = new ArbitrumRetryTransaction
+        ArbitrumRetryTransaction transaction = new()
         {
             ChainId = 0,
             Nonce = 0,
@@ -209,8 +206,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -273,9 +268,6 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-
-
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
             new TestBlockhashProvider(GetSpecProvider()),
@@ -325,8 +317,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -1230,7 +1220,7 @@ public class ArbitrumTransactionProcessorTests
     {
         UInt256 l1BaseFee = 39;
 
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -1385,7 +1375,7 @@ public class ArbitrumTransactionProcessorTests
     {
         UInt256 l1BaseFee = 39;
 
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -1614,99 +1604,7 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ArbitrumTransaction_WithArbitrumBlockHeader_ProcessesCorrectly()
-    {
-        // Test NEW ArbitrumBlockHeader approach: EVM sees 0, gas calculations use original base fee
-
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
-
-        Block genesis = ArbOSInitialization.Create(worldState);
-
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
-
-        ArbitrumVirtualMachine virtualMachine = new(
-            ArbOSInitialization.GetSpecHelper(),
-            new TestBlockhashProvider(GetSpecProvider()),
-            TestWasmStore.Create(),
-            GetSpecProvider(),
-            _logManager
-        );
-
-        UInt256 blockBaseFee = (UInt256)500;
-        UInt256 originalBaseFee = (UInt256)1000;
-
-        genesis.Header.BaseFeePerGas = blockBaseFee;
-
-        ArbitrumChainSpecEngineParameters chainSpecParams = new() { GenesisBlockNum = 0 };
-        ArbitrumBlockHeader arbitrumHeader = new(genesis.Header, originalBaseFee, (long)chainSpecParams.GenesisBlockNum!);
-        arbitrumHeader.BaseFeePerGas = 0; // Set to 0 for EVM execution (NoBaseFee behavior)
-
-        BlockExecutionContext blCtx = new(arbitrumHeader, GetSpecProvider().GetSpec(arbitrumHeader));
-        virtualMachine.SetBlockExecutionContext(in blCtx);
-
-        ArbitrumTransactionProcessor processor = new(
-            BlobBaseFeeCalculator.Instance,
-            GetSpecProvider(),
-            worldState,
-            TestWasmStore.Create(),
-            virtualMachine,
-            _logManager,
-            new EthereumCodeInfoRepository(worldState)
-        );
-
-        // Verify NoBaseFee behavior - EVM sees 0
-        virtualMachine.BlockExecutionContext.Header.BaseFeePerGas.Should().Be(UInt256.Zero,
-            "ArbitrumBlockHeader with NoBaseFee should have EVM BaseFee = 0");
-
-        // Verify we're using ArbitrumBlockHeader
-        virtualMachine.BlockExecutionContext.Header.Should().BeOfType<ArbitrumBlockHeader>(
-            "Should be using ArbitrumBlockHeader");
-
-        ArbitrumBlockHeader arbitrumBlockHeader = (ArbitrumBlockHeader)virtualMachine.BlockExecutionContext.Header;
-        arbitrumBlockHeader.OriginalBaseFee.Should().Be(originalBaseFee,
-            "ArbitrumBlockHeader should store original base fee");
-
-        Address sender = TestItem.AddressA;
-        Address to = TestItem.AddressB;
-        UInt256 value = 100;
-        long gasLimit = 30000;
-
-        Transaction transaction = Build.A.Transaction
-            .WithSenderAddress(sender)
-            .WithTo(to)
-            .WithValue(value)
-            .WithGasLimit(gasLimit)
-            .WithGasPrice(originalBaseFee)
-            .WithNonce(0)
-            .SignedAndResolved(TestItem.PrivateKeyA)
-            .TestObject;
-
-        UInt256 requiredBalance = originalBaseFee * (ulong)gasLimit + value;
-        worldState.CreateAccount(sender, requiredBalance, 0);
-
-        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
-        TransactionResult result = processor.Execute(transaction, tracer);
-
-        // Assert transaction executes successfully
-        result.Should().Be(TransactionResult.Ok);
-        transaction.SpentGas.Should().BeGreaterThan(0);
-
-        UInt256 initialBalance = requiredBalance;
-        UInt256 finalBalance = worldState.GetBalance(sender);
-        UInt256 actualGasCost = initialBalance - finalBalance - value;
-        UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
-
-        // The critical test: Gas should be charged using originalBaseFee from ArbitrumBlockHeader
-        actualGasCost.Should().Be(expectedGasCost,
-            "Gas should be charged using original base fee (1000) from ArbitrumBlockHeader.OriginalBaseFee");
-
-        actualGasCost.Should().BeGreaterThan(0,
-            "Some gas should be charged - proves the ArbitrumBlockHeader approach is working");
-    }
-
-    [Test]
-    public void ArbitrumTransaction_WithoutNoBaseFee_UsesBlockBaseFee()
+    public void ArbitrumTransaction_WithoutOriginalBaseFee_UsesBlockBaseFee()
     {
         // Test that without NoBaseFee, transactions should use the block's BaseFeePerGas
 
@@ -1715,7 +1613,6 @@ public class ArbitrumTransactionProcessorTests
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -1785,17 +1682,17 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void ArbitrumTransaction_WithArbitrumBlockHeader_UsesOriginalBaseFeeForGasCalculations()
+    public void ArbitrumTransaction_WithOriginalBaseFee_NoBaseFeeModeTipDropChargesZero()
     {
-        // Test that with ArbitrumBlockHeader, transactions use original base fee for gas calculations
-        // but EVM sees 0 base fee
+        // Simulates eth_call with non-zero gasPrice where tip gets dropped.
+        // In Nitro go-ethereum:consensus-v51/core/state_transition.go:execute, the tip-drop sets msg.GasPrice = evm.Context.BaseFee,
+        // which is 0 during eth_call. Nethermind should match: charge at BaseFeePerGas (0), not OriginalBaseFee.
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -1859,15 +1756,13 @@ public class ArbitrumTransactionProcessorTests
         result.Should().Be(TransactionResult.Ok);
         transaction.SpentGas.Should().BeGreaterThan(0);
 
-        // Verify gas was charged using original BaseFee (for gas calculations)
-        // even though EVM sees BaseFee = 0
-        UInt256 initialBalance = requiredBalance;
         UInt256 finalBalance = worldState.GetBalance(sender);
-        UInt256 actualGasCost = initialBalance - finalBalance - value;
-        UInt256 expectedGasCost = (UInt256)transaction.SpentGas * originalBaseFee;
+        UInt256 actualGasCost = requiredBalance - finalBalance - value;
 
-        actualGasCost.Should().Be(expectedGasCost,
-            $"With ArbitrumBlockHeader, gas should be charged using original BaseFee ({originalBaseFee}) for gas calculations");
+        // In NoBaseFee mode, tip-drop sets effective gas price to baseFee (0), matching Nitro.
+        actualGasCost.Should().Be(UInt256.Zero,
+            "In NoBaseFee mode, tip-drop sets effective gas price to header.BaseFeePerGas (0), "
+            + "matching Nitro's state_transition.go:execute which uses evm.Context.BaseFee");
     }
 
     [Test]
@@ -1913,7 +1808,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -1996,7 +1890,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -2101,7 +1994,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -2185,7 +2077,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -3195,7 +3086,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -3288,7 +3178,6 @@ public class ArbitrumTransactionProcessorTests
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
-        BlockTree blockTree = Build.A.BlockTree(genesis).OfChainLength(1).TestObject;
 
         ArbitrumVirtualMachine virtualMachine = new(
             ArbOSInitialization.GetSpecHelper(),
@@ -3312,9 +3201,6 @@ public class ArbitrumTransactionProcessorTests
             _logManager,
             new EthereumCodeInfoRepository(worldState)
         );
-
-        SystemBurner burner = new(readOnly: false);
-        ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
         Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(456);
         Address sender = TestItem.AddressA;
@@ -3647,7 +3533,6 @@ public class ArbitrumTransactionProcessorTests
     private static Transaction CreateTransactionForType(TxType txType)
     {
         if (txType == TxType.Legacy)
-        {
             return Build.A.Transaction
                 .WithType(TxType.Legacy)
                 .WithTo(TestItem.AddressB)
@@ -3657,7 +3542,6 @@ public class ArbitrumTransactionProcessorTests
                 .WithNonce(1)
                 .SignedAndResolved(TestItem.PrivateKeyA)
                 .TestObject;
-        }
 
         return txType switch
         {

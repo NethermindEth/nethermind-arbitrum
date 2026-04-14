@@ -54,12 +54,12 @@ public class StateReconstructorTests
         recordResult.Data.Preimages.Should().NotBeEmpty();
 
         // All state roots got reconstructed from genesis to head - 1 (RecordBlockCreation is read only!),
-        // but due to reconstructed state pruning, all these intermediate state root reconstructions got pruned!
-        // So, we get the same state as before the call to RecordBlockCreation.
+        // but due to reconstructed state pruning, all these intermediate state root reconstructions got pruned,
+        // except for the recorded block's parent's state which got pinned as the validHeaderCandidate.
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber)
+            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == (long)lastDigestMessage.Index - 1)
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"state root for block {blockNum} should be available after reconstruction");
             else
@@ -105,12 +105,12 @@ public class StateReconstructorTests
         recordResult.Data.Preimages.Should().NotBeEmpty();
 
         // All state roots got reconstructed from the intermediate block to head - 1 (RecordBlockCreation is read only!),
-        // but due to reconstructed state pruning, all these intermediate state root reconstructions got pruned!
-        // So, we get the same state as before the call to RecordBlockCreation.
+        // but due to reconstructed state pruning, all these intermediate state root reconstructions got pruned,
+        // except for the recorded block's parent's state which got pinned as the validHeaderCandidate.
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == intermediateBlockNumber)
+            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == intermediateBlockNumber || blockNum == (long)lastDigestMessage.Index - 1)
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"genesis and intermediate state roots only should be available before reconstruction");
             else
@@ -366,13 +366,15 @@ public class StateReconstructorTests
 
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
-        // First PrepareForRecord: 4 states [4,5,6,7] prepared but max=3 → block 4 immediately evicted
+        // First PrepareForRecord: 4 states [4,5,6,7] prepared but max=3 → block 4 immediately evicted.
+        // But block 4's state (first one in the range) got referenced as the validHeaderCandidate.
+        // So, even if not in queue anymore, its state still exists in memDB.
         ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
             new PrepareForRecordParameters(Start: 5, End: 7));
         firstResult.Result.Should().Be(Result.Success);
 
-        trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeFalse(
-            "block 4 was the oldest in the queue and should have been evicted when max was exceeded");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeTrue(
+            "block 4 got referenced as validHeaderCandidate even if evicted from queue");
         trieStore.HasRoot(chain.BlockTree.FindHeader(5)!.StateRoot!).Should().BeTrue("block 5 should be available");
         trieStore.HasRoot(chain.BlockTree.FindHeader(6)!.StateRoot!).Should().BeTrue("block 6 should be available");
         trieStore.HasRoot(chain.BlockTree.FindHeader(7)!.StateRoot!).Should().BeTrue("block 7 should be available");
@@ -382,12 +384,11 @@ public class StateReconstructorTests
             new PrepareForRecordParameters(Start: 10, End: 12));
         secondResult.Result.Should().Be(Result.Success);
 
+        trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeTrue("block 4 should still be referenced as validHeaderCandidate");
         trieStore.HasRoot(chain.BlockTree.FindHeader(5)!.StateRoot!).Should().BeFalse("block 5 should be evicted");
         trieStore.HasRoot(chain.BlockTree.FindHeader(6)!.StateRoot!).Should().BeFalse("block 6 should be evicted");
         trieStore.HasRoot(chain.BlockTree.FindHeader(7)!.StateRoot!).Should().BeFalse("block 7 should be evicted");
-        // Block 9 was reconstructed as an intermediate but wasn't kept: it was enqueued then immediately evicted
-        trieStore.HasRoot(chain.BlockTree.FindHeader(9)!.StateRoot!).Should().BeFalse(
-            "block 9 was evicted as the oldest remaining state after second PrepareForRecord");
+        trieStore.HasRoot(chain.BlockTree.FindHeader(9)!.StateRoot!).Should().BeFalse("block 9 should be evicted");
         trieStore.HasRoot(chain.BlockTree.FindHeader(10)!.StateRoot!).Should().BeTrue("block 10 should be available");
         trieStore.HasRoot(chain.BlockTree.FindHeader(11)!.StateRoot!).Should().BeTrue("block 11 should be available");
         trieStore.HasRoot(chain.BlockTree.FindHeader(12)!.StateRoot!).Should().BeTrue("block 12 should be available");
@@ -447,14 +448,16 @@ public class StateReconstructorTests
                     $"block {blockNum} state should not be available after first RecordBlockCreation");
         }
 
-        // Phase 3: second PrepareForRecord prepares [11,12,13,14] → queue [3,4,5,6,7,11,12,13,14], evict 4 oldest [3,4,5,6]
+        // Phase 3: second PrepareForRecord prepares [11,12,13,14] → queue [3,4,5,6,7,11,12,13,14], evict 4 oldest [3,4,5,6] to keep only 5
+        // But the first PrepareForRecord call earlier set the first header in the range (start-1=3) as the _validHeaderCandidate
+        // and therefore referenced it. So, even if that header got evicted from the queue, its state is still referenced.
         ResultWrapper<EmptyResponse> secondPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
             new PrepareForRecordParameters(Start: 12, End: 14));
         secondPrepare.Result.Should().Be(Result.Success);
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 7 || blockNum == 11 || blockNum == 12 || blockNum == 13 || blockNum == 14)
+            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 3 || blockNum == 7 || (blockNum >= 11 && blockNum <= 14))
                 trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
                     $"block {blockNum} state should be available after second PrepareForRecord");
             else
@@ -472,7 +475,7 @@ public class StateReconstructorTests
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 7 || blockNum == 11 || blockNum == 12 || blockNum == 13 || blockNum == 14)
+            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 3 || blockNum == 7 || (blockNum >= 11 && blockNum <= 14))
                 trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
                     $"block {blockNum} state should be available after second RecordBlockCreation");
             else

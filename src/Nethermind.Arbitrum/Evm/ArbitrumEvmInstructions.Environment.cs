@@ -14,7 +14,7 @@ using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Evm;
 
-internal static class ArbitrumEvmInstructions
+internal static partial class ArbitrumEvmInstructions
 {
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt256 value.
