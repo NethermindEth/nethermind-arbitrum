@@ -69,7 +69,7 @@ public class StateReconstructor : IDisposable
     const long BytesToEvictFromMemDb = 100 * 1024; // 100 KiB
 
     /// <summary>FIFO queue of pinned headers; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
-    private ConcurrentQueue<BlockHeader> _preparedQueue = new();
+    private Queue<BlockHeader> _preparedQueue = new();
 
     private readonly Lock _validHeaderLock = new();
 
@@ -536,7 +536,7 @@ public class StateReconstructor : IDisposable
         if (_logger.IsInfo)
             _logger.Info($"PreparedTrimBeyond: trimming prepared headers beyond block {header.Number} with hash {header.Hash} due to reorg");
 
-        ConcurrentQueue<BlockHeader> validHeaders = new();
+        Queue<BlockHeader> validHeaders = new();
         List<BlockHeader> invalidHeaders = [];
         lock (_reconstructionLock)
         {
@@ -564,6 +564,12 @@ public class StateReconstructor : IDisposable
         _fullPruningCts = new CancellationTokenSource();
     }
 
+    /// <summary>
+    /// Cap memDb containing reconstructed state to stay at a max size defined in configuration
+    /// </summary>
+    /// <remarks>
+    /// Executed under _reconstructionLock
+    /// </remarks>
     private void MaybeCap()
     {
         if (_trieStore.DirtySize <= _maxMemDbSize)
