@@ -298,15 +298,15 @@ public class MarkValidTests
         int nextMsg = 5;
 
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
         await Task.Delay(10);
 
         // blockToPruneAfter = 6, stateToCopy = 6 in FullPruner
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
         await Task.Delay(10);
 
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         success.Should().BeTrue("full pruning should complete successfully");
