@@ -350,7 +350,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     private IBlockProducer InitBlockProducer()
     {
         IBlockProducerEnvFactory blockProducerEnvFactory = Container.Resolve<IBlockProducerEnvFactory>();
-        IBlockProducerEnv producerEnv = blockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = blockProducerEnvFactory.CreatePersistent();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,

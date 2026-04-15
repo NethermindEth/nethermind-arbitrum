@@ -89,13 +89,13 @@ jobs:
           submodules: true
 
       - name: Download Nitro build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: nitro-verification-build
           path: nitro/
 
       - name: Download Nethermind build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: nethermind-verification-build
           path: nethermind-build/
@@ -288,7 +288,7 @@ jobs:
 
     steps:
       - name: Download all results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: verification-results-*
           path: results/
