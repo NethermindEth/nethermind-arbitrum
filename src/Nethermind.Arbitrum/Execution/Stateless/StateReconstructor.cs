@@ -68,7 +68,7 @@ public class StateReconstructor : IDisposable
     /// </summary>
     const long BytesToEvictFromMemDb = 100 * 1024; // 100 KiB
 
-    /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
+    /// <summary>FIFO queue of pinned headers; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private ConcurrentQueue<BlockHeader> _preparedQueue = new();
 
     private readonly Lock _validHeaderLock = new();
@@ -259,6 +259,8 @@ public class StateReconstructor : IDisposable
     /// </remarks>
     public void CopyLastValidStateForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb)
     {
+        // Lock _validHeaderLock so that validHeader's state can be safely traversed and copied
+        // without risk of TryPromoteValidCandidate dereferencing it mid-copy.
         lock (_validHeaderLock)
         {
             BlockHeader? validHeader = _validHeader;
@@ -321,12 +323,12 @@ public class StateReconstructor : IDisposable
         PersistOnShutdown();
     }
 
-    public void PreparedAddTrim(List<BlockHeader> stateRoots)
+    public void PreparedAddTrim(List<BlockHeader> headers)
     {
         lock (_reconstructionLock)
         {
-            foreach (BlockHeader stateRoot in stateRoots)
-                _preparedQueue.Enqueue(stateRoot);
+            foreach (BlockHeader header in headers)
+                _preparedQueue.Enqueue(header);
 
             if (_preparedQueue.Count > _maxStateRootsInMem)
             {
@@ -475,7 +477,6 @@ public class StateReconstructor : IDisposable
 
     private void OnPruningFinished(object? sender, PruningEventArgs args)
     {
-
         if (!args.Success)
         {
             // Full pruning failed: Commit() was never called, old DB still active, MemDb still valid.
@@ -532,21 +533,24 @@ public class StateReconstructor : IDisposable
 
     private void PreparedTrimBeyond(BlockHeader header)
     {
+        if (_logger.IsInfo)
+            _logger.Info($"PreparedTrimBeyond: trimming prepared headers beyond block {header.Number} with hash {header.Hash} due to reorg");
+
         ConcurrentQueue<BlockHeader> validHeaders = new();
-        List<BlockHeader> invalidRoots = [];
+        List<BlockHeader> invalidHeaders = [];
         lock (_reconstructionLock)
         {
             foreach (BlockHeader referencedHeader in _preparedQueue)
             {
                 if (referencedHeader.Number > header.Number)
-                    invalidRoots.Add(referencedHeader);
+                    invalidHeaders.Add(referencedHeader);
                 else
                     validHeaders.Enqueue(referencedHeader);
             }
             _preparedQueue = validHeaders;
         }
 
-        foreach (BlockHeader invalidHeader in invalidRoots)
+        foreach (BlockHeader invalidHeader in invalidHeaders)
             _trieStore.Dereference(invalidHeader.StateRoot!);
     }
 
@@ -653,6 +657,7 @@ public class StateReconstructor : IDisposable
                 _logger.Error($"StateReconstructor: failed to read valid header marker: {ex.Message}, starting without valid header.");
             return;
         }
+
         if (data.Length != MarkerSize)
         {
             if (_logger.IsError)
