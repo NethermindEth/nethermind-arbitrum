@@ -287,7 +287,6 @@ public class MarkValidTests
 
         IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
         adminModule.admin_prune().Data.Should().Be(PruningStatus.Starting);
-        await Task.Delay(10);
 
         // Simulate the reconStore disk-fallback read that triggers DuplicateReads.
         // Without the SkipDuplicateRead flag, this would write block 3's root node, not its full subtree, to the new DB.
@@ -299,12 +298,10 @@ public class MarkValidTests
 
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
         chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-        await Task.Delay(10);
 
         // blockToPruneAfter = 6, stateToCopy = 6 in FullPruner
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
         chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-        await Task.Delay(10);
 
         chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
