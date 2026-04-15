@@ -14,8 +14,10 @@ using Nethermind.Blockchain;
 using Nethermind.Blockchain.FullPruning;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test.Builders;
 using Nethermind.Db;
 using Nethermind.Db.FullPruning;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules.Admin;
 
@@ -204,12 +206,10 @@ public class MarkValidTests
         // Condition 1: captures blockToWaitFor from the first post-trigger block (block 6).
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
         (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
-        await Task.Delay(10);
 
         // Condition 2: BestPersistedState (6) >= blockToWaitFor (6) → captures stateToCopy = 6.
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
         (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
-        await Task.Delay(10);
 
         // Condition 3: Head (8) > stateToCopy + PruningBoundary(0) = 6 → CopyTrie executes.
         (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
@@ -445,6 +445,97 @@ public class MarkValidTests
 
         reconStore.HasRoot(block11Header!.StateRoot!).Should().BeFalse(
             $"block {block11Header.Number} is newer than reorg block, state should be dereferenced (hence evicted) from overlay");
+    }
+
+    /// <summary>
+    /// Tests the scenario where a reorg occurs while full pruning is in-flight, specifically in the
+    /// "pre-gate" phase — after FullPruner has computed stateToCopy but before
+    /// CopyLastValidStateForFullPruning runs.
+    ///
+    /// Timeline:
+    ///   1. _validHeader is set to block 2 via PrepareForRecord + SetFinalityData.
+    ///   2. Full pruning starts; conditions 1+2 are satisfied → stateToCopy = 6.
+    ///   3. While FullPruner waits for condition 3 (Head > 6), a reorg to block 1 fires.
+    ///      ReorgTo acquires _validHeaderLock, sees no gate yet, and clears _validHeader.
+    ///   4. The chain is rebuilt to block 7 to satisfy condition 3.
+    ///   5. CopyLastValidStateForFullPruning runs with _validHeader = null → no gate is set.
+    ///   6. OnPruningFinished sees null gate under _validHeaderLock → skips restore and MemDb clear.
+    ///
+    /// The gate-after-reorg path (ReorgTo nulls an already-set gate) is also covered implicitly:
+    /// if the race goes the other way, ReorgTo acquires _validHeaderLock after gate was set, nulls
+    /// it and completes the TCS, then OnPruningFinished reads null gate and skips the restore.
+    /// Either way _validHeader must remain null after pruning.
+    /// </summary>
+    [Test]
+    public async Task ReorgDuringFullPruning_BeforeGateIsSet_ValidHeaderRemainsNullAfterPruning()
+    {
+        FullChainSimulationRecordingFile recording = new(RecordingPath);
+        DigestMessageParameters[] allMessages = recording.GetDigestMessages().ToArray();
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording, numberToDigest: 5)
+            .WithArbitrumConfig(config => config.ValidationEnabled = true)
+            .Build(c =>
+            {
+                c.WorldStateManager.FlushCache(CancellationToken.None);
+                ((PruningConfig)c.Container.Resolve<IPruningConfig>()).PruningBoundary = 0;
+            });
+
+        // PrepareForRecord(3,5) + SetFinalityData(5) → _validHeader = block 2
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(3, 5))
+            .Result.Should().Be(Result.Success);
+        BlockHeader block5Header = chain.BlockTree.FindHeader(5, BlockTreeLookupOptions.RequireCanonical)!;
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams
+        {
+            ValidatedFinalityData = new RpcFinalityData { MsgIdx = 5, BlockHash = block5Header.Hash! }
+        }).Should().RequestSucceed();
+
+        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(2, "sanity: _validHeader at block 2 before reorg");
+
+        IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
+        TaskCompletionSource<bool> pruningTcs = new();
+        fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
+
+        IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
+        adminModule.admin_prune().Data.Should().Be(PruningStatus.Starting);
+
+        // Condition 1: blockToWaitFor = 6
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[5])).Result.Should().Be(Result.Success);
+
+        // Condition 2: BestPersistedState(6) >= blockToWaitFor(6) → stateToCopy = 6
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[6])).Result.Should().Be(Result.Success);
+        // FullPruner now waits for condition 3: Head > 6 (blockToPruneAfter = 6 + PruningBoundary(0))
+
+        // Reorg to block 1 — happens while FullPruner is in the pre-gate phase.
+        // ReorgTo acquires _validHeaderLock, sees _pruningGate = null (gate not yet set),
+        // and clears _validHeader.
+        (await chain.ReorgToMessageIndex(1)).Result.ResultType.Should().Be(ResultType.Success);
+        ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
+
+        // Rebuild the chain to block 7 using fresh ETH deposits (value = i wei each) instead of
+        // replaying recording messages. This makes the post-reorg blocks clearly distinct from the
+        // pre-reorg ones.
+        // Head=7 > stateToCopy=6 satisfies FullPruner condition 3.
+        for (int i = 1; i <= 6; i++)
+        {
+            (await chain.Digest(new TestEthDeposit(
+                RequestId: Keccak.Compute(i.ToString()),
+                L1BaseFee: chain.InitialL1BaseFee,
+                Sender: TestItem.AddressA,
+                Receiver: TestItem.AddressB,
+                Value: (UInt256)i))).Should().RequestSucceed();
+        }
+
+        bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        success.Should().BeTrue("full pruning should complete successfully");
+
+        // _validHeader must NOT be restored: no gate was set, so OnPruningFinished had nothing to restore.
+        ReadValidHeader(stateReconstructor).Should().BeNull(
+            "_validHeader was cleared by the reorg before CopyLastValidStateForFullPruning ran; " +
+            "since no pruning gate was set, OnPruningFinished must not restore it");
     }
 
     private static ArbitrumRpcTestBlockchain BuildChain() =>
