@@ -37,6 +37,11 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnv(
         throw new NotSupportedException($"{nameof(ArbitrumWitnessGeneratingBlockProcessingEnv)} does not support generating witnesses for already existing blocks.");
     }
 
+    public ISingleCallWitnessCollector CreateSingleCallWitnessCollector()
+    {
+        throw new NotSupportedException($"{nameof(ArbitrumWitnessGeneratingBlockProcessingEnv)} does not support generating witnesses for single calls.");
+    }
+
     public IBlockBuildingWitnessCollector CreateBlockBuildingWitnessCollector()
     {
         ArbitrumBlockProducer blockProducer = new(
