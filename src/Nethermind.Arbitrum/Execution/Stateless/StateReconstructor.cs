@@ -344,6 +344,16 @@ public class StateReconstructor : IDisposable
     {
         lock (_validHeaderLock)
         {
+            // Invalidate any in-flight pruning gate: OnPruningFinished must not restore
+            // a stale (pre-reorg) _validHeader after we clear it below.
+            // Completing the TCS unblocks any potential RecordBlockCreation/PrepareForRecord already waiting.
+            PruningGate? gate = _pruningGate;
+            if (gate is not null)
+            {
+                _pruningGate = null;
+                gate.Tcs.SetResult();
+            }
+
             if (_validHeader is not null && _validHeader.Number > header.Number)
             {
                 if (_logger.IsWarn)
@@ -465,15 +475,6 @@ public class StateReconstructor : IDisposable
 
     private void OnPruningFinished(object? sender, PruningEventArgs args)
     {
-        // Read the gate without nulling it yet. Callers blocked on gate.Tcs.Task must not be
-        // released until all cleanup below is done, and new callers must not bypass the gate
-        // until then either. Both happen once we null _pruningGate and call SetResult at the end.
-        PruningGate? gate = _pruningGate;
-        if (gate is null)
-        {
-            ResetFullPruningCts();
-            return;
-        }
 
         if (!args.Success)
         {
@@ -482,8 +483,9 @@ public class StateReconstructor : IDisposable
             if (_logger.IsWarn)
                 _logger.Warn("OnPruningFinished: full pruning failed — keeping MemDb overlay intact.");
             ResetFullPruningCts();
+            PruningGate? gate = _pruningGate;
             _pruningGate = null;
-            gate.Tcs.SetResult();
+            gate?.Tcs.SetResult();
             return;
         }
 
@@ -492,6 +494,18 @@ public class StateReconstructor : IDisposable
         lock (_validHeaderLock)
             lock (_reconstructionLock)
             {
+                // Read the gate without nulling it yet. Callers blocked on gate.Tcs.Task must not be
+                // released until all cleanup below is done, and new callers must not bypass the gate
+                // until then either. Both happen once we null _pruningGate and call SetResult at the end.
+                PruningGate? gate = _pruningGate;
+                if (gate is null)
+                {
+                    if (_logger.IsInfo)
+                        _logger.Info("OnPruningFinished: full pruning succeeded but no validator-specific valid state got copied — skipping MemDb cleanup.");
+                    ResetFullPruningCts();
+                    return;
+                }
+
                 if (_logger.IsInfo)
                     _logger.Info($"OnPruningFinished: full pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
 
