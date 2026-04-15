@@ -205,14 +205,14 @@ public class MarkValidTests
 
         // Condition 1: captures blockToWaitFor from the first post-trigger block (block 6).
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         // Condition 2: BestPersistedState (6) >= blockToWaitFor (6) → captures stateToCopy = 6.
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         // Condition 3: Head (8) > stateToCopy + PruningBoundary(0) = 6 → CopyTrie executes.
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         success.Should().BeTrue("full pruning should complete successfully");
@@ -347,7 +347,7 @@ public class MarkValidTests
 
         // Reorg to message index 1 (block 1) — older than _validHeader block 2.
         ulong reorgIndex = 1;
-        (await chain.ReorgToMessageIndex(reorgIndex)).Result.ResultType.Should().Be(ResultType.Success);
+        chain.ReorgToMessageIndex(reorgIndex).ShouldAsync().RequestSucceed();
 
         BlockHeader? header1 = chain.BlockTree.FindHeader((long)reorgIndex, BlockTreeLookupOptions.RequireCanonical);
         ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
@@ -383,7 +383,7 @@ public class MarkValidTests
         reconStore.HasRoot(block2Header.StateRoot!).Should().BeTrue("sanity: block 2 state in MemDb after PrepareForRecord");
 
         // Reorg to message index 1 (block 1) — older than candidate block 2.
-        (await chain.ReorgToMessageIndex(1)).Result.ResultType.Should().Be(ResultType.Success);
+        chain.ReorgToMessageIndex(1).ShouldAsync().RequestSucceed();
 
         ReadValidCandidateHeader(stateReconstructor).Should().BeNull("reorg past candidate must clear it");
         ReadValidHeader(stateReconstructor).Should().BeNull("_validHeader must remain null");
@@ -430,7 +430,7 @@ public class MarkValidTests
 
         // Reorg to message index 3 (block 3) — newer than _validHeader block 2.
         ulong reorgIndex = 3;
-        (await chain.ReorgToMessageIndex(reorgIndex)).Result.ResultType.Should().Be(ResultType.Success);
+        chain.ReorgToMessageIndex(reorgIndex).ShouldAsync().RequestSucceed();
 
         ReadValidHeader(stateReconstructor)!.Number.Should().Be(block2Header.Number,
             "reorg to a block newer than _validHeader must not clear it");
@@ -502,17 +502,17 @@ public class MarkValidTests
 
         // Condition 1: blockToWaitFor = 6
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[5])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[5]).ShouldAsync().RequestSucceed();
 
         // Condition 2: BestPersistedState(6) >= blockToWaitFor(6) → stateToCopy = 6
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[6])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[6]).ShouldAsync().RequestSucceed();
         // FullPruner now waits for condition 3: Head > 6 (blockToPruneAfter = 6 + PruningBoundary(0))
 
         // Reorg to block 1 — happens while FullPruner is in the pre-gate phase.
         // ReorgTo acquires _validHeaderLock, sees _pruningGate = null (gate not yet set),
         // and clears _validHeader.
-        (await chain.ReorgToMessageIndex(1)).Result.ResultType.Should().Be(ResultType.Success);
+        chain.ReorgToMessageIndex(1).ShouldAsync().RequestSucceed();
         ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
 
         // Rebuild the chain to block 7 using fresh ETH deposits (value = i wei each) instead of
@@ -521,12 +521,12 @@ public class MarkValidTests
         // Head=7 > stateToCopy=6 satisfies FullPruner condition 3.
         for (int i = 1; i <= 6; i++)
         {
-            (await chain.Digest(new TestEthDeposit(
+            chain.Digest(new TestEthDeposit(
                 RequestId: Keccak.Compute(i.ToString()),
                 L1BaseFee: chain.InitialL1BaseFee,
                 Sender: TestItem.AddressA,
                 Receiver: TestItem.AddressB,
-                Value: (UInt256)i))).Should().RequestSucceed();
+                Value: (UInt256)i)).ShouldAsync().RequestSucceed();
         }
 
         bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
