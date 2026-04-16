@@ -20,6 +20,7 @@ using Nethermind.Db.FullPruning;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules.Admin;
+using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -228,6 +229,100 @@ public class MarkValidTests
         reconStore.HasRoot(intermediateHeader.StateRoot!).Should().BeFalse(
             "block 3 state was in the overlay before pruning but not copied → overlay must be cleared");
 
+    }
+
+    /// <summary>
+    /// End-to-end regression test for the DuplicateReads pollution bug.
+    ///
+    /// Scenario where bug occurred:
+    ///   1. A state root (block 3) is in the MemDb overlay after PrepareForRecord.
+    ///   2. Full pruning starts and enters dual-write mode.
+    ///   3. During dual-write, block 3 is dereferenced from the overlay (simulating it being evicted
+    ///      or never present), and its root is then read from disk via TryLoadRlp.  Without the fix,
+    ///      DuplicateReads writes just that root node — not the full trie — into the new DB.
+    ///   4. Pruning completes; MemDb is cleared.
+    ///   5. RecordBlockCreation(4) calls EnsureStateAvailable → FindLastAvailableState walks back from
+    ///      block 3.  Without the fix TryReference(block3) succeeds (root is in the new DB) and
+    ///      reconstruction proceeds from block 3, failing with MissingTrieNodeException when it tries
+    ///      to read block 3's subtree (which was never fully copied).
+    ///      With the fix TryReference(block3) returns false → falls back to the valid header (block 2,
+    ///      which was properly copied by CopyStatesForFullPruning) → re-executes block 3 from block 2
+    ///      → RecordBlockCreation(4) succeeds.
+    /// </summary>
+    [Test]
+    public async Task ReconstructedStateTrieStore_DuringFullPruning_TryLoadRlpUsesSkipDuplicateReadFlagNotPollutingNewDbWithPartialReconstructedState()
+    {
+        FullChainSimulationRecordingFile recording = new(RecordingPath);
+        DigestMessageParameters[] allMessages = recording.GetDigestMessages().ToArray();
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording, numberToDigest: 5)
+            .WithArbitrumConfig(config => config.ValidationEnabled = true)
+            .Build(c =>
+            {
+                c.WorldStateManager.FlushCache(CancellationToken.None);
+                // PruningBoundary = 0: Condition 3 in FullPruner requires Head > stateToCopy, not stateToCopy+64.
+                // Override after building chain otherwise PruningBoundary is enforced to be at least 64, complicating the test setup.
+                ((PruningConfig)c.Container.Resolve<IPruningConfig>()).PruningBoundary = 0;
+            });
+
+        // PrepareForRecord(3,5) reconstructs blocks 3-4 into the overlay; validHeader = block 2.
+        ulong start = 3;
+        ulong end = 5;
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
+            .Result.Should().Be(Result.Success);
+        BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
+
+        ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+
+        // PrepareForRecord does not reconstruct any state as states for the blocks in the PrepareForRecord range can be found in base store's DB.
+        // Just assert block 3 is disk-only (not found in memDb overlay) when dual-write is active.
+        reconStore.DirtySize.Should().Be(0, "State exists in base store's underlying DB, no reconstruction necessary");
+        BlockHeader block3Header = chain.BlockTree.FindHeader((long)start, BlockTreeLookupOptions.RequireCanonical)!;
+        reconStore.HasRoot(block3Header.StateRoot!).Should().BeTrue("block 3 must be on disk");
+
+        IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
+        TaskCompletionSource<bool> pruningTcs = new();
+        fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
+
+        IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
+        adminModule.admin_prune().Data.Should().Be(PruningStatus.Starting);
+
+        // Simulate the reconStore disk-fallback read that triggers DuplicateReads.
+        // Without the SkipDuplicateRead flag, this would write block 3's root node, not its full subtree, to the new DB.
+        reconStore.HasRoot(block3Header.StateRoot!).Should().BeTrue(
+            "block 3 state root must be readable from disk during dual-write phase");
+
+        // Drive FullPruner through its 3 WaitForMainChainChange conditions.
+        int nextMsg = 5;
+
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
+
+        // blockToPruneAfter = 6, stateToCopy = 6 in FullPruner
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
+
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
+
+        bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        success.Should().BeTrue("full pruning should complete successfully");
+
+        // After pruning, block 3's root should not be found anywhere
+        reconStore.HasRoot(block3Header.StateRoot!).Should().BeFalse("After pruning, block 3's state should not be found in the new DB (or the overlay)");
+
+        // RecordBlockCreation(4) needs state at block 3.
+        // Without fix: TryReference(block3) succeeds (root was DuplicateRead'd into new DB),
+        //   reconstruction proceeds from block 3, then fails with MissingTrieNodeException because
+        //   the rest of block 3's trie was never copied.
+        // With fix: TryReference(block3) returns false → falls back to validHeader (block 2, fully
+        //   available) → re-executes block 3 from block 2 → RecordBlockCreation(4) succeeds.
+        DigestMessageParameters block4Message = allMessages.First(m => m.Index == 4);
+        ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(block4Message.Index, block4Message.Message, WasmTargets: []));
+        recordResult.Result.Should().Be(Result.Success,
+            "RecordBlockCreation must fall back to the valid header, not attempt reconstruction from an incomplete intermediate state");
     }
 
     /// <summary>
