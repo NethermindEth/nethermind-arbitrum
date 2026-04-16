@@ -59,7 +59,7 @@ RUN dotnet tool install -g dotnet-dump && \
     dotnet tool install -g dotnet-trace && \
     dotnet tool install -g JetBrains.dotTrace.GlobalTools
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.5-noble
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.6-noble
 
 # Fix CVE-2025-68973 - Update gpgv package
 RUN apt-get update && \
