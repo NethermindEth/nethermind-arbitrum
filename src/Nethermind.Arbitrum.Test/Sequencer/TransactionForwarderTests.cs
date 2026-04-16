@@ -26,7 +26,7 @@ public class TransactionForwarderTests
     [Test]
     public async Task ForwardTransactionAsync_WithOptions_SendsConditionalRpcMethod()
     {
-        using TestRemoteSequencer server = TestRemoteSequencer.Start();
+        using TestHttpServer server = TestHttpServer.Start();
         using TransactionForwarder forwarder = new(server.Uri, LimboLogs.Instance);
         ConditionalOptions options = new() { TimestampMax = 999 };
 
@@ -48,7 +48,7 @@ public class TransactionForwarderTests
     [Test]
     public async Task ForwardTransactionAsync_WithKnownAccounts_IncludesOptionsInParams()
     {
-        using TestRemoteSequencer server = TestRemoteSequencer.Start();
+        using TestHttpServer server = TestHttpServer.Start();
         using TransactionForwarder forwarder = new(server.Uri, LimboLogs.Instance);
         ConditionalOptions options = new()
         {
@@ -87,7 +87,7 @@ public class TransactionForwarderTests
     [Test]
     public async Task ForwardTransactionAsync_SuccessResponse_ReturnsTxHash()
     {
-        using TestRemoteSequencer server = TestRemoteSequencer.Start();
+        using TestHttpServer server = TestHttpServer.Start();
         using TransactionForwarder forwarder = new(server.Uri, LimboLogs.Instance);
 
         Task handleTask = server.Handle(_ => Encoding.UTF8.GetBytes(SuccessJson()));
@@ -103,7 +103,7 @@ public class TransactionForwarderTests
     [Test]
     public async Task ForwardTransactionAsync_ErrorResponse_ReturnsFailure()
     {
-        using TestRemoteSequencer server = TestRemoteSequencer.Start();
+        using TestHttpServer server = TestHttpServer.Start();
         using TransactionForwarder forwarder = new(server.Uri, LimboLogs.Instance);
 
         Task handleTask = server.Handle(_ => Encoding.UTF8.GetBytes(ErrorJson("condition not met")));
@@ -118,7 +118,7 @@ public class TransactionForwarderTests
     [Test]
     public async Task ForwardTransactionAsync_WithoutOptions_SendsRegularRpcMethod()
     {
-        using TestRemoteSequencer server = TestRemoteSequencer.Start();
+        using TestHttpServer server = TestHttpServer.Start();
         using TransactionForwarder forwarder = new(server.Uri, LimboLogs.Instance);
 
         string? capturedBody = null;
@@ -140,7 +140,7 @@ public class TransactionForwarderTests
     [Test]
     public async Task ForwardTransaction_WithUrl_ForwardsTransactions()
     {
-        TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
+        TestHttpServer remoteSequencer = TestHttpServer.Start();
 
         bool transactionReceived = false;
         Task responseTask = remoteSequencer.Handle(body =>

@@ -91,4 +91,13 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Duration of the auction closing window at the end of each round in seconds", DefaultValue = "15")]
     int TimeboostAuctionClosingWindowSeconds { get; set; }
+
+    [ConfigItem(Description = "Whether to enable fetching block metadata from the Nitro consensus node", DefaultValue = "false")]
+    bool ConsensusNodeRpcEnabled { get; set; }
+
+    [ConfigItem(Description = "URL of the Nitro consensus node RPC for fetching block metadata", DefaultValue = "")]
+    string ConsensusNodeRpcUrl { get; set; }
+
+    [ConfigItem(Description = "Timeout in milliseconds for consensus node RPC calls", DefaultValue = "10000")]
+    int ConsensusNodeRpcTimeoutMs { get; set; }
 }
