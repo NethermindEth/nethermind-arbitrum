@@ -69,7 +69,7 @@ public class StateReconstructor : IDisposable
     const long BytesToEvictFromMemDb = 100 * 1024; // 100 KiB
 
     /// <summary>FIFO queue of pinned headers; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
-    private Queue<BlockHeader> _preparedQueue = new();
+    private readonly Queue<BlockHeader> _preparedQueue = new();
 
     private readonly Lock _validHeaderLock = new();
 
@@ -536,18 +536,18 @@ public class StateReconstructor : IDisposable
         if (_logger.IsInfo)
             _logger.Info($"PreparedTrimBeyond: trimming prepared headers beyond block {header.Number} with hash {header.Hash} due to reorg");
 
-        Queue<BlockHeader> validHeaders = new();
         List<BlockHeader> invalidHeaders = [];
         lock (_reconstructionLock)
         {
-            foreach (BlockHeader referencedHeader in _preparedQueue)
+            int count = _preparedQueue.Count;
+            for (int i = 0; i < count; i++)
             {
-                if (referencedHeader.Number > header.Number)
-                    invalidHeaders.Add(referencedHeader);
+                BlockHeader h = _preparedQueue.Dequeue();
+                if (h.Number > header.Number)
+                    invalidHeaders.Add(h);
                 else
-                    validHeaders.Enqueue(referencedHeader);
+                    _preparedQueue.Enqueue(h); // keep (<= reorg target)
             }
-            _preparedQueue = validHeaders;
         }
 
         foreach (BlockHeader invalidHeader in invalidHeaders)
