@@ -20,7 +20,7 @@ public static class ArbOSInitialization
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        return new ArbitrumSpecHelper(parameters);
+        return new ArbitrumSpecHelper(parameters, new DisabledArbOsVersionOverride());
     }
 
     public static Block Create(IWorldState worldState, ISpecProvider? specProvider = null)
@@ -28,7 +28,7 @@ public static class ArbOSInitialization
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+        IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters, new DisabledArbOsVersionOverride());
 
         specProvider ??= FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(chainSpec);
 

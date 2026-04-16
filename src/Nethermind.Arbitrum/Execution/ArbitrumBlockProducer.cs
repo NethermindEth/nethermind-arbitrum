@@ -104,8 +104,6 @@ namespace Nethermind.Arbitrum.Execution
 
             using IDisposable worldStateDisposer = _worldState.BeginScope(parent);
 
-            IReleaseSpec spec = _specProvider.GetSpec(parent.Number + 1, parent.Timestamp);
-
             ArbosState arbosState =
                 ArbosState.OpenArbosState(_worldState, burner, Logger);
 

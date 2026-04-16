@@ -87,7 +87,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         // Load Arbitrum-specific configuration from chainspec
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        _specHelper = new ArbitrumSpecHelper(chainSpecParams);
+        _specHelper = new ArbitrumSpecHelper(chainSpecParams, new DisabledArbOsVersionOverride());
 
         // Register Arbitrum-specific tracers
         GethLikeNativeTracerFactory.RegisterTracer(

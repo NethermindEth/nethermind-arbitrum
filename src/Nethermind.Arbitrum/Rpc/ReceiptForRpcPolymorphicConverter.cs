@@ -31,7 +31,7 @@ public class ReceiptForRpcPolymorphicConverter : JsonConverter<ReceiptForRpc>
     private JsonSerializerOptions GetOptionsWithoutConverter(JsonSerializerOptions options) =>
         _optionsCache.GetOrAdd(options, static opts =>
         {
-            var newOptions = new JsonSerializerOptions(opts);
+            JsonSerializerOptions newOptions = new JsonSerializerOptions(opts);
             // Remove all instances of this converter type
             for (int i = newOptions.Converters.Count - 1; i >= 0; i--)
             {

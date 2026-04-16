@@ -35,7 +35,7 @@ public static class TestArbosStorage
         IBurner currentBurner = burner ?? new SystemBurner();
 
         worldState = TrackingWorldState.CreateNewInMemory();
-        var dispose = worldState.BeginScope(IWorldState.PreGenesis);
+        IDisposable dispose = worldState.BeginScope(IWorldState.PreGenesis);
         worldState.CreateAccountIfNotExists(currentTestAccount, UInt256.Zero, UInt256.One);
 
         arbosStorage = new(worldState, currentBurner, currentTestAccount);

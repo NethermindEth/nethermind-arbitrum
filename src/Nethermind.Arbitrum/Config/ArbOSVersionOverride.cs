@@ -27,3 +27,9 @@ public class ArbOSVersionOverride : IArbOSVersionOverride
     public void SetOverride(ulong version) => _overrideVersion = version;
     public ulong? GetOverride() => _overrideVersion;
 }
+
+public class DisabledArbOsVersionOverride : IArbOSVersionOverride
+{
+    public void SetOverride(ulong version) { }
+    public ulong? GetOverride() => null;
+}
