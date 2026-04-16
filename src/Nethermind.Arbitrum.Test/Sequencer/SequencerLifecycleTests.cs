@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
+using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 
@@ -131,9 +134,69 @@ public class SequencerLifecycleTests
     }
 
     [Test]
+    public async Task ForwardTo_WithUrl_ForwardsTransactions()
+    {
+        using TestHttpServer remoteSequencer = TestHttpServer.Start();
+
+        bool transactionReceived = false;
+        Task responseTask = remoteSequencer.Handle(body =>
+        {
+            using JsonDocument doc = JsonDocument.Parse(body);
+            doc.RootElement.GetProperty("method").GetString().Should().Be("eth_sendRawTransaction");
+            transactionReceived = true;
+
+            return """{"jsonrpc":"2.0","id":1,"result":"0x0000000000000000000000000000000000000000000000000000000000000001"}"""u8.ToArray();
+        });
+
+        using TransactionForwarder forwarder = new(remoteSequencer.Uri, LimboLogs.Instance);
+
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Wei)
+            .WithChainId(412346)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
+
+        Hash256 txHash = TestItem.KeccakA;
+        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(txBytes, txHash, CancellationToken.None);
+
+        await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        result.Should().RequestSucceed("transaction should forward successfully");
+        result.Data.Should().Be(txHash);
+        transactionReceived.Should().BeTrue("server should have received the forwarded transaction");
+    }
+
+    [Test]
+    public async Task TransactionForwarder_Disabled_ReturnsError()
+    {
+        TransactionForwarder forwarder = new("http://localhost:19999/", LimboLogs.Instance);
+        forwarder.Disable();
+
+        byte[] txBytes = Rlp.Encode(Build.A.Transaction
+            .WithNonce(0)
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei)
+            .WithTo(FullChainSimulationAccounts.AccountB.Address)
+            .WithValue(1.Wei)
+            .WithChainId(412346)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject).Bytes;
+
+        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(txBytes, TestItem.KeccakA, CancellationToken.None);
+
+        result.Should().RequestFail("not available");
+
+        forwarder.Dispose();
+    }
+
+    [Test]
     public async Task HandleInactive_ForwardsAndRequeues_OnNoSequencer()
     {
-        using TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
+        using TestHttpServer remoteSequencer = TestHttpServer.Start();
         Task responseTask = remoteSequencer
             .Handle(_ => """{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"sequencer temporarily not available"}}"""u8.ToArray());
 

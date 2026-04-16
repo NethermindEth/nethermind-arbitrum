@@ -547,7 +547,7 @@ public sealed class ArbitrumExecutionEngine(
             numOfBlocks--; // genesis block doesn't need preparation, so recording one less block
 
         long lastHeaderNum = headerNum + (long)numOfBlocks;
-        List<Hash256> referencedStateRoots = new List<Hash256>((int)numOfBlocks);
+        List<BlockHeader> referencedHeaders = new((int)numOfBlocks);
 
         for (long current = headerNum; current <= lastHeaderNum; current++)
         {
@@ -562,7 +562,7 @@ public sealed class ArbitrumExecutionEngine(
             {
                 stateReconstructor.EnsureStateAvailable(header);
                 stateReconstructor.UpdateValidCandidateHeader(header);
-                referencedStateRoots.Add(header.StateRoot!);
+                referencedHeaders.Add(header);
             }
             catch (Exception ex)
             {
@@ -571,7 +571,7 @@ public sealed class ArbitrumExecutionEngine(
             }
         }
 
-        stateReconstructor.PreparedAddTrim(referencedStateRoots);
+        stateReconstructor.PreparedAddTrim(referencedHeaders);
 
         return ResultWrapper<EmptyResponse>.Success(default);
     }

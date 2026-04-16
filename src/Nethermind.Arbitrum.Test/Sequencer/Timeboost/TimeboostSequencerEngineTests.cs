@@ -4,12 +4,17 @@
 using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Blockchain.Find;
+using Nethermind.JsonRpc;
+using Nethermind.JsonRpc.Data;
 using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.Sequencer.Timeboost;
@@ -608,5 +613,91 @@ public class TimeboostSequencerEngineTests
         result.Should().BeEquivalentTo(new StartSequencingResult(expectedMsg, 0));
 
         chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
+    }
+
+    [Test]
+    public async Task TimeboostedAndRegular_ReceiptQuery_ReturnsCorrectTimeboostedFlag()
+    {
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithArbitrumConfig(c =>
+            {
+                c.SequencerEnabled = true;
+                c.SequencerAwaitTxResult = false;
+                c.TimeboostEnabled = true;
+                c.TimeboostAuctionContractAddress = new("0x0000000000000000000000000000000000000001");
+            })
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 40)
+            .Build();
+
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountA.Address, 10.Ether).Should().RequestSucceed();
+        chain.PrefundAccount(FullChainSimulationAccounts.AccountB.Address, 10.Ether).Should().RequestSucceed();
+
+        // Regular tx from AccountA via RPC
+        Transaction regularTx = Build.A.Transaction
+            .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountA.Address))
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei)
+            .WithTo(FullChainSimulationAccounts.AccountC.Address)
+            .WithValue(1.Wei)
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountA)
+            .TestObject;
+
+        chain.ArbitrumEthRpcModule.eth_sendRawTransaction(Rlp.Encode(regularTx).Bytes).ShouldAsync().RequestSucceed();
+
+        // Timeboosted tx from AccountB via queue injection
+        ulong headBlock = (ulong)chain.BlockTree.Head!.Number;
+        Transaction timeboostedTx = Build.A.Transaction
+            .WithNonce(chain.WorldStateAccessor.GetNonce(FullChainSimulationAccounts.AccountB.Address))
+            .WithGasLimit(21000)
+            .WithGasPrice(1.GWei)
+            .WithTo(FullChainSimulationAccounts.AccountC.Address)
+            .WithValue(1.Wei)
+            .WithChainId(chain.BlockTree.ChainId)
+            .SignedAndResolved(FullChainSimulationAccounts.AccountB)
+            .TestObject;
+
+        TransactionQueue transactionQueue = chain.Container.Resolve<TransactionQueue>();
+        await transactionQueue.EnqueueAsync(TxQueueItem.CreateTimeboosted(timeboostedTx, blockStamp: headBlock));
+
+        // Produce the block
+        StartSequencingEnvironment env = StartSequencingEnvironment.FromNowUtc();
+        chain.NitroExecutionRpcModule
+            .nitroexecution_startSequencing(env.L1BLockNumber, env.L1Timestamp, env.L2Timestamp)
+            .ShouldAsync().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_appendLastSequencedBlock().ShouldAsync().RequestSucceed();
+        chain.NitroExecutionRpcModule.nitroexecution_endSequencing(null).ShouldAsync().RequestSucceed();
+
+        // Block layout: [ArbOS internal (idx 0), regular (idx 1), timeboosted (idx 2)]
+        // Metadata: byte 0 = flags, byte 1 = bitmap with bit 2 set → [0x00, 0x04]
+        byte[] blockMetadata = [0x00, 0x04];
+        chain.Container.Resolve<FakeArbitrumConsensusClient>().SetupResult(chain.BlockTree.Head!.Number, blockMetadata);
+
+        Block block = chain.BlockTree.FindBlock(chain.BlockTree.Head!.Number)!;
+        Hash256 regularTxHash = block.Transactions[1].Hash!;
+        Hash256 timeboostedTxHash = block.Transactions[2].Hash!;
+
+        // eth_getTransactionReceipt: regular tx → not timeboosted
+        ResultWrapper<ReceiptForRpc?> regularResult = chain.ArbitrumEthRpcModule.eth_getTransactionReceipt(regularTxHash);
+        ArbitrumReceiptForRpc regularReceipt = regularResult.Data.Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+        regularReceipt.IsTimeboosted.Should().BeFalse();
+
+        // eth_getTransactionReceipt: timeboosted tx → timeboosted
+        ResultWrapper<ReceiptForRpc?> boostedResult = chain.ArbitrumEthRpcModule.eth_getTransactionReceipt(timeboostedTxHash);
+        ArbitrumReceiptForRpc boostedReceipt = boostedResult.Data.Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+        boostedReceipt.IsTimeboosted.Should().BeTrue();
+
+        // eth_getBlockReceipts: verify all receipts
+        ResultWrapper<ReceiptForRpc[]?> blockResult = chain.ArbitrumEthRpcModule.eth_getBlockReceipts(new BlockParameter(block.Number));
+        blockResult.Data.Should().NotBeNull();
+
+        ArbitrumReceiptForRpc arbosReceipt = blockResult.Data![0].Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+        arbosReceipt.IsTimeboosted.Should().BeFalse();
+
+        ArbitrumReceiptForRpc regularBlockReceipt = blockResult.Data[1].Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+        regularBlockReceipt.IsTimeboosted.Should().BeFalse();
+
+        ArbitrumReceiptForRpc boostedBlockReceipt = blockResult.Data[2].Should().BeOfType<ArbitrumReceiptForRpc>().Subject;
+        boostedBlockReceipt.IsTimeboosted.Should().BeTrue();
     }
 }

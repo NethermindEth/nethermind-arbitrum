@@ -18,9 +18,9 @@ using Nethermind.Crypto;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.Trie;
-using Nethermind.Trie.Pruning;
 using System.Diagnostics;
 using Nethermind.Core.Extensions;
+using Nethermind.Arbitrum.Math;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -28,6 +28,8 @@ public class StateReconstructor : IDisposable
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly INodeStorage _mainNodeStorage;
+    private readonly IDb _mainStateDb;
+    private readonly IArbitrumConfig _arbitrumConfig;
     private readonly IBlockTree _blockTree;
     private readonly ArbitrumStateReconstructionBlockProcessingEnvFactory _envFactory;
     private readonly IReceiptStorage _receiptStorage;
@@ -37,6 +39,7 @@ public class StateReconstructor : IDisposable
     private static readonly int MarkerSize = sizeof(long) + Hash256.Size;
     private readonly ILogger _logger;
     private readonly long _genesisBlockNumber;
+    private CancellationTokenSource _fullPruningCts;
     private readonly Lock _reconstructionLock = new();
 
     /// <summary>
@@ -54,8 +57,19 @@ public class StateReconstructor : IDisposable
     /// </summary>
     private readonly int _maxStateRootsInMem;
 
-    /// <summary>FIFO queue of pinned state roots; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
-    private readonly ConcurrentQueue<Hash256> _preparedQueue = new();
+    /// <summary>
+    /// Max reconstructed state memDB size before spilling to disk.
+    /// Capping is triggered by calls to <see cref="MaybeCap"/> during reconstruction progress.
+    /// </summary>
+    private readonly long _maxMemDbSize;
+
+    /// <summary>
+    /// Constant to use when capping memDb to keep memDb's size at _maxMemDbSize - BytesToEvictFromMemDb
+    /// </summary>
+    const long BytesToEvictFromMemDb = 100 * 1024; // 100 KiB
+
+    /// <summary>FIFO queue of pinned headers; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
+    private readonly Queue<BlockHeader> _preparedQueue = new();
 
     private readonly Lock _validHeaderLock = new();
 
@@ -84,6 +98,8 @@ public class StateReconstructor : IDisposable
     {
         _trieStore = trieStore;
         _mainNodeStorage = mainNodeStorage;
+        _mainStateDb = dbProvider.StateDb;
+        _arbitrumConfig = arbitrumConfig;
         _blockTree = blockTree;
         _envFactory = envFactory;
         _receiptStorage = receiptStorage;
@@ -92,10 +108,22 @@ public class StateReconstructor : IDisposable
         _logger = logManager.GetClassLogger<StateReconstructor>();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
+        _maxMemDbSize = (long)_arbitrumConfig.ValidatorReconstructedStateMemDBMaxSizeMb * 1024 * 1024;
+
+        if (_maxMemDbSize < BytesToEvictFromMemDb && _logger.IsWarn)
+            _logger.Warn($"ValidatorReconstructedStateMemDBMaxSizeMb ({_arbitrumConfig.ValidatorReconstructedStateMemDBMaxSizeMb} MB) " +
+                $"is below the eviction headroom ({BytesToEvictFromMemDb / 1024} KiB); " +
+                "Capping the memDb is in aggressive mode as it will empty it on every trigger instead of giving it some breathing room to grow between caps.");
+
+        Debug.Assert(trieStore.Scheme == INodeStorage.KeyScheme.HalfPath,
+            "MemDb overlay uses HalfPath encoding; main state DB must use the same scheme");
+
+        _fullPruningCts = new CancellationTokenSource();
 
         if (pruningConfig.Mode.IsFull() && dbProvider.StateDb is IFullPruningDb fullPruningDb)
         {
             _fullPruningDb = fullPruningDb;
+            fullPruningDb.PruningStarted += OnPruningStarted;
             fullPruningDb.PruningFinished += OnPruningFinished;
         }
 
@@ -136,103 +164,6 @@ public class StateReconstructor : IDisposable
             if (!_trieStore.HasRoot(stateRoot))
                 throw new InvalidOperationException($"State reconstruction failed: root {stateRoot} not available after re-execution");
         }
-    }
-
-    /// <summary>
-    // For recreating state, this method walks backwards from the target header until it finds a header
-    // whose state root is available in the RecordingTrieStore or otherwise reaches genesis and throws there.
-    /// </summary>
-    private BlockHeader FindLastAvailableState(BlockHeader target)
-    {
-        BlockHeader current = target;
-
-        while (true)
-        {
-            // Check whether state trie exists, and pin it if it lives in the MemDb overlay
-            if (_trieStore.TryReference(current.StateRoot!))
-                return current;
-
-            if (current.Number <= _genesisBlockNumber)
-                throw new InvalidOperationException($"Reached genesis (block {_genesisBlockNumber}) without finding available state while looking for block {target.Number}");
-
-            BlockHeader? parent = _blockTree.FindHeader(current.ParentHash!, BlockTreeLookupOptions.RequireCanonical, current.Number - 1);
-            if (parent is null)
-                throw new InvalidOperationException($"Cannot find header for block {current.Number - 1} during state reconstruction");
-
-            current = parent;
-        }
-    }
-
-    private void ReExecuteBlocks(BlockHeader lastAvailable, BlockHeader targetParent)
-    {
-        long startBlock = lastAvailable.Number + 1;
-        long endBlock = targetParent.Number;
-
-        // Not necessary to write codeDB in read only given writes to it are idempotent
-        using ArbitrumStateReconstructionBlockProcessingEnvScope env = _envFactory.CreateScope();
-        IBlockProcessor blockProcessor = env.BlockProcessor;
-        IWorldState worldState = env.WorldState;
-        ISpecProvider specProvider = env.SpecProvider;
-
-        using (worldState.BeginScope(lastAvailable))
-        {
-            Hash256 expectedParentHash = lastAvailable.Hash!;
-            Hash256 prevStateRoot = lastAvailable.StateRoot!;
-
-            try
-            {
-                for (long blockNumber = startBlock; blockNumber <= endBlock; blockNumber++)
-                {
-                    Block? block = _blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.RequireCanonical);
-                    if (block is null)
-                        throw new InvalidOperationException($"Cannot find block {blockNumber} during state reconstruction");
-
-                    if (block.ParentHash != expectedParentHash)
-                        throw new InvalidOperationException(
-                            $"Parent hash mismatch at block {blockNumber}: expected {expectedParentHash}, got {block.ParentHash}");
-
-                    // SenderAddress is not persisted in block RLP — recover from receipts (fast path for
-                    // Arbitrum internal txs which have no ECDSA signature) or from ECDSA signature.
-                    RecoverTxSenders(block);
-
-                    Hash256 expectedBlockHash = block.Hash!;
-                    IReleaseSpec spec = specProvider.GetSpec(block.Header);
-                    (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
-
-                    if (processedBlock.Hash != expectedBlockHash)
-                        throw new InvalidOperationException(
-                            $"Block hash mismatch after re-execution of block {blockNumber}: expected {expectedBlockHash}, got {processedBlock.Hash}");
-
-                    worldState.CommitTree(block.Number);
-
-                    Hash256 currentStateRoot = processedBlock.Header.StateRoot!;
-
-                    // Pin the newly reconstructed state
-                    if (!_trieStore.TryReference(currentStateRoot) && _logger.IsError)
-                        _logger.Error($"Failed to reference state root {currentStateRoot} for block {blockNumber} just reconstructed");
-
-                    // Dereference the previous block's state (temporary reference only)
-                    _trieStore.Dereference(prevStateRoot);
-
-                    prevStateRoot = currentStateRoot;
-
-                    worldState.Reset();
-
-                    expectedParentHash = processedBlock.Hash!;
-
-                    if (_logger.IsDebug && blockNumber % 100 == 0)
-                        _logger.Debug($"State reconstruction progress: {blockNumber - startBlock + 1}/{endBlock - startBlock + 1} blocks");
-                }
-            }
-            catch
-            {
-                _trieStore.Dereference(prevStateRoot);
-                throw; // Preserves stack trace
-            }
-        }
-
-        if (_logger.IsInfo)
-            _logger.Info($"State reconstruction complete: re-executed {endBlock - startBlock + 1} blocks ({startBlock} to {endBlock})");
     }
 
     /// <summary>
@@ -328,6 +259,8 @@ public class StateReconstructor : IDisposable
     /// </remarks>
     public void CopyLastValidStateForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb)
     {
+        // Lock _validHeaderLock so that validHeader's state can be safely traversed and copied
+        // without risk of TryPromoteValidCandidate dereferencing it mid-copy.
         lock (_validHeaderLock)
         {
             BlockHeader? validHeader = _validHeader;
@@ -374,23 +307,186 @@ public class StateReconstructor : IDisposable
     /// <summary>Synchronous variant of <see cref="WaitForPruningGateAsync"/> for sync callers.</summary>
     public void WaitForPruningGate() => WaitForPruningGateAsync().GetAwaiter().GetResult();
 
+    private void OnPruningStarted(object? sender, PruningEventArgs args)
+    {
+        _fullPruningCts.Cancel();
+    }
+
+    public void Dispose()
+    {
+        if (_fullPruningDb is not null)
+        {
+            _fullPruningDb.PruningStarted -= OnPruningStarted;
+            _fullPruningDb.PruningFinished -= OnPruningFinished;
+        }
+        _fullPruningCts.Dispose();
+        PersistOnShutdown();
+    }
+
+    public void PreparedAddTrim(List<BlockHeader> headers)
+    {
+        lock (_reconstructionLock)
+        {
+            foreach (BlockHeader header in headers)
+                _preparedQueue.Enqueue(header);
+
+            if (_preparedQueue.Count > _maxStateRootsInMem)
+            {
+                int toEvict = _preparedQueue.Count - _maxStateRootsInMem;
+                for (int i = 0; i < toEvict; i++)
+                {
+                    if (_preparedQueue.TryDequeue(out BlockHeader? oldStateRoot))
+                        _trieStore.Dereference(oldStateRoot.StateRoot!);
+                }
+            }
+        }
+    }
+
+    public void ReorgTo(BlockHeader header)
+    {
+        lock (_validHeaderLock)
+        {
+            // Invalidate any in-flight pruning gate: OnPruningFinished must not restore
+            // a stale (pre-reorg) _validHeader after we clear it below.
+            // Completing the TCS unblocks any potential RecordBlockCreation/PrepareForRecord already waiting.
+            PruningGate? gate = _pruningGate;
+            if (gate is not null)
+            {
+                _pruningGate = null;
+                gate.Tcs.SetResult();
+            }
+
+            if (_validHeader is not null && _validHeader.Number > header.Number)
+            {
+                if (_logger.IsWarn)
+                    _logger.Warn($"ReorgTo: reorging to block older than previously-marked valid block: reorg target {header.Number} with hash {header.Hash} and header marked as last valid {_validHeader.Number} with hash {_validHeader.Hash}");
+                _trieStore.Dereference(_validHeader.StateRoot!);
+                _validHeader = null;
+            }
+
+            if (_validHeaderCandidate is not null && _validHeaderCandidate.Number > header.Number)
+            {
+                if (_logger.IsInfo)
+                    _logger.Info($"ReorgTo: reorging to block older than valid candidate block: reorg target {header.Number} with hash {header.Hash} and candidate header {_validHeaderCandidate.Number} with hash {_validHeaderCandidate.Hash}");
+                _trieStore.Dereference(_validHeaderCandidate.StateRoot!);
+                _validHeaderCandidate = null;
+            }
+        }
+
+        PreparedTrimBeyond(header);
+    }
+
+    /// <summary>
+    // For recreating state, this method walks backwards from the target header until it finds a header
+    // whose state root is available in the RecordingTrieStore or otherwise reaches genesis and throws there.
+    /// </summary>
+    private BlockHeader FindLastAvailableState(BlockHeader target)
+    {
+        BlockHeader current = target;
+
+        while (true)
+        {
+            // Check whether state trie exists, and pin it if it lives in the MemDb overlay
+            if (_trieStore.TryReference(current.StateRoot!))
+                return current;
+
+            if (current.Number <= _genesisBlockNumber)
+                throw new InvalidOperationException($"Reached genesis (block {_genesisBlockNumber}) without finding available state while looking for block {target.Number}");
+
+            BlockHeader? parent = _blockTree.FindHeader(current.ParentHash!, BlockTreeLookupOptions.RequireCanonical, current.Number - 1);
+            if (parent is null)
+                throw new InvalidOperationException($"Cannot find header for block {current.Number - 1} during state reconstruction");
+
+            current = parent;
+        }
+    }
+
+    private void ReExecuteBlocks(BlockHeader lastAvailable, BlockHeader targetParent)
+    {
+        long startBlock = lastAvailable.Number + 1;
+        long endBlock = targetParent.Number;
+
+        // Not necessary to write codeDB in read only given writes to it are idempotent
+        using ArbitrumStateReconstructionBlockProcessingEnvScope env = _envFactory.CreateScope();
+        IBlockProcessor blockProcessor = env.BlockProcessor;
+        IWorldState worldState = env.WorldState;
+        ISpecProvider specProvider = env.SpecProvider;
+
+        using (worldState.BeginScope(lastAvailable))
+        {
+            Hash256 expectedParentHash = lastAvailable.Hash!;
+            Hash256 prevStateRoot = lastAvailable.StateRoot!;
+
+            try
+            {
+                for (long blockNumber = startBlock; blockNumber <= endBlock; blockNumber++)
+                {
+                    Block? block = _blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.RequireCanonical);
+                    if (block is null)
+                        throw new InvalidOperationException($"Cannot find block {blockNumber} during state reconstruction");
+
+                    if (block.ParentHash != expectedParentHash)
+                        throw new InvalidOperationException(
+                            $"Parent hash mismatch at block {blockNumber}: expected {expectedParentHash}, got {block.ParentHash}");
+
+                    // SenderAddress is not persisted in block RLP — recover from receipts (fast path for
+                    // Arbitrum internal txs which have no ECDSA signature) or from ECDSA signature.
+                    RecoverTxSenders(block);
+
+                    Hash256 expectedBlockHash = block.Hash!;
+                    IReleaseSpec spec = specProvider.GetSpec(block.Header);
+                    (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
+
+                    if (processedBlock.Hash != expectedBlockHash)
+                        throw new InvalidOperationException(
+                            $"Block hash mismatch after re-execution of block {blockNumber}: expected {expectedBlockHash}, got {processedBlock.Hash}");
+
+                    worldState.CommitTree(block.Number);
+
+                    Hash256 currentStateRoot = processedBlock.Header.StateRoot!;
+
+                    // Pin the newly reconstructed state
+                    if (!_trieStore.TryReference(currentStateRoot) && _logger.IsError)
+                        _logger.Error($"Failed to reference state root {currentStateRoot} for block {blockNumber} just reconstructed");
+
+                    // Dereference the previous block's state (temporary reference only)
+                    _trieStore.Dereference(prevStateRoot);
+
+                    prevStateRoot = currentStateRoot;
+
+                    worldState.Reset();
+
+                    expectedParentHash = processedBlock.Hash!;
+
+                    MaybeCap();
+
+                    if (_logger.IsDebug && blockNumber % 100 == 0)
+                        _logger.Debug($"State reconstruction progress: {blockNumber - startBlock + 1}/{endBlock - startBlock + 1} blocks");
+                }
+            }
+            catch
+            {
+                _trieStore.Dereference(prevStateRoot);
+                throw; // Preserves stack trace
+            }
+        }
+
+        if (_logger.IsInfo)
+            _logger.Info($"State reconstruction complete: re-executed {endBlock - startBlock + 1} blocks ({startBlock} to {endBlock})");
+    }
+
     private void OnPruningFinished(object? sender, PruningEventArgs args)
     {
-        // Read the gate without nulling it yet. Callers blocked on gate.Tcs.Task must not be
-        // released until all cleanup below is done, and new callers must not bypass the gate
-        // until then either. Both happen once we null _pruningGate and call SetResult at the end.
-        PruningGate? gate = _pruningGate;
-        if (gate is null)
-            return;
-
         if (!args.Success)
         {
-            // Pruning failed: Commit() was never called, old DB still active, MemDb still valid.
+            // Full pruning failed: Commit() was never called, old DB still active, MemDb still valid.
             // Just release the gate without touching anything.
             if (_logger.IsWarn)
-                _logger.Warn("OnPruningFinished: pruning failed — keeping MemDb overlay intact.");
+                _logger.Warn("OnPruningFinished: full pruning failed — keeping MemDb overlay intact.");
+            ResetFullPruningCts();
+            PruningGate? gate = _pruningGate;
             _pruningGate = null;
-            gate.Tcs.SetResult();
+            gate?.Tcs.SetResult();
             return;
         }
 
@@ -399,8 +495,20 @@ public class StateReconstructor : IDisposable
         lock (_validHeaderLock)
             lock (_reconstructionLock)
             {
+                // Read the gate without nulling it yet. Callers blocked on gate.Tcs.Task must not be
+                // released until all cleanup below is done, and new callers must not bypass the gate
+                // until then either. Both happen once we null _pruningGate and call SetResult at the end.
+                PruningGate? gate = _pruningGate;
+                if (gate is null)
+                {
+                    if (_logger.IsInfo)
+                        _logger.Info("OnPruningFinished: full pruning succeeded but no validator-specific valid state got copied — skipping MemDb cleanup.");
+                    ResetFullPruningCts();
+                    return;
+                }
+
                 if (_logger.IsInfo)
-                    _logger.Info($"OnPruningFinished: pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
+                    _logger.Info($"OnPruningFinished: full pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
 
                 // Restore _validHeader to the value confirmed written to the new DB.
                 // Any (slight) advancement of this header between gate creation and now referenced MemDb nodes
@@ -412,6 +520,10 @@ public class StateReconstructor : IDisposable
                 _trieStore.ClearOverlay();
                 _preparedQueue.Clear();
 
+
+                // Reset token after clearing memDB so that any pending capping logic
+                // just cancels as memDB size is now 0 (under limit)
+                ResetFullPruningCts();
                 // Null the gate first: new callers arriving after this point return Task.CompletedTask
                 // directly without waiting. Then unblock existing waiters with SetResult.
                 _pruningGate = null;
@@ -419,30 +531,101 @@ public class StateReconstructor : IDisposable
             }
     }
 
-    public void Dispose()
+    private void PreparedTrimBeyond(BlockHeader header)
     {
-        if (_fullPruningDb is not null)
-            _fullPruningDb.PruningFinished -= OnPruningFinished;
-        PersistOnShutdown();
-    }
+        if (_logger.IsInfo)
+            _logger.Info($"PreparedTrimBeyond: trimming prepared headers beyond block {header.Number} with hash {header.Hash} due to reorg");
 
-    public void PreparedAddTrim(List<Hash256> stateRoots)
-    {
+        List<BlockHeader> invalidHeaders = [];
         lock (_reconstructionLock)
         {
-            foreach (Hash256 stateRoot in stateRoots)
-                _preparedQueue.Enqueue(stateRoot);
-
-            if (_preparedQueue.Count > _maxStateRootsInMem)
+            int count = _preparedQueue.Count;
+            for (int i = 0; i < count; i++)
             {
-                int toEvict = _preparedQueue.Count - _maxStateRootsInMem;
-                for (int i = 0; i < toEvict; i++)
-                {
-                    if (_preparedQueue.TryDequeue(out Hash256? oldStateRoot))
-                        _trieStore.Dereference(oldStateRoot);
-                }
+                BlockHeader h = _preparedQueue.Dequeue();
+                if (h.Number > header.Number)
+                    invalidHeaders.Add(h);
+                else
+                    _preparedQueue.Enqueue(h); // keep (<= reorg target)
             }
         }
+
+        foreach (BlockHeader invalidHeader in invalidHeaders)
+            _trieStore.Dereference(invalidHeader.StateRoot!);
+    }
+
+    /// <summary>
+    /// Replaces <see cref="_fullPruningCts"/> with a fresh, uncancelled token source and
+    /// disposes the previous instance to release its registrations and handles.
+    /// </summary>
+    private void ResetFullPruningCts()
+    {
+        _fullPruningCts.Dispose();
+        _fullPruningCts = new CancellationTokenSource();
+    }
+
+    /// <summary>
+    /// Cap memDb containing reconstructed state to stay at a max size defined in configuration
+    /// </summary>
+    /// <remarks>
+    /// Executed under _reconstructionLock
+    /// </remarks>
+    private void MaybeCap()
+    {
+        if (_trieStore.DirtySize <= _maxMemDbSize)
+            return;
+
+        if (_fullPruningCts.IsCancellationRequested)
+        {
+            if (_logger.IsInfo)
+                _logger.Info($"MemDb overlay (size {_trieStore.DirtySize / 1.MiB:F1}MB) " +
+                $"exceeded max size {_maxMemDbSize / 1.MiB:F1}MB but full pruning is in progress, " +
+                $"skipping capping to avoid redundant disk writes");
+            return;
+        }
+
+        long startTime = Stopwatch.GetTimestamp();
+
+        double targetSize = _maxMemDbSize.SaturateSub(BytesToEvictFromMemDb);
+
+        if (_logger.IsInfo)
+            _logger.Info($"MemDb overlay (size: {_trieStore.DirtySize / 1.MiB:F3}MB) " +
+                $"exceeded {_maxMemDbSize / 1.MiB:F2}MB, capping to {targetSize / 1.MiB:F2}MB " +
+                $"by spilling oldest state roots to disk");
+
+        long totalCount = _preparedQueue.Count;
+        long count = 0;
+        double totalBytesFlushed = _trieStore.DirtySize;
+
+        // Disposing the batch flushes it to disk.
+        // MaybeCap is done under the reconstruction lock, so, the small window where
+        // nodes got evicted from memDB but not yet on disk should not cause any issue.
+        // Other potential validator-related operations (not under _reconstructionLock) are
+        // safe to occur concurrently as they would just be no-op or not access evicted nodes.
+        using (IWriteBatch rawBatch = _mainStateDb.StartWriteBatch())
+        {
+            while (_trieStore.DirtySize > targetSize)
+            {
+                if (_fullPruningCts.IsCancellationRequested)
+                {
+                    if (_logger.IsInfo)
+                        _logger.Info($"Full pruning started while capping was in progress, aborting capping to avoid redundant disk writes");
+                    break;
+                }
+
+                if (!_preparedQueue.TryDequeue(out BlockHeader? header))
+                    break;
+
+                _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
+                count++;
+            }
+        }
+
+        long stopTime = Stopwatch.GetTimestamp();
+        totalBytesFlushed -= _trieStore.DirtySize;
+        double elapsed = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
+        if (_logger.IsInfo)
+            _logger.Info($"Finished capping MemDb overlay: flushed {totalBytesFlushed / 1.MiB:F3}MB by spilling {count} of {totalCount} state roots to disk, new size {_trieStore.DirtySize / 1.MiB:F3}MB, elapsed time: {elapsed:F1}ms");
     }
 
     private void RecoverTxSenders(Block block)
@@ -480,6 +663,7 @@ public class StateReconstructor : IDisposable
                 _logger.Error($"StateReconstructor: failed to read valid header marker: {ex.Message}, starting without valid header.");
             return;
         }
+
         if (data.Length != MarkerSize)
         {
             if (_logger.IsError)
@@ -541,9 +725,8 @@ public class StateReconstructor : IDisposable
         }
         else
         {
-            _trieStore.TraverseTrieAndCopyTo(validHeader.StateRoot!, _mainNodeStorage);
-            // Flush to ensure nodes are on disk (TrieStore has already been disposed, so, won't benefit from PersistOnShutdown's flush)
-            _mainNodeStorage.Flush(onlyWal: false);
+            using IWriteBatch rawBatch = _mainStateDb.StartWriteBatch();
+            _trieStore.TraverseTrieAndCopyTo(validHeader.StateRoot!, rawBatch);
         }
 
         PersistValidHeaderMarker(validHeader.Number, validHeader.Hash!);

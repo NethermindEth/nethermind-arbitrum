@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain;
@@ -29,6 +30,7 @@ public sealed class ArbitrumBlockFactory(
     IBlocksConfig blocksConfig,
     IArbitrumConfig arbitrumConfig,
     IArbitrumSequencerBlockSuggester blockSuggester,
+    StateReconstructor stateReconstructor,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockFactory>();
@@ -152,6 +154,9 @@ public sealed class ArbitrumBlockFactory(
 
                 messageResults[i] = blockResult.Data;
             }
+
+            if (arbitrumConfig.ValidationEnabled)
+                stateReconstructor.ReorgTo(blockToKeep.Header);
 
             // 10. Return results
             return ResultWrapper<Block[]>.Success(messageResults);
