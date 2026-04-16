@@ -8,13 +8,16 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Test.Execution.Stateless;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.FullPruning;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test.Builders;
 using Nethermind.Db;
 using Nethermind.Db.FullPruning;
+using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules.Admin;
 using Nethermind.Trie;
@@ -203,16 +206,14 @@ public class MarkValidTests
 
         // Condition 1: captures blockToWaitFor from the first post-trigger block (block 6).
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
-        await Task.Delay(10);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         // Condition 2: BestPersistedState (6) >= blockToWaitFor (6) → captures stateToCopy = 6.
         chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
-        await Task.Delay(10);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         // Condition 3: Head (8) > stateToCopy + PruningBoundary(0) = 6 → CopyTrie executes.
-        (await chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++])).Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
 
         bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         success.Should().BeTrue("full pruning should complete successfully");
@@ -410,6 +411,228 @@ public class MarkValidTests
         }
     }
 
+    /// <summary>
+    /// ReorgTo (via Reorg RPC) below _validHeader clears it and releases its MemDb reference.
+    /// Mirrors Nitro block_recorder.ReorgTo: dereference and nil validHdr when validHdr.Number > hdr.Number.
+    ///
+    /// SimulatePruning deletes all state-root keys from disk except genesis, so block 2's state lives
+    /// only in the MemDb overlay (pinned by _validHeader and the prepared-queue entry).  After the reorg
+    /// both references are released (ReorgTo releases _validHeader, PreparedTrimBeyond releases the
+    /// queue entry), the overlay evicts the nodes, and HasRoot returns false.
+    /// </summary>
+    [Test]
+    public async Task ReorgTo_BelowValidHeader_ClearsValidHeaderAndReleasesMemDbState()
+    {
+        using ArbitrumRpcTestBlockchain chain = BuildChain();
+        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+
+        StateReconstructorTests.SimulatePruning(chain, blockNumberToKeep: 0);
+
+        ulong start = 3;
+        ulong end = 5;
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
+            .Result.Should().Be(Result.Success);
+        BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
+
+        BlockHeader block2Header = chain.BlockTree.FindHeader((long)start - 1, BlockTreeLookupOptions.RequireCanonical)!;
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(block2Header.Number, "sanity: _validHeader at block 2");
+        reconStore.HasRoot(block2Header.StateRoot!).Should().BeTrue("sanity: block 2 state in MemDb after PrepareForRecord");
+
+        // Reorg to message index 1 (block 1) — older than _validHeader block 2.
+        ulong reorgIndex = 1;
+        chain.ReorgToMessageIndex(reorgIndex).ShouldAsync().RequestSucceed();
+
+        BlockHeader? header1 = chain.BlockTree.FindHeader((long)reorgIndex, BlockTreeLookupOptions.RequireCanonical);
+        ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
+        reconStore.HasRoot(header1!.StateRoot!).Should().BeFalse(
+            $"block {header1.Number}'s state was MemDb-only (disk root pruned); after ReorgTo releases all references, overlay evicts it");
+        reconStore.DirtySize.Should().Be(0, "all overlay entries should be released after reorg is past all referenced states");
+    }
+
+    /// <summary>
+    /// ReorgTo (via Reorg RPC) below _validHeaderCandidate clears it and releases its MemDb reference.
+    /// Mirrors Nitro: dereference and nil validHdrCandidate when validHdrCandidate.Number > hdr.Number.
+    ///
+    /// Without SetFinalityData the candidate is never promoted.  After the reorg both the candidate
+    /// reference and the prepared-queue reference are released, so block 2's state is evicted from MemDb.
+    /// </summary>
+    [Test]
+    public async Task ReorgTo_BelowValidCandidate_ClearsCandidateAndReleasesMemDbState()
+    {
+        using ArbitrumRpcTestBlockchain chain = BuildChain();
+        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+
+        StateReconstructorTests.SimulatePruning(chain, blockNumberToKeep: 0);
+
+        ulong start = 3;
+        ulong end = 5;
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
+            .Result.Should().Be(Result.Success);
+
+        BlockHeader block2Header = chain.BlockTree.FindHeader((long)start - 1, BlockTreeLookupOptions.RequireCanonical)!;
+        ReadValidCandidateHeader(stateReconstructor)!.Number.Should().Be(block2Header.Number, "sanity: candidate at block 2");
+        ReadValidHeader(stateReconstructor).Should().BeNull("sanity: _validHeader not yet promoted");
+        reconStore.HasRoot(block2Header.StateRoot!).Should().BeTrue("sanity: block 2 state in MemDb after PrepareForRecord");
+
+        // Reorg to message index 1 (block 1) — older than candidate block 2.
+        chain.ReorgToMessageIndex(1).ShouldAsync().RequestSucceed();
+
+        ReadValidCandidateHeader(stateReconstructor).Should().BeNull("reorg past candidate must clear it");
+        ReadValidHeader(stateReconstructor).Should().BeNull("_validHeader must remain null");
+        reconStore.DirtySize.Should().Be(0, "all overlay entries should be released after reorg is past all referenced states");
+    }
+
+    /// <summary>
+    /// ReorgTo (via Reorg RPC) at or above _validHeader leaves it intact and keeps its MemDb state alive.
+    /// Nitro only clears if validHdr.Number > hdr.Number (strictly greater).
+    ///
+    /// After SimulatePruning block 2's state is MemDb-only.  A reorg to block 3 (above block 2) must not
+    /// clear _validHeader or release its references, so HasRoot returns true via the overlay.
+    /// </summary>
+    [Test]
+    public async Task ReorgTo_AtOrAboveValidHeader_KeepsValidHeaderAndItsMemDbState()
+    {
+        using ArbitrumRpcTestBlockchain chain = BuildChain();
+        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
+
+        StateReconstructorTests.SimulatePruning(chain, blockNumberToKeep: 0);
+
+        ulong start = 3;
+        ulong end = 5;
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
+            .Result.Should().Be(Result.Success);
+        BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
+
+        // Will mark block 11 as _validHeaderCandidate
+        long blockToRecord = 12;
+        DigestMessageParameters block12Message = GetDigestedMessage((ulong)blockToRecord);
+        ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(block12Message.Index, block12Message.Message, WasmTargets: []));
+        recordResult.Result.Should().Be(Result.Success);
+
+        BlockHeader block2Header = chain.BlockTree.FindHeader((long)start - 1, BlockTreeLookupOptions.RequireCanonical)!;
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(block2Header.Number, "sanity: _validHeader at block 2");
+        BlockHeader block11Header = chain.BlockTree.FindHeader(blockToRecord - 1, BlockTreeLookupOptions.RequireCanonical)!;
+        ReadValidCandidateHeader(stateReconstructor)!.Number.Should().Be(block11Header.Number, "sanity: candidate at block 11");
+
+        reconStore.HasRoot(block2Header.StateRoot!).Should().BeTrue("sanity: block 2 state in MemDb");
+        reconStore.HasRoot(block11Header.StateRoot!).Should().BeTrue("sanity: block 11 state in MemDb");
+
+        // Reorg to message index 3 (block 3) — newer than _validHeader block 2.
+        ulong reorgIndex = 3;
+        chain.ReorgToMessageIndex(reorgIndex).ShouldAsync().RequestSucceed();
+
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(block2Header.Number,
+            "reorg to a block newer than _validHeader must not clear it");
+        ReadValidCandidateHeader(stateReconstructor).Should().BeNull("candidate header should be cleared as reorg block is older than candidate");
+
+        for (ulong i = start - 1; i < reorgIndex; i++)
+        {
+            BlockHeader? header = chain.BlockTree.FindHeader((long)i);
+            reconStore.HasRoot(header!.StateRoot!).Should().BeTrue(
+                $"block {header.Number} is older or equal to reorg block, state should survive via overlay");
+        }
+
+        reconStore.HasRoot(block11Header!.StateRoot!).Should().BeFalse(
+            $"block {block11Header.Number} is newer than reorg block, state should be dereferenced (hence evicted) from overlay");
+    }
+
+    /// <summary>
+    /// Tests the scenario where a reorg occurs while full pruning is in-flight, specifically in the
+    /// "pre-gate" phase — after FullPruner has computed stateToCopy but before
+    /// CopyLastValidStateForFullPruning runs.
+    ///
+    /// Timeline:
+    ///   1. _validHeader is set to block 2 via PrepareForRecord + SetFinalityData.
+    ///   2. Full pruning starts; conditions 1+2 are satisfied → stateToCopy = 6.
+    ///   3. While FullPruner waits for condition 3 (Head > 6), a reorg to block 1 fires.
+    ///      ReorgTo acquires _validHeaderLock, sees no gate yet, and clears _validHeader.
+    ///   4. The chain is rebuilt to block 7 to satisfy condition 3.
+    ///   5. CopyLastValidStateForFullPruning runs with _validHeader = null → no gate is set.
+    ///   6. OnPruningFinished sees null gate under _validHeaderLock → skips restore and MemDb clear.
+    ///
+    /// The gate-after-reorg path (ReorgTo nulls an already-set gate) is also covered implicitly:
+    /// if the race goes the other way, ReorgTo acquires _validHeaderLock after gate was set, nulls
+    /// it and completes the TCS, then OnPruningFinished reads null gate and skips the restore.
+    /// Either way _validHeader must remain null after pruning.
+    /// </summary>
+    [Test]
+    public async Task ReorgDuringFullPruning_BeforeGateIsSet_ValidHeaderRemainsNullAfterPruning()
+    {
+        FullChainSimulationRecordingFile recording = new(RecordingPath);
+        DigestMessageParameters[] allMessages = recording.GetDigestMessages().ToArray();
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording, numberToDigest: 5)
+            .WithArbitrumConfig(config => config.ValidationEnabled = true)
+            .Build(c =>
+            {
+                c.WorldStateManager.FlushCache(CancellationToken.None);
+                ((PruningConfig)c.Container.Resolve<IPruningConfig>()).PruningBoundary = 0;
+            });
+
+        // PrepareForRecord(3,5) + SetFinalityData(5) → _validHeader = block 2
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(3, 5))
+            .Result.Should().Be(Result.Success);
+        BlockHeader block5Header = chain.BlockTree.FindHeader(5, BlockTreeLookupOptions.RequireCanonical)!;
+        chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams
+        {
+            ValidatedFinalityData = new RpcFinalityData { MsgIdx = 5, BlockHash = block5Header.Hash! }
+        }).Should().RequestSucceed();
+
+        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(2, "sanity: _validHeader at block 2 before reorg");
+
+        IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
+        TaskCompletionSource<bool> pruningTcs = new();
+        fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
+
+        IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
+        adminModule.admin_prune().Data.Should().Be(PruningStatus.Starting);
+
+        // Condition 1: blockToWaitFor = 6
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[5]).ShouldAsync().RequestSucceed();
+
+        // Condition 2: BestPersistedState(6) >= blockToWaitFor(6) → stateToCopy = 6
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+        chain.ArbitrumRpcModule.DigestMessage(allMessages[6]).ShouldAsync().RequestSucceed();
+        // FullPruner now waits for condition 3: Head > 6 (blockToPruneAfter = 6 + PruningBoundary(0))
+
+        // Reorg to block 1 — happens while FullPruner is in the pre-gate phase.
+        // ReorgTo acquires _validHeaderLock, sees _pruningGate = null (gate not yet set),
+        // and clears _validHeader.
+        chain.ReorgToMessageIndex(1).ShouldAsync().RequestSucceed();
+        ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
+
+        // Rebuild the chain to block 7 using fresh ETH deposits (value = i wei each) instead of
+        // replaying recording messages. This makes the post-reorg blocks clearly distinct from the
+        // pre-reorg ones.
+        // Head=7 > stateToCopy=6 satisfies FullPruner condition 3.
+        for (int i = 1; i <= 6; i++)
+        {
+            chain.Digest(new TestEthDeposit(
+                RequestId: Keccak.Compute(i.ToString()),
+                L1BaseFee: chain.InitialL1BaseFee,
+                Sender: TestItem.AddressA,
+                Receiver: TestItem.AddressB,
+                Value: (UInt256)i)).ShouldAsync().RequestSucceed();
+        }
+
+        bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        success.Should().BeTrue("full pruning should complete successfully");
+
+        // _validHeader must NOT be restored: no gate was set, so OnPruningFinished had nothing to restore.
+        ReadValidHeader(stateReconstructor).Should().BeNull(
+            "_validHeader was cleared by the reorg before CopyLastValidStateForFullPruning ran; " +
+            "since no pruning gate was set, OnPruningFinished must not restore it");
+    }
+
     private static ArbitrumRpcTestBlockchain BuildChain() =>
         new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath))
@@ -420,6 +643,12 @@ public class MarkValidTests
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
         return recording.GetDigestMessages().Last();
+    }
+
+    private static DigestMessageParameters GetDigestedMessage(ulong index)
+    {
+        FullChainSimulationRecordingFile recording = new(RecordingPath);
+        return recording.GetDigestMessages().Single(m => m.Index == index);
     }
 
     private static BlockHeader? ReadValidHeader(StateReconstructor stateReconstructor) =>
@@ -446,4 +675,9 @@ public class MarkValidTests
         typeof(StateReconstructor)
             .GetMethod("RestoreValidHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(reconstructor, null);
+
+    private static BlockHeader? ReadValidCandidateHeader(StateReconstructor stateReconstructor) =>
+        (BlockHeader?)typeof(StateReconstructor)
+            .GetField("_validHeaderCandidate", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(stateReconstructor);
 }
