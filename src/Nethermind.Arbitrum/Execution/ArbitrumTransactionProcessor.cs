@@ -278,14 +278,15 @@ namespace Nethermind.Arbitrum.Execution
         {
             opcodeGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in baseFee);
 
+            // effectiveGasPrice relies on OriginalBaseFee (not the potentially-zeroed baseFee), matching Nitro's
+            // TransactionToMessage which computes msg.GasPrice with the real header BaseFee before zeroing.
             UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
             UInt256 effectiveGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in effectiveBaseFee);
 
-            // Drop tip if necessary (Arbitrum-specific logic)
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > effectiveBaseFee)
-            {
-                return effectiveBaseFee;
-            }
+            // Tip-drop uses baseFee (not effectiveBaseFee), matching Nitro's
+            // go-ethereum:consensus-v51/core/state_transition.go:execute which uses evm.Context.BaseFee.
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > baseFee)
+                return baseFee;
 
             return effectiveGasPrice;
         }

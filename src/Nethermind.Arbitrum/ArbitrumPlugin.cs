@@ -17,6 +17,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
@@ -33,7 +34,6 @@ using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
-using Nethermind.Crypto;
 using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
@@ -52,6 +52,7 @@ using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
+using Nethermind.Blockchain.FullPruning;
 using Nethermind.Trie.Pruning;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Core.Crypto;
@@ -136,7 +137,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         // Register nitroexecution namespace
-        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine);
+        ArbitrumClHealthTracker clHealthTracker = _api.Context.Resolve<ArbitrumClHealthTracker>();
+        _ = clHealthTracker.StartAsync();
+        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine, clHealthTracker);
         _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
@@ -184,7 +187,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         StepDependencyException.ThrowIfNull(_api.SpecProvider);
         StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
 
-        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.CreatePersistent();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,
@@ -245,8 +248,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
-            .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
-            .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
+            .AddSingleton<ArbitrumClHealthTracker>()
+            .Bind<IClHealthTracker, ArbitrumClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
@@ -313,21 +316,30 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             // Rpcs
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
-            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
-            .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
 
-            // Execution recording (state reconstruction + witness generation)
-            .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
-            .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
-            .AddSingleton<StateReconstructor>()
-            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
-            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+        if (arbitrumConfig.ConsensusNodeRpcEnabled)
+        {
+            if (!Uri.TryCreate(arbitrumConfig.ConsensusNodeRpcUrl, UriKind.Absolute, out Uri? consensusUri) ||
+                (consensusUri.Scheme != Uri.UriSchemeHttp && consensusUri.Scheme != Uri.UriSchemeHttps))
+                throw new ArgumentException(
+                    $"{nameof(ArbitrumConfig.ConsensusNodeRpcUrl)} must be a valid absolute http/https URL when {nameof(ArbitrumConfig.ConsensusNodeRpcEnabled)} is true. " +
+                    $"Configured value: '{arbitrumConfig.ConsensusNodeRpcUrl}'.");
 
-            .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
+            builder.AddSingleton<IArbitrumConsensusClient, ArbitrumConsensusClient>();
+        }
+        else
+            builder.AddSingleton<IArbitrumConsensusClient, DisabledArbitrumConsensusClient>();
+
+        builder.AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
 
         builder
+            .AddSingleton<ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+
+        builder
+            .AddModule(new ArbitrumValidatorModule())
             .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
 
         if (blocksConfig.BuildBlocksOnMainState)
@@ -340,6 +352,21 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
     {
         public void ApplyBlockhashStateChanges(BlockHeader blockHeader, IReleaseSpec spec) { }
         public Hash256? GetBlockHashFromState(BlockHeader currentBlockHeader, long requiredBlockNumber, IReleaseSpec spec) => null;
+    }
+
+    private class ArbitrumValidatorModule : Module
+    {
+        protected override void Load(ContainerBuilder builder) => builder
+            // Execution recording (witness generation + state reconstruction)
+            .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
+            .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
+            .AddSingleton<StateReconstructor>()
+            .AddSingleton<IFullPrunerFactory, ArbitrumFullPrunerFactory>()
+            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+
+            // Not used in validator mode but related
+            .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

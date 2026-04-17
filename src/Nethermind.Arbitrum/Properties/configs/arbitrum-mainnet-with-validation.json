@@ -8,6 +8,14 @@
   "TxPool": {
     "BlobsSupport": "Disabled"
   },
+  "Sync": {
+    "NetworkingEnabled": false,
+    "FastSync": true,
+    "SnapSync": true,
+    "FastSyncCatchUpHeightDelta": "10000000000",
+    "PivotNumber": 260000000,
+    "PivotHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
   "Discovery": {
     "DiscoveryVersion": "V5"
   },
@@ -15,7 +23,6 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "UnsecureDevNoRpcAuthentication": true,
     "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
@@ -39,8 +46,7 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3",
-      "Arbitrum"
+      "Web3"
     ]
   },
   "Pruning": {
@@ -59,12 +65,21 @@
   "Merge": {
     "Enabled": true
   },
-  "Arbitrum": {
-    "ValidatorMaxStateRootsInMem": 1000
-  },
   "Snapshot": {
     "Enabled": true,
     "SnapshotDirectory": "snapshot/mainnet",
     "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto",
+    "ValidationEnabled": true,
+    "ValidatorMaxStateRootsInMem": 1000,
+    "ValidatorReconstructedStateMemDBMaxSizeMb": 1024
+  },
+  "VerifyBlockHash": {
+    "Enabled": false,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }

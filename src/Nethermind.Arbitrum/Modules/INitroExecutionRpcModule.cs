@@ -94,5 +94,11 @@ public interface INitroExecutionRpcModule : IRpcModule
     Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<RecordResult>> nitroexecution_recordBlockCreation(ulong pos, MessageWithMetadata message, string[] wasmTargets);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    ResultWrapper<EmptyResponse> nitroexecution_prepareForRecord(ulong start, ulong end);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<bool>> nitroexecution_pruneHistory();
 }

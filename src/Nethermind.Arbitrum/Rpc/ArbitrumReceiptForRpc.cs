@@ -22,10 +22,12 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
         ulong blockTimestamp,
         TxGasInfo gasInfo,
         ulong l1BlockNumber,
-        int logIndexStart = 0) : base(txHash, receipt, blockTimestamp, gasInfo, logIndexStart)
+        int logIndexStart,
+        bool? isTimeboosted) : base(txHash, receipt, blockTimestamp, gasInfo, logIndexStart)
     {
         GasUsedForL1 = receipt.GasUsedForL1;
         L1BlockNumber = l1BlockNumber;
+        IsTimeboosted = isTimeboosted;
 
         if (receipt.MultiGasUsed is { } multiGas && !multiGas.IsZero())
             MultiGasUsed = multiGas.ToJson();
@@ -37,9 +39,11 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
         ulong blockTimestamp,
         TxGasInfo gasInfo,
         ulong l1BlockNumber,
-        int logIndexStart = 0) : base(txHash, receipt, blockTimestamp, gasInfo, logIndexStart)
+        int logIndexStart,
+        bool? isTimeboosted) : base(txHash, receipt, blockTimestamp, gasInfo, logIndexStart)
     {
         L1BlockNumber = l1BlockNumber;
+        IsTimeboosted = isTimeboosted;
 
         if (receipt is not ArbitrumTxReceipt arbitrumReceipt)
             return;
@@ -62,4 +66,8 @@ public class ArbitrumReceiptForRpc : ReceiptForRpc
     [JsonPropertyName("multiGasUsed")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public MultiGasForJson? MultiGasUsed { get; set; }
+
+    [JsonPropertyName("timeboosted")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsTimeboosted { get; set; }
 }
