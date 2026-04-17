@@ -36,6 +36,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
             .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
@@ -75,6 +76,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
             .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
@@ -114,6 +116,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
             .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
@@ -161,6 +164,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build(); // no need to flush trie here, do it before RecordBlockCreation call
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -317,6 +321,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -423,6 +428,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -532,6 +538,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -604,6 +611,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -707,6 +715,7 @@ public class ArbitrumWitnessGenerationTests
     {
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock()
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -823,6 +832,7 @@ public class ArbitrumWitnessGenerationTests
     {
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock()
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         UInt256 l1BaseFee = 92;
@@ -862,6 +872,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -1005,6 +1016,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -1142,6 +1154,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -1268,6 +1281,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee, arbosVersion: ArbosVersion.Forty)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
             .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
@@ -1307,6 +1321,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;

@@ -30,7 +30,7 @@ public sealed class ArbitrumBlockFactory(
     IBlocksConfig blocksConfig,
     IArbitrumConfig arbitrumConfig,
     IArbitrumSequencerBlockSuggester blockSuggester,
-    StateReconstructor stateReconstructor,
+    IStateReconstructor stateReconstructor,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockFactory>();

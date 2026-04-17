@@ -36,8 +36,8 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
     public Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber)
         => Task.FromResult(engine.BlockNumberToMessageIndex(blockNumber));
 
-    public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
-        => ToOkResult(engine.SetFinalityData(parameters));
+    public async Task<ResultWrapper<string>> SetFinalityData(SetFinalityDataParams parameters)
+        => ToOkResult(await engine.SetFinalityData(parameters));
 
     public ResultWrapper<string> MarkFeedStart(ulong to)
         => ToOkResult(engine.MarkFeedStart(to));
@@ -66,7 +66,7 @@ public class ArbitrumRpcModule(IArbitrumExecutionEngine engine) : IArbitrumRpcMo
     public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
         => engine.RecordBlockCreation(parameters);
 
-    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+    public Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
         => engine.PrepareForRecord(parameters);
 
     public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
