@@ -589,9 +589,9 @@ public sealed class ArbitrumExecutionEngine(
         Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
         if (canonicalHash != parameters.ResultHash)
         {
-            if (_logger.IsError)
-                _logger.Error($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
-            return ResultWrapper<EmptyResponse>.Success(default);
+            if (_logger.IsWarn)
+                _logger.Warn($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
+            return ResultWrapper<EmptyResponse>.Fail($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
         }
 
         // Promote the candidate (its block number must be ≤ validBlockNumber)

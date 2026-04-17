@@ -269,8 +269,8 @@ public class StateReconstructor : IDisposable
             // which should never happen if FullPruning's trigger is of reasonable size (not like a few Mbs).
             if (validHeader is null)
             {
-                if (_logger.IsError)
-                    _logger.Error("CopyStatesForFullPruning: no confirmed valid header, skipping validator state copy.");
+                if (_logger.IsWarn)
+                    _logger.Warn("CopyStatesForFullPruning: no confirmed valid header, skipping validator state copy.");
                 return;
             }
 
