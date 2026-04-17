@@ -270,19 +270,19 @@ public class StateReconstructor : IStateReconstructor, IDisposable
             if (validHeader is null)
             {
                 if (_logger.IsWarn)
-                    _logger.Warn("CopyStatesForFullPruning: no confirmed valid header, skipping validator state copy.");
+                    _logger.Warn("CopyLastValidStateForFullPruning: no confirmed valid header, skipping validator state copy.");
                 return;
             }
 
             if (validHeader.Number >= pruningBaseBlock)
             {
                 if (_logger.IsInfo)
-                    _logger.Info($"CopyStatesForFullPruning: valid header {validHeader.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
+                    _logger.Info($"CopyLastValidStateForFullPruning: valid header {validHeader.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
                 return;
             }
 
             if (_logger.IsInfo)
-                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHeader={validHeader.Number}");
+                _logger.Info($"CopyLastValidStateForFullPruning: copying validator states — validHeader={validHeader.Number}");
 
             copyToNewDb(validHeader);
 
