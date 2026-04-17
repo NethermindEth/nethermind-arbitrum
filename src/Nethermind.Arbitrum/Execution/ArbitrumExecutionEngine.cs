@@ -200,6 +200,8 @@ public sealed class ArbitrumExecutionEngine(
             // Set finality data
             _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
 
+            // No need to really check the result of MarkValid i believe because
+            // nitro's MarkValid does not return any error, only logs warnings/errors
             if (arbitrumConfig.ValidationEnabled && validatedFinalityData.HasValue)
                 MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
 
