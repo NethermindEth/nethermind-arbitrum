@@ -183,7 +183,7 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
+    public async Task<ResultWrapper<EmptyResponse>> SetFinalityData(SetFinalityDataParams parameters)
     {
         try
         {
@@ -203,7 +203,7 @@ public sealed class ArbitrumExecutionEngine(
             // No need to really check the result of MarkValid i believe because
             // nitro's MarkValid does not return any error, only logs warnings/errors
             if (arbitrumConfig.ValidationEnabled && validatedFinalityData.HasValue)
-                MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
+                await MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
 
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
@@ -578,9 +578,10 @@ public sealed class ArbitrumExecutionEngine(
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    private ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
+    private async Task<ResultWrapper<EmptyResponse>> MarkValid(MarkValidParameters parameters)
     {
-        stateReconstructor.WaitForPruningGate();
+        await stateReconstructor.WaitForPruningGateAsync();
+
         ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
         if (blockNumberResult.Result != Result.Success)
             return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);

@@ -537,7 +537,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.ArbOSVersionForMessageIndex(messageIndex);
         }
 
-        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+        public Task<ResultWrapper<string>> SetFinalityData(SetFinalityDataParams parameters)
         {
             return rpc.SetFinalityData(parameters);
         }

@@ -50,7 +50,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine, ArbitrumCl
         return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
     }
 
-    public ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData)

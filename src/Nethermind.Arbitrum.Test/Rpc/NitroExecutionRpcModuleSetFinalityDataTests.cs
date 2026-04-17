@@ -10,8 +10,10 @@ using Nethermind.Arbitrum.Modules;
 using Nethermind.Logging;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
+using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Test;
 using NSubstitute;
+using Nethermind.Arbitrum.Test.Infrastructure;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
 
@@ -43,7 +45,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper.EmptySuccess);
+            .Returns(Task.FromResult(ResultWrapper<EmptyResponse>.Success(default)));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, new ArbitrumClHealthTracker(LimboLogs.Instance));
 
@@ -72,7 +74,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper.EmptySuccess);
+            .Returns(Task.FromResult(ResultWrapper<EmptyResponse>.Success(default)));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, new ArbitrumClHealthTracker(LimboLogs.Instance));
 
@@ -98,7 +100,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
     {
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Any<SetFinalityDataParams>())
-            .Returns(ResultWrapper.EmptySuccess);
+            .Returns(Task.FromResult(ResultWrapper<EmptyResponse>.Success(default)));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, new ArbitrumClHealthTracker(LimboLogs.Instance));
 
@@ -128,7 +130,7 @@ public sealed class NitroExecutionRpcModuleSetFinalityDataTests
         SetFinalityDataParams? capturedParams = null;
         IArbitrumExecutionEngine engine = Substitute.For<IArbitrumExecutionEngine>();
         engine.SetFinalityData(Arg.Do<SetFinalityDataParams>(p => capturedParams = p))
-            .Returns(ResultWrapper.EmptySuccess);
+            .Returns(Task.FromResult(ResultWrapper<EmptyResponse>.Success(default)));
 
         INitroExecutionRpcModule module = new NitroExecutionRpcModule(engine, new ArbitrumClHealthTracker(LimboLogs.Instance));
 
