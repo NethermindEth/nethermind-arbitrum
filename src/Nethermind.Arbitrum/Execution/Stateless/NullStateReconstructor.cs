@@ -17,7 +17,6 @@ public sealed class NullStateReconstructor : IStateReconstructor
     public BlockHeader? TryPromoteValidCandidate(long validBlockNumber) => null;
     public void DereferenceRoot(Hash256 parentStateRoot) { }
     public Task WaitForPruningGateAsync() => Task.CompletedTask;
-    public void WaitForPruningGate() { }
     public void PreparedAddTrim(List<BlockHeader> headers) { }
     public void ReorgTo(BlockHeader header) { }
     public void CopyLastValidStateForFullPruning(long pruningBaseBlock, Action<BlockHeader> copyToNewDb) { }

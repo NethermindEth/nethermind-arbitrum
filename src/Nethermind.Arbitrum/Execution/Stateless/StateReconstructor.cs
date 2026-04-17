@@ -304,9 +304,6 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// </summary>
     public Task WaitForPruningGateAsync() => _pruningGate?.Tcs.Task ?? Task.CompletedTask;
 
-    /// <summary>Synchronous variant of <see cref="WaitForPruningGateAsync"/> for sync callers.</summary>
-    public void WaitForPruningGate() => WaitForPruningGateAsync().GetAwaiter().GetResult();
-
     private void OnPruningStarted(object? sender, PruningEventArgs args)
     {
         _fullPruningCts.Cancel();
