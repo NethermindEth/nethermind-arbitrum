@@ -39,6 +39,7 @@ using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
@@ -403,9 +404,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         IArbitrumConfig arbitrumConfig = chain.Container.Resolve<IArbitrumConfig>();
 
         if (arbitrumConfig.SequencerEnabled)
-        {
             chain.Container.Resolve<SequencerState>().Activate();
-        }
 
         chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine, chain.Container.Resolve<ArbitrumClHealthTracker>());
         chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
@@ -413,7 +412,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return chain;
     }
 
-    internal static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain, TransactionQueue? transactionQueue = null, SequencerState? sequencerState = null)
+    private static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain)
     {
         return new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
@@ -434,10 +433,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            transactionQueue ?? chain.Container.Resolve<TransactionQueue>(),
-            sequencerState ?? chain.Container.Resolve<SequencerState>(),
+            chain.Container.Resolve<TransactionQueue>(),
+            chain.Container.Resolve<SequencerState>(),
             chain.Container.Resolve<IEthereumEcdsa>(),
-            chain.Container.Resolve<IArbitrumConfig>()
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IBlockMetadataProvider>()
         );
     }
 

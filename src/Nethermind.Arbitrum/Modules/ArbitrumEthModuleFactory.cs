@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Blockchain;
@@ -47,7 +48,8 @@ public class ArbitrumEthModuleFactory(
     IEthereumEcdsa ecdsa,
     TransactionQueue transactionQueue,
     SequencerState sequencerState,
-    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IArbitrumEthRpcModule>
+    IArbitrumConfig arbitrumConfig,
+    IBlockMetadataProvider blockMetadataProvider) : ModuleFactoryBase<IArbitrumEthRpcModule>
 {
     public override IArbitrumEthRpcModule Create()
     {
@@ -73,6 +75,7 @@ public class ArbitrumEthModuleFactory(
             transactionQueue,
             sequencerState,
             ecdsa,
-            arbitrumConfig);
+            arbitrumConfig,
+            blockMetadataProvider);
     }
 }

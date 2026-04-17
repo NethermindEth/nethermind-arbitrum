@@ -17,6 +17,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
@@ -312,7 +313,24 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             // Rpcs
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
-            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
+
+        if (arbitrumConfig.ConsensusNodeRpcEnabled)
+        {
+            if (!Uri.TryCreate(arbitrumConfig.ConsensusNodeRpcUrl, UriKind.Absolute, out Uri? consensusUri) ||
+                (consensusUri.Scheme != Uri.UriSchemeHttp && consensusUri.Scheme != Uri.UriSchemeHttps))
+                throw new ArgumentException(
+                    $"{nameof(ArbitrumConfig.ConsensusNodeRpcUrl)} must be a valid absolute http/https URL when {nameof(ArbitrumConfig.ConsensusNodeRpcEnabled)} is true. " +
+                    $"Configured value: '{arbitrumConfig.ConsensusNodeRpcUrl}'.");
+
+            builder.AddSingleton<IArbitrumConsensusClient, ArbitrumConsensusClient>();
+        }
+        else
+            builder.AddSingleton<IArbitrumConsensusClient, DisabledArbitrumConsensusClient>();
+
+        builder.AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
+
+        builder
             .AddSingleton<ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
