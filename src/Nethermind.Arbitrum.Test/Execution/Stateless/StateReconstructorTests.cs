@@ -143,9 +143,7 @@ public class StateReconstructorTests
 
         ulong start = 5;
         ulong end = 10;
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start, end));
-        result.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         // State roots for all blocks in the range [start-1, end] (in addition to genesis) should now be available.
         // StateReconstructor also reconstructed the blocks before the start block (from nearest available,
@@ -179,9 +177,7 @@ public class StateReconstructorTests
 
         ulong start = 13;
         ulong end = 17;
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start, end));
-        result.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         // State roots for all blocks in the range [start-1, end] (in addition to the already available
         // genesis and the intermediate block) should now be available.
@@ -217,10 +213,7 @@ public class StateReconstructorTests
         }
 
         // In archive mode, state is always available — PrepareForRecord is a no-op
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 10, End: 15));
-
-        result.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 10, End: 15)).ShouldAsync().RequestSucceed();
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)chain.LatestL2BlockIndex; blockNum++)
         {
@@ -237,11 +230,7 @@ public class StateReconstructorTests
 
         ulong start = 10;
         ulong end = 5;
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start, end));
-
-        result.Result.Should().NotBe(Result.Success);
-        result.Result.Error.Should().Be($"Invalid range: start {start} > end {end}");
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestFail($"Invalid range: start {start} > end {end}");
     }
 
     [Test]
@@ -252,9 +241,7 @@ public class StateReconstructorTests
 
         ulong prepareStart = 14;
         ulong prepareEnd = 17;
-        ResultWrapper<EmptyResponse> prepareResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(prepareStart, prepareEnd));
-        prepareResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(prepareStart, prepareEnd)).ShouldAsync().RequestSucceed();
 
         // PrepareForRecord also includes the parent state (prepareStart-1) so RecordBlockCreation can access it
         long overlayStart = (long)prepareStart - 1;
@@ -302,9 +289,7 @@ public class StateReconstructorTests
         // First PrepareForRecord: 4 states [4,5,6,7] prepared but max=3 → block 4 immediately evicted.
         // But block 4's state (first one in the range) got referenced as the validHeaderCandidate.
         // So, even if not in queue anymore, its state still exists in memDB.
-        ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 5, End: 7));
-        firstResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 5, End: 7)).ShouldAsync().RequestSucceed();
 
         trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeTrue(
             "block 4 got referenced as validHeaderCandidate even if evicted from queue");
@@ -313,9 +298,7 @@ public class StateReconstructorTests
         trieStore.HasRoot(chain.BlockTree.FindHeader(7)!.StateRoot!).Should().BeTrue("block 7 should be available");
 
         // Second PrepareForRecord: 4 more states [9,10,11,12] added → queue [5,6,7,9,10,11,12], keep 3 most recent [10,11,12]
-        ResultWrapper<EmptyResponse> secondResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 10, End: 12));
-        secondResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 10, End: 12)).ShouldAsync().RequestSucceed();
 
         trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeTrue("block 4 should still be referenced as validHeaderCandidate");
         trieStore.HasRoot(chain.BlockTree.FindHeader(5)!.StateRoot!).Should().BeFalse("block 5 should be evicted");
@@ -339,9 +322,7 @@ public class StateReconstructorTests
         // Phase 1: prepare states for blocks 3-7 (PrepareForRecord includes start-1=3)
         ulong start1 = 4;
         ulong end1 = 7;
-        ResultWrapper<EmptyResponse> firstPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start1, end1));
-        firstPrepare.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start1, end1)).ShouldAsync().RequestSucceed();
 
         DigestMessageParameters lastDigestMsg = GetLastDigestedMessage();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
@@ -381,9 +362,7 @@ public class StateReconstructorTests
         // Phase 3: second PrepareForRecord prepares [11,12,13,14] → queue [3,4,5,6,7,11,12,13,14], evict 4 oldest [3,4,5,6] to keep only 5
         // But the first PrepareForRecord call earlier set the first header in the range (start-1=3) as the _validHeaderCandidate
         // and therefore referenced it. So, even if that header got evicted from the queue, its state is still referenced.
-        ResultWrapper<EmptyResponse> secondPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 12, End: 14));
-        secondPrepare.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 12, End: 14)).ShouldAsync().RequestSucceed();
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
@@ -452,9 +431,7 @@ public class StateReconstructorTests
 
         // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
         // After this call _preparedQueue = [block0, block1, …, block9].
-        ResultWrapper<EmptyResponse> prepareResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 1, End: 9));
-        prepareResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 1, End: 9)).ShouldAsync().RequestSucceed();
 
         // Blocks 1–9 are now in the MemDb overlay (not yet written back to main state DB).
         trieStore.DirtySize.Should().BeGreaterThan(0,
@@ -511,9 +488,7 @@ public class StateReconstructorTests
 
         // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
         // After this call _preparedQueue = [block0, block1, …, block9].
-        ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 1, End: 9));
-        firstResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 1, End: 9)).ShouldAsync().RequestSucceed();
 
         // MemDb has state BEFORE the PrepareForRecord that will trigger actual spilling.
         trieStore.DirtySize.Should().BeGreaterThan(0,
@@ -533,9 +508,7 @@ public class StateReconstructorTests
         // MaybeCap fires 9 times (once per block 10–18 reconstruction).
         // The populated _preparedQueue is drained: block0 is short-circuited (already on disk),
         // then blocks 1–9 are spilled via DereferenceAndSpill.
-        ResultWrapper<EmptyResponse> secondResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 11, End: 18));
-        secondResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 11, End: 18)).ShouldAsync().RequestSucceed();
 
         // MemDb still has state AFTER capping (blocks 10–18 are still present),
         // as after block 10's reconstruction, _preparedQueue is empty again,

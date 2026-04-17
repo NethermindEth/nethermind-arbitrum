@@ -41,8 +41,7 @@ public class MarkValidTests
         ulong start = 3;
         ulong end = 5;
 
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         // _validHeaderCandidate is block start-1=2 (the oldest block PrepareForRecord touches).
         // MarkValid at pos=end promotes it because candidate.Number (2) <= blockNumber(end) (5).
@@ -92,8 +91,7 @@ public class MarkValidTests
         // First promotion: PrepareForRecord(3, 5) → MarkValid(5) → _validHeader = block 2
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -125,8 +123,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         SetFinalityDataParams finalityData = new() { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = Keccak.Zero } };
         // Fails when calling ValidateAndGetBlockHash, even before reaching MarkValid
@@ -169,8 +166,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -269,8 +265,7 @@ public class MarkValidTests
         // PrepareForRecord(3,5) reconstructs blocks 3-4 into the overlay; validHeader = block 2.
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -336,8 +331,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -378,8 +372,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -430,8 +423,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -467,8 +459,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         BlockHeader block2Header = chain.BlockTree.FindHeader((long)start - 1, BlockTreeLookupOptions.RequireCanonical)!;
         ReadValidCandidateHeader(stateReconstructor)!.Number.Should().Be(block2Header.Number, "sanity: candidate at block 2");
@@ -500,8 +491,7 @@ public class MarkValidTests
 
         ulong start = 3;
         ulong end = 5;
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
@@ -574,8 +564,7 @@ public class MarkValidTests
             });
 
         // PrepareForRecord(3,5) + SetFinalityData(5) → _validHeader = block 2
-        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(3, 5))
-            .Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(3, 5)).ShouldAsync().RequestSucceed();
         BlockHeader block5Header = chain.BlockTree.FindHeader(5, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams
         {

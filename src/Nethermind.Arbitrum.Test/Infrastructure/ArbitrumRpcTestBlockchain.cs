@@ -580,7 +580,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
             => rpc.RecordBlockCreation(parameters);
 
-        public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+        public Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
             => rpc.PrepareForRecord(parameters);
 
         public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)

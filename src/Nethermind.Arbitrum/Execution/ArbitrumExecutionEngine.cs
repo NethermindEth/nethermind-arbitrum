@@ -535,9 +535,9 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+    public async Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
     {
-        stateReconstructor.WaitForPruningGate();
+        await stateReconstructor.WaitForPruningGateAsync();
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 

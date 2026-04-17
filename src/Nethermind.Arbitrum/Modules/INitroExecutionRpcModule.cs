@@ -97,5 +97,5 @@ public interface INitroExecutionRpcModule : IRpcModule
     Task<ResultWrapper<RecordResult>> nitroexecution_recordBlockCreation(ulong pos, MessageWithMetadata message, string[] wasmTargets);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<EmptyResponse> nitroexecution_prepareForRecord(ulong start, ulong end);
+    Task<ResultWrapper<EmptyResponse>> nitroexecution_prepareForRecord(ulong start, ulong end);
 }
