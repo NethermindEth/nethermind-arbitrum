@@ -423,11 +423,10 @@ public class MarkValidTests
     [Test]
     public async Task ReorgTo_BelowValidHeader_ClearsValidHeaderAndReleasesMemDbState()
     {
-        using ArbitrumRpcTestBlockchain chain = BuildChain();
+        HashSet<long> blocksToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChain(blocksToKeep);
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-
-        StateReconstructorTests.SimulatePruning(chain, blockNumberToKeep: 0);
 
         ulong start = 3;
         ulong end = 5;
@@ -461,11 +460,10 @@ public class MarkValidTests
     [Test]
     public async Task ReorgTo_BelowValidCandidate_ClearsCandidateAndReleasesMemDbState()
     {
-        using ArbitrumRpcTestBlockchain chain = BuildChain();
+        HashSet<long> blocksToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChain(blocksToKeep);
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-
-        StateReconstructorTests.SimulatePruning(chain, blockNumberToKeep: 0);
 
         ulong start = 3;
         ulong end = 5;
@@ -495,11 +493,10 @@ public class MarkValidTests
     [Test]
     public async Task ReorgTo_AtOrAboveValidHeader_KeepsValidHeaderAndItsMemDbState()
     {
-        using ArbitrumRpcTestBlockchain chain = BuildChain();
+        HashSet<long> blocksToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChain(blocksToKeep);
         StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-
-        StateReconstructorTests.SimulatePruning(chain, blockNumberToKeep: 0);
 
         ulong start = 3;
         ulong end = 5;
@@ -633,11 +630,18 @@ public class MarkValidTests
             "since no pruning gate was set, OnPruningFinished must not restore it");
     }
 
-    private static ArbitrumRpcTestBlockchain BuildChain() =>
-        new ArbitrumTestBlockchainBuilder()
+    private static ArbitrumRpcTestBlockchain BuildChain(HashSet<long>? blockNumbersToKeep = null)
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(new FullChainSimulationRecordingFile(RecordingPath))
             .WithArbitrumConfig(config => config.ValidationEnabled = true)
             .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+
+        if (blockNumbersToKeep is not null)
+            StateReconstructorTests.SimulatePruning(chain, blockNumbersToKeep);
+
+        return chain;
+    }
 
     private static DigestMessageParameters GetLastDigestedMessage()
     {
