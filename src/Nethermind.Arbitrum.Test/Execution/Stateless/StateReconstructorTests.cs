@@ -3,6 +3,7 @@
 
 using Autofac;
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -11,7 +12,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Db;
 using Nethermind.JsonRpc;
 using Nethermind.Trie;
-using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Test.Execution.Stateless;
 
@@ -615,11 +615,14 @@ public class StateReconstructorTests
         ArbitrumTestBlockchainBuilder builder = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording);
 
-        if (maxStateRootsInMem.HasValue)
-            builder.WithArbitrumConfig(cfg => cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem.Value);
+        Action<ArbitrumConfig> configure = cfg =>
+        {
+            cfg.ValidationEnabled = true;
+            cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem ?? cfg.ValidatorMaxStateRootsInMem;
+            cfg.ValidatorReconstructedStateMemDBMaxSizeMb = maxMemDbSizeMb ?? cfg.ValidatorReconstructedStateMemDBMaxSizeMb;
+        };
 
-        if (maxMemDbSizeMb.HasValue)
-            builder.WithArbitrumConfig(cfg => cfg.ValidatorReconstructedStateMemDBMaxSizeMb = maxMemDbSizeMb.Value);
+        builder.WithArbitrumConfig(configure);
 
         // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore
         ArbitrumRpcTestBlockchain chain = builder.Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));

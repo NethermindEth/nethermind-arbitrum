@@ -50,7 +50,7 @@ public class MarkValidTests
         SetFinalityDataParams finalityData = new() { ValidatedFinalityData = new RpcFinalityData() { MsgIdx = end, BlockHash = endHeader.Hash! } };
         chain.ArbitrumRpcModule.SetFinalityData(finalityData).Should().RequestSucceed();
 
-        BlockHeader? validHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        BlockHeader? validHeader = ReadValidHeader(chain.StateReconstructor);
         validHeader.Should().NotBeNull();
         validHeader!.Number.Should().Be((long)start - 1);
     }
@@ -75,7 +75,7 @@ public class MarkValidTests
         BlockHeader lastHeader = chain.BlockTree.FindHeader((long)lastMessage.Index, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = lastMessage.Index, BlockHash = lastHeader.Hash! } }).Should().RequestSucceed();
 
-        BlockHeader? validHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        BlockHeader? validHeader = ReadValidHeader(chain.StateReconstructor);
         validHeader.Should().NotBeNull();
         validHeader!.Number.Should().Be((long)lastMessage.Index - 1);
     }
@@ -97,7 +97,7 @@ public class MarkValidTests
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
-        BlockHeader? firstValidHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        BlockHeader? firstValidHeader = ReadValidHeader(chain.StateReconstructor);
         firstValidHeader!.Number.Should().Be((long)start - 1, "first SetFinalityData should promote block start-1");
 
         // Second promotion: RecordBlockCreation → SetFinalityData → _validHeader = parent of last block
@@ -108,7 +108,7 @@ public class MarkValidTests
         BlockHeader lastHeader = chain.BlockTree.FindHeader((long)lastMessage.Index, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = lastMessage.Index, BlockHash = lastHeader.Hash! } }).Should().RequestSucceed();
 
-        BlockHeader? secondValidHeader = ReadValidHeader(chain.Container.Resolve<StateReconstructor>());
+        BlockHeader? secondValidHeader = ReadValidHeader(chain.StateReconstructor);
         secondValidHeader!.Number.Should().Be((long)lastMessage.Index - 1,
             "second MarkValid should advance _validHeader to the recorded block's parent");
         secondValidHeader.Number.Should().BeGreaterThan(firstValidHeader.Number,
@@ -132,7 +132,7 @@ public class MarkValidTests
         // Fails when calling ValidateAndGetBlockHash, even before reaching MarkValid
         chain.ArbitrumRpcModule.SetFinalityData(finalityData).Should().RequestFail(ArbitrumRpcErrors.InternalError);
 
-        ReadValidHeader(chain.Container.Resolve<StateReconstructor>()).Should().BeNull(
+        ReadValidHeader(chain.StateReconstructor).Should().BeNull(
             "wrong ResultHash should not promote the candidate");
     }
 
@@ -174,7 +174,7 @@ public class MarkValidTests
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
         validHeader!.Number.Should().Be((long)start - 1);
@@ -341,7 +341,7 @@ public class MarkValidTests
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
         validHeader!.Number.Should().Be(2);
 
@@ -383,7 +383,7 @@ public class MarkValidTests
         BlockHeader endHeader = chain.BlockTree.FindHeader((long)end, BlockTreeLookupOptions.RequireCanonical)!;
         chain.ArbitrumRpcModule.SetFinalityData(new SetFinalityDataParams { ValidatedFinalityData = new RpcFinalityData { MsgIdx = end, BlockHash = endHeader.Hash! } }).Should().RequestSucceed();
 
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         BlockHeader? validHeader = ReadValidHeader(stateReconstructor);
         validHeader.Should().NotBeNull();
 
@@ -425,7 +425,7 @@ public class MarkValidTests
     {
         HashSet<long> blocksToKeep = [0];
         using ArbitrumRpcTestBlockchain chain = BuildChain(blocksToKeep);
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
         ulong start = 3;
@@ -462,7 +462,7 @@ public class MarkValidTests
     {
         HashSet<long> blocksToKeep = [0];
         using ArbitrumRpcTestBlockchain chain = BuildChain(blocksToKeep);
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
         ulong start = 3;
@@ -495,7 +495,7 @@ public class MarkValidTests
     {
         HashSet<long> blocksToKeep = [0];
         using ArbitrumRpcTestBlockchain chain = BuildChain(blocksToKeep);
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         ReconstructedStateTrieStore reconStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
         ulong start = 3;
@@ -582,7 +582,7 @@ public class MarkValidTests
             ValidatedFinalityData = new RpcFinalityData { MsgIdx = 5, BlockHash = block5Header.Hash! }
         }).Should().RequestSucceed();
 
-        StateReconstructor stateReconstructor = chain.Container.Resolve<StateReconstructor>();
+        IStateReconstructor stateReconstructor = chain.StateReconstructor;
         ReadValidHeader(stateReconstructor)!.Number.Should().Be(2, "sanity: _validHeader at block 2 before reorg");
 
         IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
@@ -655,32 +655,32 @@ public class MarkValidTests
         return recording.GetDigestMessages().Single(m => m.Index == index);
     }
 
-    private static BlockHeader? ReadValidHeader(StateReconstructor stateReconstructor) =>
+    private static BlockHeader? ReadValidHeader(IStateReconstructor stateReconstructor) =>
         (BlockHeader?)typeof(StateReconstructor)
             .GetField("_validHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(stateReconstructor);
 
-    private static void SetValidHeader(StateReconstructor stateReconstructor, BlockHeader? value) =>
+    private static void SetValidHeader(IStateReconstructor stateReconstructor, BlockHeader? value) =>
         typeof(StateReconstructor)
             .GetField("_validHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(stateReconstructor, value);
 
-    private static void SetMarkerPath(StateReconstructor stateReconstructor, string path) =>
+    private static void SetMarkerPath(IStateReconstructor stateReconstructor, string path) =>
         typeof(StateReconstructor)
             .GetField("_validMarkerPath", BindingFlags.NonPublic | BindingFlags.Instance)!
             .SetValue(stateReconstructor, path);
 
-    private static void InvokePersistOnShutdown(StateReconstructor reconstructor) =>
+    private static void InvokePersistOnShutdown(IStateReconstructor reconstructor) =>
         typeof(StateReconstructor)
             .GetMethod("PersistOnShutdown", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(reconstructor, null);
 
-    private static void InvokeRestoreValidHeader(StateReconstructor reconstructor) =>
+    private static void InvokeRestoreValidHeader(IStateReconstructor reconstructor) =>
         typeof(StateReconstructor)
             .GetMethod("RestoreValidHeader", BindingFlags.NonPublic | BindingFlags.Instance)!
             .Invoke(reconstructor, null);
 
-    private static BlockHeader? ReadValidCandidateHeader(StateReconstructor stateReconstructor) =>
+    private static BlockHeader? ReadValidCandidateHeader(IStateReconstructor stateReconstructor) =>
         (BlockHeader?)typeof(StateReconstructor)
             .GetField("_validHeaderCandidate", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(stateReconstructor);

@@ -24,7 +24,7 @@ using Nethermind.Arbitrum.Math;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor : IDisposable
+public class StateReconstructor : IStateReconstructor, IDisposable
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly INodeStorage _mainNodeStorage;
