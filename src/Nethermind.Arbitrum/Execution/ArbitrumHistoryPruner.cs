@@ -29,40 +29,28 @@ namespace Nethermind.Arbitrum.Execution;
 /// is never deleted, using <see cref="IArbitrumSpecHelper.GenesisBlockNum"/> from the chain spec.
 /// </para>
 /// </summary>
-public sealed class ArbitrumHistoryPruner : IArbitrumHistoryPruner
+public sealed class ArbitrumHistoryPruner(HistoryPruner inner, IBlocksConfig blocksConfig) : IHistoryPruner
 {
-    private readonly HistoryPruner _inner;
-    private readonly IProcessExitSource _processExitSource;
-    private readonly bool _buildBlocksOnMainState;
+    private readonly bool _buildBlocksOnMainState = blocksConfig.BuildBlocksOnMainState;
 
-    public ArbitrumHistoryPruner(HistoryPruner inner, IProcessExitSource processExitSource, IArbitrumSpecHelper specHelper, IBlocksConfig blocksConfig)
-    {
-        // Genesis block must never be pruned. In Arbitrum the genesis is not always block 0,
-        // so we set the first deletable block to GenesisBlockNum + 1.
-        inner.SetMinDeletableBlockNumber((long)(specHelper.GenesisBlockNum + 1));
-        _inner = inner;
-        _processExitSource = processExitSource;
-        _buildBlocksOnMainState = blocksConfig.BuildBlocksOnMainState;
-    }
-
-    public long? CutoffBlockNumber => _inner.CutoffBlockNumber;
-    public BlockHeader? OldestBlockHeader => _inner.OldestBlockHeader;
+    public long? CutoffBlockNumber => inner.CutoffBlockNumber;
+    public BlockHeader? OldestBlockHeader => inner.OldestBlockHeader;
 
     public event EventHandler<OnNewOldestBlockArgs>? NewOldestBlock
     {
-        add => _inner.NewOldestBlock += value;
-        remove => _inner.NewOldestBlock -= value;
+        add => inner.NewOldestBlock += value;
+        remove => inner.NewOldestBlock -= value;
     }
 
-    /// <inheritdoc/>
     /// <remarks>
     /// Only schedules when <c>BuildBlocksOnMainState</c> is enabled. When disabled, the existing
     /// <c>ProcessingQueueEmpty</c> subscription on the inner <see cref="HistoryPruner"/> handles
     /// triggering, so calling this would result in double-scheduling.
     /// </remarks>
-    public void SchedulePruning()
+    public void SchedulePruneHistory(CancellationToken cancellationToken)
     {
-        if (_buildBlocksOnMainState)
-            _inner.SchedulePruneHistory(_processExitSource.Token);
+        if (!_buildBlocksOnMainState)
+            return;
+        inner.SchedulePruneHistory(cancellationToken);
     }
 }

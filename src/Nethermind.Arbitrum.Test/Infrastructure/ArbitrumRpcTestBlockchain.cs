@@ -41,6 +41,7 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -398,7 +399,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IAuctionResolutionQueue>(),
             chain.Container.Resolve<IEthereumEcdsa>(),
             chain.Dependencies.StateReconstructor,
-            chain.Container.Resolve<IArbitrumHistoryPruner>());
+            chain.Container.Resolve<IProcessExitSource>(),
+            chain.Container.Resolve<IHistoryPruner>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 

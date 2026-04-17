@@ -309,8 +309,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<ArbitrumBlockFactory>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
-            .AddSingleton<IArbitrumHistoryPruner, ArbitrumHistoryPruner>()
-            .Bind<IHistoryPruner, IArbitrumHistoryPruner>()
+            .AddDecorator<IHistoryPruner, ArbitrumHistoryPruner>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
 
