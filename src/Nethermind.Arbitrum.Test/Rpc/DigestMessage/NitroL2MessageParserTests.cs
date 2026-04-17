@@ -215,8 +215,7 @@ public class NitroL2MessageParserTests
         };
 
         transaction.Should().BeEquivalentTo(expectedTransaction, options =>
-            options.Using<ReadOnlyMemory<byte>>(ctx =>
-                    ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
+            options.Using<ReadOnlyMemory<byte>>(ctx => ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                 .WhenTypeIs<ReadOnlyMemory<byte>>());
     }
 
