@@ -10,7 +10,7 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 /// No-op <see cref="IStateReconstructor"/> used when validation is disabled.
 /// Produces no logs and performs no work.
 /// </summary>
-public sealed class NullStateReconstructor : IStateReconstructor
+public sealed class NoOpStateReconstructor : IStateReconstructor
 {
     public void EnsureStateAvailable(BlockHeader targetParent) { }
     public void UpdateValidCandidateHeader(BlockHeader header) { }

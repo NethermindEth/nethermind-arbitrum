@@ -369,7 +369,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                     .AddSingleton<IFullPrunerFactory, ArbitrumFullPrunerFactory>();
             else
                 builder
-                    .AddSingleton<IStateReconstructor, NullStateReconstructor>();
+                    .AddSingleton<IStateReconstructor, NoOpStateReconstructor>();
         }
     }
 
