@@ -575,9 +575,10 @@ public class StateReconstructorTests
 
     /// <summary>
     /// Simulates disk pruning by removing all state-root keys from the main state DB except for
-    /// <paramref name="blockNumberToKeep"/>. After <see cref="ArbitrumTestBlockchainBuilder.Build"/>
+    /// <paramref name="blockNumbersToKeep"/>. After <see cref="ArbitrumTestBlockchainBuilder.Build"/>
     /// calls <c>FlushCache</c>, every block's state root is on disk; this helper then deletes all but
-    /// one, leaving the rest accessible only through the MemDb overlay (if referenced) or not at all.
+    /// the ones passed. No state is accessible through the reconstructed state MemDb overlay as
+    /// this method is called right after the chain is built.
     /// </summary>
     public static void SimulatePruning(ArbitrumRpcTestBlockchain chain, HashSet<long> blockNumbersToKeep)
     {
