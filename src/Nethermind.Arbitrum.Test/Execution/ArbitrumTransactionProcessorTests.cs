@@ -1607,9 +1607,6 @@ public class ArbitrumTransactionProcessorTests
     [Test]
     public void ProcessArbitrumSubmitRetryableTransaction_AutoRedeemsRetryable_IncrementsNumTries()
     {
-        // Regression test for #157 / PR #156: a retryable that is auto-redeemed during
-        // submission must have its NumTries counter incremented. Without this, replays
-        // would reuse the same nonce on the auto-redeem retry transaction.
         UInt256 l1BaseFee = 39;
 
         Action<ContainerBuilder> preConfigurer = cb =>
