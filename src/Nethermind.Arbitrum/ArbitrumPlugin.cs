@@ -336,7 +336,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
 
         builder
-            .AddModule(new ArbitrumValidatorModule())
+            .AddModule(new ArbitrumValidatorModule(arbitrumConfig))
             .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
 
         if (blocksConfig.BuildBlocksOnMainState)
@@ -351,19 +351,26 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         public Hash256? GetBlockHashFromState(BlockHeader currentBlockHeader, long requiredBlockNumber, IReleaseSpec spec) => null;
     }
 
-    private class ArbitrumValidatorModule : Module
+    private class ArbitrumValidatorModule(IArbitrumConfig arbitrumConfig) : Module
     {
-        protected override void Load(ContainerBuilder builder) => builder
-            // Execution recording (witness generation + state reconstruction)
-            .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new Db.MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
-            .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
-            .AddSingleton<StateReconstructor>()
-            .AddSingleton<IFullPrunerFactory, ArbitrumFullPrunerFactory>()
-            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
-            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+        protected override void Load(ContainerBuilder builder)
+        {
+            builder
+                // Always needed: witness factory for debug_executionWitness endpoint
+                .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
+                .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+                .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+                .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
 
-            // Not used in validator mode but related
-            .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
+            if (arbitrumConfig.ValidationEnabled)
+                builder
+                    .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
+                    .AddSingleton<IStateReconstructor, StateReconstructor>()
+                    .AddSingleton<IFullPrunerFactory, ArbitrumFullPrunerFactory>();
+            else
+                builder
+                    .AddSingleton<IStateReconstructor, NoOpStateReconstructor>();
+        }
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

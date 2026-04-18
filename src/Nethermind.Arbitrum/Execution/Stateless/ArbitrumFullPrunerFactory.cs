@@ -35,7 +35,7 @@ public class ArbitrumFullPrunerFactory(
     IFileSystem fileSystem,
     ITimerFactory timerFactory,
     CompositePruningTrigger compositePruningTrigger,
-    StateReconstructor stateReconstructor,
+    IStateReconstructor stateReconstructor,
     ReconstructedStateTrieStore reconStore,
     ILogManager logManager
 ) : IFullPrunerFactory

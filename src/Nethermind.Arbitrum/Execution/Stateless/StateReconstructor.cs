@@ -24,7 +24,7 @@ using Nethermind.Arbitrum.Math;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
-public class StateReconstructor : IDisposable
+public class StateReconstructor : IStateReconstructor, IDisposable
 {
     private readonly ReconstructedStateTrieStore _trieStore;
     private readonly INodeStorage _mainNodeStorage;
@@ -269,20 +269,20 @@ public class StateReconstructor : IDisposable
             // which should never happen if FullPruning's trigger is of reasonable size (not like a few Mbs).
             if (validHeader is null)
             {
-                if (_logger.IsError)
-                    _logger.Error("CopyStatesForFullPruning: no confirmed valid header, skipping validator state copy.");
+                if (_logger.IsWarn)
+                    _logger.Warn("CopyLastValidStateForFullPruning: no confirmed valid header, skipping validator state copy.");
                 return;
             }
 
             if (validHeader.Number >= pruningBaseBlock)
             {
                 if (_logger.IsInfo)
-                    _logger.Info($"CopyStatesForFullPruning: valid header {validHeader.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
+                    _logger.Info($"CopyLastValidStateForFullPruning: valid header {validHeader.Number} is not older than pruning base block {pruningBaseBlock}, skipping validator state copy.");
                 return;
             }
 
             if (_logger.IsInfo)
-                _logger.Info($"CopyStatesForFullPruning: copying validator states — validHeader={validHeader.Number}");
+                _logger.Info($"CopyLastValidStateForFullPruning: copying validator states — validHeader={validHeader.Number}");
 
             copyToNewDb(validHeader);
 
@@ -303,9 +303,6 @@ public class StateReconstructor : IDisposable
     /// MemDb state so they don't observe a partially-committed or already-cleared overlay.
     /// </summary>
     public Task WaitForPruningGateAsync() => _pruningGate?.Tcs.Task ?? Task.CompletedTask;
-
-    /// <summary>Synchronous variant of <see cref="WaitForPruningGateAsync"/> for sync callers.</summary>
-    public void WaitForPruningGate() => WaitForPruningGateAsync().GetAwaiter().GetResult();
 
     private void OnPruningStarted(object? sender, PruningEventArgs args)
     {
