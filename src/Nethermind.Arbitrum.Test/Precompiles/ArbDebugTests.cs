@@ -3,7 +3,9 @@
 
 using System.Text;
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -181,5 +183,38 @@ public class ArbDebugTests
 
         byte[]? currentCode = _worldState.GetCode(targetAddress);
         currentCode.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbDebug.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("becomeChainOwner()"),
+            PrecompileHelper.GetMethodId("events(bool,bytes32)"),
+            PrecompileHelper.GetMethodId("eventsView()"),
+            PrecompileHelper.GetMethodId("customRevert(uint64)"),
+            PrecompileHelper.GetMethodId("panic()"),
+            PrecompileHelper.GetMethodId("legacyError()"),
+            PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbDebug.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("Basic", "Mixed", "Store");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbDebug.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("Custom", "Unused");
     }
 }

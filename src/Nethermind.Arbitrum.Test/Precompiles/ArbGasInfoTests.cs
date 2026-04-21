@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
@@ -181,5 +182,54 @@ public class ArbGasInfoTests
         // Verify the constraint with zeros is returned correctly
         constraints.Should().HaveCount(1);
         constraints[0].Should().Equal([0UL, 0UL, 0UL], "Should handle zero values correctly");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)"),
+            PrecompileHelper.GetMethodId("getPricesInWei()"),
+            PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)"),
+            PrecompileHelper.GetMethodId("getPricesInArbGas()"),
+            PrecompileHelper.GetMethodId("getGasAccountingParams()"),
+            PrecompileHelper.GetMethodId("getMinimumGasPrice()"),
+            PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()"),
+            PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()"),
+            PrecompileHelper.GetMethodId("getL1RewardRate()"),
+            PrecompileHelper.GetMethodId("getL1RewardRecipient()"),
+            PrecompileHelper.GetMethodId("getL1GasPriceEstimate()"),
+            PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()"),
+            PrecompileHelper.GetMethodId("getGasBacklog()"),
+            PrecompileHelper.GetMethodId("getPricingInertia()"),
+            PrecompileHelper.GetMethodId("getGasBacklogTolerance()"),
+            PrecompileHelper.GetMethodId("getMaxTxGasLimit()"),
+            PrecompileHelper.GetMethodId("getL1PricingSurplus()"),
+            PrecompileHelper.GetMethodId("getPerBatchGasCharge()"),
+            PrecompileHelper.GetMethodId("getAmortizedCostCapBips()"),
+            PrecompileHelper.GetMethodId("getL1FeesAvailable()"),
+            PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()"),
+            PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()"),
+            PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()"),
+            PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()"),
+            PrecompileHelper.GetMethodId("getLastL1PricingSurplus()"),
+            PrecompileHelper.GetMethodId("getMaxBlockGasLimit()"),
+            PrecompileHelper.GetMethodId("getGasPricingConstraints()"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        AbiMetadata.GetAllEventDescriptions(ArbGasInfo.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        AbiMetadata.GetAllErrorDescriptions(ArbGasInfo.Abi).Should().BeEmpty();
     }
 }

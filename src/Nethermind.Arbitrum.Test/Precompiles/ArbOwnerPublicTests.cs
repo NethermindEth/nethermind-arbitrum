@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
@@ -14,7 +14,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
@@ -575,5 +574,35 @@ public class ArbOwnerPublicTests
         ulong result = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
 
         result.Should().Be(0);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbOwnerPublic.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("isChainOwner(address)"),
+            PrecompileHelper.GetMethodId("getAllChainOwners()"),
+            PrecompileHelper.GetMethodId("rectifyChainOwner(address)"),
+            PrecompileHelper.GetMethodId("isNativeTokenOwner(address)"),
+            PrecompileHelper.GetMethodId("getAllNativeTokenOwners()"),
+            PrecompileHelper.GetMethodId("getNetworkFeeAccount()"),
+            PrecompileHelper.GetMethodId("getInfraFeeAccount()"),
+            PrecompileHelper.GetMethodId("getBrotliCompressionLevel()"),
+            PrecompileHelper.GetMethodId("getParentGasFloorPerToken()"),
+            PrecompileHelper.GetMethodId("getNativeTokenManagementFrom()"),
+            PrecompileHelper.GetMethodId("getScheduledUpgrade()"),
+            PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbOwnerPublic.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ChainOwnerRectified");
     }
 }

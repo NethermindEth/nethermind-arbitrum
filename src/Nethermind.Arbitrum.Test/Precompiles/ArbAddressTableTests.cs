@@ -4,11 +4,11 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -30,7 +30,7 @@ public sealed class ArbAddressTableTests
     public void SetUp()
     {
         _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
@@ -41,7 +41,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void AddressExists_WithRegisteredAddress_ReturnsTrue()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         _arbosState.AddressTable.Register(TestAddress);
 
         bool exists = ArbAddressTable.AddressExists(_context, TestAddress);
@@ -52,7 +52,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void AddressExists_WithUnregisteredAddress_ReturnsFalse()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         bool exists = ArbAddressTable.AddressExists(_context, TestAddress);
 
         exists.Should().BeFalse();
@@ -61,7 +61,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Compress_WithUnregisteredAddress_ReturnsFullAddress()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] compressed = ArbAddressTable.Compress(_context, TestAddress);
 
         compressed.Should().NotBeNull();
@@ -71,7 +71,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Compress_WithRegisteredAddress_ReturnsCompressedIndex()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         _arbosState.AddressTable.Register(TestAddress);
 
         byte[] compressed = ArbAddressTable.Compress(_context, TestAddress);
@@ -83,7 +83,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Decompress_WithValidData_ReturnsAddressAndBytesRead()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] compressed = _arbosState.AddressTable.Compress(TestAddress);
 
         (Address address, UInt256 bytesRead) = ArbAddressTable.Decompress(_context, compressed, UInt256.Zero);
@@ -108,7 +108,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Lookup_WithRegisteredAddress_ReturnsIndex()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         ulong expectedIndex = _arbosState.AddressTable.Register(TestAddress);
 
         UInt256 index = ArbAddressTable.Lookup(_context, TestAddress);
@@ -119,7 +119,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Lookup_WithUnregisteredAddress_ThrowsArgumentException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => ArbAddressTable.Lookup(_context, TestAddress);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
@@ -130,7 +130,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void LookupIndex_WithValidIndex_ReturnsAddress()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         ulong index = _arbosState.AddressTable.Register(TestAddress);
 
         Address address = ArbAddressTable.LookupIndex(_context, new UInt256(index));
@@ -143,7 +143,7 @@ public sealed class ArbAddressTableTests
     {
         UInt256 invalidIndex = new(999);
 
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Action action = () => ArbAddressTable.LookupIndex(_context, invalidIndex);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
@@ -166,7 +166,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Register_WithNewAddress_ReturnsIndex()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 index = ArbAddressTable.Register(_context, TestAddress);
 
         index.Should().Be(UInt256.Zero); // The first registered address gets index 0
@@ -175,7 +175,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Register_WithExistingAddress_ReturnsSameIndex()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         ulong expectedIndex = _arbosState.AddressTable.Register(TestAddress);
 
         UInt256 index = ArbAddressTable.Register(_context, TestAddress);
@@ -186,7 +186,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Size_OnEmptyTable_ReturnsZero()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 size = ArbAddressTable.Size(_context);
 
         size.Should().Be(UInt256.Zero);
@@ -199,7 +199,7 @@ public sealed class ArbAddressTableTests
         Address address2 = new("0x2222222222222222222222222222222222222222");
         Address address3 = new("0x3333333333333333333333333333333333333333");
 
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
         _arbosState.AddressTable.Register(address1);
         _arbosState.AddressTable.Register(address2);
@@ -216,7 +216,7 @@ public sealed class ArbAddressTableTests
         Address unregisteredAddress = new("0x9876543210987654321098765432109876543210");
         Address[] testAddresses = [TestAddress, unregisteredAddress];
 
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         // Register only the first address
         _arbosState.AddressTable.Register(testAddresses[0]);
 
@@ -262,5 +262,34 @@ public sealed class ArbAddressTableTests
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException($"Offset {(int)offsetBeyondBuffer} exceeds buffer length {buffer.Length} in ArbAddressTable.Decompress");
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("addressExists(address)"),
+            PrecompileHelper.GetMethodId("compress(address)"),
+            PrecompileHelper.GetMethodId("decompress(bytes,uint256)"),
+            PrecompileHelper.GetMethodId("lookup(address)"),
+            PrecompileHelper.GetMethodId("lookupIndex(uint256)"),
+            PrecompileHelper.GetMethodId("register(address)"),
+            PrecompileHelper.GetMethodId("size()"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        AbiMetadata.GetAllEventDescriptions(ArbAddressTable.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        AbiMetadata.GetAllErrorDescriptions(ArbAddressTable.Abi).Should().BeEmpty();
     }
 }

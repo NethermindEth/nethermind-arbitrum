@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
@@ -12,6 +15,7 @@ using Nethermind.Evm.State;
 using Nethermind.Logging;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
+using ArbWasm = Nethermind.Arbitrum.Precompiles.ArbWasm;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -346,5 +350,51 @@ public sealed class ArbWasmTests
         ushort size = BlockCacheSize(_context);
 
         size.Should().Be(32);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("activateProgram(address)"),
+            PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)"),
+            PrecompileHelper.GetMethodId("stylusVersion()"),
+            PrecompileHelper.GetMethodId("inkPrice()"),
+            PrecompileHelper.GetMethodId("maxStackDepth()"),
+            PrecompileHelper.GetMethodId("freePages()"),
+            PrecompileHelper.GetMethodId("pageGas()"),
+            PrecompileHelper.GetMethodId("pageRamp()"),
+            PrecompileHelper.GetMethodId("pageLimit()"),
+            PrecompileHelper.GetMethodId("minInitGas()"),
+            PrecompileHelper.GetMethodId("initCostScalar()"),
+            PrecompileHelper.GetMethodId("expiryDays()"),
+            PrecompileHelper.GetMethodId("keepaliveDays()"),
+            PrecompileHelper.GetMethodId("blockCacheSize()"),
+            PrecompileHelper.GetMethodId("codehashVersion(bytes32)"),
+            PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)"),
+            PrecompileHelper.GetMethodId("programVersion(address)"),
+            PrecompileHelper.GetMethodId("programInitGas(address)"),
+            PrecompileHelper.GetMethodId("programMemoryFootprint(address)"),
+            PrecompileHelper.GetMethodId("programTimeLeft(address)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbWasm.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ProgramActivated", "ProgramLifetimeExtended");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbWasm.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("ProgramNotWasm", "ProgramNotActivated", "ProgramNeedsUpgrade", "ProgramExpired", "ProgramUpToDate", "ProgramKeepaliveTooSoon", "ProgramInsufficientValue");
     }
 }

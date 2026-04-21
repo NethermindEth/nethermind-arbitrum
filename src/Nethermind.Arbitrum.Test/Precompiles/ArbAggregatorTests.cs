@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -333,5 +334,35 @@ public class ArbAggregatorTests
         // Base fee should still be zero
         UInt256 finalFee = ArbAggregator.GetTxBaseFee(_context, aggregatorAddr);
         finalFee.Should().Be(UInt256.Zero);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbAggregator.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("getPreferredAggregator(address)"),
+            PrecompileHelper.GetMethodId("getDefaultAggregator()"),
+            PrecompileHelper.GetMethodId("getBatchPosters()"),
+            PrecompileHelper.GetMethodId("addBatchPoster(address)"),
+            PrecompileHelper.GetMethodId("getFeeCollector(address)"),
+            PrecompileHelper.GetMethodId("setFeeCollector(address,address)"),
+            PrecompileHelper.GetMethodId("getTxBaseFee(address)"),
+            PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        AbiMetadata.GetAllEventDescriptions(ArbAggregator.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        AbiMetadata.GetAllErrorDescriptions(ArbAggregator.Abi).Should().BeEmpty();
     }
 }
