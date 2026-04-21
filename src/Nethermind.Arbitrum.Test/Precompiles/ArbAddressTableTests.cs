@@ -292,4 +292,16 @@ public sealed class ArbAddressTableTests
     {
         AbiMetadata.GetAllErrorDescriptions(ArbAddressTable.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("addressExists(address)").Should().Be(0xa5025222u);
+        PrecompileHelper.GetMethodId("compress(address)").Should().Be(0xf6a455a2u);
+        PrecompileHelper.GetMethodId("decompress(bytes,uint256)").Should().Be(0x31862adau);
+        PrecompileHelper.GetMethodId("lookup(address)").Should().Be(0xd4b6b5dau);
+        PrecompileHelper.GetMethodId("lookupIndex(uint256)").Should().Be(0x8a186788u);
+        PrecompileHelper.GetMethodId("register(address)").Should().Be(0x4420e486u);
+        PrecompileHelper.GetMethodId("size()").Should().Be(0x949d225du);
+    }
 }

@@ -32,4 +32,10 @@ public class ArbStatisticsTests
     {
         AbiMetadata.GetAllErrorDescriptions(ArbStatistics.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("getStats()").Should().Be(0xc59d4847u);
+    }
 }

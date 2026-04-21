@@ -605,4 +605,21 @@ public class ArbOwnerPublicTests
 
         allEvents.Keys.Should().BeEquivalentTo("ChainOwnerRectified");
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("isChainOwner(address)").Should().Be(0x26ef7f68u);
+        PrecompileHelper.GetMethodId("getAllChainOwners()").Should().Be(0x516b4e0fu);
+        PrecompileHelper.GetMethodId("rectifyChainOwner(address)").Should().Be(0x6fe86373u);
+        PrecompileHelper.GetMethodId("isNativeTokenOwner(address)").Should().Be(0xc686f4dbu);
+        PrecompileHelper.GetMethodId("getAllNativeTokenOwners()").Should().Be(0x3f8601e4u);
+        PrecompileHelper.GetMethodId("getNetworkFeeAccount()").Should().Be(0x2d9125e9u);
+        PrecompileHelper.GetMethodId("getInfraFeeAccount()").Should().Be(0xee95a824u);
+        PrecompileHelper.GetMethodId("getBrotliCompressionLevel()").Should().Be(0x22d499c7u);
+        PrecompileHelper.GetMethodId("getParentGasFloorPerToken()").Should().Be(0x49ccdaffu);
+        PrecompileHelper.GetMethodId("getNativeTokenManagementFrom()").Should().Be(0x3fecbab0u);
+        PrecompileHelper.GetMethodId("getScheduledUpgrade()").Should().Be(0x81ef944cu);
+        PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()").Should().Be(0x2aa9551eu);
+    }
 }

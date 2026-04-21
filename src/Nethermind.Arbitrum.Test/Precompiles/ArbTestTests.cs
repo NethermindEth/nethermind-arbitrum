@@ -116,4 +116,10 @@ public sealed class ArbTestTests
     {
         AbiMetadata.GetAllErrorDescriptions(ArbTest.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("burnArbGas(uint256)").Should().Be(0xbb3480f9u);
+    }
 }

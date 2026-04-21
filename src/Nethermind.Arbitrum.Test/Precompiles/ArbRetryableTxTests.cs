@@ -916,5 +916,18 @@ public class ArbRetryableTxTests
         allErrors.Keys.Should().BeEquivalentTo("NoTicketWithID", "NotCallable");
     }
 
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("redeem(bytes32)").Should().Be(0xeda1122cu);
+        PrecompileHelper.GetMethodId("getLifetime()").Should().Be(0x81e6e083u);
+        PrecompileHelper.GetMethodId("getTimeout(bytes32)").Should().Be(0x9f1025c6u);
+        PrecompileHelper.GetMethodId("keepalive(bytes32)").Should().Be(0xf0b21a41u);
+        PrecompileHelper.GetMethodId("getBeneficiary(bytes32)").Should().Be(0xba20dda4u);
+        PrecompileHelper.GetMethodId("cancel(bytes32)").Should().Be(0xc4d252f5u);
+        PrecompileHelper.GetMethodId("getCurrentRedeemer()").Should().Be(0xde4ba2b3u);
+        PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)").Should().Be(0xc9f95d32u);
+    }
+
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());
 }

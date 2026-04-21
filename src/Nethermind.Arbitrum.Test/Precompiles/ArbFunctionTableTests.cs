@@ -103,4 +103,12 @@ public sealed class ArbFunctionTableTests
     {
         AbiMetadata.GetAllErrorDescriptions(ArbFunctionTable.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("upload(bytes)").Should().Be(0xce2ae159u);
+        PrecompileHelper.GetMethodId("size(address)").Should().Be(0x88987068u);
+        PrecompileHelper.GetMethodId("get(address,uint256)").Should().Be(0xb464631bu);
+    }
 }

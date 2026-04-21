@@ -228,4 +228,11 @@ public class ArbInfoTests
     {
         AbiMetadata.GetAllErrorDescriptions(ArbInfo.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("getBalance(address)").Should().Be(0xf8b2cb4fu);
+        PrecompileHelper.GetMethodId("getCode(address)").Should().Be(0x7e105ce2u);
+    }
 }

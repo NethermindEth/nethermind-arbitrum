@@ -217,4 +217,16 @@ public class ArbDebugTests
 
         allErrors.Keys.Should().BeEquivalentTo("Custom", "Unused");
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("becomeChainOwner()").Should().Be(0x0e5bbc11u);
+        PrecompileHelper.GetMethodId("events(bool,bytes32)").Should().Be(0x7b9963efu);
+        PrecompileHelper.GetMethodId("eventsView()").Should().Be(0x8e5f30abu);
+        PrecompileHelper.GetMethodId("customRevert(uint64)").Should().Be(0x7ea89f8bu);
+        PrecompileHelper.GetMethodId("panic()").Should().Be(0x4700d305u);
+        PrecompileHelper.GetMethodId("legacyError()").Should().Be(0x1e48fe82u);
+        PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(0x1be250d6u);
+    }
 }

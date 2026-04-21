@@ -397,4 +397,29 @@ public sealed class ArbWasmTests
 
         allErrors.Keys.Should().BeEquivalentTo("ProgramNotWasm", "ProgramNotActivated", "ProgramNeedsUpgrade", "ProgramExpired", "ProgramUpToDate", "ProgramKeepaliveTooSoon", "ProgramInsufficientValue");
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("activateProgram(address)").Should().Be(0x58c780c2u);
+        PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)").Should().Be(0xc689bad5u);
+        PrecompileHelper.GetMethodId("stylusVersion()").Should().Be(0xa996e0c2u);
+        PrecompileHelper.GetMethodId("inkPrice()").Should().Be(0xd1c17abcu);
+        PrecompileHelper.GetMethodId("maxStackDepth()").Should().Be(0x8ccfaa70u);
+        PrecompileHelper.GetMethodId("freePages()").Should().Be(0x4490c19du);
+        PrecompileHelper.GetMethodId("pageGas()").Should().Be(0x7af4ba49u);
+        PrecompileHelper.GetMethodId("pageRamp()").Should().Be(0x11c82ae8u);
+        PrecompileHelper.GetMethodId("pageLimit()").Should().Be(0x9786f96eu);
+        PrecompileHelper.GetMethodId("minInitGas()").Should().Be(0x99d0b38du);
+        PrecompileHelper.GetMethodId("initCostScalar()").Should().Be(0x5fc94c0bu);
+        PrecompileHelper.GetMethodId("expiryDays()").Should().Be(0x309f6555u);
+        PrecompileHelper.GetMethodId("keepaliveDays()").Should().Be(0x0a936455u);
+        PrecompileHelper.GetMethodId("blockCacheSize()").Should().Be(0x7af6e819u);
+        PrecompileHelper.GetMethodId("codehashVersion(bytes32)").Should().Be(0xd70c0ca7u);
+        PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)").Should().Be(0x4089267fu);
+        PrecompileHelper.GetMethodId("programVersion(address)").Should().Be(0xcc8f4e88u);
+        PrecompileHelper.GetMethodId("programInitGas(address)").Should().Be(0x62b688aau);
+        PrecompileHelper.GetMethodId("programMemoryFootprint(address)").Should().Be(0xaef36be3u);
+        PrecompileHelper.GetMethodId("programTimeLeft(address)").Should().Be(0xc775a62au);
+    }
 }

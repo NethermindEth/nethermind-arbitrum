@@ -912,4 +912,21 @@ public class ArbSysTests
 
         allErrors.Keys.Should().BeEquivalentTo("InvalidBlockNumber");
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("arbBlockNumber()").Should().Be(0xa3b1b31du);
+        PrecompileHelper.GetMethodId("arbBlockHash(uint256)").Should().Be(0x2b407a82u);
+        PrecompileHelper.GetMethodId("arbChainID()").Should().Be(0xd127f54au);
+        PrecompileHelper.GetMethodId("arbOSVersion()").Should().Be(0x051038f2u);
+        PrecompileHelper.GetMethodId("getStorageGasAvailable()").Should().Be(0xa94597ffu);
+        PrecompileHelper.GetMethodId("isTopLevelCall()").Should().Be(0x08bd624cu);
+        PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)").Should().Be(0x4dbbd506u);
+        PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()").Should().Be(0x175a260bu);
+        PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()").Should().Be(0xd74523b3u);
+        PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)").Should().Be(0x928c169au);
+        PrecompileHelper.GetMethodId("sendMerkleTreeState()").Should().Be(0x7aeecd2au);
+        PrecompileHelper.GetMethodId("withdrawEth(address)").Should().Be(0x25e16063u);
+    }
 }

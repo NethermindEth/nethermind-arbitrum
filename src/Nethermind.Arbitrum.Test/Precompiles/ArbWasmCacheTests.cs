@@ -40,4 +40,15 @@ public class ArbWasmCacheTests
     {
         AbiMetadata.GetAllErrorDescriptions(ArbWasmCache.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("isCacheManager(address)").Should().Be(0x85e2de85u);
+        PrecompileHelper.GetMethodId("allCacheManagers()").Should().Be(0x0ec1d773u);
+        PrecompileHelper.GetMethodId("cacheCodehash(bytes32)").Should().Be(0x4ceac817u);
+        PrecompileHelper.GetMethodId("cacheProgram(address)").Should().Be(0xe73ac9f2u);
+        PrecompileHelper.GetMethodId("evictCodehash(bytes32)").Should().Be(0xce972013u);
+        PrecompileHelper.GetMethodId("codehashIsCached(bytes32)").Should().Be(0xa72f179bu);
+    }
 }

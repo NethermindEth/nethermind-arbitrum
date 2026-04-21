@@ -149,4 +149,12 @@ public sealed class ArbActsTests
     {
         AbiMetadata.GetAllEventDescriptions(ArbActs.Abi).Should().BeEmpty();
     }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)").Should().Be(0x6bf6a42du);
+        PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)").Should().Be(0xb6693771u);
+        PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)").Should().Be(0x9998269eu);
+    }
 }

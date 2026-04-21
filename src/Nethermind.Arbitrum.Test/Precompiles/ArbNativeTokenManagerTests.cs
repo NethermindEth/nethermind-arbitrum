@@ -421,6 +421,13 @@ public class ArbNativeTokenManagerTests
         AbiMetadata.GetAllErrorDescriptions(ArbNativeTokenManager.Abi).Should().BeEmpty();
     }
 
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("mintNativeToken(uint256)").Should().Be(0xa6f0f7c7u);
+        PrecompileHelper.GetMethodId("burnNativeToken(uint256)").Should().Be(0x1c679a3cu);
+    }
+
     private static TestContext CreateTestContext(
         Address owner,
         bool authorizeOwner,
