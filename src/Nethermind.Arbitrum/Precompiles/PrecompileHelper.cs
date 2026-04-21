@@ -27,6 +27,15 @@ public static class PrecompileHelper
         return BinaryPrimitives.ReadUInt32BigEndian(error.GetHash().Bytes[..4]);
     }
 
+    public static bool TryCheckMethodVisibility(this IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, uint methodId, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
+    {
+        Span<byte> calldataBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(calldataBytes, methodId);
+        ReadOnlySpan<byte> calldata = calldataBytes;
+
+        return TryCheckMethodVisibility(precompile, context, logger, ref calldata, out shouldRevert, out methodToExecute);
+    }
+
     public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         => precompile switch
         {

@@ -45,6 +45,11 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this;
     }
 
+    public PrecompileTestContextBuilder WithExecutingAccount(Address executingAccount)
+    {
+        return this with { ExecutingAccount = executingAccount };
+    }
+
     public void ResetGasLeft(ulong gasLeft = 0)
     {
         GasLeft = gasLeft == 0 ? GasSupplied : gasLeft;

@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
@@ -456,5 +457,39 @@ public sealed class ArbWasmTests
         errors["ProgramKeepaliveTooSoon"].GetSelector().Should().Be(0x16bd0cf8u);
         // keccak256("ProgramInsufficientValue(uint256,uint256)")[0..4]
         errors["ProgramInsufficientValue"].GetSelector().Should().Be(0x09781ab7u);
+    }
+
+    [TestCase("stylusVersion()")]
+    [TestCase("activateProgram(address)")]
+    [TestCase("codehashVersion(bytes32)")]
+    public void MethodVisibility_BelowStylusArbOSVersion_IsSilentlyRejected(string signature)
+    {
+        // The entire ArbWasm precompile is gated at ArbosVersion.Stylus; below that, the check at
+        // PrecompileHelper.cs:61-62 exits before reading the method ID, so handler stays null too.
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus - 1);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId(signature), out bool shouldRevert, out PrecompileHandler? handler);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeFalse();
+        handler.Should().BeNull();
+    }
+
+    [TestCase("stylusVersion()")]
+    [TestCase("activateProgram(address)")]
+    [TestCase("codehashVersion(bytes32)")]
+    public void MethodVisibility_AtStylusArbOSVersion_IsDispatched(string signature)
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus)
+            .WithExecutingAccount(ArbWasmParser.Address);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId(signature), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 }

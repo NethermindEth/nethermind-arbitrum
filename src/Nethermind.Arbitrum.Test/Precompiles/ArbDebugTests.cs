@@ -4,10 +4,12 @@
 using System.Text;
 using FluentAssertions;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles.Parser;
 using Nethermind.Core;
@@ -15,6 +17,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -228,5 +231,50 @@ public class ArbDebugTests
         PrecompileHelper.GetMethodId("panic()").Should().Be(0x4700d305u);
         PrecompileHelper.GetMethodId("legacyError()").Should().Be(0x1e48fe82u);
         PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(0x1be250d6u);
+    }
+
+    [Test]
+    public void Panic_BelowStylusArbOSVersion_IsRejected()
+    {
+        // ArbDebugParser sets panic()'s ArbOSVersion to Stylus while the precompile itself stays v0,
+        // so panic is method-gated (revert below) while sibling methods like becomeChainOwner stay
+        // reachable at v0 — the negative control guards against accidental precompile-wide gating.
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus - 1);
+
+        bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("panic()"), out bool shouldRevert, out PrecompileHandler? _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void Panic_AtStylusArbOSVersion_IsDispatched()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus)
+            .WithExecutingAccount(ArbDebugParser.Address);
+
+        bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("panic()"), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
+    public void BecomeChainOwner_AtArbOSVersionZero_IsDispatched()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Zero)
+            .WithExecutingAccount(ArbDebugParser.Address);
+
+        bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("becomeChainOwner()"), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 }

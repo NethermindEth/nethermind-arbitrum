@@ -3,15 +3,23 @@
 
 using FluentAssertions;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Precompiles.Parser;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Test;
+using Nethermind.Evm.State;
+using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 [TestFixture]
 public class ArbOwnerTests
 {
+    private const ulong DefaultGasSupplied = 1_000_000;
+
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
@@ -160,5 +168,40 @@ public class ArbOwnerTests
         // keccak256("OwnerActs(bytes4,address,bytes)")
         ArbOwner.OwnerActsEvent.GetHash().Should().Be(
             new Hash256("0x3c9e6a772755407311e3b35b3ee56799df8f87395941b3a658eee9e08a67ebda"));
+    }
+
+    [Test]
+    public void SetGasPricingConstraints_BelowFiftyArbOSVersion_IsRejected()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateScope = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Fifty - 1);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("setGasPricingConstraints(uint64[3][])"), out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void SetGasPricingConstraints_AtFiftyArbOSVersion_IsDispatched()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateScope = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithExecutingAccount(ArbOwnerParser.Address);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("setGasPricingConstraints(uint64[3][])"), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 }
