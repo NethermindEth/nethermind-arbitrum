@@ -929,4 +929,27 @@ public class ArbSysTests
         PrecompileHelper.GetMethodId("sendMerkleTreeState()").Should().Be(0x7aeecd2au);
         PrecompileHelper.GetMethodId("withdrawEth(address)").Should().Be(0x25e16063u);
     }
+
+    [Test]
+    public void EventTopics_AllEvents_MatchExpectedHashes()
+    {
+        // keccak256("SendMerkleUpdate(uint256,bytes32,uint256)")
+        ArbSys.SendMerkleUpdateEvent.GetHash().Should().Be(
+            new Hash256("0xe9e13da364699fb5b0496ff5a0fc70760ad5836e93ba96568a4e42b9914a8b95"));
+
+        // keccak256("L2ToL1Tx(address,address,uint256,uint256,uint256,uint256,uint256,uint256,bytes)")
+        ArbSys.L2ToL1TxEvent.GetHash().Should().Be(
+            new Hash256("0x3e7aafa77dbf186b7fd488006beff893744caa3c4f6f299e8a709fa2087374fc"));
+
+        // keccak256("L2ToL1Transaction(address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bytes)")
+        ArbSys.L2ToL1TransactionEvent.GetHash().Should().Be(
+            new Hash256("0x5baaa87db386365b5c161be377bc3d8e317e8d98d71a3ca7ed7d555340c8f767"));
+    }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        // keccak256("InvalidBlockNumber(uint256,uint256)")[0..4]
+        ArbSys.InvalidBlockNumber.GetSelector().Should().Be(0xd5dc642du);
+    }
 }

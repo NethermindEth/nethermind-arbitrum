@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -151,5 +152,13 @@ public class ArbOwnerTests
         PrecompileHelper.GetMethodId("setWasmBlockCacheSize(uint16)").Should().Be(0x380f1457u);
         PrecompileHelper.GetMethodId("addWasmCacheManager(address)").Should().Be(0xffdca515u);
         PrecompileHelper.GetMethodId("removeWasmCacheManager(address)").Should().Be(0xbf197322u);
+    }
+
+    [Test]
+    public void EventTopics_AllEvents_MatchExpectedHashes()
+    {
+        // keccak256("OwnerActs(bytes4,address,bytes)")
+        ArbOwner.OwnerActsEvent.GetHash().Should().Be(
+            new Hash256("0x3c9e6a772755407311e3b35b3ee56799df8f87395941b3a658eee9e08a67ebda"));
     }
 }

@@ -422,4 +422,39 @@ public sealed class ArbWasmTests
         PrecompileHelper.GetMethodId("programMemoryFootprint(address)").Should().Be(0xaef36be3u);
         PrecompileHelper.GetMethodId("programTimeLeft(address)").Should().Be(0xc775a62au);
     }
+
+    [Test]
+    public void EventTopics_AllEvents_MatchExpectedHashes()
+    {
+        Dictionary<string, AbiEventDescription> events = AbiMetadata.GetAllEventDescriptions(ArbWasm.Abi);
+
+        // keccak256("ProgramActivated(bytes32,bytes32,address,uint256,uint16)")
+        events["ProgramActivated"].GetHash().Should().Be(
+            new Hash256("0xc0e812780707128d9a180db8ee4d1c1f1300b6dd0626d577b5d9ac759b76253c"));
+
+        // keccak256("ProgramLifetimeExtended(bytes32,uint256)")
+        events["ProgramLifetimeExtended"].GetHash().Should().Be(
+            new Hash256("0x03802ba32e3bd489d2ab04abb93d10687e0b6883bcb091206ca75172d248f2ec"));
+    }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        Dictionary<string, AbiErrorDescription> errors = AbiMetadata.GetAllErrorDescriptions(ArbWasm.Abi);
+
+        // keccak256("ProgramNotWasm()")[0..4]
+        errors["ProgramNotWasm"].GetSelector().Should().Be(0x27f38212u);
+        // keccak256("ProgramNotActivated()")[0..4]
+        errors["ProgramNotActivated"].GetSelector().Should().Be(0x6f809c4eu);
+        // keccak256("ProgramNeedsUpgrade(uint16,uint16)")[0..4]
+        errors["ProgramNeedsUpgrade"].GetSelector().Should().Be(0x637d968fu);
+        // keccak256("ProgramExpired(uint64)")[0..4]
+        errors["ProgramExpired"].GetSelector().Should().Be(0xc9b12e52u);
+        // keccak256("ProgramUpToDate()")[0..4]
+        errors["ProgramUpToDate"].GetSelector().Should().Be(0xcc944bf2u);
+        // keccak256("ProgramKeepaliveTooSoon(uint64)")[0..4]
+        errors["ProgramKeepaliveTooSoon"].GetSelector().Should().Be(0x16bd0cf8u);
+        // keccak256("ProgramInsufficientValue(uint256,uint256)")[0..4]
+        errors["ProgramInsufficientValue"].GetSelector().Should().Be(0x09781ab7u);
+    }
 }

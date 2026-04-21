@@ -22,6 +22,11 @@ public static class PrecompileHelper
         return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
     }
 
+    public static uint GetSelector(this AbiErrorDescription error)
+    {
+        return BinaryPrimitives.ReadUInt32BigEndian(error.GetHash().Bytes[..4]);
+    }
+
     public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         => precompile switch
         {

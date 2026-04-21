@@ -157,4 +157,11 @@ public sealed class ArbActsTests
         PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)").Should().Be(0xb6693771u);
         PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)").Should().Be(0x9998269eu);
     }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        // keccak256("CallerNotArbOS()")[0..4]
+        ArbActs.CallerNotArbOS.GetSelector().Should().Be(0xf812e656u);
+    }
 }
