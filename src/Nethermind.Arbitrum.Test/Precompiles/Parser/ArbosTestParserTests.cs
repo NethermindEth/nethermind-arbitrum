@@ -17,7 +17,7 @@ using Nethermind.Int256;
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 [TestFixture]
-public sealed class ArbTestParserTests
+public sealed class ArbosTestParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
@@ -46,11 +46,11 @@ public sealed class ArbTestParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             gasAmount
         );
 
-        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         ulong initialGas = _context.GasLeft;
@@ -69,11 +69,11 @@ public sealed class ArbTestParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             gasAmount
         );
 
-        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -88,7 +88,7 @@ public sealed class ArbTestParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -107,7 +107,7 @@ public sealed class ArbTestParserTests
         BinaryPrimitives.WriteUInt32BigEndian(data, 0x12345678);
         uint invalidMethodId = BinaryPrimitives.ReadUInt32BigEndian(data);
 
-        bool exists = ArbTestParser.PrecompileImplementation.TryGetValue(invalidMethodId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(invalidMethodId, out PrecompileHandler? handler);
 
         exists.Should().BeFalse();
         handler.Should().BeNull();
@@ -116,6 +116,6 @@ public sealed class ArbTestParserTests
     [Test]
     public void Address_Always_ReturnsArbosTestAddress()
     {
-        ArbTestParser.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
+        ArbosTestParser.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
     }
 }

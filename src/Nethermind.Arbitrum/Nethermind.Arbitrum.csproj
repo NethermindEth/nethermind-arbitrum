@@ -17,6 +17,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Aliased: package types share FQN with plugin-local types (CS0436). Consumers must use `extern alias ArbitrumPrecompiles`. -->
+    <PackageReference Include="Nethermind.Arbitrum.Precompiles" Version="1.0.0-dev.8" Aliases="ArbitrumPrecompiles" />
     <PackageReference Include="Nethermind.Arbitrum.Stylus" Version="3.10.0-rc6" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj"/>

@@ -23,17 +23,17 @@ public static class EvmDataCallData
 
     /// <summary>
     /// Creates calldata for the evm-data contract.
-    /// Format: [balance_check_addr:20][eth_precompile_addr:20][arb_test_addr:20][contract_addr:20][burn_call_data:N]
+    /// Format: [balance_check_addr:20][eth_precompile_addr:20][arbos_test_addr:20][contract_addr:20][burn_call_data:N]
     /// </summary>
     /// <param name="balanceCheckAddress">Address to check balance for</param>
     /// <param name="ethPrecompileAddress">Ethereum precompile address (e.g., 0x01 for ecrecover)</param>
-    /// <param name="arbTestAddress">Arbitrum precompile address (0x69 for ArbTest)</param>
+    /// <param name="arbosTestAddress">Arbitrum precompile address (0x69 for ArbosTest)</param>
     /// <param name="contractAddress">Contract to get code/codehash for</param>
-    /// <param name="burnCallData">Optional calldata for ArbTest.burnArbGas call</param>
+    /// <param name="burnCallData">Optional calldata for ArbosTest.burnArbGas call</param>
     public static byte[] CreateCallData(
         Address balanceCheckAddress,
         Address ethPrecompileAddress,
-        Address arbTestAddress,
+        Address arbosTestAddress,
         Address contractAddress,
         byte[]? burnCallData = null)
     {
@@ -49,7 +49,7 @@ public static class EvmDataCallData
         ethPrecompileAddress.Bytes.CopyTo(result.AsSpan(offset, AddressSize));
         offset += AddressSize;
 
-        arbTestAddress.Bytes.CopyTo(result.AsSpan(offset, AddressSize));
+        arbosTestAddress.Bytes.CopyTo(result.AsSpan(offset, AddressSize));
         offset += AddressSize;
 
         contractAddress.Bytes.CopyTo(result.AsSpan(offset, AddressSize));
@@ -62,7 +62,7 @@ public static class EvmDataCallData
     }
 
     /// <summary>
-    /// Creates calldata for ArbTest.burnArbGas(uint256 gasAmount).
+    /// Creates calldata for ArbosTest.burnArbGas(uint256 gasAmount).
     /// Uses the same method ID calculation as ArbitrumPrecompiles.
     /// </summary>
     public static byte[] CreateBurnArbGasCallData(UInt256 gasAmount)

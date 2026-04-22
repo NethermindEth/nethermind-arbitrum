@@ -14,7 +14,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// ArbosActs precompile represents ArbOS's internal actions as calls it makes to itself.
 /// Calling this precompile will always revert and should not be done.
 /// </summary>
-public static class ArbActs
+public static class ArbosActs
 {
     public static Address Address => ArbosAddresses.ArbosAddress;
 
@@ -23,7 +23,7 @@ public static class ArbActs
 
     public static readonly AbiErrorDescription CallerNotArbOS;
 
-    static ArbActs()
+    static ArbosActs()
     {
         Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi);
         CallerNotArbOS = allErrors["CallerNotArbOS"];

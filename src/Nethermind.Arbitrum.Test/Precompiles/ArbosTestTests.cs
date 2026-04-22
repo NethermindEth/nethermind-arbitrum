@@ -16,7 +16,7 @@ using Nethermind.Logging;
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 [TestFixture]
-public sealed class ArbTestTests
+public sealed class ArbosTestTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
@@ -44,7 +44,7 @@ public sealed class ArbTestTests
         UInt256 gasAmount = 1000;
         ulong initialGas = _context.GasLeft;
 
-        ArbTest.BurnArbGas(_context, gasAmount);
+        ArbosTest.BurnArbGas(_context, gasAmount);
 
         ulong gasUsed = initialGas - _context.GasLeft;
         gasUsed.Should().Be((ulong)gasAmount);
@@ -57,7 +57,7 @@ public sealed class ArbTestTests
         UInt256 gasAmount = UInt256.Zero;
         ulong initialGas = _context.GasLeft;
 
-        ArbTest.BurnArbGas(_context, gasAmount);
+        ArbosTest.BurnArbGas(_context, gasAmount);
 
         ulong gasUsed = initialGas - _context.GasLeft;
         gasUsed.Should().Be(0);
@@ -69,7 +69,7 @@ public sealed class ArbTestTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = ulong.MaxValue;
 
-        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
+        Action action = () => ArbosTest.BurnArbGas(_context, gasAmount);
 
         action.Should().Throw<ArbitrumPrecompileException>()
             .Where(e => e.OutOfGas);
@@ -81,7 +81,7 @@ public sealed class ArbTestTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = (UInt256)ulong.MaxValue + 1;
 
-        Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
+        Action action = () => ArbosTest.BurnArbGas(_context, gasAmount);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateFailureException("not a uint64");
@@ -91,13 +91,13 @@ public sealed class ArbTestTests
     [Test]
     public void Address_Always_ReturnsArbosTestAddress()
     {
-        ArbTest.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
+        ArbosTest.Address.Should().Be(ArbosAddresses.ArbosTestAddress);
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbTest.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbosTest.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -108,13 +108,13 @@ public sealed class ArbTestTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbTest.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllEventDescriptions(ArbosTest.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbTest.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllErrorDescriptions(ArbosTest.Abi).Should().BeEmpty();
     }
 
     [Test]

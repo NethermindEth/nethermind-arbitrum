@@ -9,20 +9,20 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
-public class ArbTestParser : IArbitrumPrecompile<ArbTestParser>
+public class ArbosTestParser : IArbitrumPrecompile<ArbosTestParser>
 {
-    public static readonly ArbTestParser Instance = new();
+    public static readonly ArbosTestParser Instance = new();
 
-    public static Address Address { get; } = ArbTest.Address;
+    public static Address Address { get; } = ArbosTest.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbTest.Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbosTest.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
     private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
 
-    static ArbTestParser()
+    static ArbosTestParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
@@ -40,7 +40,7 @@ public class ArbTestParser : IArbitrumPrecompile<ArbTestParser>
 
         UInt256 gasAmount = (UInt256)decoded[0];
 
-        ArbTest.BurnArbGas(context, gasAmount);
+        ArbosTest.BurnArbGas(context, gasAmount);
 
         return Array.Empty<byte>();
     }

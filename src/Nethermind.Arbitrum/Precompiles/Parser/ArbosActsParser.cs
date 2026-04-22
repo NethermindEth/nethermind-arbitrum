@@ -9,14 +9,14 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
-public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
+public class ArbosActsParser : IArbitrumPrecompile<ArbosActsParser>
 {
-    public static readonly ArbActsParser Instance = new();
+    public static readonly ArbosActsParser Instance = new();
 
-    public static Address Address { get; } = ArbActs.Address;
+    public static Address Address { get; } = ArbosActs.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbActs.Abi);
+        = AbiMetadata.GetAllFunctionDescriptions(ArbosActs.Abi);
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
@@ -24,7 +24,7 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
     private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
     private static readonly uint _batchPostingReportV2Id = PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
 
-    static ArbActsParser()
+    static ArbosActsParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
@@ -47,7 +47,7 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
         ulong l2BlockNumber = (ulong)decoded[2];
         ulong timePassed = (ulong)decoded[3];
 
-        ArbActs.StartBlock(context, l1BaseFee, l1BlockNumber, l2BlockNumber, timePassed);
+        ArbosActs.StartBlock(context, l1BaseFee, l1BlockNumber, l2BlockNumber, timePassed);
 
         return Array.Empty<byte>();
     }
@@ -66,7 +66,7 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
         ulong batchDataGas = (ulong)decoded[3];
         UInt256 l1BaseFeeWei = (UInt256)decoded[4];
 
-        ArbActs.BatchPostingReport(context, batchTimestamp, batchPosterAddress, batchNumber, batchDataGas, l1BaseFeeWei);
+        ArbosActs.BatchPostingReport(context, batchTimestamp, batchPosterAddress, batchNumber, batchDataGas, l1BaseFeeWei);
 
         return Array.Empty<byte>();
     }
@@ -87,7 +87,7 @@ public class ArbActsParser : IArbitrumPrecompile<ArbActsParser>
         ulong batchExtraGas = (ulong)decoded[5];
         UInt256 l1BaseFeeWei = (UInt256)decoded[6];
 
-        ArbActs.BatchPostingReportV2(context, batchTimestamp, batchPosterAddress, batchNumber, batchCallDataLength, batchCallDataNonZeros, batchExtraGas, l1BaseFeeWei);
+        ArbosActs.BatchPostingReportV2(context, batchTimestamp, batchPosterAddress, batchNumber, batchCallDataLength, batchCallDataNonZeros, batchExtraGas, l1BaseFeeWei);
 
         return Array.Empty<byte>();
     }
