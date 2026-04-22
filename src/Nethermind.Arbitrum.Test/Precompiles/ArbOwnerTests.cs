@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Text;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
@@ -15,9 +14,6 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
 
@@ -26,8 +22,6 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 [TestFixture]
 public class ArbOwnerTests
 {
-    private const ulong DefaultBlockTimestamp = 1_700_000_000;
-
     private static readonly Address ExampleOwnerA = new("0x0000000000000000000000000000000000000aaa");
     private static readonly Address ExampleOwnerB = new("0x0000000000000000000000000000000000000bbb");
 
@@ -186,7 +180,7 @@ public class ArbOwnerTests
     [Test]
     public void SetGasPricingConstraints_BelowFiftyArbOSVersion_IsRejected()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.WithArbosVersion(ArbosVersion.Fifty - 1);
 
         bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
@@ -199,7 +193,7 @@ public class ArbOwnerTests
     [Test]
     public void SetGasPricingConstraints_AtFiftyArbOSVersion_IsDispatched()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context = context.WithExecutingAccount(ArbOwnerParser.Address);
 
         bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
@@ -212,7 +206,7 @@ public class ArbOwnerTests
     [Test]
     public void AddChainOwner_NewAddress_AddsToOwnerSet()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.AddChainOwner(context, ExampleOwnerA);
 
@@ -222,7 +216,7 @@ public class ArbOwnerTests
     [Test]
     public void RemoveChainOwner_ExistingOwner_RemovesFromOwnerSet()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.ChainOwners.Add(ExampleOwnerA);
 
         ArbOwner.RemoveChainOwner(context, ExampleOwnerA);
@@ -233,7 +227,7 @@ public class ArbOwnerTests
     [Test]
     public void RemoveChainOwner_NonExistentOwner_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.RemoveChainOwner(context, ExampleOwnerA);
 
@@ -244,7 +238,7 @@ public class ArbOwnerTests
     [Test]
     public void IsChainOwner_NotInOwnerSet_ReturnsFalse()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.IsChainOwner(context, ExampleOwnerA).Should().BeFalse();
     }
@@ -252,7 +246,7 @@ public class ArbOwnerTests
     [Test]
     public void IsChainOwner_InOwnerSet_ReturnsTrue()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.ChainOwners.Add(ExampleOwnerA);
 
         ArbOwner.IsChainOwner(context, ExampleOwnerA).Should().BeTrue();
@@ -261,7 +255,7 @@ public class ArbOwnerTests
     [Test]
     public void GetAllChainOwners_AfterMutations_ReflectsAddAndRemove()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         // Genesis seeds one initial chain owner; assert only the additions/removals we drove.
         ArbOwner.AddChainOwner(context, ExampleOwnerA);
@@ -279,7 +273,7 @@ public class ArbOwnerTests
         // Authorization (IsOwner) is enforced at the VM dispatch layer (OwnerPrecompileCall ->
         // FreeArbosState.ChainOwners.IsMember(caller)), not in business logic. This test pins
         // the contract: business logic has no caller gate, and the VM gate sees non-owner callers.
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwnerParser.Instance.IsOwner.Should().BeTrue("parser declares it requires owner gating at dispatch");
 
@@ -295,8 +289,8 @@ public class ArbOwnerTests
     [Test]
     public void SetNativeTokenManagementFrom_AtLeastSevenDaysInFuture_UpdatesEnabledTime()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
-        ulong enableTime = DefaultBlockTimestamp + ArbOwner.NativeTokenEnableDelay + 1;
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        ulong enableTime = context.BlockExecutionContext.Header.Timestamp + ArbOwner.NativeTokenEnableDelay + 1;
 
         ArbOwner.SetNativeTokenManagementFrom(context, enableTime);
 
@@ -306,8 +300,8 @@ public class ArbOwnerTests
     [Test]
     public void SetNativeTokenManagementFrom_LessThanSevenDays_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
-        ulong tooSoon = DefaultBlockTimestamp + ArbOwner.NativeTokenEnableDelay - 1;
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        ulong tooSoon = context.BlockExecutionContext.Header.Timestamp + ArbOwner.NativeTokenEnableDelay - 1;
 
         Action act = () => ArbOwner.SetNativeTokenManagementFrom(context, tooSoon);
 
@@ -318,8 +312,8 @@ public class ArbOwnerTests
     [Test]
     public void SetNativeTokenManagementFrom_Zero_DisablesFeature()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
-        context.ArbosState.NativeTokenEnabledTime.Set(DefaultBlockTimestamp + ArbOwner.NativeTokenEnableDelay + 100);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp + ArbOwner.NativeTokenEnableDelay + 100);
 
         ArbOwner.SetNativeTokenManagementFrom(context, 0);
 
@@ -329,8 +323,8 @@ public class ArbOwnerTests
     [Test]
     public void AddNativeTokenOwner_AfterEnabledTimeReached_AddsToOwnerSet()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
-        context.ArbosState.NativeTokenEnabledTime.Set(DefaultBlockTimestamp - 1);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp - 1);
 
         ArbOwner.AddNativeTokenOwner(context, ExampleOwnerA);
 
@@ -340,8 +334,8 @@ public class ArbOwnerTests
     [Test]
     public void AddNativeTokenOwner_BeforeEnabledTime_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
-        context.ArbosState.NativeTokenEnabledTime.Set(DefaultBlockTimestamp + 1);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp + 1);
 
         Action act = () => ArbOwner.AddNativeTokenOwner(context, ExampleOwnerA);
 
@@ -352,7 +346,7 @@ public class ArbOwnerTests
     [Test]
     public void RemoveNativeTokenOwner_ExistingOwner_RemovesFromOwnerSet()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.NativeTokenOwners.Add(ExampleOwnerA);
 
         ArbOwner.RemoveNativeTokenOwner(context, ExampleOwnerA);
@@ -363,7 +357,7 @@ public class ArbOwnerTests
     [Test]
     public void RemoveNativeTokenOwner_NonExistent_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.RemoveNativeTokenOwner(context, ExampleOwnerA);
 
@@ -374,7 +368,7 @@ public class ArbOwnerTests
     [Test]
     public void IsNativeTokenOwner_NotInOwnerSet_ReturnsFalse()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.IsNativeTokenOwner(context, ExampleOwnerA).Should().BeFalse();
     }
@@ -382,7 +376,7 @@ public class ArbOwnerTests
     [Test]
     public void IsNativeTokenOwner_InOwnerSet_ReturnsTrue()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.NativeTokenOwners.Add(ExampleOwnerA);
 
         ArbOwner.IsNativeTokenOwner(context, ExampleOwnerA).Should().BeTrue();
@@ -391,7 +385,7 @@ public class ArbOwnerTests
     [Test]
     public void GetAllNativeTokenOwners_AfterMutations_ReturnsCorrectList()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.NativeTokenOwners.Add(ExampleOwnerA);
         context.ArbosState.NativeTokenOwners.Add(ExampleOwnerB);
 
@@ -401,7 +395,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL1BaseFeeEstimateInertia_Always_UpdatesInertiaStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetL1BaseFeeEstimateInertia(context, 42);
 
@@ -411,7 +405,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL2BaseFee_Always_UpdatesBaseFeeStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         UInt256 newBaseFee = 1_000_000_000; // 1 gwei
 
         ArbOwner.SetL2BaseFee(context, newBaseFee);
@@ -422,7 +416,7 @@ public class ArbOwnerTests
     [Test]
     public void SetMinimumL2BaseFee_Always_UpdatesMinBaseFeeStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         UInt256 newMin = 500_000_000;
 
         ArbOwner.SetMinimumL2BaseFee(context, newMin);
@@ -433,7 +427,7 @@ public class ArbOwnerTests
     [Test]
     public void SetSpeedLimit_NonZero_UpdatesSpeedLimitStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetSpeedLimit(context, 123_456);
 
@@ -443,7 +437,7 @@ public class ArbOwnerTests
     [Test]
     public void SetSpeedLimit_Zero_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.SetSpeedLimit(context, 0);
 
@@ -454,7 +448,7 @@ public class ArbOwnerTests
     [Test]
     public void SetMaxTxGasLimit_AtFiftyPlus_UpdatesPerTxLimit()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetMaxTxGasLimit(context, 20_000_000);
 
@@ -464,7 +458,7 @@ public class ArbOwnerTests
     [Test]
     public void SetMaxTxGasLimit_BelowFifty_UpdatesPerBlockLimit()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.WithArbosVersion(ArbosVersion.Forty);
 
         ArbOwner.SetMaxTxGasLimit(context, 40_000_000);
@@ -475,7 +469,7 @@ public class ArbOwnerTests
     [Test]
     public void SetMaxBlockGasLimit_Always_UpdatesPerBlockLimit()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetMaxBlockGasLimit(context, 50_000_000);
 
@@ -485,7 +479,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL2GasPricingInertia_NonZero_UpdatesPricingInertiaStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetL2GasPricingInertia(context, 77);
 
@@ -495,7 +489,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL2GasPricingInertia_Zero_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.SetL2GasPricingInertia(context, 0);
 
@@ -506,7 +500,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL2GasBacklogTolerance_Always_UpdatesBacklogToleranceStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetL2GasBacklogTolerance(context, 15);
 
@@ -516,7 +510,7 @@ public class ArbOwnerTests
     [Test]
     public void SetGasBacklog_Always_UpdatesGasBacklogStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetGasBacklog(context, 9_999);
 
@@ -526,7 +520,7 @@ public class ArbOwnerTests
     [Test]
     public void SetGasPricingConstraints_AtFiftyPlus_PersistsConstraints()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         ulong[][] constraints =
         {
             [1_000_000, 60, 5_000_000],
@@ -552,7 +546,7 @@ public class ArbOwnerTests
     [Test]
     public void SetGasPricingConstraints_InvalidTarget_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         ulong[][] constraints = { [0, 60, 0] };
 
         Action act = () => ArbOwner.SetGasPricingConstraints(context, constraints);
@@ -564,7 +558,7 @@ public class ArbOwnerTests
     [Test]
     public void SetGasPricingConstraints_ExceedsMaxCountAtFiftyOne_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.WithArbosVersion(ArbosVersion.FiftyOne);
 
         ulong[][] tooMany = new ulong[L2PricingState.GasConstraintsMaxNum + 1][];
@@ -580,7 +574,7 @@ public class ArbOwnerTests
     [Test]
     public void GetNetworkFeeAccount_AfterSet_RoundTripsThroughStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetNetworkFeeAccount(context, ExampleOwnerA);
 
@@ -590,7 +584,7 @@ public class ArbOwnerTests
     [Test]
     public void GetInfraFeeAccount_AfterSet_RoundTripsThroughStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetInfraFeeAccount(context, ExampleOwnerB);
 
@@ -600,18 +594,18 @@ public class ArbOwnerTests
     [Test]
     public void ScheduleArbOSUpgrade_Always_WritesVersionAndTimestamp()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
-        ArbOwner.ScheduleArbOSUpgrade(context, ArbosVersion.FiftyOne, DefaultBlockTimestamp + 1_000);
+        ArbOwner.ScheduleArbOSUpgrade(context, ArbosVersion.FiftyOne, context.BlockExecutionContext.Header.Timestamp + 1_000);
 
         context.ArbosState.UpgradeVersion.Get().Should().Be(ArbosVersion.FiftyOne);
-        context.ArbosState.UpgradeTimestamp.Get().Should().Be(DefaultBlockTimestamp + 1_000);
+        context.ArbosState.UpgradeTimestamp.Get().Should().Be(context.BlockExecutionContext.Header.Timestamp + 1_000);
     }
 
     [Test]
     public void SetL1PricingEquilibrationUnits_Always_UpdatesEquilibrationUnitsStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         UInt256 units = new(7_000_000_000);
 
         ArbOwner.SetL1PricingEquilibrationUnits(context, units);
@@ -622,7 +616,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL1PricingInertia_Always_UpdatesInertiaStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetL1PricingInertia(context, 33);
 
@@ -632,7 +626,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL1PricingRewardRecipient_Always_UpdatesPayRewardsToStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetL1PricingRewardRecipient(context, ExampleOwnerA);
 
@@ -642,7 +636,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL1PricingRewardRate_Always_UpdatesPerUnitRewardStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetL1PricingRewardRate(context, 2_500);
 
@@ -652,7 +646,7 @@ public class ArbOwnerTests
     [Test]
     public void SetL1PricePerUnit_Always_UpdatesPricePerUnitStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         UInt256 price = 12_345_678;
 
         ArbOwner.SetL1PricePerUnit(context, price);
@@ -663,7 +657,7 @@ public class ArbOwnerTests
     [Test]
     public void SetPerBatchGasCharge_Always_UpdatesPerBatchGasCostStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetPerBatchGasCharge(context, 100_000);
 
@@ -673,7 +667,7 @@ public class ArbOwnerTests
     [Test]
     public void SetAmortizedCostCapBips_Always_UpdatesAmortizedCostCap()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetAmortizedCostCapBips(context, 500);
 
@@ -683,7 +677,7 @@ public class ArbOwnerTests
     [Test]
     public void SetParentGasFloorPerToken_Always_UpdatesGasFloorStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetParentGasFloorPerToken(context, 10_000);
 
@@ -693,7 +687,7 @@ public class ArbOwnerTests
     [Test]
     public void SetBrotliCompressionLevel_Always_UpdatesLevelStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetBrotliCompressionLevel(context, 6);
 
@@ -703,7 +697,7 @@ public class ArbOwnerTests
     [Test]
     public void ReleaseL1PricerSurplusFunds_NoSurplus_ReturnsZero()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         // Genesis leaves pool balance == recognized fees, so no surplus is available.
         UInt256 result = ArbOwner.ReleaseL1PricerSurplusFunds(context, 1_000_000);
@@ -714,11 +708,11 @@ public class ArbOwnerTests
     [Test]
     public void ReleaseL1PricerSurplusFunds_WithSurplus_RecognizesFeesUpToCap()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState worldState);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         // Funds aren't moved on-chain — the pool balance stays; only recognized-fees accounting advances.
         UInt256 surplus = 1_000;
-        worldState.CreateAccountIfNotExists(ArbosAddresses.L1PricerFundsPoolAddress, surplus);
+        context.WorldState.CreateAccountIfNotExists(ArbosAddresses.L1PricerFundsPoolAddress, surplus);
 
         UInt256 cap = 400;
         UInt256 released = ArbOwner.ReleaseL1PricerSurplusFunds(context, cap);
@@ -730,7 +724,7 @@ public class ArbOwnerTests
     [Test]
     public void SetInkPrice_ValidValue_UpdatesInkPriceParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetInkPrice(context, 20_000);
 
@@ -740,7 +734,7 @@ public class ArbOwnerTests
     [Test]
     public void SetInkPrice_Zero_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.SetInkPrice(context, 0);
 
@@ -751,7 +745,7 @@ public class ArbOwnerTests
     [Test]
     public void SetInkPrice_AboveMax_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.SetInkPrice(context, StylusParams.MaxInkPrice + 1);
 
@@ -762,7 +756,7 @@ public class ArbOwnerTests
     [Test]
     public void SetWasmMaxStackDepth_Always_UpdatesMaxStackDepthParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmMaxStackDepth(context, 22_000);
 
@@ -772,37 +766,37 @@ public class ArbOwnerTests
     [Test]
     public void SetWasmFreePages_Always_UpdatesFreePagesParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmFreePages(context, 4);
 
-        context.ArbosState.Programs.GetParams().FreePages.Should().Be((ushort)4);
+        context.ArbosState.Programs.GetParams().FreePages.Should().Be(4);
     }
 
     [Test]
     public void SetWasmPageGas_Always_UpdatesPageGasParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmPageGas(context, 2_000);
 
-        context.ArbosState.Programs.GetParams().PageGas.Should().Be((ushort)2_000);
+        context.ArbosState.Programs.GetParams().PageGas.Should().Be(2_000);
     }
 
     [Test]
     public void SetWasmPageLimit_Always_UpdatesPageLimitParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmPageLimit(context, 256);
 
-        context.ArbosState.Programs.GetParams().PageLimit.Should().Be((ushort)256);
+        context.ArbosState.Programs.GetParams().PageLimit.Should().Be(256);
     }
 
     [Test]
     public void SetWasmMaxSize_Always_UpdatesMaxWasmSizeParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmMaxSize(context, 256 * 1024);
 
@@ -812,62 +806,62 @@ public class ArbOwnerTests
     [Test]
     public void SetWasmMinInitGas_Always_UpdatesMinInitAndCachedGas()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         // Inputs convert via DivCeiling to unit counts: gas 256 / MinInitGasUnits(128) = 2;
         // cached 64 / MinCachedGasUnits(32) = 2.
         ArbOwner.SetWasmMinInitGas(context, 256, 64);
 
         StylusParams p = context.ArbosState.Programs.GetParams();
-        p.MinInitGas.Should().Be((byte)2);
-        p.MinCachedInitGas.Should().Be((byte)2);
+        p.MinInitGas.Should().Be(2);
+        p.MinCachedInitGas.Should().Be(2);
     }
 
     [Test]
     public void SetWasmInitCostScalar_Always_UpdatesInitCostScalarParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         // DivCeiling(10, CostScalarPercent=2) = 5.
         ArbOwner.SetWasmInitCostScalar(context, 10);
 
-        context.ArbosState.Programs.GetParams().InitCostScalar.Should().Be((byte)5);
+        context.ArbosState.Programs.GetParams().InitCostScalar.Should().Be(5);
     }
 
     [Test]
     public void SetWasmExpiryDays_Always_UpdatesExpiryDaysParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmExpiryDays(context, 180);
 
-        context.ArbosState.Programs.GetParams().ExpiryDays.Should().Be((ushort)180);
+        context.ArbosState.Programs.GetParams().ExpiryDays.Should().Be(180);
     }
 
     [Test]
     public void SetWasmKeepaliveDays_Always_UpdatesKeepaliveDaysParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmKeepaliveDays(context, 14);
 
-        context.ArbosState.Programs.GetParams().KeepaliveDays.Should().Be((ushort)14);
+        context.ArbosState.Programs.GetParams().KeepaliveDays.Should().Be(14);
     }
 
     [Test]
     public void SetWasmBlockCacheSize_Always_UpdatesBlockCacheSizeParam()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetWasmBlockCacheSize(context, 64);
 
-        context.ArbosState.Programs.GetParams().BlockCacheSize.Should().Be((ushort)64);
+        context.ArbosState.Programs.GetParams().BlockCacheSize.Should().Be(64);
     }
 
     [Test]
     public void AddWasmCacheManager_Always_AddsToManagerSet()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.AddWasmCacheManager(context, ExampleOwnerA);
 
@@ -877,7 +871,7 @@ public class ArbOwnerTests
     [Test]
     public void RemoveWasmCacheManager_ExistingManager_RemovesFromManagerSet()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ExampleOwnerA);
 
         ArbOwner.RemoveWasmCacheManager(context, ExampleOwnerA);
@@ -888,7 +882,7 @@ public class ArbOwnerTests
     [Test]
     public void RemoveWasmCacheManager_NonExistent_Throws()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         Action act = () => ArbOwner.RemoveWasmCacheManager(context, ExampleOwnerA);
 
@@ -899,8 +893,8 @@ public class ArbOwnerTests
     [Test]
     public void SetChainConfig_Always_UpdatesChainConfigStorage()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
-        byte[] payload = Encoding.UTF8.GetBytes("{\"chainId\":42}");
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        byte[] payload = "{\"chainId\":42}"u8.ToArray();
 
         ArbOwner.SetChainConfig(context, payload);
 
@@ -910,7 +904,7 @@ public class ArbOwnerTests
     [Test]
     public void SetCalldataPriceIncrease_EnableThenDisable_TogglesFeature()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context, out IWorldState _);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbOwner.SetCalldataPriceIncrease(context, true);
         context.ArbosState.Features.IsCalldataPriceIncreaseEnabled().Should().BeTrue();
@@ -935,19 +929,5 @@ public class ArbOwnerTests
         log.Topics.Should().HaveCount(3);
         log.Topics[0].Should().Be(ExpectedOwnerActsTopic);
         log.Data.Should().NotBeEmpty("data topic carries the ABI-encoded calldata payload");
-    }
-
-    private static IDisposable SetupContext(out PrecompileTestContextBuilder context, out IWorldState worldState)
-    {
-        worldState = TestWorldStateFactory.CreateForTest();
-        IDisposable worldStateScope = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-
-        BlockHeader header = Build.A.BlockHeader.WithTimestamp(DefaultBlockTimestamp).TestObject;
-        context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithBlockExecutionContext(header);
-
-        return worldStateScope;
     }
 }

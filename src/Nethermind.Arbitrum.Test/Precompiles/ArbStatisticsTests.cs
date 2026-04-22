@@ -2,14 +2,9 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Core;
-using Nethermind.Core.Test;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Evm.State;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
@@ -49,7 +44,7 @@ public class ArbStatisticsTests
     [Test]
     public void GetStats_AtGenesisBlock_ReturnsZeroBlockNumberAndClassicMetrics()
     {
-        using IDisposable scope = SetupContext(blockNumber: 0, out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, blockNumber: 0);
 
         ArbStatistics.ArbStatisticsResult result = ArbStatistics.GetStats(context);
 
@@ -70,7 +65,7 @@ public class ArbStatisticsTests
     [TestCase(long.MaxValue)]
     public void GetStats_AtArbitraryBlock_ReturnsBlockNumberFromExecutionContext(long blockNumber)
     {
-        using IDisposable scope = SetupContext(blockNumber, out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, blockNumber: (ulong)blockNumber);
 
         ArbStatistics.ArbStatisticsResult result = ArbStatistics.GetStats(context);
 
@@ -81,7 +76,7 @@ public class ArbStatisticsTests
     public void GetStats_Always_ReturnsZeroesForClassicPreNitroMetrics()
     {
         // All Classic* fields are hardcoded to zero because Arbitrum Classic (pre-Nitro) state is no longer tracked.
-        using IDisposable scope = SetupContext(blockNumber: 9_999, out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, blockNumber: 9_999);
 
         ArbStatistics.ArbStatisticsResult result = ArbStatistics.GetStats(context);
 
@@ -90,19 +85,5 @@ public class ArbStatisticsTests
         result.ClassicGasSum.Should().Be(UInt256.Zero);
         result.ClassicNumTxes.Should().Be(UInt256.Zero);
         result.ClassicNumContracts.Should().Be(UInt256.Zero);
-    }
-
-    private static IDisposable SetupContext(long blockNumber, out PrecompileTestContextBuilder context)
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        IDisposable scope = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-
-        BlockHeader header = Build.A.BlockHeader.WithNumber(blockNumber).TestObject;
-        context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithBlockExecutionContext(header);
-
-        return scope;
     }
 }

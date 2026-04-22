@@ -240,7 +240,7 @@ public sealed class ArbAddressTableTests
         byte[] buffer = [0x01, 0x02, 0x03, 0x04];
 
         // Test offset larger than int.MaxValue (equivalent to Go's !IsInt64() check)
-        UInt256 invalidOffset = new UInt256((ulong)int.MaxValue) + 1;
+        UInt256 invalidOffset = new UInt256(int.MaxValue) + 1;
 
         // Act & Assert
         Action action = () => ArbAddressTable.Decompress(context, buffer, invalidOffset);

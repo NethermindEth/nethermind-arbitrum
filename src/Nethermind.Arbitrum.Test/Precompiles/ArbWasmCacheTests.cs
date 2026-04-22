@@ -12,17 +12,12 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Test;
-using Nethermind.Core.Test.Builders;
-using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 [TestFixture]
 public class ArbWasmCacheTests
 {
-    private const ulong DefaultBlockTimestamp = 1_700_000_000;
-
     private static readonly Address ManagerA = new("0x0000000000000000000000000000000000000aaa");
     private static readonly Address ManagerB = new("0x0000000000000000000000000000000000000bbb");
     private static readonly Address NonManager = new("0x0000000000000000000000000000000000000ccc");
@@ -80,7 +75,7 @@ public class ArbWasmCacheTests
     [Test]
     public void IsCacheManager_ForUnregisteredAddress_ReturnsFalse()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbWasmCache.IsCacheManager(context, ManagerA).Should().BeFalse();
     }
@@ -88,7 +83,7 @@ public class ArbWasmCacheTests
     [Test]
     public void IsCacheManager_AfterRegistration_ReturnsTrue()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
 
         ArbWasmCache.IsCacheManager(context, ManagerA).Should().BeTrue();
@@ -97,7 +92,7 @@ public class ArbWasmCacheTests
     [Test]
     public void IsCacheManager_AfterRegistrationAndRemoval_ReturnsFalse()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
         context.ArbosState.Programs.CacheManagersStorage.Remove(ManagerA, ArbosVersion.Fifty);
 
@@ -107,7 +102,7 @@ public class ArbWasmCacheTests
     [Test]
     public void AllCacheManagers_OnEmptyStorage_ReturnsEmptyArray()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbWasmCache.AllCacheManagers(context).Should().BeEmpty();
     }
@@ -115,7 +110,7 @@ public class ArbWasmCacheTests
     [Test]
     public void AllCacheManagers_AfterMultipleAdditions_ReturnsMembersInInsertionOrder()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerB);
 
@@ -125,7 +120,7 @@ public class ArbWasmCacheTests
     [Test]
     public void CodehashIsCached_ForUnknownCodeHash_ReturnsFalse()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
 
         ArbWasmCache.CodehashIsCached(context, SomeCodeHash).Should().BeFalse();
     }
@@ -133,7 +128,7 @@ public class ArbWasmCacheTests
     [Test]
     public void CodehashIsCached_ForCachedProgram_ReturnsTrue()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         SeedProgram(context, SomeCodeHash, cached: true);
 
         ArbWasmCache.CodehashIsCached(context, SomeCodeHash).Should().BeTrue();
@@ -143,7 +138,7 @@ public class ArbWasmCacheTests
     public void CacheCodehash_WithoutAccess_ThrowsOutOfGas()
     {
         // HasAccess requires caller to be a cache manager or chain owner; neither holds for NonManager.
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         PrecompileTestContextBuilder callerContext = context.WithCaller(NonManager);
 
         Action act = () => ArbWasmCache.CacheCodehash(callerContext, SomeCodeHash);
@@ -154,7 +149,7 @@ public class ArbWasmCacheTests
     [Test]
     public void CacheProgram_WithoutAccess_ThrowsOutOfGas()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         PrecompileTestContextBuilder callerContext = context.WithCaller(NonManager);
 
         Action act = () => ArbWasmCache.CacheProgram(callerContext, ManagerA);
@@ -165,7 +160,7 @@ public class ArbWasmCacheTests
     [Test]
     public void EvictProgram_WithoutAccess_ThrowsOutOfGas()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         PrecompileTestContextBuilder callerContext = context.WithCaller(NonManager);
 
         Action act = () => ArbWasmCache.EvictProgram(callerContext, SomeCodeHash);
@@ -178,7 +173,7 @@ public class ArbWasmCacheTests
     {
         // Caching an address whose program never activated hits the version mismatch check at
         // StylusPrograms.SetProgramCached — program.Version (0) != StylusVersion → ProgramNeedsUpgrade.
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
         PrecompileTestContextBuilder callerContext = context.WithCaller(ManagerA);
         ushort stylusVersion = callerContext.ArbosState.Programs.GetParams().StylusVersion;
@@ -193,7 +188,7 @@ public class ArbWasmCacheTests
     [Test]
     public void EvictProgram_ForCachedProgram_TogglesCachedAndEmitsEvent()
     {
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
         SeedProgram(context, SomeCodeHash, cached: true);
         PrecompileTestContextBuilder callerContext = context.WithCaller(ManagerA);
@@ -210,7 +205,7 @@ public class ArbWasmCacheTests
     {
         // An inactive program has Cached=false; evicting (Cached=false) is a no-op short-circuit in
         // StylusPrograms.SetProgramCached and must not emit UpdateProgramCache or mutate state.
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
         PrecompileTestContextBuilder callerContext = context.WithCaller(ManagerA);
 
@@ -228,7 +223,7 @@ public class ArbWasmCacheTests
         // Paired with EvictProgram_WithoutAccess_ThrowsOutOfGas as a positive control: the only
         // material difference is ManagerA's membership in ChainOwners, so a success here proves the
         // chain-owner branch grants access.
-        using IDisposable scope = SetupContext(out PrecompileTestContextBuilder context);
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.ChainOwners.Add(ManagerA);
         PrecompileTestContextBuilder callerContext = context.WithCaller(ManagerA);
 
@@ -252,7 +247,7 @@ public class ArbWasmCacheTests
     private static void SeedProgram(PrecompileTestContextBuilder context, ValueHash256 codeHash, bool cached)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        uint activatedAtHours = ArbitrumTime.HoursSinceArbitrum(DefaultBlockTimestamp);
+        uint activatedAtHours = ArbitrumTime.HoursSinceArbitrum(context.BlockExecutionContext.Header.Timestamp);
         Span<byte> data = stackalloc byte[32];
         BinaryPrimitives.WriteUInt16BigEndian(data, stylusParams.StylusVersion);
         data[8] = (byte)(activatedAtHours >> 16);
@@ -266,18 +261,5 @@ public class ArbWasmCacheTests
     {
         ValueHash256 raw = context.ArbosState.Programs.ProgramsStorage.Get(codeHash);
         return raw.Bytes[14] != 0;
-    }
-
-    private static IDisposable SetupContext(out PrecompileTestContextBuilder context)
-    {
-        IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        IDisposable scope = worldState.BeginScope(IWorldState.PreGenesis);
-        _ = ArbOSInitialization.Create(worldState);
-
-        BlockHeader header = Build.A.BlockHeader.WithTimestamp(DefaultBlockTimestamp).TestObject;
-        context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
-            .WithArbosVersion(ArbosVersion.Fifty)
-            .WithBlockExecutionContext(header);
-        return scope;
     }
 }
