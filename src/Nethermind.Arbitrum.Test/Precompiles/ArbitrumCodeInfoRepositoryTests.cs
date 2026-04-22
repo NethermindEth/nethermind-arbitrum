@@ -280,7 +280,7 @@ public class ArbitrumCodeInfoRepositoryTests
         // Guards the parameterised exhaustiveness test against vacuous passes: if the
         // reflection scan ever returns empty, TestCaseSource produces zero test cases silently.
         GetAllArbitrumPrecompileParsers().Should()
-            .HaveCountGreaterThanOrEqualTo(17,"Reflection must discover every IArbitrumPrecompile<T> implementation in the assembly");
+            .HaveCountGreaterThanOrEqualTo(17, "Reflection must discover every IArbitrumPrecompile<T> implementation in the assembly");
     }
 
     private static IDisposable BeginWorldStateScope(out IWorldState state)

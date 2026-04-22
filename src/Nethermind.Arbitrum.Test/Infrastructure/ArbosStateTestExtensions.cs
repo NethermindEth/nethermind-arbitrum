@@ -20,8 +20,8 @@ public static class ArbosStateTestExtensions
         property?.SetValue(context.ArbosState, version);
         context.FreeArbosState.L2PricingState.CurrentArbosVersion = version;
         context.ArbosState.L2PricingState.CurrentArbosVersion = version;
-        context.ArbosState.Programs.ArbosVersion = ArbosVersion.Fifty;
-        context.FreeArbosState.Programs.ArbosVersion = ArbosVersion.Fifty;
+        context.ArbosState.Programs.ArbosVersion = version;
+        context.FreeArbosState.Programs.ArbosVersion = version;
     }
 
     public static void SetL1BlockNumber(this Blockhashes blockHashes, ulong blockNumber)
