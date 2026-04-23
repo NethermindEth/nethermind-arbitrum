@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Collections.Frozen;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 

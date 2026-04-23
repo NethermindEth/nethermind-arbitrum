@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Evm;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -20,10 +19,9 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbNativeTokenManager
 {
-    public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
+    public const string Abi = Solgen.ArbNativeTokenManager.Abi;
 
-    public const string Abi =
-        "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burnNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mintNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenMinted\",\"type\":\"event\"}]";
+    public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
 
     private static readonly AbiEventDescription NativeTokenMintedEvent;
     private static readonly AbiEventDescription NativeTokenBurnedEvent;

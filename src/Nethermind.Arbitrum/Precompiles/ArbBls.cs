@@ -12,9 +12,7 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbBls
 {
-    public static Address Address => ArbosAddresses.ArbBLSAddress;
+    public const string Abi = Solgen.ArbBLS.Abi;
 
-    // ABI definition for the disabled precompile
-    // Empty because no functions are implemented
-    public const string Abi = "[]";
+    public static Address Address => ArbosAddresses.ArbBLSAddress;
 }
