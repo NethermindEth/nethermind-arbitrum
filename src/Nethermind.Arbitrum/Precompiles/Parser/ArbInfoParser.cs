@@ -19,8 +19,8 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
-    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
+    private const uint _getBalanceId = Solgen.ArbInfo.Methods.GetBalance;
+    private const uint _getCodeId = Solgen.ArbInfo.Methods.GetCode;
 
     static ArbInfoParser()
     {

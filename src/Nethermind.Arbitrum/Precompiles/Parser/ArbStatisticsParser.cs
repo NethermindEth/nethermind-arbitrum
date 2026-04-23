@@ -19,7 +19,7 @@ public class ArbStatisticsParser : IArbitrumPrecompile<ArbStatisticsParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _getStatsId = PrecompileHelper.GetMethodId("getStats()");
+    private const uint _getStatsId = Solgen.ArbStatistics.Methods.GetStats;
 
     static ArbStatisticsParser()
     {

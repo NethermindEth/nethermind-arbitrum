@@ -23,33 +23,33 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _getPricesInWeiWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)");
-    private static readonly uint _getPricesInWeiId = PrecompileHelper.GetMethodId("getPricesInWei()");
-    private static readonly uint _getPricesInArbGasWithAggregatorId = PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)");
-    private static readonly uint _getPricesInArbGasId = PrecompileHelper.GetMethodId("getPricesInArbGas()");
-    private static readonly uint _getGasAccountingParamsId = PrecompileHelper.GetMethodId("getGasAccountingParams()");
-    private static readonly uint _getMinimumGasPriceId = PrecompileHelper.GetMethodId("getMinimumGasPrice()");
-    private static readonly uint _getL1BaseFeeEstimateId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
-    private static readonly uint _getL1BaseFeeEstimateInertiaId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()");
-    private static readonly uint _getL1RewardRateId = PrecompileHelper.GetMethodId("getL1RewardRate()");
-    private static readonly uint _getL1RewardRecipientId = PrecompileHelper.GetMethodId("getL1RewardRecipient()");
-    private static readonly uint _getL1GasPriceEstimateId = PrecompileHelper.GetMethodId("getL1GasPriceEstimate()");
-    private static readonly uint _getCurrentTxL1GasFeesId = PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()");
-    private static readonly uint _getGasBacklogId = PrecompileHelper.GetMethodId("getGasBacklog()");
-    private static readonly uint _getPricingInertiaId = PrecompileHelper.GetMethodId("getPricingInertia()");
-    private static readonly uint _getGasBacklogToleranceId = PrecompileHelper.GetMethodId("getGasBacklogTolerance()");
-    private static readonly uint _getMaxTxGasLimitId = PrecompileHelper.GetMethodId("getMaxTxGasLimit()");
-    private static readonly uint _getL1PricingSurplusId = PrecompileHelper.GetMethodId("getL1PricingSurplus()");
-    private static readonly uint _getPerBatchGasChargeId = PrecompileHelper.GetMethodId("getPerBatchGasCharge()");
-    private static readonly uint _getAmortizedCostCapBipsId = PrecompileHelper.GetMethodId("getAmortizedCostCapBips()");
-    private static readonly uint _getL1FeesAvailableId = PrecompileHelper.GetMethodId("getL1FeesAvailable()");
-    private static readonly uint _getL1PricingEquilibrationUnitsId = PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()");
-    private static readonly uint _getLastL1PricingUpdateTimeId = PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()");
-    private static readonly uint _getL1PricingFundsDueForRewardsId = PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()");
-    private static readonly uint _getL1PricingUnitsSinceUpdateId = PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()");
-    private static readonly uint _getLastL1PricingSurplusId = PrecompileHelper.GetMethodId("getLastL1PricingSurplus()");
-    private static readonly uint _getMaxBlockGasLimitId = PrecompileHelper.GetMethodId("getMaxBlockGasLimit()");
-    private static readonly uint _getGasPricingConstraintsId = PrecompileHelper.GetMethodId("getGasPricingConstraints()");
+    private const uint _getPricesInWeiWithAggregatorId = Solgen.ArbGasInfo.Methods.GetPricesInWeiWithAggregator;
+    private const uint _getPricesInWeiId = Solgen.ArbGasInfo.Methods.GetPricesInWei;
+    private const uint _getPricesInArbGasWithAggregatorId = Solgen.ArbGasInfo.Methods.GetPricesInArbGasWithAggregator;
+    private const uint _getPricesInArbGasId = Solgen.ArbGasInfo.Methods.GetPricesInArbGas;
+    private const uint _getGasAccountingParamsId = Solgen.ArbGasInfo.Methods.GetGasAccountingParams;
+    private const uint _getMinimumGasPriceId = Solgen.ArbGasInfo.Methods.GetMinimumGasPrice;
+    private const uint _getL1BaseFeeEstimateId = Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimate;
+    private const uint _getL1BaseFeeEstimateInertiaId = Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimateInertia;
+    private const uint _getL1RewardRateId = Solgen.ArbGasInfo.Methods.GetL1RewardRate;
+    private const uint _getL1RewardRecipientId = Solgen.ArbGasInfo.Methods.GetL1RewardRecipient;
+    private const uint _getL1GasPriceEstimateId = Solgen.ArbGasInfo.Methods.GetL1GasPriceEstimate;
+    private const uint _getCurrentTxL1GasFeesId = Solgen.ArbGasInfo.Methods.GetCurrentTxL1GasFees;
+    private const uint _getGasBacklogId = Solgen.ArbGasInfo.Methods.GetGasBacklog;
+    private const uint _getPricingInertiaId = Solgen.ArbGasInfo.Methods.GetPricingInertia;
+    private const uint _getGasBacklogToleranceId = Solgen.ArbGasInfo.Methods.GetGasBacklogTolerance;
+    private const uint _getMaxTxGasLimitId = Solgen.ArbGasInfo.Methods.GetMaxTxGasLimit;
+    private const uint _getL1PricingSurplusId = Solgen.ArbGasInfo.Methods.GetL1PricingSurplus;
+    private const uint _getPerBatchGasChargeId = Solgen.ArbGasInfo.Methods.GetPerBatchGasCharge;
+    private const uint _getAmortizedCostCapBipsId = Solgen.ArbGasInfo.Methods.GetAmortizedCostCapBips;
+    private const uint _getL1FeesAvailableId = Solgen.ArbGasInfo.Methods.GetL1FeesAvailable;
+    private const uint _getL1PricingEquilibrationUnitsId = Solgen.ArbGasInfo.Methods.GetL1PricingEquilibrationUnits;
+    private const uint _getLastL1PricingUpdateTimeId = Solgen.ArbGasInfo.Methods.GetLastL1PricingUpdateTime;
+    private const uint _getL1PricingFundsDueForRewardsId = Solgen.ArbGasInfo.Methods.GetL1PricingFundsDueForRewards;
+    private const uint _getL1PricingUnitsSinceUpdateId = Solgen.ArbGasInfo.Methods.GetL1PricingUnitsSinceUpdate;
+    private const uint _getLastL1PricingSurplusId = Solgen.ArbGasInfo.Methods.GetLastL1PricingSurplus;
+    private const uint _getMaxBlockGasLimitId = Solgen.ArbGasInfo.Methods.GetMaxBlockGasLimit;
+    private const uint _getGasPricingConstraintsId = Solgen.ArbGasInfo.Methods.GetGasPricingConstraints;
 
     static ArbGasInfoParser()
     {

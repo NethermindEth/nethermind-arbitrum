@@ -21,14 +21,14 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _redeemId = PrecompileHelper.GetMethodId("redeem(bytes32)");
-    private static readonly uint _getLifetimeId = PrecompileHelper.GetMethodId("getLifetime()");
-    private static readonly uint _getTimeoutId = PrecompileHelper.GetMethodId("getTimeout(bytes32)");
-    private static readonly uint _keepaliveId = PrecompileHelper.GetMethodId("keepalive(bytes32)");
-    private static readonly uint _getBeneficiaryId = PrecompileHelper.GetMethodId("getBeneficiary(bytes32)");
-    private static readonly uint _cancelId = PrecompileHelper.GetMethodId("cancel(bytes32)");
-    private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
-    private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
+    private const uint _redeemId = Solgen.ArbRetryableTx.Methods.Redeem;
+    private const uint _getLifetimeId = Solgen.ArbRetryableTx.Methods.GetLifetime;
+    private const uint _getTimeoutId = Solgen.ArbRetryableTx.Methods.GetTimeout;
+    private const uint _keepaliveId = Solgen.ArbRetryableTx.Methods.Keepalive;
+    private const uint _getBeneficiaryId = Solgen.ArbRetryableTx.Methods.GetBeneficiary;
+    private const uint _cancelId = Solgen.ArbRetryableTx.Methods.Cancel;
+    private const uint _getCurrentRedeemerId = Solgen.ArbRetryableTx.Methods.GetCurrentRedeemer;
+    private const uint _submitRetryableId = Solgen.ArbRetryableTx.Methods.SubmitRetryable;
 
     static ArbRetryableTxParser()
     {

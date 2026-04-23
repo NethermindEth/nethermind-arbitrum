@@ -21,8 +21,8 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint MintNativeTokenId = PrecompileHelper.GetMethodId("mintNativeToken(uint256)");
-    private static readonly uint BurnNativeTokenId = PrecompileHelper.GetMethodId("burnNativeToken(uint256)");
+    private const uint MintNativeTokenId = Solgen.ArbNativeTokenManager.Methods.MintNativeToken;
+    private const uint BurnNativeTokenId = Solgen.ArbNativeTokenManager.Methods.BurnNativeToken;
 
     static ArbNativeTokenManagerParser()
     {

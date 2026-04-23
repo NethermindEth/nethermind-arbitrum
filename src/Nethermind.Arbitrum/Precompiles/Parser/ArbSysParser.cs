@@ -21,18 +21,18 @@ public class ArbSysParser : IArbitrumPrecompile<ArbSysParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
-    private static readonly uint _arbBlockHashId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
-    private static readonly uint _arbChainIdId = PrecompileHelper.GetMethodId("arbChainID()");
-    private static readonly uint _arbOSVersionId = PrecompileHelper.GetMethodId("arbOSVersion()");
-    private static readonly uint _getStorageGasAvailableId = PrecompileHelper.GetMethodId("getStorageGasAvailable()");
-    private static readonly uint _isTopLevelCallId = PrecompileHelper.GetMethodId("isTopLevelCall()");
-    private static readonly uint _mapL1SenderContractAddressToL2AliasId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-    private static readonly uint _wasMyCallersAddressAliasedId = PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()");
-    private static readonly uint _myCallersAddressWithoutAliasingId = PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-    private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
-    private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
-    private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
+    private const uint _arbBlockNumberId = Solgen.ArbSys.Methods.ArbBlockNumber;
+    private const uint _arbBlockHashId = Solgen.ArbSys.Methods.ArbBlockHash;
+    private const uint _arbChainIdId = Solgen.ArbSys.Methods.ArbChainID;
+    private const uint _arbOSVersionId = Solgen.ArbSys.Methods.ArbOSVersion;
+    private const uint _getStorageGasAvailableId = Solgen.ArbSys.Methods.GetStorageGasAvailable;
+    private const uint _isTopLevelCallId = Solgen.ArbSys.Methods.IsTopLevelCall;
+    private const uint _mapL1SenderContractAddressToL2AliasId = Solgen.ArbSys.Methods.MapL1SenderContractAddressToL2Alias;
+    private const uint _wasMyCallersAddressAliasedId = Solgen.ArbSys.Methods.WasMyCallersAddressAliased;
+    private const uint _myCallersAddressWithoutAliasingId = Solgen.ArbSys.Methods.MyCallersAddressWithoutAliasing;
+    private const uint _sendTxToL1Id = Solgen.ArbSys.Methods.SendTxToL1;
+    private const uint _sendMerkleTreeStateId = Solgen.ArbSys.Methods.SendMerkleTreeState;
+    private const uint _withdrawEthId = Solgen.ArbSys.Methods.WithdrawEth;
 
     static ArbSysParser()
     {

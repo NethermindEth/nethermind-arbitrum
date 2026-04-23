@@ -24,26 +24,26 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _activateProgramId = PrecompileHelper.GetMethodId("activateProgram(address)");
-    private static readonly uint _codeHashKeepaliveId = PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)");
-    private static readonly uint _stylusVersionId = PrecompileHelper.GetMethodId("stylusVersion()");
-    private static readonly uint _inkPriceId = PrecompileHelper.GetMethodId("inkPrice()");
-    private static readonly uint _maxStackDepthId = PrecompileHelper.GetMethodId("maxStackDepth()");
-    private static readonly uint _freePagesId = PrecompileHelper.GetMethodId("freePages()");
-    private static readonly uint _pageGasId = PrecompileHelper.GetMethodId("pageGas()");
-    private static readonly uint _pageRampId = PrecompileHelper.GetMethodId("pageRamp()");
-    private static readonly uint _pageLimitId = PrecompileHelper.GetMethodId("pageLimit()");
-    private static readonly uint _minInitGasId = PrecompileHelper.GetMethodId("minInitGas()");
-    private static readonly uint _initCostScalarId = PrecompileHelper.GetMethodId("initCostScalar()");
-    private static readonly uint _expiryDaysId = PrecompileHelper.GetMethodId("expiryDays()");
-    private static readonly uint _keepaliveDaysId = PrecompileHelper.GetMethodId("keepaliveDays()");
-    private static readonly uint _blockCacheSizeId = PrecompileHelper.GetMethodId("blockCacheSize()");
-    private static readonly uint _codeHashVersionId = PrecompileHelper.GetMethodId("codehashVersion(bytes32)");
-    private static readonly uint _codeHashAsmSizeId = PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)");
-    private static readonly uint _programVersionId = PrecompileHelper.GetMethodId("programVersion(address)");
-    private static readonly uint _programInitGasId = PrecompileHelper.GetMethodId("programInitGas(address)");
-    private static readonly uint _programMemoryFootprintId = PrecompileHelper.GetMethodId("programMemoryFootprint(address)");
-    private static readonly uint _programTimeLeftId = PrecompileHelper.GetMethodId("programTimeLeft(address)");
+    private const uint _activateProgramId = Solgen.ArbWasm.Methods.ActivateProgram;
+    private const uint _codeHashKeepaliveId = Solgen.ArbWasm.Methods.CodehashKeepalive;
+    private const uint _stylusVersionId = Solgen.ArbWasm.Methods.StylusVersion;
+    private const uint _inkPriceId = Solgen.ArbWasm.Methods.InkPrice;
+    private const uint _maxStackDepthId = Solgen.ArbWasm.Methods.MaxStackDepth;
+    private const uint _freePagesId = Solgen.ArbWasm.Methods.FreePages;
+    private const uint _pageGasId = Solgen.ArbWasm.Methods.PageGas;
+    private const uint _pageRampId = Solgen.ArbWasm.Methods.PageRamp;
+    private const uint _pageLimitId = Solgen.ArbWasm.Methods.PageLimit;
+    private const uint _minInitGasId = Solgen.ArbWasm.Methods.MinInitGas;
+    private const uint _initCostScalarId = Solgen.ArbWasm.Methods.InitCostScalar;
+    private const uint _expiryDaysId = Solgen.ArbWasm.Methods.ExpiryDays;
+    private const uint _keepaliveDaysId = Solgen.ArbWasm.Methods.KeepaliveDays;
+    private const uint _blockCacheSizeId = Solgen.ArbWasm.Methods.BlockCacheSize;
+    private const uint _codeHashVersionId = Solgen.ArbWasm.Methods.CodehashVersion;
+    private const uint _codeHashAsmSizeId = Solgen.ArbWasm.Methods.CodehashAsmSize;
+    private const uint _programVersionId = Solgen.ArbWasm.Methods.ProgramVersion;
+    private const uint _programInitGasId = Solgen.ArbWasm.Methods.ProgramInitGas;
+    private const uint _programMemoryFootprintId = Solgen.ArbWasm.Methods.ProgramMemoryFootprint;
+    private const uint _programTimeLeftId = Solgen.ArbWasm.Methods.ProgramTimeLeft;
 
     static ArbWasmParser()
     {

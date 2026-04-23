@@ -20,18 +20,18 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _isChainOwnerId = PrecompileHelper.GetMethodId("isChainOwner(address)");
-    private static readonly uint _getAllChainOwnersId = PrecompileHelper.GetMethodId("getAllChainOwners()");
-    private static readonly uint _rectifyChainOwnerId = PrecompileHelper.GetMethodId("rectifyChainOwner(address)");
-    private static readonly uint _isNativeTokenOwnerId = PrecompileHelper.GetMethodId("isNativeTokenOwner(address)");
-    private static readonly uint _getAllNativeTokenOwnersId = PrecompileHelper.GetMethodId("getAllNativeTokenOwners()");
-    private static readonly uint _getNetworkFeeAccountId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
-    private static readonly uint _getInfraFeeAccountId = PrecompileHelper.GetMethodId("getInfraFeeAccount()");
-    private static readonly uint _getBrotliCompressionLevelId = PrecompileHelper.GetMethodId("getBrotliCompressionLevel()");
-    private static readonly uint _getParentGasFloorPerTokenId = PrecompileHelper.GetMethodId("getParentGasFloorPerToken()");
-    private static readonly uint _getNativeTokenManagementFromId = PrecompileHelper.GetMethodId("getNativeTokenManagementFrom()");
-    private static readonly uint _getScheduledUpgradeId = PrecompileHelper.GetMethodId("getScheduledUpgrade()");
-    private static readonly uint _isCalldataPriceIncreaseEnabledId = PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()");
+    private const uint _isChainOwnerId = Solgen.ArbOwnerPublic.Methods.IsChainOwner;
+    private const uint _getAllChainOwnersId = Solgen.ArbOwnerPublic.Methods.GetAllChainOwners;
+    private const uint _rectifyChainOwnerId = Solgen.ArbOwnerPublic.Methods.RectifyChainOwner;
+    private const uint _isNativeTokenOwnerId = Solgen.ArbOwnerPublic.Methods.IsNativeTokenOwner;
+    private const uint _getAllNativeTokenOwnersId = Solgen.ArbOwnerPublic.Methods.GetAllNativeTokenOwners;
+    private const uint _getNetworkFeeAccountId = Solgen.ArbOwnerPublic.Methods.GetNetworkFeeAccount;
+    private const uint _getInfraFeeAccountId = Solgen.ArbOwnerPublic.Methods.GetInfraFeeAccount;
+    private const uint _getBrotliCompressionLevelId = Solgen.ArbOwnerPublic.Methods.GetBrotliCompressionLevel;
+    private const uint _getParentGasFloorPerTokenId = Solgen.ArbOwnerPublic.Methods.GetParentGasFloorPerToken;
+    private const uint _getNativeTokenManagementFromId = Solgen.ArbOwnerPublic.Methods.GetNativeTokenManagementFrom;
+    private const uint _getScheduledUpgradeId = Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade;
+    private const uint _isCalldataPriceIncreaseEnabledId = Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled;
 
     static ArbOwnerPublicParser()
     {

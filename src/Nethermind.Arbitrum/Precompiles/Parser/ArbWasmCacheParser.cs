@@ -20,12 +20,12 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _isCacheManagerId = PrecompileHelper.GetMethodId("isCacheManager(address)");
-    private static readonly uint _allCacheManagersId = PrecompileHelper.GetMethodId("allCacheManagers()");
-    private static readonly uint _cacheCodehashId = PrecompileHelper.GetMethodId("cacheCodehash(bytes32)");
-    private static readonly uint _cacheProgramId = PrecompileHelper.GetMethodId("cacheProgram(address)");
-    private static readonly uint _evictProgramId = PrecompileHelper.GetMethodId("evictCodehash(bytes32)");
-    private static readonly uint _codehashIsCachedId = PrecompileHelper.GetMethodId("codehashIsCached(bytes32)");
+    private const uint _isCacheManagerId = Solgen.ArbWasmCache.Methods.IsCacheManager;
+    private const uint _allCacheManagersId = Solgen.ArbWasmCache.Methods.AllCacheManagers;
+    private const uint _cacheCodehashId = Solgen.ArbWasmCache.Methods.CacheCodehash;
+    private const uint _cacheProgramId = Solgen.ArbWasmCache.Methods.CacheProgram;
+    private const uint _evictProgramId = Solgen.ArbWasmCache.Methods.EvictCodehash;
+    private const uint _codehashIsCachedId = Solgen.ArbWasmCache.Methods.CodehashIsCached;
 
     static ArbWasmCacheParser()
     {

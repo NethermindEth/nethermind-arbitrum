@@ -20,7 +20,7 @@ public class ArbosTestParser : IArbitrumPrecompile<ArbosTestParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
+    private const uint _burnArbGasId = Solgen.ArbosTest.Methods.BurnArbGas;
 
     static ArbosTestParser()
     {

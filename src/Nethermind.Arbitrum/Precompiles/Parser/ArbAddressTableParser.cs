@@ -20,13 +20,13 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _addressExistsId = PrecompileHelper.GetMethodId("addressExists(address)");
-    private static readonly uint _compressId = PrecompileHelper.GetMethodId("compress(address)");
-    private static readonly uint _decompressId = PrecompileHelper.GetMethodId("decompress(bytes,uint256)");
-    private static readonly uint _lookupId = PrecompileHelper.GetMethodId("lookup(address)");
-    private static readonly uint _lookupIndexId = PrecompileHelper.GetMethodId("lookupIndex(uint256)");
-    private static readonly uint _registerId = PrecompileHelper.GetMethodId("register(address)");
-    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size()");
+    private const uint _addressExistsId = Solgen.ArbAddressTable.Methods.AddressExists;
+    private const uint _compressId = Solgen.ArbAddressTable.Methods.Compress;
+    private const uint _decompressId = Solgen.ArbAddressTable.Methods.Decompress;
+    private const uint _lookupId = Solgen.ArbAddressTable.Methods.Lookup;
+    private const uint _lookupIndexId = Solgen.ArbAddressTable.Methods.LookupIndex;
+    private const uint _registerId = Solgen.ArbAddressTable.Methods.Register;
+    private const uint _sizeId = Solgen.ArbAddressTable.Methods.Size;
 
     static ArbAddressTableParser()
     {

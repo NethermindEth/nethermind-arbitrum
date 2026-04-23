@@ -20,9 +20,9 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _uploadId = PrecompileHelper.GetMethodId("upload(bytes)");
-    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size(address)");
-    private static readonly uint _getId = PrecompileHelper.GetMethodId("get(address,uint256)");
+    private const uint _uploadId = Solgen.ArbFunctionTable.Methods.Upload;
+    private const uint _sizeId = Solgen.ArbFunctionTable.Methods.Size;
+    private const uint _getId = Solgen.ArbFunctionTable.Methods.Get;
 
     static ArbFunctionTableParser()
     {

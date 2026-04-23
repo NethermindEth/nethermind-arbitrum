@@ -20,14 +20,14 @@ public class ArbAggregatorParser : IArbitrumPrecompile<ArbAggregatorParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _getPreferredAggregatorId = PrecompileHelper.GetMethodId("getPreferredAggregator(address)");
-    private static readonly uint _getDefaultAggregatorId = PrecompileHelper.GetMethodId("getDefaultAggregator()");
-    private static readonly uint _getBatchPostersId = PrecompileHelper.GetMethodId("getBatchPosters()");
-    private static readonly uint _addBatchPosterId = PrecompileHelper.GetMethodId("addBatchPoster(address)");
-    private static readonly uint _getFeeCollectorId = PrecompileHelper.GetMethodId("getFeeCollector(address)");
-    private static readonly uint _setFeeCollectorId = PrecompileHelper.GetMethodId("setFeeCollector(address,address)");
-    private static readonly uint _getTxBaseFeeId = PrecompileHelper.GetMethodId("getTxBaseFee(address)");
-    private static readonly uint _setTxBaseFeeId = PrecompileHelper.GetMethodId("setTxBaseFee(address,uint256)");
+    private const uint _getPreferredAggregatorId = Solgen.ArbAggregator.Methods.GetPreferredAggregator;
+    private const uint _getDefaultAggregatorId = Solgen.ArbAggregator.Methods.GetDefaultAggregator;
+    private const uint _getBatchPostersId = Solgen.ArbAggregator.Methods.GetBatchPosters;
+    private const uint _addBatchPosterId = Solgen.ArbAggregator.Methods.AddBatchPoster;
+    private const uint _getFeeCollectorId = Solgen.ArbAggregator.Methods.GetFeeCollector;
+    private const uint _setFeeCollectorId = Solgen.ArbAggregator.Methods.SetFeeCollector;
+    private const uint _getTxBaseFeeId = Solgen.ArbAggregator.Methods.GetTxBaseFee;
+    private const uint _setTxBaseFeeId = Solgen.ArbAggregator.Methods.SetTxBaseFee;
 
     static ArbAggregatorParser()
     {

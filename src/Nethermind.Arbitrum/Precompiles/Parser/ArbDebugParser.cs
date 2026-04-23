@@ -24,13 +24,13 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _becomeChainOwnerId = PrecompileHelper.GetMethodId("becomeChainOwner()");
-    private static readonly uint _eventsId = PrecompileHelper.GetMethodId("events(bool,bytes32)");
-    private static readonly uint _eventsViewId = PrecompileHelper.GetMethodId("eventsView()");
-    private static readonly uint _customRevertId = PrecompileHelper.GetMethodId("customRevert(uint64)");
-    private static readonly uint _panicId = PrecompileHelper.GetMethodId("panic()");
-    private static readonly uint _legacyErrorId = PrecompileHelper.GetMethodId("legacyError()");
-    private static readonly uint _overwriteContractCodeId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
+    private const uint _becomeChainOwnerId = Solgen.ArbDebug.Methods.BecomeChainOwner;
+    private const uint _eventsId = Solgen.ArbDebug.Methods.Events;
+    private const uint _eventsViewId = Solgen.ArbDebug.Methods.EventsView;
+    private const uint _customRevertId = Solgen.ArbDebug.Methods.CustomRevert;
+    private const uint _panicId = Solgen.ArbDebug.Methods.Panic;
+    private const uint _legacyErrorId = Solgen.ArbDebug.Methods.LegacyError;
+    private const uint _overwriteContractCodeId = Solgen.ArbDebug.Methods.OverwriteContractCode;
 
     static ArbDebugParser()
     {

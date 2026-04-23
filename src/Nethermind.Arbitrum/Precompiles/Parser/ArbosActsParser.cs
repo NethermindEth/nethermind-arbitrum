@@ -20,9 +20,9 @@ public class ArbosActsParser : IArbitrumPrecompile<ArbosActsParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _startBlockId = PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
-    private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
-    private static readonly uint _batchPostingReportV2Id = PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
+    private const uint _startBlockId = Solgen.ArbosActs.Methods.StartBlock;
+    private const uint _batchPostingReportId = Solgen.ArbosActs.Methods.BatchPostingReport;
+    private const uint _batchPostingReportV2Id = Solgen.ArbosActs.Methods.BatchPostingReportV2;
 
     static ArbosActsParser()
     {
