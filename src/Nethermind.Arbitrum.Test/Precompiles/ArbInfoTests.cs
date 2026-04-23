@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -214,8 +213,8 @@ public class ArbInfoTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("getBalance(address)"),
-            PrecompileHelper.GetMethodId("getCode(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getBalance(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getCode(address)"),
         });
     }
 
@@ -234,7 +233,7 @@ public class ArbInfoTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("getBalance(address)").Should().Be(0xf8b2cb4fu);
-        PrecompileHelper.GetMethodId("getCode(address)").Should().Be(0x7e105ce2u);
+        PrecompileTestAbiHelpers.GetMethodId("getBalance(address)").Should().Be(Solgen.ArbInfo.Methods.GetBalance);
+        PrecompileTestAbiHelpers.GetMethodId("getCode(address)").Should().Be(Solgen.ArbInfo.Methods.GetCode);
     }
 }

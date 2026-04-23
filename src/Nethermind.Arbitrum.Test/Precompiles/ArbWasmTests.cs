@@ -361,26 +361,26 @@ public sealed class ArbWasmTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("activateProgram(address)"),
-            PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)"),
-            PrecompileHelper.GetMethodId("stylusVersion()"),
-            PrecompileHelper.GetMethodId("inkPrice()"),
-            PrecompileHelper.GetMethodId("maxStackDepth()"),
-            PrecompileHelper.GetMethodId("freePages()"),
-            PrecompileHelper.GetMethodId("pageGas()"),
-            PrecompileHelper.GetMethodId("pageRamp()"),
-            PrecompileHelper.GetMethodId("pageLimit()"),
-            PrecompileHelper.GetMethodId("minInitGas()"),
-            PrecompileHelper.GetMethodId("initCostScalar()"),
-            PrecompileHelper.GetMethodId("expiryDays()"),
-            PrecompileHelper.GetMethodId("keepaliveDays()"),
-            PrecompileHelper.GetMethodId("blockCacheSize()"),
-            PrecompileHelper.GetMethodId("codehashVersion(bytes32)"),
-            PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)"),
-            PrecompileHelper.GetMethodId("programVersion(address)"),
-            PrecompileHelper.GetMethodId("programInitGas(address)"),
-            PrecompileHelper.GetMethodId("programMemoryFootprint(address)"),
-            PrecompileHelper.GetMethodId("programTimeLeft(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashKeepalive(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("stylusVersion()"),
+            PrecompileTestAbiHelpers.GetMethodId("inkPrice()"),
+            PrecompileTestAbiHelpers.GetMethodId("maxStackDepth()"),
+            PrecompileTestAbiHelpers.GetMethodId("freePages()"),
+            PrecompileTestAbiHelpers.GetMethodId("pageGas()"),
+            PrecompileTestAbiHelpers.GetMethodId("pageRamp()"),
+            PrecompileTestAbiHelpers.GetMethodId("pageLimit()"),
+            PrecompileTestAbiHelpers.GetMethodId("minInitGas()"),
+            PrecompileTestAbiHelpers.GetMethodId("initCostScalar()"),
+            PrecompileTestAbiHelpers.GetMethodId("expiryDays()"),
+            PrecompileTestAbiHelpers.GetMethodId("keepaliveDays()"),
+            PrecompileTestAbiHelpers.GetMethodId("blockCacheSize()"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashVersion(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashAsmSize(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("programVersion(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("programInitGas(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("programMemoryFootprint(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("programTimeLeft(address)"),
         });
     }
 
@@ -403,26 +403,26 @@ public sealed class ArbWasmTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("activateProgram(address)").Should().Be(0x58c780c2u);
-        PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)").Should().Be(0xc689bad5u);
-        PrecompileHelper.GetMethodId("stylusVersion()").Should().Be(0xa996e0c2u);
-        PrecompileHelper.GetMethodId("inkPrice()").Should().Be(0xd1c17abcu);
-        PrecompileHelper.GetMethodId("maxStackDepth()").Should().Be(0x8ccfaa70u);
-        PrecompileHelper.GetMethodId("freePages()").Should().Be(0x4490c19du);
-        PrecompileHelper.GetMethodId("pageGas()").Should().Be(0x7af4ba49u);
-        PrecompileHelper.GetMethodId("pageRamp()").Should().Be(0x11c82ae8u);
-        PrecompileHelper.GetMethodId("pageLimit()").Should().Be(0x9786f96eu);
-        PrecompileHelper.GetMethodId("minInitGas()").Should().Be(0x99d0b38du);
-        PrecompileHelper.GetMethodId("initCostScalar()").Should().Be(0x5fc94c0bu);
-        PrecompileHelper.GetMethodId("expiryDays()").Should().Be(0x309f6555u);
-        PrecompileHelper.GetMethodId("keepaliveDays()").Should().Be(0x0a936455u);
-        PrecompileHelper.GetMethodId("blockCacheSize()").Should().Be(0x7af6e819u);
-        PrecompileHelper.GetMethodId("codehashVersion(bytes32)").Should().Be(0xd70c0ca7u);
-        PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)").Should().Be(0x4089267fu);
-        PrecompileHelper.GetMethodId("programVersion(address)").Should().Be(0xcc8f4e88u);
-        PrecompileHelper.GetMethodId("programInitGas(address)").Should().Be(0x62b688aau);
-        PrecompileHelper.GetMethodId("programMemoryFootprint(address)").Should().Be(0xaef36be3u);
-        PrecompileHelper.GetMethodId("programTimeLeft(address)").Should().Be(0xc775a62au);
+        PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)").Should().Be(Solgen.ArbWasm.Methods.ActivateProgram);
+        PrecompileTestAbiHelpers.GetMethodId("codehashKeepalive(bytes32)").Should().Be(Solgen.ArbWasm.Methods.CodehashKeepalive);
+        PrecompileTestAbiHelpers.GetMethodId("stylusVersion()").Should().Be(Solgen.ArbWasm.Methods.StylusVersion);
+        PrecompileTestAbiHelpers.GetMethodId("inkPrice()").Should().Be(Solgen.ArbWasm.Methods.InkPrice);
+        PrecompileTestAbiHelpers.GetMethodId("maxStackDepth()").Should().Be(Solgen.ArbWasm.Methods.MaxStackDepth);
+        PrecompileTestAbiHelpers.GetMethodId("freePages()").Should().Be(Solgen.ArbWasm.Methods.FreePages);
+        PrecompileTestAbiHelpers.GetMethodId("pageGas()").Should().Be(Solgen.ArbWasm.Methods.PageGas);
+        PrecompileTestAbiHelpers.GetMethodId("pageRamp()").Should().Be(Solgen.ArbWasm.Methods.PageRamp);
+        PrecompileTestAbiHelpers.GetMethodId("pageLimit()").Should().Be(Solgen.ArbWasm.Methods.PageLimit);
+        PrecompileTestAbiHelpers.GetMethodId("minInitGas()").Should().Be(Solgen.ArbWasm.Methods.MinInitGas);
+        PrecompileTestAbiHelpers.GetMethodId("initCostScalar()").Should().Be(Solgen.ArbWasm.Methods.InitCostScalar);
+        PrecompileTestAbiHelpers.GetMethodId("expiryDays()").Should().Be(Solgen.ArbWasm.Methods.ExpiryDays);
+        PrecompileTestAbiHelpers.GetMethodId("keepaliveDays()").Should().Be(Solgen.ArbWasm.Methods.KeepaliveDays);
+        PrecompileTestAbiHelpers.GetMethodId("blockCacheSize()").Should().Be(Solgen.ArbWasm.Methods.BlockCacheSize);
+        PrecompileTestAbiHelpers.GetMethodId("codehashVersion(bytes32)").Should().Be(Solgen.ArbWasm.Methods.CodehashVersion);
+        PrecompileTestAbiHelpers.GetMethodId("codehashAsmSize(bytes32)").Should().Be(Solgen.ArbWasm.Methods.CodehashAsmSize);
+        PrecompileTestAbiHelpers.GetMethodId("programVersion(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramVersion);
+        PrecompileTestAbiHelpers.GetMethodId("programInitGas(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramInitGas);
+        PrecompileTestAbiHelpers.GetMethodId("programMemoryFootprint(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramMemoryFootprint);
+        PrecompileTestAbiHelpers.GetMethodId("programTimeLeft(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramTimeLeft);
     }
 
     [Test]
@@ -430,13 +430,11 @@ public sealed class ArbWasmTests
     {
         Dictionary<string, AbiEventDescription> events = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbWasm.Abi);
 
-        // keccak256("ProgramActivated(bytes32,bytes32,address,uint256,uint16)")
         events["ProgramActivated"].GetHash().Should().Be(
-            new Hash256("0xc0e812780707128d9a180db8ee4d1c1f1300b6dd0626d577b5d9ac759b76253c"));
+            new Hash256(Solgen.ArbWasm.Events.ProgramActivated.Topic0Hex));
 
-        // keccak256("ProgramLifetimeExtended(bytes32,uint256)")
         events["ProgramLifetimeExtended"].GetHash().Should().Be(
-            new Hash256("0x03802ba32e3bd489d2ab04abb93d10687e0b6883bcb091206ca75172d248f2ec"));
+            new Hash256(Solgen.ArbWasm.Events.ProgramLifetimeExtended.Topic0Hex));
     }
 
     [Test]
@@ -444,20 +442,13 @@ public sealed class ArbWasmTests
     {
         Dictionary<string, AbiErrorDescription> errors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbWasm.Abi);
 
-        // keccak256("ProgramNotWasm()")[0..4]
-        errors["ProgramNotWasm"].GetSelector().Should().Be(0x27f38212u);
-        // keccak256("ProgramNotActivated()")[0..4]
-        errors["ProgramNotActivated"].GetSelector().Should().Be(0x6f809c4eu);
-        // keccak256("ProgramNeedsUpgrade(uint16,uint16)")[0..4]
-        errors["ProgramNeedsUpgrade"].GetSelector().Should().Be(0x637d968fu);
-        // keccak256("ProgramExpired(uint64)")[0..4]
-        errors["ProgramExpired"].GetSelector().Should().Be(0xc9b12e52u);
-        // keccak256("ProgramUpToDate()")[0..4]
-        errors["ProgramUpToDate"].GetSelector().Should().Be(0xcc944bf2u);
-        // keccak256("ProgramKeepaliveTooSoon(uint64)")[0..4]
-        errors["ProgramKeepaliveTooSoon"].GetSelector().Should().Be(0x16bd0cf8u);
-        // keccak256("ProgramInsufficientValue(uint256,uint256)")[0..4]
-        errors["ProgramInsufficientValue"].GetSelector().Should().Be(0x09781ab7u);
+        errors["ProgramNotWasm"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramNotWasm.Selector);
+        errors["ProgramNotActivated"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramNotActivated.Selector);
+        errors["ProgramNeedsUpgrade"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramNeedsUpgrade.Selector);
+        errors["ProgramExpired"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramExpired.Selector);
+        errors["ProgramUpToDate"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramUpToDate.Selector);
+        errors["ProgramKeepaliveTooSoon"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramKeepaliveTooSoon.Selector);
+        errors["ProgramInsufficientValue"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramInsufficientValue.Selector);
     }
 
     [TestCase("stylusVersion()")]
@@ -471,7 +462,7 @@ public sealed class ArbWasmTests
             .WithArbosVersion(ArbosVersion.Stylus - 1);
 
         bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId(signature), out bool shouldRevert, out PrecompileHandler? handler);
+            PrecompileTestAbiHelpers.GetMethodId(signature), out bool shouldRevert, out PrecompileHandler? handler);
 
         result.Should().BeFalse();
         shouldRevert.Should().BeFalse();
@@ -488,7 +479,7 @@ public sealed class ArbWasmTests
             .WithExecutingAccount(ArbWasmParser.Address);
 
         bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId(signature), out bool _, out PrecompileHandler? handler);
+            PrecompileTestAbiHelpers.GetMethodId(signature), out bool _, out PrecompileHandler? handler);
 
         result.Should().BeTrue();
         handler.Should().NotBeNull();

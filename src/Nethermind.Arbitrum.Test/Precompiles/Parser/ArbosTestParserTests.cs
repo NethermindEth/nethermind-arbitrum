@@ -21,7 +21,7 @@ public sealed class ArbosTestParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
-    private static readonly uint _burnArbGasId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
+    private static readonly uint BurnArbGasId = PrecompileTestAbiHelpers.GetMethodId("burnArbGas(uint256)");
 
     private IWorldState _worldState = null!;
     private BlockHeader _genesisBlockHeader = null!;
@@ -46,11 +46,11 @@ public sealed class ArbosTestParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosTestParser.PrecompileFunctionDescription[BurnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             gasAmount
         );
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(BurnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         ulong initialGas = _context.GasLeft;
@@ -69,11 +69,11 @@ public sealed class ArbosTestParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosTestParser.PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosTestParser.PrecompileFunctionDescription[BurnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             gasAmount
         );
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(BurnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -88,7 +88,7 @@ public sealed class ArbosTestParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(_burnArbGasId, out PrecompileHandler? handler);
+        bool exists = ArbosTestParser.PrecompileImplementation.TryGetValue(BurnArbGasId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];

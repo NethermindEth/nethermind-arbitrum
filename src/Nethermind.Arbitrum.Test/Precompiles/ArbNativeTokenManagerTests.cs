@@ -6,7 +6,6 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -404,8 +403,8 @@ public class ArbNativeTokenManagerTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("mintNativeToken(uint256)"),
-            PrecompileHelper.GetMethodId("burnNativeToken(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("mintNativeToken(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("burnNativeToken(uint256)"),
         });
     }
 
@@ -426,8 +425,8 @@ public class ArbNativeTokenManagerTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("mintNativeToken(uint256)").Should().Be(0xa6f0f7c7u);
-        PrecompileHelper.GetMethodId("burnNativeToken(uint256)").Should().Be(0x1c679a3cu);
+        PrecompileTestAbiHelpers.GetMethodId("mintNativeToken(uint256)").Should().Be(Solgen.ArbNativeTokenManager.Methods.MintNativeToken);
+        PrecompileTestAbiHelpers.GetMethodId("burnNativeToken(uint256)").Should().Be(Solgen.ArbNativeTokenManager.Methods.BurnNativeToken);
     }
 
     private static TestContext CreateTestContext(

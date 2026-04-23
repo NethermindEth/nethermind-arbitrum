@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -891,14 +890,14 @@ public class ArbRetryableTxTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("redeem(bytes32)"),
-            PrecompileHelper.GetMethodId("getLifetime()"),
-            PrecompileHelper.GetMethodId("getTimeout(bytes32)"),
-            PrecompileHelper.GetMethodId("keepalive(bytes32)"),
-            PrecompileHelper.GetMethodId("getBeneficiary(bytes32)"),
-            PrecompileHelper.GetMethodId("cancel(bytes32)"),
-            PrecompileHelper.GetMethodId("getCurrentRedeemer()"),
-            PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("redeem(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("getLifetime()"),
+            PrecompileTestAbiHelpers.GetMethodId("getTimeout(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("keepalive(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("getBeneficiary(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("cancel(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("getCurrentRedeemer()"),
+            PrecompileTestAbiHelpers.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)"),
         });
     }
 
@@ -921,14 +920,14 @@ public class ArbRetryableTxTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("redeem(bytes32)").Should().Be(0xeda1122cu);
-        PrecompileHelper.GetMethodId("getLifetime()").Should().Be(0x81e6e083u);
-        PrecompileHelper.GetMethodId("getTimeout(bytes32)").Should().Be(0x9f1025c6u);
-        PrecompileHelper.GetMethodId("keepalive(bytes32)").Should().Be(0xf0b21a41u);
-        PrecompileHelper.GetMethodId("getBeneficiary(bytes32)").Should().Be(0xba20dda4u);
-        PrecompileHelper.GetMethodId("cancel(bytes32)").Should().Be(0xc4d252f5u);
-        PrecompileHelper.GetMethodId("getCurrentRedeemer()").Should().Be(0xde4ba2b3u);
-        PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)").Should().Be(0xc9f95d32u);
+        PrecompileTestAbiHelpers.GetMethodId("redeem(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.Redeem);
+        PrecompileTestAbiHelpers.GetMethodId("getLifetime()").Should().Be(Solgen.ArbRetryableTx.Methods.GetLifetime);
+        PrecompileTestAbiHelpers.GetMethodId("getTimeout(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.GetTimeout);
+        PrecompileTestAbiHelpers.GetMethodId("keepalive(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.Keepalive);
+        PrecompileTestAbiHelpers.GetMethodId("getBeneficiary(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.GetBeneficiary);
+        PrecompileTestAbiHelpers.GetMethodId("cancel(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.Cancel);
+        PrecompileTestAbiHelpers.GetMethodId("getCurrentRedeemer()").Should().Be(Solgen.ArbRetryableTx.Methods.GetCurrentRedeemer);
+        PrecompileTestAbiHelpers.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)").Should().Be(Solgen.ArbRetryableTx.Methods.SubmitRetryable);
     }
 
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

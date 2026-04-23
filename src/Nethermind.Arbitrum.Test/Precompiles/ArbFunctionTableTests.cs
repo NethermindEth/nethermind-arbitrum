@@ -5,7 +5,6 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -88,9 +87,9 @@ public sealed class ArbFunctionTableTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("upload(bytes)"),
-            PrecompileHelper.GetMethodId("size(address)"),
-            PrecompileHelper.GetMethodId("get(address,uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("upload(bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("size(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)"),
         });
     }
 
@@ -109,8 +108,8 @@ public sealed class ArbFunctionTableTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("upload(bytes)").Should().Be(0xce2ae159u);
-        PrecompileHelper.GetMethodId("size(address)").Should().Be(0x88987068u);
-        PrecompileHelper.GetMethodId("get(address,uint256)").Should().Be(0xb464631bu);
+        PrecompileTestAbiHelpers.GetMethodId("upload(bytes)").Should().Be(Solgen.ArbFunctionTable.Methods.Upload);
+        PrecompileTestAbiHelpers.GetMethodId("size(address)").Should().Be(Solgen.ArbFunctionTable.Methods.Size);
+        PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)").Should().Be(Solgen.ArbFunctionTable.Methods.Get);
     }
 }

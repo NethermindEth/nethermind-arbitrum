@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
@@ -193,33 +192,33 @@ public class ArbGasInfoTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)"),
-            PrecompileHelper.GetMethodId("getPricesInWei()"),
-            PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)"),
-            PrecompileHelper.GetMethodId("getPricesInArbGas()"),
-            PrecompileHelper.GetMethodId("getGasAccountingParams()"),
-            PrecompileHelper.GetMethodId("getMinimumGasPrice()"),
-            PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()"),
-            PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()"),
-            PrecompileHelper.GetMethodId("getL1RewardRate()"),
-            PrecompileHelper.GetMethodId("getL1RewardRecipient()"),
-            PrecompileHelper.GetMethodId("getL1GasPriceEstimate()"),
-            PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()"),
-            PrecompileHelper.GetMethodId("getGasBacklog()"),
-            PrecompileHelper.GetMethodId("getPricingInertia()"),
-            PrecompileHelper.GetMethodId("getGasBacklogTolerance()"),
-            PrecompileHelper.GetMethodId("getMaxTxGasLimit()"),
-            PrecompileHelper.GetMethodId("getL1PricingSurplus()"),
-            PrecompileHelper.GetMethodId("getPerBatchGasCharge()"),
-            PrecompileHelper.GetMethodId("getAmortizedCostCapBips()"),
-            PrecompileHelper.GetMethodId("getL1FeesAvailable()"),
-            PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()"),
-            PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()"),
-            PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()"),
-            PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()"),
-            PrecompileHelper.GetMethodId("getLastL1PricingSurplus()"),
-            PrecompileHelper.GetMethodId("getMaxBlockGasLimit()"),
-            PrecompileHelper.GetMethodId("getGasPricingConstraints()"),
+            PrecompileTestAbiHelpers.GetMethodId("getPricesInWeiWithAggregator(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getPricesInWei()"),
+            PrecompileTestAbiHelpers.GetMethodId("getPricesInArbGasWithAggregator(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getPricesInArbGas()"),
+            PrecompileTestAbiHelpers.GetMethodId("getGasAccountingParams()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMinimumGasPrice()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimate()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimateInertia()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1RewardRate()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1RewardRecipient()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1GasPriceEstimate()"),
+            PrecompileTestAbiHelpers.GetMethodId("getCurrentTxL1GasFees()"),
+            PrecompileTestAbiHelpers.GetMethodId("getGasBacklog()"),
+            PrecompileTestAbiHelpers.GetMethodId("getPricingInertia()"),
+            PrecompileTestAbiHelpers.GetMethodId("getGasBacklogTolerance()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMaxTxGasLimit()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1PricingSurplus()"),
+            PrecompileTestAbiHelpers.GetMethodId("getPerBatchGasCharge()"),
+            PrecompileTestAbiHelpers.GetMethodId("getAmortizedCostCapBips()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1FeesAvailable()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1PricingEquilibrationUnits()"),
+            PrecompileTestAbiHelpers.GetMethodId("getLastL1PricingUpdateTime()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1PricingFundsDueForRewards()"),
+            PrecompileTestAbiHelpers.GetMethodId("getL1PricingUnitsSinceUpdate()"),
+            PrecompileTestAbiHelpers.GetMethodId("getLastL1PricingSurplus()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMaxBlockGasLimit()"),
+            PrecompileTestAbiHelpers.GetMethodId("getGasPricingConstraints()"),
         });
     }
 
@@ -238,37 +237,37 @@ public class ArbGasInfoTests
     [Test]
     public void MethodIds_GasPrices_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("getPricesInWeiWithAggregator(address)").Should().Be(0xba9c916eu);
-        PrecompileHelper.GetMethodId("getPricesInWei()").Should().Be(0x41b247a8u);
-        PrecompileHelper.GetMethodId("getPricesInArbGasWithAggregator(address)").Should().Be(0x7a1ea732u);
-        PrecompileHelper.GetMethodId("getPricesInArbGas()").Should().Be(0x02199f34u);
-        PrecompileHelper.GetMethodId("getGasAccountingParams()").Should().Be(0x612af178u);
-        PrecompileHelper.GetMethodId("getMinimumGasPrice()").Should().Be(0xf918379au);
-        PrecompileHelper.GetMethodId("getGasBacklog()").Should().Be(0x1d5b5c20u);
-        PrecompileHelper.GetMethodId("getPricingInertia()").Should().Be(0x3dfb45b9u);
-        PrecompileHelper.GetMethodId("getGasBacklogTolerance()").Should().Be(0x25754f91u);
-        PrecompileHelper.GetMethodId("getMaxTxGasLimit()").Should().Be(0xaae1cd4cu);
-        PrecompileHelper.GetMethodId("getMaxBlockGasLimit()").Should().Be(0x0371fdb4u);
-        PrecompileHelper.GetMethodId("getGasPricingConstraints()").Should().Be(0x232027d1u);
+        PrecompileTestAbiHelpers.GetMethodId("getPricesInWeiWithAggregator(address)").Should().Be(Solgen.ArbGasInfo.Methods.GetPricesInWeiWithAggregator);
+        PrecompileTestAbiHelpers.GetMethodId("getPricesInWei()").Should().Be(Solgen.ArbGasInfo.Methods.GetPricesInWei);
+        PrecompileTestAbiHelpers.GetMethodId("getPricesInArbGasWithAggregator(address)").Should().Be(Solgen.ArbGasInfo.Methods.GetPricesInArbGasWithAggregator);
+        PrecompileTestAbiHelpers.GetMethodId("getPricesInArbGas()").Should().Be(Solgen.ArbGasInfo.Methods.GetPricesInArbGas);
+        PrecompileTestAbiHelpers.GetMethodId("getGasAccountingParams()").Should().Be(Solgen.ArbGasInfo.Methods.GetGasAccountingParams);
+        PrecompileTestAbiHelpers.GetMethodId("getMinimumGasPrice()").Should().Be(Solgen.ArbGasInfo.Methods.GetMinimumGasPrice);
+        PrecompileTestAbiHelpers.GetMethodId("getGasBacklog()").Should().Be(Solgen.ArbGasInfo.Methods.GetGasBacklog);
+        PrecompileTestAbiHelpers.GetMethodId("getPricingInertia()").Should().Be(Solgen.ArbGasInfo.Methods.GetPricingInertia);
+        PrecompileTestAbiHelpers.GetMethodId("getGasBacklogTolerance()").Should().Be(Solgen.ArbGasInfo.Methods.GetGasBacklogTolerance);
+        PrecompileTestAbiHelpers.GetMethodId("getMaxTxGasLimit()").Should().Be(Solgen.ArbGasInfo.Methods.GetMaxTxGasLimit);
+        PrecompileTestAbiHelpers.GetMethodId("getMaxBlockGasLimit()").Should().Be(Solgen.ArbGasInfo.Methods.GetMaxBlockGasLimit);
+        PrecompileTestAbiHelpers.GetMethodId("getGasPricingConstraints()").Should().Be(Solgen.ArbGasInfo.Methods.GetGasPricingConstraints);
     }
 
     [Test]
     public void MethodIds_L1Pricing_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()").Should().Be(0xf5d6ded7u);
-        PrecompileHelper.GetMethodId("getL1BaseFeeEstimateInertia()").Should().Be(0x29eb31eeu);
-        PrecompileHelper.GetMethodId("getL1RewardRate()").Should().Be(0x8a5b1d28u);
-        PrecompileHelper.GetMethodId("getL1RewardRecipient()").Should().Be(0x9e6d7e31u);
-        PrecompileHelper.GetMethodId("getL1GasPriceEstimate()").Should().Be(0x055f362fu);
-        PrecompileHelper.GetMethodId("getCurrentTxL1GasFees()").Should().Be(0xc6f7de0eu);
-        PrecompileHelper.GetMethodId("getL1PricingSurplus()").Should().Be(0x520acdd7u);
-        PrecompileHelper.GetMethodId("getPerBatchGasCharge()").Should().Be(0x6ecca45au);
-        PrecompileHelper.GetMethodId("getAmortizedCostCapBips()").Should().Be(0x7a7d6bebu);
-        PrecompileHelper.GetMethodId("getL1FeesAvailable()").Should().Be(0x5b39d23cu);
-        PrecompileHelper.GetMethodId("getL1PricingEquilibrationUnits()").Should().Be(0xad26ce90u);
-        PrecompileHelper.GetMethodId("getLastL1PricingUpdateTime()").Should().Be(0x138b47b4u);
-        PrecompileHelper.GetMethodId("getL1PricingFundsDueForRewards()").Should().Be(0x963d6002u);
-        PrecompileHelper.GetMethodId("getL1PricingUnitsSinceUpdate()").Should().Be(0xeff01306u);
-        PrecompileHelper.GetMethodId("getLastL1PricingSurplus()").Should().Be(0x2987d027u);
+        PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimate()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimate);
+        PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimateInertia()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimateInertia);
+        PrecompileTestAbiHelpers.GetMethodId("getL1RewardRate()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1RewardRate);
+        PrecompileTestAbiHelpers.GetMethodId("getL1RewardRecipient()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1RewardRecipient);
+        PrecompileTestAbiHelpers.GetMethodId("getL1GasPriceEstimate()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1GasPriceEstimate);
+        PrecompileTestAbiHelpers.GetMethodId("getCurrentTxL1GasFees()").Should().Be(Solgen.ArbGasInfo.Methods.GetCurrentTxL1GasFees);
+        PrecompileTestAbiHelpers.GetMethodId("getL1PricingSurplus()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1PricingSurplus);
+        PrecompileTestAbiHelpers.GetMethodId("getPerBatchGasCharge()").Should().Be(Solgen.ArbGasInfo.Methods.GetPerBatchGasCharge);
+        PrecompileTestAbiHelpers.GetMethodId("getAmortizedCostCapBips()").Should().Be(Solgen.ArbGasInfo.Methods.GetAmortizedCostCapBips);
+        PrecompileTestAbiHelpers.GetMethodId("getL1FeesAvailable()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1FeesAvailable);
+        PrecompileTestAbiHelpers.GetMethodId("getL1PricingEquilibrationUnits()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1PricingEquilibrationUnits);
+        PrecompileTestAbiHelpers.GetMethodId("getLastL1PricingUpdateTime()").Should().Be(Solgen.ArbGasInfo.Methods.GetLastL1PricingUpdateTime);
+        PrecompileTestAbiHelpers.GetMethodId("getL1PricingFundsDueForRewards()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1PricingFundsDueForRewards);
+        PrecompileTestAbiHelpers.GetMethodId("getL1PricingUnitsSinceUpdate()").Should().Be(Solgen.ArbGasInfo.Methods.GetL1PricingUnitsSinceUpdate);
+        PrecompileTestAbiHelpers.GetMethodId("getLastL1PricingSurplus()").Should().Be(Solgen.ArbGasInfo.Methods.GetLastL1PricingSurplus);
     }
 }

@@ -8,7 +8,6 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -32,12 +31,12 @@ public class ArbWasmCacheTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("isCacheManager(address)"),
-            PrecompileHelper.GetMethodId("allCacheManagers()"),
-            PrecompileHelper.GetMethodId("cacheCodehash(bytes32)"),
-            PrecompileHelper.GetMethodId("cacheProgram(address)"),
-            PrecompileHelper.GetMethodId("evictCodehash(bytes32)"),
-            PrecompileHelper.GetMethodId("codehashIsCached(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("isCacheManager(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("allCacheManagers()"),
+            PrecompileTestAbiHelpers.GetMethodId("cacheCodehash(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("cacheProgram(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("evictCodehash(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashIsCached(bytes32)"),
         });
     }
 
@@ -58,20 +57,19 @@ public class ArbWasmCacheTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("isCacheManager(address)").Should().Be(0x85e2de85u);
-        PrecompileHelper.GetMethodId("allCacheManagers()").Should().Be(0x0ec1d773u);
-        PrecompileHelper.GetMethodId("cacheCodehash(bytes32)").Should().Be(0x4ceac817u);
-        PrecompileHelper.GetMethodId("cacheProgram(address)").Should().Be(0xe73ac9f2u);
-        PrecompileHelper.GetMethodId("evictCodehash(bytes32)").Should().Be(0xce972013u);
-        PrecompileHelper.GetMethodId("codehashIsCached(bytes32)").Should().Be(0xa72f179bu);
+        PrecompileTestAbiHelpers.GetMethodId("isCacheManager(address)").Should().Be(Solgen.ArbWasmCache.Methods.IsCacheManager);
+        PrecompileTestAbiHelpers.GetMethodId("allCacheManagers()").Should().Be(Solgen.ArbWasmCache.Methods.AllCacheManagers);
+        PrecompileTestAbiHelpers.GetMethodId("cacheCodehash(bytes32)").Should().Be(Solgen.ArbWasmCache.Methods.CacheCodehash);
+        PrecompileTestAbiHelpers.GetMethodId("cacheProgram(address)").Should().Be(Solgen.ArbWasmCache.Methods.CacheProgram);
+        PrecompileTestAbiHelpers.GetMethodId("evictCodehash(bytes32)").Should().Be(Solgen.ArbWasmCache.Methods.EvictCodehash);
+        PrecompileTestAbiHelpers.GetMethodId("codehashIsCached(bytes32)").Should().Be(Solgen.ArbWasmCache.Methods.CodehashIsCached);
     }
 
     [Test]
     public void EventTopics_AllEvents_MatchExpectedHashes()
     {
-        // keccak256("UpdateProgramCache(address,bytes32,bool)")
         ArbWasmCache.UpdateProgramCache.GetHash().Should().Be(
-            new Hash256("0x1bfaa29b4618e78f5b398027d530826dbb266dc976a5067f67fdad15434ecfab"));
+            new Hash256(Solgen.ArbWasmCache.Events.UpdateProgramCache.Topic0Hex));
     }
 
     [Test]

@@ -3,7 +3,6 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;

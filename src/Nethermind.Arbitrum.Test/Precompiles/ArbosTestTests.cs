@@ -5,7 +5,6 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -103,7 +102,7 @@ public sealed class ArbosTestTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("burnArbGas(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("burnArbGas(uint256)"),
         });
     }
 
@@ -122,6 +121,6 @@ public sealed class ArbosTestTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("burnArbGas(uint256)").Should().Be(0xbb3480f9u);
+        PrecompileTestAbiHelpers.GetMethodId("burnArbGas(uint256)").Should().Be(Solgen.ArbosTest.Methods.BurnArbGas);
     }
 }

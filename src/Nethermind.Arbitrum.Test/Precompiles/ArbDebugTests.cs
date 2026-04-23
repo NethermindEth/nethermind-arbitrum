@@ -7,7 +7,6 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
@@ -197,13 +196,13 @@ public class ArbDebugTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("becomeChainOwner()"),
-            PrecompileHelper.GetMethodId("events(bool,bytes32)"),
-            PrecompileHelper.GetMethodId("eventsView()"),
-            PrecompileHelper.GetMethodId("customRevert(uint64)"),
-            PrecompileHelper.GetMethodId("panic()"),
-            PrecompileHelper.GetMethodId("legacyError()"),
-            PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()"),
+            PrecompileTestAbiHelpers.GetMethodId("events(bool,bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("eventsView()"),
+            PrecompileTestAbiHelpers.GetMethodId("customRevert(uint64)"),
+            PrecompileTestAbiHelpers.GetMethodId("panic()"),
+            PrecompileTestAbiHelpers.GetMethodId("legacyError()"),
+            PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)"),
         });
     }
 
@@ -226,13 +225,13 @@ public class ArbDebugTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("becomeChainOwner()").Should().Be(0x0e5bbc11u);
-        PrecompileHelper.GetMethodId("events(bool,bytes32)").Should().Be(0x7b9963efu);
-        PrecompileHelper.GetMethodId("eventsView()").Should().Be(0x8e5f30abu);
-        PrecompileHelper.GetMethodId("customRevert(uint64)").Should().Be(0x7ea89f8bu);
-        PrecompileHelper.GetMethodId("panic()").Should().Be(0x4700d305u);
-        PrecompileHelper.GetMethodId("legacyError()").Should().Be(0x1e48fe82u);
-        PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(0x1be250d6u);
+        PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()").Should().Be(Solgen.ArbDebug.Methods.BecomeChainOwner);
+        PrecompileTestAbiHelpers.GetMethodId("events(bool,bytes32)").Should().Be(Solgen.ArbDebug.Methods.Events);
+        PrecompileTestAbiHelpers.GetMethodId("eventsView()").Should().Be(Solgen.ArbDebug.Methods.EventsView);
+        PrecompileTestAbiHelpers.GetMethodId("customRevert(uint64)").Should().Be(Solgen.ArbDebug.Methods.CustomRevert);
+        PrecompileTestAbiHelpers.GetMethodId("panic()").Should().Be(Solgen.ArbDebug.Methods.Panic);
+        PrecompileTestAbiHelpers.GetMethodId("legacyError()").Should().Be(Solgen.ArbDebug.Methods.LegacyError);
+        PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(Solgen.ArbDebug.Methods.OverwriteContractCode);
     }
 
     [Test]
@@ -246,7 +245,7 @@ public class ArbDebugTests
             .WithArbosVersion(ArbosVersion.Stylus - 1);
 
         bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId("panic()"), out bool shouldRevert, out PrecompileHandler? _);
+            PrecompileTestAbiHelpers.GetMethodId("panic()"), out bool shouldRevert, out PrecompileHandler? _);
 
         result.Should().BeFalse();
         shouldRevert.Should().BeTrue();
@@ -260,7 +259,7 @@ public class ArbDebugTests
             .WithExecutingAccount(ArbDebugParser.Address);
 
         bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId("panic()"), out bool _, out PrecompileHandler? handler);
+            PrecompileTestAbiHelpers.GetMethodId("panic()"), out bool _, out PrecompileHandler? handler);
 
         result.Should().BeTrue();
         handler.Should().NotBeNull();
@@ -274,7 +273,7 @@ public class ArbDebugTests
             .WithExecutingAccount(ArbDebugParser.Address);
 
         bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId("becomeChainOwner()"), out bool _, out PrecompileHandler? handler);
+            PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()"), out bool _, out PrecompileHandler? handler);
 
         result.Should().BeTrue();
         handler.Should().NotBeNull();

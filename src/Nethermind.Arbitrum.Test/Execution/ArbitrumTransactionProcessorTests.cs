@@ -496,7 +496,7 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+        uint getL1BaseFeeEstimateMethodId = PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimate()");
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -574,7 +574,7 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        uint getNetworkFeeAccountMethodId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
+        uint getNetworkFeeAccountMethodId = PrecompileTestAbiHelpers.GetMethodId("getNetworkFeeAccount()");
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -650,7 +650,7 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+        uint getL1BaseFeeEstimateMethodId = PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimate()");
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,

@@ -4,7 +4,6 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Int256;
 using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
@@ -21,7 +20,7 @@ public class ArbStatisticsTests
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("getStats()"),
+            PrecompileTestAbiHelpers.GetMethodId("getStats()"),
         });
     }
 
@@ -40,7 +39,7 @@ public class ArbStatisticsTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("getStats()").Should().Be(0xc59d4847u);
+        PrecompileTestAbiHelpers.GetMethodId("getStats()").Should().Be(Solgen.ArbStatistics.Methods.GetStats);
     }
 
     [Test]

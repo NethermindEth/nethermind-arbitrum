@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Buffers.Binary;
-using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Int256;
@@ -68,7 +68,7 @@ public static class EvmDataCallData
     public static byte[] CreateBurnArbGasCallData(UInt256 gasAmount)
     {
         byte[] callData = new byte[36];
-        uint methodId = PrecompileHelper.GetMethodId("burnArbGas(uint256)");
+        uint methodId = PrecompileTestAbiHelpers.GetMethodId("burnArbGas(uint256)");
         BinaryPrimitives.WriteUInt32BigEndian(callData.AsSpan(0, 4), methodId);
         gasAmount.ToBigEndian(callData.AsSpan(4, 32));
         return callData;

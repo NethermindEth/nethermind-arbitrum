@@ -7,7 +7,6 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Logging;
 
@@ -15,18 +14,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class PrecompileHelper
 {
-    public static uint GetMethodId(string methodSignature)
-    {
-        Hash256 hash = Keccak.Compute(methodSignature);
-        ReadOnlySpan<byte> hashBytes = hash.Bytes;
-        return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
-    }
-
-    public static uint GetSelector(this AbiErrorDescription error)
-    {
-        return BinaryPrimitives.ReadUInt32BigEndian(error.GetHash().Bytes[..4]);
-    }
-
     public static bool TryCheckMethodVisibility(this IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, uint methodId, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
     {
         Span<byte> calldataBytes = stackalloc byte[4];

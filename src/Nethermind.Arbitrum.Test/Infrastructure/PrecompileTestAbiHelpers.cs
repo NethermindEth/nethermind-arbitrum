@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -20,6 +21,18 @@ public static class PrecompileTestAbiHelpers
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    public static uint GetMethodId(string methodSignature)
+    {
+        Hash256 hash = Keccak.Compute(methodSignature);
+        ReadOnlySpan<byte> hashBytes = hash.Bytes;
+        return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
+    }
+
+    public static uint GetSelector(this AbiErrorDescription error)
+    {
+        return BinaryPrimitives.ReadUInt32BigEndian(error.GetHash().Bytes[..4]);
+    }
 
     public static Dictionary<string, AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
     {

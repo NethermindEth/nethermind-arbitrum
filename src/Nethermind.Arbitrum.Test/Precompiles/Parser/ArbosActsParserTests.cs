@@ -22,9 +22,9 @@ public sealed class ArbosActsParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
-    private static readonly uint _startBlockId = PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
-    private static readonly uint _batchPostingReportId = PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
-    private static readonly uint _batchPostingReportV2Id = PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
+    private static readonly uint StartBlockId = PrecompileTestAbiHelpers.GetMethodId("startBlock(uint256,uint64,uint64,uint64)");
+    private static readonly uint BatchPostingReportId = PrecompileTestAbiHelpers.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)");
+    private static readonly uint BatchPostingReportV2Id = PrecompileTestAbiHelpers.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)");
 
     private IWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
@@ -51,14 +51,14 @@ public sealed class ArbosActsParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosActsParser.PrecompileFunctionDescription[_startBlockId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosActsParser.PrecompileFunctionDescription[StartBlockId].AbiFunctionDescription.GetCallInfo().Signature,
             new UInt256(1000),
             100UL,
             200UL,
             12UL
         );
 
-        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(_startBlockId, out PrecompileHandler? handler);
+        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(StartBlockId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -71,7 +71,7 @@ public sealed class ArbosActsParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(_startBlockId, out PrecompileHandler? handler);
+        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(StartBlockId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -91,7 +91,7 @@ public sealed class ArbosActsParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosActsParser.PrecompileFunctionDescription[_batchPostingReportId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosActsParser.PrecompileFunctionDescription[BatchPostingReportId].AbiFunctionDescription.GetCallInfo().Signature,
             new UInt256(1234567890),
             batchPoster,
             1UL,
@@ -99,7 +99,7 @@ public sealed class ArbosActsParserTests
             new UInt256(2000)
         );
 
-        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(_batchPostingReportId, out PrecompileHandler? handler);
+        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(BatchPostingReportId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -112,7 +112,7 @@ public sealed class ArbosActsParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(_batchPostingReportId, out PrecompileHandler? handler);
+        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(BatchPostingReportId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -145,7 +145,7 @@ public sealed class ArbosActsParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbosActsParser.PrecompileFunctionDescription[_batchPostingReportV2Id].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbosActsParser.PrecompileFunctionDescription[BatchPostingReportV2Id].AbiFunctionDescription.GetCallInfo().Signature,
             new UInt256(1234567890),
             batchPoster,
             1UL,
@@ -155,7 +155,7 @@ public sealed class ArbosActsParserTests
             new UInt256(2000)
         );
 
-        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(_batchPostingReportV2Id, out PrecompileHandler? handler);
+        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(BatchPostingReportV2Id, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -168,7 +168,7 @@ public sealed class ArbosActsParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(_batchPostingReportV2Id, out PrecompileHandler? handler);
+        bool exists = ArbosActsParser.PrecompileImplementation.TryGetValue(BatchPostingReportV2Id, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
