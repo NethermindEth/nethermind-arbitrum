@@ -42,5 +42,4 @@ public interface IArbitrumExecutionEngine
 
     Task<ResultWrapper<bool>> PublishAuctionResolutionTransactionAsync(byte[] rlpTransaction);
     Task<ResultWrapper<bool>> PublishExpressLaneTransactionAsync(ExpressLaneSubmissionForRpc submission);
-    Task<ResultWrapper<bool>> PruneHistory();
 }

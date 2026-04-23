@@ -171,6 +171,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 resettableBlockTree,
                 cacheAwareServices,
                 _api.LogManager,
+                _api.Context.ResolveOptional<IHistoryPruner>(),
                 blockhashCache,
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);

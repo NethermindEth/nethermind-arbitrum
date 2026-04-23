@@ -760,14 +760,4 @@ public sealed class ArbitrumExecutionEngine(
             SendRoot = Hash256.Zero
         });
     }
-
-    public Task<ResultWrapper<bool>> PruneHistory()
-    {
-        BlockHeader? blockHeader = historyPruner.OldestBlockHeader;
-        _logger.Info($"Oldest header is {blockHeader?.ToString(BlockHeader.Format.Short)}");
-
-        historyPruner.SchedulePruneHistory();
-
-        return Task.FromResult(ResultWrapper<bool>.Success(true));
-    }
 }

@@ -98,7 +98,4 @@ public interface INitroExecutionRpcModule : IRpcModule
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<EmptyResponse>> nitroexecution_prepareForRecord(ulong start, ulong end);
-
-    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    Task<ResultWrapper<bool>> nitroexecution_pruneHistory();
 }

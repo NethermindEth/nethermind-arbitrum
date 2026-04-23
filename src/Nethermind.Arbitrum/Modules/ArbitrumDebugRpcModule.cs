@@ -4,13 +4,11 @@
 using Nethermind.Arbitrum.Core;
 using Nethermind.Blockchain;
 using Nethermind.Core.Caching;
-using Nethermind.Core;
 using Nethermind.Db;
 using Nethermind.Evm.State;
+using Nethermind.History;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
-using Nethermind.State;
-using Nethermind.Trie;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -23,6 +21,7 @@ public class ArbitrumDebugRpcModule(
     IResettableBlockTree blockTree,
     IEnumerable<IClearableCache> cacheAwareServices,
     ILogManager logManager,
+    IHistoryPruner? historyPruner = null,
     IBlockhashCache? blockhashCache = null,
     PreBlockCaches? preBlockCaches = null)
     : IArbitrumDebugRpcModule
@@ -78,6 +77,18 @@ public class ArbitrumDebugRpcModule(
                 _logger.Error("debug_reinitialize failed with exception", ex);
             return Task.FromResult(ResultWrapper<bool>.Fail($"Reinitialization failed: {ex.Message}"));
         }
+    }
+
+    public Task<ResultWrapper<bool>> debug_schedulePruneHistory()
+    {
+        if (historyPruner is null)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn("debug_schedulePruneHistory called but IHistoryPruner service is not available; cannot schedule history pruning");
+            return Task.FromResult(ResultWrapper<bool>.Fail("IHistoryPruner service not available"));
+        }
+        historyPruner?.SchedulePruneHistory();
+        return Task.FromResult(ResultWrapper<bool>.Success(true));
     }
 
     private void ClearAllDatabases()
