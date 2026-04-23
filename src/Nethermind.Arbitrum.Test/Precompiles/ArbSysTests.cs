@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -29,7 +30,7 @@ public class ArbSysTests
     {
         const long expectedBlockNumber = 12345;
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -53,7 +54,7 @@ public class ArbSysTests
         );
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -74,7 +75,7 @@ public class ArbSysTests
         const long targetBlock = 100; // More than 256 blocks old
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -97,7 +98,7 @@ public class ArbSysTests
         const long targetBlock = 200; // Future block
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -119,7 +120,7 @@ public class ArbSysTests
         const long targetBlock = 100;
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -140,7 +141,7 @@ public class ArbSysTests
         UInt256 hugeBlockNumber = UInt256.MaxValue;
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         long currentBlockNumber = 100;
@@ -161,7 +162,7 @@ public class ArbSysTests
     {
         const ulong expectedChainId = 42161; // Arbitrum One
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -180,7 +181,7 @@ public class ArbSysTests
         UInt256 expectedVersion = arbosVersion + 55; // Nitro starts at version 56
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -204,7 +205,7 @@ public class ArbSysTests
     public void IsTopLevelCall_WithCallDepthLessThanOrEqualTo2_ReturnsTrue()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -220,7 +221,7 @@ public class ArbSysTests
     public void IsTopLevelCall_WithCallDepthGreaterThan2_ReturnsFalse()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -237,7 +238,7 @@ public class ArbSysTests
     {
         Address commonAddress = TestItem.AddressC;
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -269,7 +270,7 @@ public class ArbSysTests
     public void WasMyCallersAddressAliased_WithTopLevelAndAliasingTxType_ReturnsTrue()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -288,7 +289,7 @@ public class ArbSysTests
     public void WasMyCallersAddressAliased_WithNotTopLevelCall_ReturnsFalse()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -306,7 +307,7 @@ public class ArbSysTests
     public void WasMyCallersAddressAliased_WithNonAliasingTxType_ReturnsFalse()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -327,7 +328,7 @@ public class ArbSysTests
         Address expectedUnaliased = new("0x0000000000000000000000000000000000001234");
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -347,7 +348,7 @@ public class ArbSysTests
     public void MyCallersAddressWithoutAliasing_WithNoGrandCaller_ReturnsZeroAddress()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -368,7 +369,7 @@ public class ArbSysTests
         UInt256 value = new(100);
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 10_000_000)
@@ -403,7 +404,7 @@ public class ArbSysTests
         byte[] callDataForL1 = [];
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -426,7 +427,7 @@ public class ArbSysTests
         UInt256 value = new(1000);
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 10_000_000)
@@ -456,7 +457,7 @@ public class ArbSysTests
     public void SendMerkleTreeState_WithCallerNotZeroAddress_ThrowsException()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -474,7 +475,7 @@ public class ArbSysTests
     public void SendMerkleTreeState_WithZeroAddressCaller_ReturnsState()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -605,7 +606,7 @@ public class ArbSysTests
         UInt256 position = new(123);
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -633,7 +634,7 @@ public class ArbSysTests
         byte[] data = Bytes.FromHexString("0x1234");
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -665,7 +666,7 @@ public class ArbSysTests
 
         // ArbOS < 6: top level when callDepth == 1 (was 2 in Nitro)
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext contextV5 = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -724,7 +725,7 @@ public class ArbSysTests
         foreach (ArbitrumTxType txType in aliasingTypes)
         {
             IWorldState worldState = TestWorldStateFactory.CreateForTest();
-            using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+            using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
             _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -741,7 +742,7 @@ public class ArbSysTests
         foreach (ArbitrumTxType txType in nonAliasingTypes)
         {
             IWorldState worldState = TestWorldStateFactory.CreateForTest();
-            using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+            using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
             _ = ArbOSInitialization.Create(worldState);
             ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -767,7 +768,7 @@ public class ArbSysTests
         ulong expectedGasBurn = 30 + 6 * ((ulong)(dataLength + 31) / 32);
 
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 10_000_000)
@@ -791,7 +792,7 @@ public class ArbSysTests
     public void MyCallersAddressWithoutAliasing_WithNoGrandCallerAndAliasingTxType_ReturnsUnaliasedZeroAddress()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -816,7 +817,7 @@ public class ArbSysTests
         Address destination = TestItem.AddressB;
         byte[] callDataForL1 = [1, 2, 3, 4];
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -848,7 +849,7 @@ public class ArbSysTests
     public void SendMerkleTreeState_WithActualMerkleData_ReturnsCorrectValues()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         ArbitrumPrecompileExecutionContext context = new PrecompileTestContextBuilder(worldState, 1_000_000)
@@ -872,5 +873,83 @@ public class ArbSysTests
         root.Should().NotBe(Hash256.Zero, "because root should be computed from the added entries");
         partials.Should().NotBeNull("because partials should be a valid array");
         partials.Length.Should().BeGreaterThan(0, "because partials should contain data for the added entries");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("arbBlockNumber()"),
+            PrecompileHelper.GetMethodId("arbBlockHash(uint256)"),
+            PrecompileHelper.GetMethodId("arbChainID()"),
+            PrecompileHelper.GetMethodId("arbOSVersion()"),
+            PrecompileHelper.GetMethodId("getStorageGasAvailable()"),
+            PrecompileHelper.GetMethodId("isTopLevelCall()"),
+            PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)"),
+            PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()"),
+            PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()"),
+            PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)"),
+            PrecompileHelper.GetMethodId("sendMerkleTreeState()"),
+            PrecompileHelper.GetMethodId("withdrawEth(address)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbSys.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("SendMerkleUpdate", "L2ToL1Tx", "L2ToL1Transaction");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbSys.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("InvalidBlockNumber");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("arbBlockNumber()").Should().Be(0xa3b1b31du);
+        PrecompileHelper.GetMethodId("arbBlockHash(uint256)").Should().Be(0x2b407a82u);
+        PrecompileHelper.GetMethodId("arbChainID()").Should().Be(0xd127f54au);
+        PrecompileHelper.GetMethodId("arbOSVersion()").Should().Be(0x051038f2u);
+        PrecompileHelper.GetMethodId("getStorageGasAvailable()").Should().Be(0xa94597ffu);
+        PrecompileHelper.GetMethodId("isTopLevelCall()").Should().Be(0x08bd624cu);
+        PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)").Should().Be(0x4dbbd506u);
+        PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()").Should().Be(0x175a260bu);
+        PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()").Should().Be(0xd74523b3u);
+        PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)").Should().Be(0x928c169au);
+        PrecompileHelper.GetMethodId("sendMerkleTreeState()").Should().Be(0x7aeecd2au);
+        PrecompileHelper.GetMethodId("withdrawEth(address)").Should().Be(0x25e16063u);
+    }
+
+    [Test]
+    public void EventTopics_AllEvents_MatchExpectedHashes()
+    {
+        // keccak256("SendMerkleUpdate(uint256,bytes32,uint256)")
+        ArbSys.SendMerkleUpdateEvent.GetHash().Should().Be(
+            new Hash256("0xe9e13da364699fb5b0496ff5a0fc70760ad5836e93ba96568a4e42b9914a8b95"));
+
+        // keccak256("L2ToL1Tx(address,address,uint256,uint256,uint256,uint256,uint256,uint256,bytes)")
+        ArbSys.L2ToL1TxEvent.GetHash().Should().Be(
+            new Hash256("0x3e7aafa77dbf186b7fd488006beff893744caa3c4f6f299e8a709fa2087374fc"));
+
+        // keccak256("L2ToL1Transaction(address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bytes)")
+        ArbSys.L2ToL1TransactionEvent.GetHash().Should().Be(
+            new Hash256("0x5baaa87db386365b5c161be377bc3d8e317e8d98d71a3ca7ed7d555340c8f767"));
+    }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        // keccak256("InvalidBlockNumber(uint256,uint256)")[0..4]
+        ArbSys.InvalidBlockNumber.GetSelector().Should().Be(0xd5dc642du);
     }
 }

@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -28,7 +29,7 @@ public sealed class ArbTestTests
     public void SetUp()
     {
         _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
@@ -39,7 +40,7 @@ public sealed class ArbTestTests
     [Test]
     public void BurnArbGas_WithValidAmount_BurnsGas()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = 1000;
         ulong initialGas = _context.GasLeft;
 
@@ -52,7 +53,7 @@ public sealed class ArbTestTests
     [Test]
     public void BurnArbGas_WithZeroAmount_BurnsZeroGas()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = UInt256.Zero;
         ulong initialGas = _context.GasLeft;
 
@@ -65,7 +66,7 @@ public sealed class ArbTestTests
     [Test]
     public void BurnArbGas_WithMaxUInt64Amount_BurnsGas()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = ulong.MaxValue;
 
         Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
@@ -77,7 +78,7 @@ public sealed class ArbTestTests
     [Test]
     public void BurnArbGas_WithAmountExceedingUInt64_ThrowsNotAUInt64Exception()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = (UInt256)ulong.MaxValue + 1;
 
         Action action = () => ArbTest.BurnArbGas(_context, gasAmount);
@@ -94,9 +95,31 @@ public sealed class ArbTestTests
     }
 
     [Test]
-    public void Abi_Always_ContainsRequiredMethods()
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        ArbTest.Abi.Should().NotBeNullOrEmpty();
-        ArbTest.Abi.Should().Contain("burnArbGas");
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbTest.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("burnArbGas(uint256)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        AbiMetadata.GetAllEventDescriptions(ArbTest.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        AbiMetadata.GetAllErrorDescriptions(ArbTest.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("burnArbGas(uint256)").Should().Be(0xbb3480f9u);
     }
 }

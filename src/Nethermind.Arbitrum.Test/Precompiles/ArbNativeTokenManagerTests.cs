@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -394,6 +395,39 @@ public class ArbNativeTokenManagerTests
         testContext.WorldState.GetBalance(owner).Should().Be(balanceBefore + largeAmount);
     }
 
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbNativeTokenManager.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("mintNativeToken(uint256)"),
+            PrecompileHelper.GetMethodId("burnNativeToken(uint256)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbNativeTokenManager.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("NativeTokenMinted", "NativeTokenBurned");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        AbiMetadata.GetAllErrorDescriptions(ArbNativeTokenManager.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("mintNativeToken(uint256)").Should().Be(0xa6f0f7c7u);
+        PrecompileHelper.GetMethodId("burnNativeToken(uint256)").Should().Be(0x1c679a3cu);
+    }
+
     private static TestContext CreateTestContext(
         Address owner,
         bool authorizeOwner,
@@ -432,8 +466,8 @@ public class ArbNativeTokenManagerTests
 
         byte[] data = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
-            [amount]);
+            new AbiSignature(string.Empty, AbiUInt.UInt256),
+            amount);
 
         return new LogEntry(ArbNativeTokenManager.Address, data, topics);
     }
@@ -446,8 +480,8 @@ public class ArbNativeTokenManagerTests
 
         byte[] data = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
-            [amount]);
+            new AbiSignature(string.Empty, AbiUInt.UInt256),
+            amount);
 
         return new LogEntry(ArbNativeTokenManager.Address, data, topics);
     }

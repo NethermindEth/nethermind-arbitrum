@@ -79,12 +79,4 @@ public class DeployTestsContract
         return (caller, contract, header);
     }
 
-    private class TestArbosVersionProvider : IArbosVersionProvider
-    {
-        private readonly ulong _version;
-
-        public TestArbosVersionProvider(ulong version) => _version = version;
-
-        public ulong Get() => _version;
-    }
 }

@@ -76,7 +76,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
         genesisBlock.Header.Number = blockNumber;
@@ -98,7 +98,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -119,7 +119,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -139,7 +139,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -161,7 +161,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -185,7 +185,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -213,7 +213,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -221,8 +221,7 @@ public class ArbSysParserTests
 
         byte[] inputData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbSysParser.PrecompileFunctionDescription[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature,
-            [new Address(senderHex), Address.Zero]  // 2nd address is needed by ABI even if unused in precompile
+            ArbSysParser.PrecompileFunctionDescription[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature, new Address(senderHex), Address.Zero // 2nd address is needed by ABI even if unused in precompile
         );
 
         bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_mapL1SenderContractAddressToL2AliasId, out PrecompileHandler? implementation);
@@ -240,7 +239,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -260,7 +259,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -286,7 +285,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -309,7 +308,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -330,7 +329,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -351,7 +350,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -375,7 +374,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
