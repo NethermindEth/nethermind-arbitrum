@@ -5,7 +5,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -269,7 +269,7 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbAddressTable.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbAddressTable.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -286,13 +286,13 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(Solgen.ArbAddressTable.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbAddressTable.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbAddressTable.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbAddressTable.Abi).Should().BeEmpty();
     }
 
     [Test]

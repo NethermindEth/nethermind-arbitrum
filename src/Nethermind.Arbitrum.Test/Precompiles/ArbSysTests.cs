@@ -8,7 +8,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -880,7 +880,7 @@ public class ArbSysTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbSys.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbSys.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -902,7 +902,7 @@ public class ArbSysTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Solgen.ArbSys.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbSys.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("SendMerkleUpdate", "L2ToL1Tx", "L2ToL1Transaction");
     }
@@ -910,7 +910,7 @@ public class ArbSysTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Solgen.ArbSys.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbSys.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("InvalidBlockNumber");
     }

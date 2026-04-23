@@ -6,7 +6,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
@@ -189,7 +189,7 @@ public class ArbGasInfoTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbGasInfo.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbGasInfo.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -226,13 +226,13 @@ public class ArbGasInfoTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(Solgen.ArbGasInfo.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbGasInfo.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbGasInfo.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbGasInfo.Abi).Should().BeEmpty();
     }
 
     [Test]

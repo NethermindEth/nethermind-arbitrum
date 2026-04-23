@@ -4,7 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Int256;
 using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
@@ -17,7 +17,7 @@ public class ArbStatisticsTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbStatistics.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbStatistics.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -28,13 +28,13 @@ public class ArbStatisticsTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(Solgen.ArbStatistics.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbStatistics.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbStatistics.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbStatistics.Abi).Should().BeEmpty();
     }
 
     [Test]

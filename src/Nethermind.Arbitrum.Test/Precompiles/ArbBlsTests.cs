@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
@@ -10,9 +11,10 @@ namespace Nethermind.Arbitrum.Test.Precompiles;
 [TestFixture]
 public class ArbBlsTests
 {
-    // ArbBls is disabled in Arbitrum; the ABI is the empty JSON array "[]" by design.
-    // If the string were ever set to null/empty, AbiMetadata.GetAll* short-circuits to
-    // an empty dictionary — so this guard asserts the parser actually ran.
+    // ArbBls is disabled in Arbitrum; the package ships an empty JSON array "[]" by design.
+    // The guards below assert the parser runs and returns empty collections — if the string
+    // were ever null/empty, PrecompileTestAbiHelpers short-circuits to empty, so the "[]"
+    // check above is what proves the package supplied the expected marker value.
     [Test]
     public void Abi_Always_IsEmptyJsonArray()
     {
@@ -22,18 +24,18 @@ public class ArbBlsTests
     [Test]
     public void Abi_WhenParsed_ContainsNoFunctionSignatures()
     {
-        AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
     }
 }
