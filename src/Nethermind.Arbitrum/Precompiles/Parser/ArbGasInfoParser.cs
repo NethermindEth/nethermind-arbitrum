@@ -19,7 +19,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     public static Address Address { get; } = ArbGasInfo.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbGasInfo.Abi);
+        = Solgen.ArbGasInfo.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

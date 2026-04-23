@@ -30,9 +30,8 @@ public static class ArbNativeTokenManager
 
     static ArbNativeTokenManager()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
-        NativeTokenMintedEvent = allEvents["NativeTokenMinted"];
-        NativeTokenBurnedEvent = allEvents["NativeTokenBurned"];
+        NativeTokenMintedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenMinted.ToAbiEventDescription();
+        NativeTokenBurnedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenBurned.ToAbiEventDescription();
     }
 
     /// <summary>

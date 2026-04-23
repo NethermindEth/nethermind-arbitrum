@@ -16,7 +16,7 @@ public class ArbosTestParser : IArbitrumPrecompile<ArbosTestParser>
     public static Address Address { get; } = ArbosTest.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbosTest.Abi);
+        = Solgen.ArbosTest.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

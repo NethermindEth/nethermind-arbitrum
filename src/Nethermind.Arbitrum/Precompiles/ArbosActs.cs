@@ -24,8 +24,7 @@ public static class ArbosActs
 
     static ArbosActs()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi);
-        CallerNotArbOS = allErrors["CallerNotArbOS"];
+        CallerNotArbOS = Solgen.ArbosActs.Errors.CallerNotArbOS.ToAbiErrorDescription();
     }
 
     public static void StartBlock(

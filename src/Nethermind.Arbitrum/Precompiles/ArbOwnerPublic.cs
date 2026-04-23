@@ -25,8 +25,7 @@ public static class ArbOwnerPublic
 
     static ArbOwnerPublic()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        ChainOwnerRectifiedEvent = allEvents["ChainOwnerRectified"];
+        ChainOwnerRectifiedEvent = Solgen.ArbOwnerPublic.Events.ChainOwnerRectified.ToAbiEventDescription();
     }
 
     /// <summary>

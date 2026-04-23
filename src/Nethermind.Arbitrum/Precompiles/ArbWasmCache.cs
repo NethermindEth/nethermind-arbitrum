@@ -24,8 +24,7 @@ public static class ArbWasmCache
 
     static ArbWasmCache()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
-        UpdateProgramCache = allEvents["UpdateProgramCache"];
+        UpdateProgramCache = Solgen.ArbWasmCache.Events.UpdateProgramCache.ToAbiEventDescription();
     }
 
     public static void EmitUpdateProgramCacheEvent(ArbitrumPrecompileExecutionContext context, Address caller, Hash256 codeHash, bool cached)

@@ -15,7 +15,7 @@ public class ArbStatisticsParser : IArbitrumPrecompile<ArbStatisticsParser>
     public static Address Address { get; } = ArbStatistics.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbStatistics.Abi);
+        = Solgen.ArbStatistics.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

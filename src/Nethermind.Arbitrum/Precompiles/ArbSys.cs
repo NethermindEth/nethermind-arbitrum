@@ -40,16 +40,14 @@ public static class ArbSys
 
     static ArbSys()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        SendMerkleUpdateEvent = allEvents["SendMerkleUpdate"];
-        L2ToL1TxEvent = allEvents["L2ToL1Tx"];
-        L2ToL1TransactionEvent = allEvents["L2ToL1Transaction"];
+        SendMerkleUpdateEvent = Solgen.ArbSys.Events.SendMerkleUpdate.ToAbiEventDescription();
+        L2ToL1TxEvent = Solgen.ArbSys.Events.L2ToL1Tx.ToAbiEventDescription();
+        L2ToL1TransactionEvent = Solgen.ArbSys.Events.L2ToL1Transaction.ToAbiEventDescription();
 
         L2ToL1TxEventHash = L2ToL1TxEvent.GetHash();
         L2ToL1TransactionEventHash = L2ToL1TransactionEvent.GetHash();
 
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
-        InvalidBlockNumber = allErrors["InvalidBlockNumber"];
+        InvalidBlockNumber = Solgen.ArbSys.Errors.InvalidBlockNumber.ToAbiErrorDescription();
 
         Address offset = new("0x1111000000000000000000000000000000001111");
         AddressAliasOffset = new(offset.Bytes, isBigEndian: true);

@@ -16,7 +16,7 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
     public static Address Address { get; } = ArbFunctionTable.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbFunctionTable.Abi);
+        = Solgen.ArbFunctionTable.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

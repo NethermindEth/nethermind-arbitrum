@@ -16,7 +16,7 @@ public class ArbWasmCacheParser : IArbitrumPrecompile<ArbWasmCacheParser>
     public static Address Address { get; } = ArbWasmCache.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbWasmCache.Abi);
+        = Solgen.ArbWasmCache.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

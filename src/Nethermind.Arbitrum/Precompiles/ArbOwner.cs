@@ -31,8 +31,7 @@ public static class ArbOwner
 
     static ArbOwner()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        OwnerActsEvent = allEvents["OwnerActs"];
+        OwnerActsEvent = Solgen.ArbOwner.Events.OwnerActs.ToAbiEventDescription();
     }
 
     // AddChainOwner adds a new owner to the chain

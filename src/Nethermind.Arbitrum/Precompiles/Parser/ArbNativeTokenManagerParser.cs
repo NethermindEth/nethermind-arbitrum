@@ -17,7 +17,7 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
     public static Address Address { get; } = ArbNativeTokenManager.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbNativeTokenManager.Abi);
+        = Solgen.ArbNativeTokenManager.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

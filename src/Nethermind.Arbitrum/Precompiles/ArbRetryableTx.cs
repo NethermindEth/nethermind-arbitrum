@@ -34,19 +34,22 @@ public static class ArbRetryableTx
     public static readonly AbiErrorDescription NoTicketWithID;
     public static readonly AbiErrorDescription NotCallable;
 
+    private static readonly AbiSignature RedeemCallSignature;
+
     static ArbRetryableTx()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        TicketCreatedEvent = allEvents["TicketCreated"];
-        RedeemScheduledEvent = allEvents["RedeemScheduled"];
-        LifetimeExtendedEvent = allEvents["LifetimeExtended"];
-        CanceledEvent = allEvents["Canceled"];
+        TicketCreatedEvent = Solgen.ArbRetryableTx.Events.TicketCreated.ToAbiEventDescription();
+        RedeemScheduledEvent = Solgen.ArbRetryableTx.Events.RedeemScheduled.ToAbiEventDescription();
+        LifetimeExtendedEvent = Solgen.ArbRetryableTx.Events.LifetimeExtended.ToAbiEventDescription();
+        CanceledEvent = Solgen.ArbRetryableTx.Events.Canceled.ToAbiEventDescription();
 
         RedeemScheduledEventHash = RedeemScheduledEvent.GetHash();
 
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
-        NoTicketWithID = allErrors["NoTicketWithID"];
-        NotCallable = allErrors["NotCallable"];
+        NoTicketWithID = Solgen.ArbRetryableTx.Errors.NoTicketWithID.ToAbiErrorDescription();
+        NotCallable = Solgen.ArbRetryableTx.Errors.NotCallable.ToAbiErrorDescription();
+
+        RedeemCallSignature = Solgen.ArbRetryableTx.Functions.All[Solgen.ArbRetryableTx.Methods.Redeem]
+            .ToAbiFunctionDescription().GetCallInfo().Signature;
     }
 
     public static void EmitTicketCreatedEvent(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
@@ -131,10 +134,7 @@ public static class ArbRetryableTx
     }
 
     public static byte[] PackArbRetryableTxRedeem(params object[] arguments)
-    {
-        AbiSignature signature = AbiMetadata.GetAbiSignature(Abi, "redeem");
-        return AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
-    }
+        => AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, RedeemCallSignature, arguments);
 
 
     private static void ThrowOldNotFoundError(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)

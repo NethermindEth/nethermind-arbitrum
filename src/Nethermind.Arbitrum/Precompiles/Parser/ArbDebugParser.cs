@@ -20,7 +20,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
     public static Address Address { get; } = ArbDebug.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbDebug.Abi);
+        = Solgen.ArbDebug.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 

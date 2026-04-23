@@ -38,18 +38,16 @@ public static class ArbWasm
 
     static ArbWasm()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
-        ProgramActivatedEvent = allEvents["ProgramActivated"];
-        ProgramLifetimeExtendedEvent = allEvents["ProgramLifetimeExtended"];
+        ProgramActivatedEvent = Solgen.ArbWasm.Events.ProgramActivated.ToAbiEventDescription();
+        ProgramLifetimeExtendedEvent = Solgen.ArbWasm.Events.ProgramLifetimeExtended.ToAbiEventDescription();
 
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi);
-        ProgramNotWasm = allErrors["ProgramNotWasm"];
-        ProgramNotActivated = allErrors["ProgramNotActivated"];
-        ProgramNeedsUpgrade = allErrors["ProgramNeedsUpgrade"];
-        ProgramExpired = allErrors["ProgramExpired"];
-        ProgramUpToDate = allErrors["ProgramUpToDate"];
-        ProgramKeepaliveTooSoon = allErrors["ProgramKeepaliveTooSoon"];
-        ProgramInsufficientValue = allErrors["ProgramInsufficientValue"];
+        ProgramNotWasm = Solgen.ArbWasm.Errors.ProgramNotWasm.ToAbiErrorDescription();
+        ProgramNotActivated = Solgen.ArbWasm.Errors.ProgramNotActivated.ToAbiErrorDescription();
+        ProgramNeedsUpgrade = Solgen.ArbWasm.Errors.ProgramNeedsUpgrade.ToAbiErrorDescription();
+        ProgramExpired = Solgen.ArbWasm.Errors.ProgramExpired.ToAbiErrorDescription();
+        ProgramUpToDate = Solgen.ArbWasm.Errors.ProgramUpToDate.ToAbiErrorDescription();
+        ProgramKeepaliveTooSoon = Solgen.ArbWasm.Errors.ProgramKeepaliveTooSoon.ToAbiErrorDescription();
+        ProgramInsufficientValue = Solgen.ArbWasm.Errors.ProgramInsufficientValue.ToAbiErrorDescription();
     }
 
     public static ArbitrumPrecompileException ProgramNotWasmError()

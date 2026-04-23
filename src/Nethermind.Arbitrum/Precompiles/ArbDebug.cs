@@ -32,14 +32,12 @@ public static class ArbDebug
 
     static ArbDebug()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        Basic = allEvents["Basic"];
-        Mixed = allEvents["Mixed"];
-        Store = allEvents["Store"];
+        Basic = Solgen.ArbDebug.Events.Basic.ToAbiEventDescription();
+        Mixed = Solgen.ArbDebug.Events.Mixed.ToAbiEventDescription();
+        Store = Solgen.ArbDebug.Events.Store.ToAbiEventDescription();
 
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Abi)!;
-        Custom = allErrors["Custom"];
-        Unused = allErrors["Unused"];
+        Custom = Solgen.ArbDebug.Errors.Custom.ToAbiErrorDescription();
+        Unused = Solgen.ArbDebug.Errors.Unused.ToAbiErrorDescription();
     }
 
     public static void EmitBasicEvent(ArbitrumPrecompileExecutionContext context, bool flag, Hash256 value)
