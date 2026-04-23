@@ -47,10 +47,10 @@ public sealed class ArbitrumHistoryPruner(HistoryPruner inner, IBlocksConfig blo
     /// <c>ProcessingQueueEmpty</c> subscription on the inner <see cref="HistoryPruner"/> handles
     /// triggering, so calling this would result in double-scheduling.
     /// </remarks>
-    public void SchedulePruneHistory(CancellationToken cancellationToken)
+    public void SchedulePruneHistory()
     {
         if (!_buildBlocksOnMainState)
             return;
-        inner.SchedulePruneHistory(cancellationToken);
+        inner.SchedulePruneHistory();
     }
 }
