@@ -30,7 +30,7 @@ public sealed class ArbActsTests
     public void SetUp()
     {
         _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
@@ -41,7 +41,7 @@ public sealed class ArbActsTests
     [Test]
     public void StartBlock_WhenCalledByNonArbOS_ThrowsCallerNotArbOSException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
         Action action = () => ArbActs.StartBlock(_context, 1000, 100UL, 200UL, 12UL);
 
@@ -51,7 +51,7 @@ public sealed class ArbActsTests
     [Test]
     public void StartBlock_WithZeroParameters_ThrowsCallerNotArbOSException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
         Action action = () => ArbActs.StartBlock(_context, 0, 0UL, 0UL, 0UL);
 
@@ -61,7 +61,7 @@ public sealed class ArbActsTests
     [Test]
     public void StartBlock_WithMaxParameters_ThrowsCallerNotArbOSException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
         Action action = () => ArbActs.StartBlock(_context, UInt256.MaxValue, ulong.MaxValue, ulong.MaxValue, ulong.MaxValue);
 
@@ -71,7 +71,7 @@ public sealed class ArbActsTests
     [Test]
     public void BatchPostingReport_WhenCalledByNonArbOS_ThrowsCallerNotArbOSException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address batchPoster = new("0x0000000000000000000000000000000000000456");
 
         Action action = () => ArbActs.BatchPostingReport(_context, 1234567890, batchPoster, 1UL, 50000UL, 2000);
@@ -82,7 +82,7 @@ public sealed class ArbActsTests
     [Test]
     public void BatchPostingReport_WithZeroParametersAndEmptyAddress_ThrowsCallerNotArbOSException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
         Action action = () => ArbActs.BatchPostingReport(_context, 0, Address.Zero, 0, 0, 0);
 
@@ -92,7 +92,7 @@ public sealed class ArbActsTests
     [Test]
     public void BatchPostingReportV2_WhenCalledByNonArbOS_ThrowsCallerNotArbOSException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address batchPoster = new("0x0000000000000000000000000000000000000456");
 
         Action action = () => ArbActs.BatchPostingReportV2(_context, 1234567890, batchPoster, 1UL, 1000UL, 800UL, 5000UL, 2000);
@@ -104,16 +104,6 @@ public sealed class ArbActsTests
     public void Address_Always_ReturnsArbosAddress()
     {
         ArbActs.Address.Should().Be(ArbosAddresses.ArbosAddress);
-    }
-
-    [Test]
-    public void Abi_Always_ContainsRequiredMethodsAndError()
-    {
-        ArbActs.Abi.Should().NotBeNullOrEmpty();
-        ArbActs.Abi.Should().Contain("startBlock");
-        ArbActs.Abi.Should().Contain("batchPostingReport");
-        ArbActs.Abi.Should().Contain("batchPostingReportV2");
-        ArbActs.Abi.Should().Contain("CallerNotArbOS");
     }
 
     public static void AssertCallerNotArbOSException(Action action)
@@ -131,5 +121,47 @@ public sealed class ArbActsTests
         );
 
         exception.Output.Should().Equal(expectedErrorData);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbActs.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)"),
+            PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)"),
+            PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbActs.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("CallerNotArbOS");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        AbiMetadata.GetAllEventDescriptions(ArbActs.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)").Should().Be(0x6bf6a42du);
+        PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)").Should().Be(0xb6693771u);
+        PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)").Should().Be(0x9998269eu);
+    }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        // keccak256("CallerNotArbOS()")[0..4]
+        ArbActs.CallerNotArbOS.GetSelector().Should().Be(0xf812e656u);
     }
 }

@@ -185,9 +185,7 @@ public sealed class ArbWasmParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbWasmParser.PrecompileFunctionDescription[_codeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
-            [TestCodeHash.Bytes.ToArray()]
-        );
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature, TestCodeHash.Bytes.ToArray());
         Action action = () => handler!(_context, calldata);
 
         action.Should().Throw<ArbitrumPrecompileException>();
@@ -452,9 +450,7 @@ public sealed class ArbWasmParserTests
         ArbWasmParser.PrecompileImplementation.TryGetValue(_codeHashKeepaliveId, out PrecompileHandler? handler);
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbWasmParser.PrecompileFunctionDescription[_codeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
-            [TestCodeHash.BytesToArray()]
-        );
+            ArbWasmParser.PrecompileFunctionDescription[_codeHashKeepaliveId].AbiFunctionDescription.GetCallInfo().Signature, TestCodeHash.BytesToArray());
 
         Action action = () => handler!(_context, calldata);
 

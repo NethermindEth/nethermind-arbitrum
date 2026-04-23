@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Evm;
 using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -87,7 +86,7 @@ public class ArbInfoParserTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -117,9 +116,7 @@ public class ArbInfoParserTests
 
         byte[] expectedAbiEncodedCode = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [runtimeCode]
-        );
+            function.GetReturnInfo().Signature, runtimeCode);
 
         Assert.That(code, Is.EqualTo(expectedAbiEncodedCode), "ArbInfoParser.GetCode should return the correct code");
     }

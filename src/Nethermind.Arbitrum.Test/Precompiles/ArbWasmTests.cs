@@ -2,8 +2,12 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
@@ -12,6 +16,7 @@ using Nethermind.Evm.State;
 using Nethermind.Logging;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
+using ArbWasm = Nethermind.Arbitrum.Precompiles.ArbWasm;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -346,5 +351,145 @@ public sealed class ArbWasmTests
         ushort size = BlockCacheSize(_context);
 
         size.Should().Be(32);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("activateProgram(address)"),
+            PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)"),
+            PrecompileHelper.GetMethodId("stylusVersion()"),
+            PrecompileHelper.GetMethodId("inkPrice()"),
+            PrecompileHelper.GetMethodId("maxStackDepth()"),
+            PrecompileHelper.GetMethodId("freePages()"),
+            PrecompileHelper.GetMethodId("pageGas()"),
+            PrecompileHelper.GetMethodId("pageRamp()"),
+            PrecompileHelper.GetMethodId("pageLimit()"),
+            PrecompileHelper.GetMethodId("minInitGas()"),
+            PrecompileHelper.GetMethodId("initCostScalar()"),
+            PrecompileHelper.GetMethodId("expiryDays()"),
+            PrecompileHelper.GetMethodId("keepaliveDays()"),
+            PrecompileHelper.GetMethodId("blockCacheSize()"),
+            PrecompileHelper.GetMethodId("codehashVersion(bytes32)"),
+            PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)"),
+            PrecompileHelper.GetMethodId("programVersion(address)"),
+            PrecompileHelper.GetMethodId("programInitGas(address)"),
+            PrecompileHelper.GetMethodId("programMemoryFootprint(address)"),
+            PrecompileHelper.GetMethodId("programTimeLeft(address)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbWasm.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ProgramActivated", "ProgramLifetimeExtended");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbWasm.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("ProgramNotWasm", "ProgramNotActivated", "ProgramNeedsUpgrade", "ProgramExpired", "ProgramUpToDate", "ProgramKeepaliveTooSoon", "ProgramInsufficientValue");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("activateProgram(address)").Should().Be(0x58c780c2u);
+        PrecompileHelper.GetMethodId("codehashKeepalive(bytes32)").Should().Be(0xc689bad5u);
+        PrecompileHelper.GetMethodId("stylusVersion()").Should().Be(0xa996e0c2u);
+        PrecompileHelper.GetMethodId("inkPrice()").Should().Be(0xd1c17abcu);
+        PrecompileHelper.GetMethodId("maxStackDepth()").Should().Be(0x8ccfaa70u);
+        PrecompileHelper.GetMethodId("freePages()").Should().Be(0x4490c19du);
+        PrecompileHelper.GetMethodId("pageGas()").Should().Be(0x7af4ba49u);
+        PrecompileHelper.GetMethodId("pageRamp()").Should().Be(0x11c82ae8u);
+        PrecompileHelper.GetMethodId("pageLimit()").Should().Be(0x9786f96eu);
+        PrecompileHelper.GetMethodId("minInitGas()").Should().Be(0x99d0b38du);
+        PrecompileHelper.GetMethodId("initCostScalar()").Should().Be(0x5fc94c0bu);
+        PrecompileHelper.GetMethodId("expiryDays()").Should().Be(0x309f6555u);
+        PrecompileHelper.GetMethodId("keepaliveDays()").Should().Be(0x0a936455u);
+        PrecompileHelper.GetMethodId("blockCacheSize()").Should().Be(0x7af6e819u);
+        PrecompileHelper.GetMethodId("codehashVersion(bytes32)").Should().Be(0xd70c0ca7u);
+        PrecompileHelper.GetMethodId("codehashAsmSize(bytes32)").Should().Be(0x4089267fu);
+        PrecompileHelper.GetMethodId("programVersion(address)").Should().Be(0xcc8f4e88u);
+        PrecompileHelper.GetMethodId("programInitGas(address)").Should().Be(0x62b688aau);
+        PrecompileHelper.GetMethodId("programMemoryFootprint(address)").Should().Be(0xaef36be3u);
+        PrecompileHelper.GetMethodId("programTimeLeft(address)").Should().Be(0xc775a62au);
+    }
+
+    [Test]
+    public void EventTopics_AllEvents_MatchExpectedHashes()
+    {
+        Dictionary<string, AbiEventDescription> events = AbiMetadata.GetAllEventDescriptions(ArbWasm.Abi);
+
+        // keccak256("ProgramActivated(bytes32,bytes32,address,uint256,uint16)")
+        events["ProgramActivated"].GetHash().Should().Be(
+            new Hash256("0xc0e812780707128d9a180db8ee4d1c1f1300b6dd0626d577b5d9ac759b76253c"));
+
+        // keccak256("ProgramLifetimeExtended(bytes32,uint256)")
+        events["ProgramLifetimeExtended"].GetHash().Should().Be(
+            new Hash256("0x03802ba32e3bd489d2ab04abb93d10687e0b6883bcb091206ca75172d248f2ec"));
+    }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        Dictionary<string, AbiErrorDescription> errors = AbiMetadata.GetAllErrorDescriptions(ArbWasm.Abi);
+
+        // keccak256("ProgramNotWasm()")[0..4]
+        errors["ProgramNotWasm"].GetSelector().Should().Be(0x27f38212u);
+        // keccak256("ProgramNotActivated()")[0..4]
+        errors["ProgramNotActivated"].GetSelector().Should().Be(0x6f809c4eu);
+        // keccak256("ProgramNeedsUpgrade(uint16,uint16)")[0..4]
+        errors["ProgramNeedsUpgrade"].GetSelector().Should().Be(0x637d968fu);
+        // keccak256("ProgramExpired(uint64)")[0..4]
+        errors["ProgramExpired"].GetSelector().Should().Be(0xc9b12e52u);
+        // keccak256("ProgramUpToDate()")[0..4]
+        errors["ProgramUpToDate"].GetSelector().Should().Be(0xcc944bf2u);
+        // keccak256("ProgramKeepaliveTooSoon(uint64)")[0..4]
+        errors["ProgramKeepaliveTooSoon"].GetSelector().Should().Be(0x16bd0cf8u);
+        // keccak256("ProgramInsufficientValue(uint256,uint256)")[0..4]
+        errors["ProgramInsufficientValue"].GetSelector().Should().Be(0x09781ab7u);
+    }
+
+    [TestCase("stylusVersion()")]
+    [TestCase("activateProgram(address)")]
+    [TestCase("codehashVersion(bytes32)")]
+    public void MethodVisibility_BelowStylusArbOSVersion_IsSilentlyRejected(string signature)
+    {
+        // The entire ArbWasm precompile is gated at ArbosVersion.Stylus; below that, the check at
+        // PrecompileHelper.cs:61-62 exits before reading the method ID, so handler stays null too.
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus - 1);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId(signature), out bool shouldRevert, out PrecompileHandler? handler);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeFalse();
+        handler.Should().BeNull();
+    }
+
+    [TestCase("stylusVersion()")]
+    [TestCase("activateProgram(address)")]
+    [TestCase("codehashVersion(bytes32)")]
+    public void MethodVisibility_AtStylusArbOSVersion_IsDispatched(string signature)
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus)
+            .WithExecutingAccount(ArbWasmParser.Address);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId(signature), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 }

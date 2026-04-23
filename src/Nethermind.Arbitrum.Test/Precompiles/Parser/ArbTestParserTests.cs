@@ -31,7 +31,7 @@ public sealed class ArbTestParserTests
     public void SetUp()
     {
         _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block block = ArbOSInitialization.Create(_worldState);
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
             .WithArbosState();
