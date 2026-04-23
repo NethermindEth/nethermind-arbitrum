@@ -103,6 +103,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public IWasmStore WasmStore => Dependencies.WasmStore;
     public IArbosVersionProvider ArbosVersionProvider => Dependencies.ArbosVersionProvider;
 
+    public IStateReconstructor StateReconstructor => Dependencies.StateReconstructor;
+
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
     public IStylusTargetConfig StylusTargetConfig => Container.Resolve<IStylusTargetConfig>();
@@ -336,7 +338,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         CachedL1PriceData CachedL1PriceData,
         IWasmStore WasmStore,
         IArbosVersionProvider ArbosVersionProvider,
-        StateReconstructor StateReconstructor,
+        IStateReconstructor StateReconstructor,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)

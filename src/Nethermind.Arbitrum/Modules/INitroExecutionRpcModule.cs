@@ -40,7 +40,7 @@ public interface INitroExecutionRpcModule : IRpcModule
     Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
+    Task<ResultWrapper<EmptyResponse>> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData);

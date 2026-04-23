@@ -258,9 +258,7 @@ public class ArbDebugParserTests
         uint overwriteContractCodeMethodId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
-            ArbDebugParser.PrecompileFunctionDescription[overwriteContractCodeMethodId].AbiFunctionDescription.GetCallInfo().Signature,
-            [targetContract, newCode]
-        );
+            ArbDebugParser.PrecompileFunctionDescription[overwriteContractCodeMethodId].AbiFunctionDescription.GetCallInfo().Signature, targetContract, newCode);
 
         Transaction tx = Build.A.Transaction
             .WithTo(ArbosAddresses.ArbDebugAddress)

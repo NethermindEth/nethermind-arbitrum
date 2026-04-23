@@ -50,6 +50,7 @@
     ]
   },
   "Pruning": {
+    "Mode": "Memory",
     "PruningBoundary": 192,
     "MaxUnpersistedBlockCount": 1000,
     "TrackPastKeys": false

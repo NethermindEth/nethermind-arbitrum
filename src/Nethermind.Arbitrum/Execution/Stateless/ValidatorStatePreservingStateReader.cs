@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 /// </summary>
 public class ValidatorStatePreservingStateReader(
     IStateReader inner,
-    StateReconstructor stateReconstructor,
+    IStateReconstructor stateReconstructor,
     ReconstructedStateTrieStore reconStore,
     ILogManager logManager) : IStateReader
 {

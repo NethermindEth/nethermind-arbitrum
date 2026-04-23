@@ -3,9 +3,13 @@
 
 using System.Text;
 using FluentAssertions;
+using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles.Parser;
 using Nethermind.Core;
@@ -13,6 +17,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -181,5 +186,95 @@ public class ArbDebugTests
 
         byte[]? currentCode = _worldState.GetCode(targetAddress);
         currentCode.Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbDebug.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("becomeChainOwner()"),
+            PrecompileHelper.GetMethodId("events(bool,bytes32)"),
+            PrecompileHelper.GetMethodId("eventsView()"),
+            PrecompileHelper.GetMethodId("customRevert(uint64)"),
+            PrecompileHelper.GetMethodId("panic()"),
+            PrecompileHelper.GetMethodId("legacyError()"),
+            PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbDebug.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("Basic", "Mixed", "Store");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbDebug.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("Custom", "Unused");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("becomeChainOwner()").Should().Be(0x0e5bbc11u);
+        PrecompileHelper.GetMethodId("events(bool,bytes32)").Should().Be(0x7b9963efu);
+        PrecompileHelper.GetMethodId("eventsView()").Should().Be(0x8e5f30abu);
+        PrecompileHelper.GetMethodId("customRevert(uint64)").Should().Be(0x7ea89f8bu);
+        PrecompileHelper.GetMethodId("panic()").Should().Be(0x4700d305u);
+        PrecompileHelper.GetMethodId("legacyError()").Should().Be(0x1e48fe82u);
+        PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(0x1be250d6u);
+    }
+
+    [Test]
+    public void Panic_BelowStylusArbOSVersion_IsRejected()
+    {
+        // ArbDebugParser sets panic()'s ArbOSVersion to Stylus while the precompile itself stays v0,
+        // so panic is method-gated (revert below) while sibling methods like becomeChainOwner stay
+        // reachable at v0 — the negative control guards against accidental precompile-wide gating.
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus - 1);
+
+        bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("panic()"), out bool shouldRevert, out PrecompileHandler? _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void Panic_AtStylusArbOSVersion_IsDispatched()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus)
+            .WithExecutingAccount(ArbDebugParser.Address);
+
+        bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("panic()"), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
+    public void BecomeChainOwner_AtArbOSVersionZero_IsDispatched()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Zero)
+            .WithExecutingAccount(ArbDebugParser.Address);
+
+        bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileHelper.GetMethodId("becomeChainOwner()"), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 }

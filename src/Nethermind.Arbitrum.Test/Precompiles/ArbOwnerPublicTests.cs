@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
@@ -14,7 +14,6 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
@@ -575,5 +574,52 @@ public class ArbOwnerPublicTests
         ulong result = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
 
         result.Should().Be(0);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbOwnerPublic.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("isChainOwner(address)"),
+            PrecompileHelper.GetMethodId("getAllChainOwners()"),
+            PrecompileHelper.GetMethodId("rectifyChainOwner(address)"),
+            PrecompileHelper.GetMethodId("isNativeTokenOwner(address)"),
+            PrecompileHelper.GetMethodId("getAllNativeTokenOwners()"),
+            PrecompileHelper.GetMethodId("getNetworkFeeAccount()"),
+            PrecompileHelper.GetMethodId("getInfraFeeAccount()"),
+            PrecompileHelper.GetMethodId("getBrotliCompressionLevel()"),
+            PrecompileHelper.GetMethodId("getParentGasFloorPerToken()"),
+            PrecompileHelper.GetMethodId("getNativeTokenManagementFrom()"),
+            PrecompileHelper.GetMethodId("getScheduledUpgrade()"),
+            PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbOwnerPublic.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ChainOwnerRectified");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("isChainOwner(address)").Should().Be(0x26ef7f68u);
+        PrecompileHelper.GetMethodId("getAllChainOwners()").Should().Be(0x516b4e0fu);
+        PrecompileHelper.GetMethodId("rectifyChainOwner(address)").Should().Be(0x6fe86373u);
+        PrecompileHelper.GetMethodId("isNativeTokenOwner(address)").Should().Be(0xc686f4dbu);
+        PrecompileHelper.GetMethodId("getAllNativeTokenOwners()").Should().Be(0x3f8601e4u);
+        PrecompileHelper.GetMethodId("getNetworkFeeAccount()").Should().Be(0x2d9125e9u);
+        PrecompileHelper.GetMethodId("getInfraFeeAccount()").Should().Be(0xee95a824u);
+        PrecompileHelper.GetMethodId("getBrotliCompressionLevel()").Should().Be(0x22d499c7u);
+        PrecompileHelper.GetMethodId("getParentGasFloorPerToken()").Should().Be(0x49ccdaffu);
+        PrecompileHelper.GetMethodId("getNativeTokenManagementFrom()").Should().Be(0x3fecbab0u);
+        PrecompileHelper.GetMethodId("getScheduledUpgrade()").Should().Be(0x81ef944cu);
+        PrecompileHelper.GetMethodId("isCalldataPriceIncreaseEnabled()").Should().Be(0x2aa9551eu);
     }
 }

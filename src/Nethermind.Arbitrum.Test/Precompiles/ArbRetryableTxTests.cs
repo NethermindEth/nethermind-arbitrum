@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -28,7 +29,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -52,7 +53,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -75,7 +76,7 @@ public class ArbRetryableTxTests
         object[] data = [donatedGas, donor, maxRefund, submissionFeeRefund];
         byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256]),
+            new AbiSignature(string.Empty, AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256),
             data);
 
         LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
@@ -99,7 +100,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -115,7 +116,7 @@ public class ArbRetryableTxTests
         object[] data = [newTimeout];
         byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
+            new AbiSignature(string.Empty, AbiUInt.UInt256),
             data);
 
         LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
@@ -137,7 +138,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -187,9 +188,9 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -266,9 +267,9 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -343,7 +344,7 @@ public class ArbRetryableTxTests
     public void Redeem_WithMultiConstraintPricing_ReservesCorrectGasForPoolUpdate()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -474,7 +475,7 @@ public class ArbRetryableTxTests
     public void Redeem_SelfModifyingRetryable_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -494,7 +495,7 @@ public class ArbRetryableTxTests
     public void Redeem_RetryableDoesNotExists_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
@@ -521,7 +522,7 @@ public class ArbRetryableTxTests
     public void GetTimeout_RetryableExists_ReturnsCalculatedTimeout()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -545,7 +546,7 @@ public class ArbRetryableTxTests
     public void GetTimeout_RetryableExpired_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -569,9 +570,9 @@ public class ArbRetryableTxTests
     public void KeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
 
         genesis.Header.Timestamp = 100;
         ulong gasSupplied = ulong.MaxValue;
@@ -630,7 +631,7 @@ public class ArbRetryableTxTests
     public void KeepAlive_RetryableDoesNotExist_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -649,7 +650,7 @@ public class ArbRetryableTxTests
     public void KeepAlive_RetryableExpiresAfter1Lifetime_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -674,7 +675,7 @@ public class ArbRetryableTxTests
     public void GetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -696,7 +697,7 @@ public class ArbRetryableTxTests
     public void GetBeneficiary_RetryableExpired_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -720,7 +721,7 @@ public class ArbRetryableTxTests
     public void Cancel_RetryableExists_DeletesIt()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -791,7 +792,7 @@ public class ArbRetryableTxTests
     public void Cancel_SelfModifyingRetryable_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -812,7 +813,7 @@ public class ArbRetryableTxTests
     public void Cancel_NotBeneficiary_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -842,7 +843,7 @@ public class ArbRetryableTxTests
     public void GetCurrentRedeemer_RedeemTransaction_ReturnsRedeemer()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -860,7 +861,7 @@ public class ArbRetryableTxTests
     public void GetCurrentRedeemer_NotARedeemTransaction_ReturnsZeroAddress()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
@@ -879,6 +880,53 @@ public class ArbRetryableTxTests
 
         ArbitrumPrecompileException expected = ArbRetryableTx.NotCallableSolidityError();
         thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbRetryableTx.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileHelper.GetMethodId("redeem(bytes32)"),
+            PrecompileHelper.GetMethodId("getLifetime()"),
+            PrecompileHelper.GetMethodId("getTimeout(bytes32)"),
+            PrecompileHelper.GetMethodId("keepalive(bytes32)"),
+            PrecompileHelper.GetMethodId("getBeneficiary(bytes32)"),
+            PrecompileHelper.GetMethodId("cancel(bytes32)"),
+            PrecompileHelper.GetMethodId("getCurrentRedeemer()"),
+            PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbRetryableTx.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("TicketCreated", "LifetimeExtended", "RedeemScheduled", "Canceled", "Redeemed");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbRetryableTx.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("NoTicketWithID", "NotCallable");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileHelper.GetMethodId("redeem(bytes32)").Should().Be(0xeda1122cu);
+        PrecompileHelper.GetMethodId("getLifetime()").Should().Be(0x81e6e083u);
+        PrecompileHelper.GetMethodId("getTimeout(bytes32)").Should().Be(0x9f1025c6u);
+        PrecompileHelper.GetMethodId("keepalive(bytes32)").Should().Be(0xf0b21a41u);
+        PrecompileHelper.GetMethodId("getBeneficiary(bytes32)").Should().Be(0xba20dda4u);
+        PrecompileHelper.GetMethodId("cancel(bytes32)").Should().Be(0xc4d252f5u);
+        PrecompileHelper.GetMethodId("getCurrentRedeemer()").Should().Be(0xde4ba2b3u);
+        PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)").Should().Be(0xc9f95d32u);
     }
 
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

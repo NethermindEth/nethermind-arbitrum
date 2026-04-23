@@ -110,7 +110,7 @@ internal static partial class ArbitrumEvmInstructions
         if (!stack.PopUInt256(out UInt256 a))
             return EvmExceptionType.StackUnderflow;
 
-        if (a.IsLargerThanULong())
+        if (!a.IsUint64)
         {
             stack.PushBytes<TTracingInst>(BytesZero32);
             return EvmExceptionType.None;

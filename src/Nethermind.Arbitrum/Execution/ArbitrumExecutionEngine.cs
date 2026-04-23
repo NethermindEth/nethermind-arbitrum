@@ -47,7 +47,7 @@ public sealed class ArbitrumExecutionEngine(
     IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
     IEthereumEcdsa ethereumEcdsa,
-    StateReconstructor stateReconstructor,
+    IStateReconstructor stateReconstructor,
     IArbitrumHistoryPruner historyPruner)
     : IArbitrumExecutionEngine
 {
@@ -186,7 +186,7 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
+    public async Task<ResultWrapper<EmptyResponse>> SetFinalityData(SetFinalityDataParams parameters)
     {
         try
         {
@@ -203,8 +203,10 @@ public sealed class ArbitrumExecutionEngine(
             // Set finality data
             _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
 
+            // No need to really check the result of MarkValid i believe because
+            // nitro's MarkValid does not return any error, only logs warnings/errors
             if (arbitrumConfig.ValidationEnabled && validatedFinalityData.HasValue)
-                MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
+                await MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
 
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
@@ -536,9 +538,9 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters)
+    public async Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
     {
-        stateReconstructor.WaitForPruningGate();
+        await stateReconstructor.WaitForPruningGateAsync();
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 
@@ -579,9 +581,10 @@ public sealed class ArbitrumExecutionEngine(
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 
-    private ResultWrapper<EmptyResponse> MarkValid(MarkValidParameters parameters)
+    private async Task<ResultWrapper<EmptyResponse>> MarkValid(MarkValidParameters parameters)
     {
-        stateReconstructor.WaitForPruningGate();
+        await stateReconstructor.WaitForPruningGateAsync();
+
         ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
         if (blockNumberResult.Result != Result.Success)
             return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
@@ -592,9 +595,9 @@ public sealed class ArbitrumExecutionEngine(
         Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
         if (canonicalHash != parameters.ResultHash)
         {
-            if (_logger.IsError)
-                _logger.Error($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
-            return ResultWrapper<EmptyResponse>.Success(default);
+            if (_logger.IsWarn)
+                _logger.Warn($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
+            return ResultWrapper<EmptyResponse>.Fail($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
         }
 
         // Promote the candidate (its block number must be ≤ validBlockNumber)

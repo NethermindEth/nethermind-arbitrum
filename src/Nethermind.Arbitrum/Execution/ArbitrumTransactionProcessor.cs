@@ -203,7 +203,7 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas,
+            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, in ArbitrumGasPolicy floorGas,
             in ArbitrumGasPolicy intrinsicGasStandard)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
@@ -314,8 +314,9 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gasAfterExecution)
+        protected override GasConsumed RefundOnFail(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, BlockGasCalculation computeBlockGas, long floorGas = 0)
         {
+            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
             long spentGas = tx.GasLimit;

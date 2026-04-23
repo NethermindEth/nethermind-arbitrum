@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Data;
-using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Execution;
@@ -18,7 +17,7 @@ public interface IArbitrumExecutionEngine
     Task<ResultWrapper<ulong>> HeadMessageIndexAsync();
     ResultWrapper<long> MessageIndexToBlockNumber(ulong messageIndex);
     ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber);
-    ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters);
+    Task<ResultWrapper<EmptyResponse>> SetFinalityData(SetFinalityDataParams parameters);
     ResultWrapper<EmptyResponse> MarkFeedStart(ulong to);
     Task<ResultWrapper<string>> TriggerMaintenanceAsync();
     Task<ResultWrapper<bool>> ShouldTriggerMaintenanceAsync();
@@ -29,7 +28,7 @@ public interface IArbitrumExecutionEngine
     ResultWrapper<Dictionary<string, object>> FullSyncProgressMap();
     Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndexAsync(ulong messageIndex);
     Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
-    ResultWrapper<EmptyResponse> PrepareForRecord(PrepareForRecordParameters parameters);
+    Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters);
 
     Task<ResultWrapper<StartSequencingResult>> StartSequencingAsync(ulong l1BlockNumber, ulong l1Timestamp, ulong timestamp);
     Task<ResultWrapper<EmptyResponse>> EndSequencingAsync(string? error);

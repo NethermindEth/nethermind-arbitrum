@@ -33,6 +33,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Test;
+using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -1601,6 +1602,79 @@ public class ArbitrumTransactionProcessorTests
         tracer.AfterEvmTransfers.Count.Should().Be(0);
         GethLikeTxTrace trace = tracer.BuildResult();
         trace.Entries.Count.Should().Be(42);
+    }
+
+    [Test]
+    public void ProcessArbitrumSubmitRetryableTransaction_AutoRedeemsRetryable_IncrementsNumTries()
+    {
+        UInt256 l1BaseFee = 39;
+
+        Action<ContainerBuilder> preConfigurer = cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        };
+
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        Hash256 ticketIdHash = ArbRetryableTxTests.Hash256FromUlong(1);
+        UInt256 gasFeeCap = 1000000000;
+        UInt256 value = 10000000000000000;
+        ulong gasLimit = 21000;
+        ReadOnlyMemory<byte> data = ReadOnlyMemory<byte>.Empty;
+        ulong maxSubmissionFee = 54600;
+        UInt256 deposit = 10021000000054600;
+
+        ArbitrumSubmitRetryableTransaction tx = new()
+        {
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = ticketIdHash,
+            SenderAddress = TestItem.AddressA,
+            L1BaseFee = l1BaseFee,
+            DepositValue = deposit,
+            DecodedMaxFeePerGas = gasFeeCap,
+            GasFeeCap = gasFeeCap,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = TestItem.AddressB,
+            RetryValue = value,
+            Beneficiary = TestItem.AddressC,
+            MaxSubmissionFee = maxSubmissionFee,
+            FeeRefundAddr = TestItem.AddressD,
+            RetryData = data,
+            Data = data.ToArray(),
+            Nonce = 0,
+            Mint = deposit,
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            SourceHash = ticketIdHash
+        };
+
+        tx.Hash = tx.CalculateHash();
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(),
+            LimboLogs.Instance.GetLogger("arbosState"));
+
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
+            GasCostOf.Transaction, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
+
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
+
+        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, NullTxTracer.Instance);
+        txResult.Should().Be(TransactionResult.Ok);
+
+        Retryable? retryable = arbosState.RetryableState.OpenRetryable(tx.Hash!.ValueHash256, header.Timestamp);
+        retryable.Should().NotBeNull();
+        retryable!.NumTries.Get().Should().Be(1);
     }
 
     [Test]

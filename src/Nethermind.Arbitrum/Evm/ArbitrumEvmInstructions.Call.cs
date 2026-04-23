@@ -131,14 +131,6 @@ internal static partial class ArbitrumEvmInstructions
         // Retrieve code information for the call and schedule background analysis if needed.
         CodeInfo codeInfo = vm.CodeInfoRepository.GetCachedCodeInfo(codeSource, spec);
 
-        // If contract is large, charge for access
-        if (spec.IsEip7907Enabled)
-        {
-            uint excessContractSize = (uint)System.Math.Max(0, codeInfo.CodeSpan.Length - CodeSizeConstants.MaxCodeSizeEip170);
-            if (excessContractSize > 0 && !TGasPolicy.ConsumeLargeContractAccessGas(ref gas, excessContractSize, codeSource, in vm.VmState.AccessTracker))
-                goto OutOfGas;
-        }
-
         // Get remaining gas for 63/64 calculation
         long gasAvailable = TGasPolicy.GetRemainingGas(in gas);
 

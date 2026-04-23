@@ -50,7 +50,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine, ArbitrumCl
         return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
     }
 
-    public ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData)
@@ -115,7 +115,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine, ArbitrumCl
     public Task<ResultWrapper<RecordResult>> nitroexecution_recordBlockCreation(ulong pos, MessageWithMetadata message, string[] wasmTargets)
         => engine.RecordBlockCreation(new RecordBlockCreationParameters(pos, message, wasmTargets));
 
-    public ResultWrapper<EmptyResponse> nitroexecution_prepareForRecord(ulong start, ulong end)
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_prepareForRecord(ulong start, ulong end)
         => engine.PrepareForRecord(new PrepareForRecordParameters(start, end));
 
     public Task<ResultWrapper<bool>> nitroexecution_pruneHistory()

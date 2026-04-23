@@ -3,16 +3,15 @@
 
 using Autofac;
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Test.Infrastructure;
-using Nethermind.Consensus.Processing.CensorshipDetector;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
 using Nethermind.JsonRpc;
 using Nethermind.Trie;
-using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Test.Execution.Stateless;
 
@@ -23,28 +22,15 @@ public class StateReconstructorTests
     [Test]
     public async Task RecordBlockCreation_WithFullyPrunedState_ReconstructsStateFromGenesis()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
+        // Keep genesis state root accessible, prune the rest
+        HashSet<long> blockNumbersToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep);
 
         DigestMessageParameters lastDigestMessage = GetLastDigestedMessage();
         long headNumber = (long)lastDigestMessage.Index;
 
-        // Switch to pruned mode — only genesis root is "available"
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
-
         // Verify ALL non-genesis state roots are NOT available before reconstruction
-        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber)
-                trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                    $"genesis state root should be available before reconstruction");
-            else
-                trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
-                    $"state root for block {blockNum} should not be available before reconstruction");
-        }
+        // Verified in SimulatePruning()
 
         // RecordBlockCreation triggers state reconstruction from the nearest available state (genesis, in this case)
         ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
@@ -57,10 +43,11 @@ public class StateReconstructorTests
         // All state roots got reconstructed from genesis to head - 1 (RecordBlockCreation is read only!),
         // but due to reconstructed state pruning, all these intermediate state root reconstructions got pruned,
         // except for the recorded block's parent's state which got pinned as the validHeaderCandidate.
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == (long)lastDigestMessage.Index - 1)
+            if (blockNumbersToKeep.Contains(blockNum) || blockNum == (long)lastDigestMessage.Index - 1)
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"state root for block {blockNum} should be available after reconstruction");
             else
@@ -72,30 +59,16 @@ public class StateReconstructorTests
     [Test]
     public async Task RecordBlockCreation_WithPartiallyPrunedState_ReconstructsStateFromNearestAvailable()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
+        // Keep genesis + intermediate state root accessible, prune the rest
+        long intermediateBlockNumber = 7;
+        HashSet<long> blockNumbersToKeep = [0, intermediateBlockNumber];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep);
 
         DigestMessageParameters lastDigestMessage = GetLastDigestedMessage();
         long headNumber = (long)lastDigestMessage.Index;
 
-        // Switch to pruned mode — genesis and an intermediate block are available
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        long intermediateBlockNumber = (long)chain.GenesisBlockNumber + 7;
-        Hash256 intermediateStateRoot = chain.BlockTree.FindHeader(intermediateBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot, intermediateStateRoot });
-
         // Verify state roots except for genesis and the intermediate block are NOT available before reconstruction
-        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == intermediateBlockNumber)
-                trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                    $"genesis and intermediate state roots only should be available before reconstruction");
-            else
-                trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
-                    $"state root for block {blockNum} should not be available before reconstruction");
-        }
+        // Verified in SimulatePruning()
 
         // RecordBlockCreation should reconstruct from the intermediate block, not genesis
         ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
@@ -108,10 +81,11 @@ public class StateReconstructorTests
         // All state roots got reconstructed from the intermediate block to head - 1 (RecordBlockCreation is read only!),
         // but due to reconstructed state pruning, all these intermediate state root reconstructions got pruned,
         // except for the recorded block's parent's state which got pinned as the validHeaderCandidate.
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == intermediateBlockNumber || blockNum == (long)lastDigestMessage.Index - 1)
+            if (blockNumbersToKeep.Contains(blockNum) || blockNum == (long)lastDigestMessage.Index - 1)
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"genesis and intermediate state roots only should be available before reconstruction");
             else
@@ -123,27 +97,15 @@ public class StateReconstructorTests
     [Test]
     public async Task RecordBlockCreation_StateAlreadyAvailable_SkipsReconstruction()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
-
         DigestMessageParameters lastDigestMessage = GetLastDigestedMessage();
-
-        // Make target's parent's state root available from the start
         long targetParentBlockNumber = (long)lastDigestMessage.Index - 1;
-        Hash256 targetParentStateRoot = chain.BlockTree.FindHeader(targetParentBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { targetParentStateRoot });
 
-        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)chain.LatestL2BlockIndex; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == targetParentBlockNumber)
-                trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                    $"parent state root for block {blockNum} should be available before RecordBlockCreation");
-            else
-                trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
-                    $"state root for block {blockNum} should not be available before RecordBlockCreation");
-        }
+        // Make only target's parent's state root available from the start
+        HashSet<long> blockNumbersToKeep = [targetParentBlockNumber];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep);
+
+        // Verify state roots except for target block are NOT available before reconstruction
+        // Verified in SimulatePruning()
 
         ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(lastDigestMessage.Index, lastDigestMessage.Message, WasmTargets: []));
@@ -154,10 +116,11 @@ public class StateReconstructorTests
 
         // As target's parent's state root is already available, EnsureStateAvailable is a no-op
         // and RecordBlockCreation is read only, so state roots availability should be unchanged after the call.
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)chain.LatestL2BlockIndex; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == targetParentBlockNumber)
+            if (blockNumbersToKeep.Contains(blockNum))
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"parent state root for block {blockNum} should be available after RecordBlockCreation");
             else
@@ -169,42 +132,28 @@ public class StateReconstructorTests
     [Test]
     public void PrepareForRecord_WithFullyPrunedState_ReconstructsAllStatesInRange()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
+        // Switch to pruned mode — only genesis root is "available"
+        HashSet<long> blockNumbersToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep);
 
         long headNumber = chain.BlockTree.Head!.Number;
 
-        // Switch to pruned mode — only genesis root is "available"
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
-
         // Verify state roots are NOT available before PrepareForRecord
-        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber)
-                trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                    $"genesis state root should be available before PrepareForRecord");
-            else
-                trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
-                    $"state root for block {blockNum} should not be available before PrepareForRecord");
-        }
+        // Verified in SimulatePruning()
 
         ulong start = 5;
         ulong end = 10;
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start, end));
-        result.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         // State roots for all blocks in the range [start-1, end] (in addition to genesis) should now be available.
         // StateReconstructor also reconstructed the blocks before the start block (from nearest available,
         // here genesis) in order to reconstruct the blocks in the range, but those ones then got pruned
         // as not pinned/referenced (for future use).
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum >= (long)start - 1 && blockNum <= (long)end)
+            if (blockNumbersToKeep.Contains(blockNum) || blockNum >= (long)start - 1 && blockNum <= (long)end)
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"state root for block {blockNum} should be available after PrepareForRecord");
             else
@@ -216,45 +165,30 @@ public class StateReconstructorTests
     [Test]
     public void PrepareForRecord_WithPartiallyPrunedState_ReconstructsFromNearestAvailable()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
+        // Switch to pruned mode — genesis and an intermediate block are available
+        long intermediateBlockNumber = 9;
+        HashSet<long> blockNumbersToKeep = [0, intermediateBlockNumber];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep);
 
         long headNumber = chain.BlockTree.Head!.Number;
 
-        // Switch to pruned mode — genesis and an intermediate block are available
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        long intermediateBlockNumber = (long)chain.GenesisBlockNumber + 9;
-        Hash256 intermediateStateRoot = chain.BlockTree.FindHeader(intermediateBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot, intermediateStateRoot });
-
-        // Verify state roots after the intermediate block are NOT available
-        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
-        for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == intermediateBlockNumber || blockNum == (long)chain.GenesisBlockNumber)
-                trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                    $"state root for block {blockNum} should be available before PrepareForRecord");
-            else
-                trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
-                    $"state root for block {blockNum} should not be available before PrepareForRecord");
-        }
+        // Verify state roots except for genesis and the intermediate block are NOT available
+        // Verified in SimulatePruning()
 
         ulong start = 13;
         ulong end = 17;
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start, end));
-        result.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestSucceed();
 
         // State roots for all blocks in the range [start-1, end] (in addition to the already available
         // genesis and the intermediate block) should now be available.
         // StateReconstructor also reconstructed the blocks before the start block (from nearest available,
         // here the intermediate block) in order to reconstruct the blocks in the range,
         // but those ones then got pruned as not pinned/referenced (for future use).
+        ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == intermediateBlockNumber || blockNum >= (long)start - 1 && blockNum <= (long)end)
+            if (blockNumbersToKeep.Contains(blockNum) || blockNum >= (long)start - 1 && blockNum <= (long)end)
                 trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
                     $"state root for block {blockNum} should be available after PrepareForRecord");
             else
@@ -279,10 +213,7 @@ public class StateReconstructorTests
         }
 
         // In archive mode, state is always available — PrepareForRecord is a no-op
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 10, End: 15));
-
-        result.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 10, End: 15)).ShouldAsync().RequestSucceed();
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)chain.LatestL2BlockIndex; blockNum++)
         {
@@ -299,27 +230,18 @@ public class StateReconstructorTests
 
         ulong start = 10;
         ulong end = 5;
-        ResultWrapper<EmptyResponse> result = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start, end));
-
-        result.Result.Should().NotBe(Result.Success);
-        result.Result.Error.Should().Be($"Invalid range: start {start} > end {end}");
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start, end)).ShouldAsync().RequestFail($"Invalid range: start {start} > end {end}");
     }
 
     [Test]
     public async Task PrepareForRecord_ThenRecordBlockCreation_PreparedStateRemainsAvailable()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore);
-
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+        HashSet<long> blockNumbersToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep);
 
         ulong prepareStart = 14;
         ulong prepareEnd = 17;
-        ResultWrapper<EmptyResponse> prepareResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(prepareStart, prepareEnd));
-        prepareResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(prepareStart, prepareEnd)).ShouldAsync().RequestSucceed();
 
         // PrepareForRecord also includes the parent state (prepareStart-1) so RecordBlockCreation can access it
         long overlayStart = (long)prepareStart - 1;
@@ -328,7 +250,7 @@ public class StateReconstructorTests
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
 
-            bool shouldBeAvailable = blockNum == (long)chain.GenesisBlockNumber
+            bool shouldBeAvailable = blockNumbersToKeep.Contains(blockNum)
                 || (blockNum >= overlayStart && blockNum <= (long)prepareEnd);
 
             trieStore.HasRoot(header.StateRoot!).Should().Be(shouldBeAvailable,
@@ -348,7 +270,7 @@ public class StateReconstructorTests
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
 
-            bool shouldBeAvailable = blockNum == (long)chain.GenesisBlockNumber
+            bool shouldBeAvailable = blockNumbersToKeep.Contains(blockNum)
                 || (blockNum >= overlayStart && blockNum <= (long)prepareEnd);
 
             trieStore.HasRoot(header.StateRoot!).Should().Be(shouldBeAvailable,
@@ -359,20 +281,15 @@ public class StateReconstructorTests
     [Test]
     public void PrepareForRecord_WithSmallMaxStateRootsInMem_EvictsOldStates()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStateRootsInMem: 3);
-
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+        HashSet<long> blockNumbersToKeep = [0];
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep, maxStateRootsInMem: 3);
 
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
         // First PrepareForRecord: 4 states [4,5,6,7] prepared but max=3 → block 4 immediately evicted.
         // But block 4's state (first one in the range) got referenced as the validHeaderCandidate.
         // So, even if not in queue anymore, its state still exists in memDB.
-        ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 5, End: 7));
-        firstResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 5, End: 7)).ShouldAsync().RequestSucceed();
 
         trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeTrue(
             "block 4 got referenced as validHeaderCandidate even if evicted from queue");
@@ -381,9 +298,7 @@ public class StateReconstructorTests
         trieStore.HasRoot(chain.BlockTree.FindHeader(7)!.StateRoot!).Should().BeTrue("block 7 should be available");
 
         // Second PrepareForRecord: 4 more states [9,10,11,12] added → queue [5,6,7,9,10,11,12], keep 3 most recent [10,11,12]
-        ResultWrapper<EmptyResponse> secondResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 10, End: 12));
-        secondResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 10, End: 12)).ShouldAsync().RequestSucceed();
 
         trieStore.HasRoot(chain.BlockTree.FindHeader(4)!.StateRoot!).Should().BeTrue("block 4 should still be referenced as validHeaderCandidate");
         trieStore.HasRoot(chain.BlockTree.FindHeader(5)!.StateRoot!).Should().BeFalse("block 5 should be evicted");
@@ -398,26 +313,21 @@ public class StateReconstructorTests
     [Test]
     public async Task PrepareForRecord_InterleavedWithRecordBlockCreation_MaintainsCorrectAvailability()
     {
-        SwitchableReadOnlyTrieStore switchableStore = new();
+        HashSet<long> blockNumbersToKeep = [0];
         // max=5 so the first PrepareForRecord [3,4,5,6,7] fits exactly without eviction
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(switchableStore, maxStateRootsInMem: 5);
-
-        Hash256 genesisStateRoot = chain.BlockTree.FindHeader((long)chain.GenesisBlockNumber)!.StateRoot!;
-        switchableStore.EnablePruning(new HashSet<Hash256> { genesisStateRoot });
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep, maxStateRootsInMem: 5);
 
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
 
         // Phase 1: prepare states for blocks 3-7 (PrepareForRecord includes start-1=3)
         ulong start1 = 4;
         ulong end1 = 7;
-        ResultWrapper<EmptyResponse> firstPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(start1, end1));
-        firstPrepare.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(start1, end1)).ShouldAsync().RequestSucceed();
 
         DigestMessageParameters lastDigestMsg = GetLastDigestedMessage();
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
-            if (blockNum == (long)chain.GenesisBlockNumber || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
+            if (blockNumbersToKeep.Contains(blockNum) || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
                 trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
                     $"block {blockNum} state should be available after first PrepareForRecord");
             else
@@ -441,7 +351,7 @@ public class StateReconstructorTests
         // Prepared states are unchanged after read-only RecordBlockCreations
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
-            if (blockNum == (long)chain.GenesisBlockNumber || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
+            if (blockNumbersToKeep.Contains(blockNum) || (blockNum >= (long)start1 - 1 && blockNum <= (long)end1))
                 trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
                     $"block {blockNum} state should be available after first RecordBlockCreation");
             else
@@ -452,13 +362,11 @@ public class StateReconstructorTests
         // Phase 3: second PrepareForRecord prepares [11,12,13,14] → queue [3,4,5,6,7,11,12,13,14], evict 4 oldest [3,4,5,6] to keep only 5
         // But the first PrepareForRecord call earlier set the first header in the range (start-1=3) as the _validHeaderCandidate
         // and therefore referenced it. So, even if that header got evicted from the queue, its state is still referenced.
-        ResultWrapper<EmptyResponse> secondPrepare = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 12, End: 14));
-        secondPrepare.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 12, End: 14)).ShouldAsync().RequestSucceed();
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 3 || blockNum == 7 || (blockNum >= 11 && blockNum <= 14))
+            if (blockNumbersToKeep.Contains(blockNum) || blockNum == 3 || blockNum == 7 || (blockNum >= 11 && blockNum <= 14))
                 trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
                     $"block {blockNum} state should be available after second PrepareForRecord");
             else
@@ -476,7 +384,7 @@ public class StateReconstructorTests
 
         for (long blockNum = (long)chain.GenesisBlockNumber; blockNum <= (long)lastDigestMsg.Index; blockNum++)
         {
-            if (blockNum == (long)chain.GenesisBlockNumber || blockNum == 3 || blockNum == 7 || (blockNum >= 11 && blockNum <= 14))
+            if (blockNumbersToKeep.Contains(blockNum) || blockNum == 3 || blockNum == 7 || (blockNum >= 11 && blockNum <= 14))
                 trieStore.HasRoot(chain.BlockTree.FindHeader(blockNum)!.StateRoot!).Should().BeTrue(
                     $"block {blockNum} state should be available after second RecordBlockCreation");
             else
@@ -514,23 +422,21 @@ public class StateReconstructorTests
     [Test]
     public async Task RecordBlockCreation_WhenMemDbExceedsThreshold_SpillsOldestRootsToDiskAndPreservesNewRoots()
     {
+        HashSet<long> blockNumbersToKeep = [0];
         // ValidatorReconstructedStateMemDBMaxSizeMb = 0 → limit = 0 bytes → MaybeCap fires after every block
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(maxMemDbSizeMb: 0);
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep, maxMemDbSizeMb: 0);
 
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
 
-        SimulatePruning(chain, blockNumberToKeep: 0);
-
         // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
         // After this call _preparedQueue = [block0, block1, …, block9].
-        ResultWrapper<EmptyResponse> prepareResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 1, End: 9));
-        prepareResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 1, End: 9)).ShouldAsync().RequestSucceed();
 
         // Blocks 1–9 are now in the MemDb overlay (not yet written back to main state DB).
         trieStore.DirtySize.Should().BeGreaterThan(0,
             "PrepareForRecord should have added reconstructed trie nodes to the MemDb overlay");
+
         for (long blockNum = 1; blockNum <= 9; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
@@ -573,19 +479,16 @@ public class StateReconstructorTests
     [Test]
     public void PrepareForRecord_WhenMemDbExceedsThreshold_SpillsOldestRootsToDiskAndPreservesNewRoots()
     {
+        HashSet<long> blockNumbersToKeep = [0];
         // ValidatorReconstructedStateMemDBMaxSizeMb = 0 → limit = 0 bytes → MaybeCap fires after every block
-        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(maxMemDbSizeMb: 0);
+        using ArbitrumRpcTestBlockchain chain = BuildChainWithRecording(blockNumbersToKeep, maxMemDbSizeMb: 0);
 
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
 
-        SimulatePruning(chain, blockNumberToKeep: 0);
-
         // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
         // After this call _preparedQueue = [block0, block1, …, block9].
-        ResultWrapper<EmptyResponse> firstResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 1, End: 9));
-        firstResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 1, End: 9)).ShouldAsync().RequestSucceed();
 
         // MemDb has state BEFORE the PrepareForRecord that will trigger actual spilling.
         trieStore.DirtySize.Should().BeGreaterThan(0,
@@ -605,9 +508,7 @@ public class StateReconstructorTests
         // MaybeCap fires 9 times (once per block 10–18 reconstruction).
         // The populated _preparedQueue is drained: block0 is short-circuited (already on disk),
         // then blocks 1–9 are spilled via DereferenceAndSpill.
-        ResultWrapper<EmptyResponse> secondResult = chain.ArbitrumRpcModule.PrepareForRecord(
-            new PrepareForRecordParameters(Start: 11, End: 18));
-        secondResult.Result.Should().Be(Result.Success);
+        chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 11, End: 18)).ShouldAsync().RequestSucceed();
 
         // MemDb still has state AFTER capping (blocks 10–18 are still present),
         // as after block 10's reconstruction, _preparedQueue is empty again,
@@ -647,11 +548,12 @@ public class StateReconstructorTests
 
     /// <summary>
     /// Simulates disk pruning by removing all state-root keys from the main state DB except for
-    /// <paramref name="blockNumberToKeep"/>. After <see cref="ArbitrumTestBlockchainBuilder.Build"/>
+    /// <paramref name="blockNumbersToKeep"/>. After <see cref="ArbitrumTestBlockchainBuilder.Build"/>
     /// calls <c>FlushCache</c>, every block's state root is on disk; this helper then deletes all but
-    /// one, leaving the rest accessible only through the MemDb overlay (if referenced) or not at all.
+    /// the ones passed. No state is accessible through the reconstructed state MemDb overlay as
+    /// this method is called right after the chain is built.
     /// </summary>
-    public static void SimulatePruning(ArbitrumRpcTestBlockchain chain, long blockNumberToKeep)
+    public static void SimulatePruning(ArbitrumRpcTestBlockchain chain, HashSet<long> blockNumbersToKeep)
     {
         IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
@@ -659,7 +561,7 @@ public class StateReconstructorTests
         long headNumber = chain.BlockTree.Head!.Number;
         for (long blockNum = 0; blockNum <= headNumber; blockNum++)
         {
-            if (blockNum == blockNumberToKeep)
+            if (blockNumbersToKeep.Contains(blockNum))
                 continue;
 
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
@@ -669,8 +571,8 @@ public class StateReconstructorTests
         for (long blockNum = 0; blockNum <= headNumber; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            if (blockNum == blockNumberToKeep)
-                trieStore.HasRoot(header.StateRoot!).Should().BeTrue($"state root of block {blockNumberToKeep} should still be accessible");
+            if (blockNumbersToKeep.Contains(blockNum))
+                trieStore.HasRoot(header.StateRoot!).Should().BeTrue($"state root of block {blockNum} should still be accessible");
             else
                 trieStore.HasRoot(header.StateRoot!).Should().BeFalse(
                     $"block {blockNum} state root key was deleted from main state DB — should not be accessible");
@@ -678,7 +580,7 @@ public class StateReconstructorTests
     }
 
     private static ArbitrumRpcTestBlockchain BuildChainWithRecording(
-        SwitchableReadOnlyTrieStore? switchableStore = null,
+        HashSet<long>? blockNumbersToKeep = null,
         int? maxStateRootsInMem = null,
         int? maxMemDbSizeMb = null)
     {
@@ -687,18 +589,22 @@ public class StateReconstructorTests
         ArbitrumTestBlockchainBuilder builder = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording);
 
-        if (switchableStore is not null)
-            builder.WithContainerConfigurer(b => b.AddSingleton<ReconstructedStateTrieStore>(ctx =>
-                new ReconstructedStateTrieStore(new MemDb(), switchableStore.Wrap(ctx.Resolve<IReadOnlyTrieStore>()))));
+        Action<ArbitrumConfig> configure = cfg =>
+        {
+            cfg.ValidationEnabled = true;
+            cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem ?? cfg.ValidatorMaxStateRootsInMem;
+            cfg.ValidatorReconstructedStateMemDBMaxSizeMb = maxMemDbSizeMb ?? cfg.ValidatorReconstructedStateMemDBMaxSizeMb;
+        };
 
-        if (maxStateRootsInMem.HasValue)
-            builder.WithArbitrumConfig(cfg => cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem.Value);
-
-        if (maxMemDbSizeMb.HasValue)
-            builder.WithArbitrumConfig(cfg => cfg.ValidatorReconstructedStateMemDBMaxSizeMb = maxMemDbSizeMb.Value);
+        builder.WithArbitrumConfig(configure);
 
         // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore
-        return builder.Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+        ArbitrumRpcTestBlockchain chain = builder.Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+
+        if (blockNumbersToKeep is not null)
+            SimulatePruning(chain, blockNumbersToKeep);
+
+        return chain;
     }
 
     private static DigestMessageParameters GetLastDigestedMessage()
@@ -711,60 +617,5 @@ public class StateReconstructorTests
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
         return recording.GetDigestMessages().Single(m => m.Index == index);
-    }
-
-    /// <summary>
-    /// A controller that wraps an IReadOnlyTrieStore with switchable HasRoot behavior.
-    /// Initially passes through all calls (including TryLoadRlp used for HasRoot) to the real store.
-    /// After EnablePruning() is called, TryLoadRlp returns false for roots not in the allowed set,
-    /// while all other operations still delegate to the real store.
-    /// This simulates pruning mode where the few available trie nodes are "on disk" while all the others have been evicted from the dirty cache.
-    /// </summary>
-    private class SwitchableReadOnlyTrieStore
-    {
-        private HashSet<Hash256>? _availableRoots;
-
-        public IReadOnlyTrieStore Wrap(IReadOnlyTrieStore inner) => new Wrapper(inner, this);
-
-        public void EnablePruning(HashSet<Hash256> availableRoots) => _availableRoots = availableRoots;
-
-        private class Wrapper(IReadOnlyTrieStore inner, SwitchableReadOnlyTrieStore controller) : IReadOnlyTrieStore
-        {
-            public void Dispose() { }
-
-            public TrieNode FindCachedOrUnknown(Hash256? address, in TreePath path, Hash256 hash)
-                => inner.FindCachedOrUnknown(address, in path, hash);
-
-            public byte[]? LoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
-                => inner.LoadRlp(address, in path, hash, flags);
-
-            // ReconstructedStateTrieStore.HasRoot() will call this method to check if a state root is available,
-            // so we override it to implement the pruning behavior.
-            // But we also need to make sure it does not impact regular calls to it when fetching nodes outside of state roots.
-            public byte[]? TryLoadRlp(Hash256? address, in TreePath path, Hash256 hash, ReadFlags flags = ReadFlags.None)
-            {
-                // If the controller overrides available roots and we are loading a state root (address is null and path is empty),
-                // only return the node if it's in the available set
-                if (controller._availableRoots is not null && address is null && path.Length == 0)
-                    return controller._availableRoots.Contains(hash) ? inner.TryLoadRlp(address, in path, hash, flags) : null;
-
-                return inner.TryLoadRlp(address, in path, hash, flags);
-            }
-
-            public INodeStorage.KeyScheme Scheme => inner.Scheme;
-
-            public ICommitter BeginCommit(Hash256? address, TrieNode? root, WriteFlags writeFlags)
-                => inner.BeginCommit(address, root, writeFlags);
-
-            // This method should not even be called as ReconstructedStateTrieStore.HasRoot() will call this.TryLoadRlp() directly!
-            public bool HasRoot(Hash256 stateRoot)
-                => throw new UnauthorizedAccessException("Method HasRoot should not be called");
-
-            public IDisposable BeginScope(BlockHeader? baseBlock) => inner.BeginScope(baseBlock);
-
-            public IScopedTrieStore GetTrieStore(Hash256? address) => inner.GetTrieStore(address);
-
-            public IBlockCommitter BeginBlockCommit(long blockNumber) => inner.BeginBlockCommit(blockNumber);
-        }
     }
 }

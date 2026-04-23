@@ -4,7 +4,6 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Evm;
 using Nethermind.Logging;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -109,10 +108,7 @@ public class ArbGasInfoParserTests
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
-            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
-        );
+            function.GetReturnInfo().Signature, expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage, new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice));
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -151,10 +147,7 @@ public class ArbGasInfoParserTests
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
-            new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice)]
-        );
+            function.GetReturnInfo().Signature, expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage, new UInt256(l2GasPrice), UInt256.Zero, new UInt256(l2GasPrice));
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -192,10 +185,7 @@ public class ArbGasInfoParserTests
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage,
-            expectedPerArbGasBase, expectedPerArbGasCongestion, new UInt256(l2GasPrice)]
-        );
+            function.GetReturnInfo().Signature, expectedPerL2Tx, expectedWeiForL1Calldata, expectedWeiForL2Storage, expectedPerArbGasBase, expectedPerArbGasCongestion, new UInt256(l2GasPrice));
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -236,9 +226,7 @@ public class ArbGasInfoParserTests
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
-        );
+            function.GetReturnInfo().Signature, expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas);
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -277,9 +265,7 @@ public class ArbGasInfoParserTests
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas]
-        );
+            function.GetReturnInfo().Signature, expectedGasPerL2Tx, expectedGasForL1Calldata, ArbGasInfo.StorageArbGas);
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -307,9 +293,7 @@ public class ArbGasInfoParserTests
 
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [UInt256.Zero, UInt256.Zero, ArbGasInfo.StorageArbGas]
-        );
+            function.GetReturnInfo().Signature, UInt256.Zero, UInt256.Zero, ArbGasInfo.StorageArbGas);
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -343,9 +327,7 @@ public class ArbGasInfoParserTests
         // Before ArbOS 50, third parameter should be block limit
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [new UInt256(speedLimitPerSecond), gasLimitPerBlockUInt256, gasLimitPerBlockUInt256]
-        );
+            function.GetReturnInfo().Signature, new UInt256(speedLimitPerSecond), gasLimitPerBlockUInt256, gasLimitPerBlockUInt256);
 
         result.Should().BeEquivalentTo(expectedResult);
 
@@ -376,9 +358,7 @@ public class ArbGasInfoParserTests
         // After ArbOS 50, third parameter should be actual per-tx limit
         byte[] expectedResult = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [new UInt256(speedLimitPerSecond), new UInt256(gasLimitPerBlock), new UInt256(perTxGasLimit)]
-        );
+            function.GetReturnInfo().Signature, new UInt256(speedLimitPerSecond), new UInt256(gasLimitPerBlock), new UInt256(perTxGasLimit));
 
         result.Should().BeEquivalentTo(expectedResult);
 

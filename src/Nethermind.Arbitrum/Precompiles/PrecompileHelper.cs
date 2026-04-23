@@ -22,6 +22,20 @@ public static class PrecompileHelper
         return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
     }
 
+    public static uint GetSelector(this AbiErrorDescription error)
+    {
+        return BinaryPrimitives.ReadUInt32BigEndian(error.GetHash().Bytes[..4]);
+    }
+
+    public static bool TryCheckMethodVisibility(this IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, uint methodId, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
+    {
+        Span<byte> calldataBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(calldataBytes, methodId);
+        ReadOnlySpan<byte> calldata = calldataBytes;
+
+        return TryCheckMethodVisibility(precompile, context, logger, ref calldata, out shouldRevert, out methodToExecute);
+    }
+
     public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         => precompile switch
         {
@@ -40,6 +54,7 @@ public static class PrecompileHelper
             _ when precompile is ArbStatisticsParser _ => CheckMethodVisibility<ArbStatisticsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbDebugParser _ => CheckMethodVisibility<ArbDebugParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbWasmCacheParser _ => CheckMethodVisibility<ArbWasmCacheParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbBlsParser _ => CheckMethodVisibility<ArbBlsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbNativeTokenManagerParser _ => CheckMethodVisibility<ArbNativeTokenManagerParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };
