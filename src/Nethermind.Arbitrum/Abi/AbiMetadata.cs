@@ -3,13 +3,15 @@
 
 using Nethermind.Abi;
 using System.Text.Json;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core.Crypto;
 using System.Buffers.Binary;
 
-namespace Nethermind.Arbitrum.Precompiles.Abi;
+namespace Nethermind.Arbitrum.Abi;
 
 /// <summary>
-/// ABI Metadata is a fake precompile - not to be called, just supplying data for internal transaction processing
+/// ABI helpers for internal ArbOS system transactions (startBlock, batchPostingReport, batchPostingReportV2).
+/// Unrelated to user-facing precompile ABIs, which are sourced from the Nethermind.Arbitrum.Precompiles package.
 /// </summary>
 public class AbiMetadata
 {
@@ -61,7 +63,7 @@ public class AbiMetadata
         return AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature, arguments);
     }
 
-    public static AbiSignature GetAbiSignature(string abiJson, string methodName)
+    private static AbiSignature GetAbiSignature(string abiJson, string methodName)
     {
         AbiParam[] inputs = GetArbAbiParams(abiJson, methodName);
         return new AbiSignature(methodName, inputs.Select(i => i.Type).ToArray());

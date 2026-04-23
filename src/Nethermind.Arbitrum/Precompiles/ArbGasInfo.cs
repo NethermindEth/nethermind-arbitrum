@@ -12,7 +12,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 public static class ArbGasInfo
 {
     public const ulong AssumedSimpleTxSize = 140;
-    public const string Abi = Solgen.ArbGasInfo.Abi;
 
     public static readonly UInt256 StorageArbGas = ArbosStorage.StorageWriteCost;
 

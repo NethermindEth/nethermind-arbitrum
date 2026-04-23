@@ -6,6 +6,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -20,6 +21,7 @@ using Nethermind.Evm.State;
 using Nethermind.Int256;
 using NSubstitute;
 using Nethermind.Arbitrum.Config;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -398,7 +400,7 @@ public class ArbNativeTokenManagerTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbNativeTokenManager.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbNativeTokenManager.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -410,7 +412,7 @@ public class ArbNativeTokenManagerTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbNativeTokenManager.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Solgen.ArbNativeTokenManager.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("NativeTokenMinted", "NativeTokenBurned");
     }
@@ -418,7 +420,7 @@ public class ArbNativeTokenManagerTests
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbNativeTokenManager.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbNativeTokenManager.Abi).Should().BeEmpty();
     }
 
     [Test]

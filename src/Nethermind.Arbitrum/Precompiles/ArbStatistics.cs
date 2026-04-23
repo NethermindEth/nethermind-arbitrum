@@ -12,8 +12,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 // but there's now better ways to do that with geth.
 public static class ArbStatistics
 {
-    public const string Abi = Solgen.ArbStatistics.Abi;
-
     public static Address Address => ArbosAddresses.ArbStatisticsAddress;
 
     // GetStats returns the current block number and some statistics about the rollup's pre-Nitro state

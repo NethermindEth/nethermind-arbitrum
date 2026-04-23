@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
-using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -16,24 +16,24 @@ public class ArbBlsTests
     [Test]
     public void Abi_Always_IsEmptyJsonArray()
     {
-        ArbBls.Abi.Should().Be("[]");
+        Solgen.ArbBLS.Abi.Should().Be("[]");
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoFunctionSignatures()
     {
-        AbiMetadata.GetAllFunctionDescriptions(ArbBls.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbBls.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllEventDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbBls.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbBLS.Abi).Should().BeEmpty();
     }
 }

@@ -15,8 +15,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class ArbWasmCache
 {
-    public const string Abi = Solgen.ArbWasmCache.Abi;
-
     public static Address Address => ArbosAddresses.ArbWasmCacheAddress;
 
     // Events

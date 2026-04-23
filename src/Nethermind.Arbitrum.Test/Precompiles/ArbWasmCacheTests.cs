@@ -8,10 +8,12 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -26,7 +28,7 @@ public class ArbWasmCacheTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbWasmCache.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbWasmCache.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -42,7 +44,7 @@ public class ArbWasmCacheTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbWasmCache.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Solgen.ArbWasmCache.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("UpdateProgramCache");
     }
@@ -50,7 +52,7 @@ public class ArbWasmCacheTests
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbWasmCache.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbWasmCache.Abi).Should().BeEmpty();
     }
 
     [Test]

@@ -21,8 +21,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 // are safe for non-owners to call, see ArbOwnerOld
 public static class ArbOwner
 {
-    public const string Abi = Solgen.ArbOwner.Abi;
-
     public static Address Address => ArbosAddresses.ArbOwnerAddress;
 
     public const ulong NativeTokenEnableDelay = 7 * 24 * 60 * 60; // 1 week in seconds

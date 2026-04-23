@@ -6,6 +6,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -13,6 +14,7 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -126,7 +128,7 @@ public sealed class ArbosActsTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbosActs.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbosActs.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -139,7 +141,7 @@ public sealed class ArbosActsTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbosActs.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Solgen.ArbosActs.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("CallerNotArbOS");
     }
@@ -147,7 +149,7 @@ public sealed class ArbosActsTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbosActs.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllEventDescriptions(Solgen.ArbosActs.Abi).Should().BeEmpty();
     }
 
     [Test]

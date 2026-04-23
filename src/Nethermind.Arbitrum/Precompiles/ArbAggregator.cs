@@ -16,8 +16,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbAggregator
 {
-    public const string Abi = Solgen.ArbAggregator.Abi;
-
     public static Address Address => ArbosAddresses.ArbAggregatorAddress;
 
     /// <summary>

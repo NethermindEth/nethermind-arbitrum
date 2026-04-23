@@ -18,8 +18,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class ArbWasm
 {
-    public const string Abi = Solgen.ArbWasm.Abi;
-
     public static Address Address => ArbosAddresses.ArbWasmAddress;
 
     private static readonly AbiEventDescription ProgramActivatedEvent;

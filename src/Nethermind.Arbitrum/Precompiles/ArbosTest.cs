@@ -15,8 +15,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbosTest
 {
-    public static string Abi => Solgen.ArbosTest.Abi;
-
     public static Address Address => ArbosAddresses.ArbosTestAddress;
 
     /// <summary>

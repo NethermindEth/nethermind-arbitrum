@@ -17,8 +17,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 // which ensures these methods are not accessible in production.
 public static class ArbDebug
 {
-    public const string Abi = Solgen.ArbDebug.Abi;
-
     public static Address Address => ArbosAddresses.ArbDebugAddress;
 
     // Events

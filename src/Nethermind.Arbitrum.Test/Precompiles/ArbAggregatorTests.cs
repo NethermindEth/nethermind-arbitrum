@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -13,6 +14,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -339,7 +341,7 @@ public class ArbAggregatorTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbAggregator.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbAggregator.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -357,13 +359,13 @@ public class ArbAggregatorTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbAggregator.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllEventDescriptions(Solgen.ArbAggregator.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbAggregator.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbAggregator.Abi).Should().BeEmpty();
     }
 
     [Test]

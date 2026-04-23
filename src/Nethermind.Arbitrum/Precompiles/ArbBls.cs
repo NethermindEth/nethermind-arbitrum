@@ -12,7 +12,5 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbBls
 {
-    public const string Abi = Solgen.ArbBLS.Abi;
-
     public static Address Address => ArbosAddresses.ArbBLSAddress;
 }

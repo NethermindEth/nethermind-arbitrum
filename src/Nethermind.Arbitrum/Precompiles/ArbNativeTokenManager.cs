@@ -19,8 +19,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbNativeTokenManager
 {
-    public const string Abi = Solgen.ArbNativeTokenManager.Abi;
-
     public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
 
     private static readonly AbiEventDescription NativeTokenMintedEvent;

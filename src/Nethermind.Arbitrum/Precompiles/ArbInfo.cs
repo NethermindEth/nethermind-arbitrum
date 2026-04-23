@@ -10,8 +10,6 @@ public static class ArbInfo
 {
     public static Address Address => ArbosAddresses.ArbInfoAddress;
 
-    public static string Abi => Solgen.ArbInfo.Abi;
-
     public static Int256.UInt256 GetBalance(ArbitrumPrecompileExecutionContext context, Address account)
     {
         context.Burn(GasCostOf.BalanceEip1884);

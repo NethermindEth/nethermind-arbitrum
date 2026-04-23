@@ -6,6 +6,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
@@ -18,6 +19,7 @@ using Nethermind.Evm.State;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -579,7 +581,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbOwnerPublic.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbOwnerPublic.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -601,7 +603,7 @@ public class ArbOwnerPublicTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbOwnerPublic.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Solgen.ArbOwnerPublic.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("ChainOwnerRectified");
     }

@@ -18,8 +18,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class ArbRetryableTx
 {
-    public const string Abi = Solgen.ArbRetryableTx.Abi;
-
     public static Address Address => ArbosAddresses.ArbRetryableTxAddress;
 
     // Events

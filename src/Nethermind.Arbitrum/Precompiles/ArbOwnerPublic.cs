@@ -17,8 +17,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbOwnerPublic
 {
-    public const string Abi = Solgen.ArbOwnerPublic.Abi;
-
     public static Address Address => ArbosAddresses.ArbOwnerPublicAddress;
 
     public static readonly AbiEventDescription ChainOwnerRectifiedEvent;

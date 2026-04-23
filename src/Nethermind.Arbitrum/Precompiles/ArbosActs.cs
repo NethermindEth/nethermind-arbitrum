@@ -16,8 +16,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbosActs
 {
-    public const string Abi = Solgen.ArbosActs.Abi;
-
     public static Address Address => ArbosAddresses.ArbosAddress;
 
     public static readonly AbiErrorDescription CallerNotArbOS;

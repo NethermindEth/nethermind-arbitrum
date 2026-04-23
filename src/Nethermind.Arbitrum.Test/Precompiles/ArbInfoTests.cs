@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -18,6 +19,7 @@ using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Specs.Forks;
 using System.Security.Cryptography;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -208,7 +210,7 @@ public class ArbInfoTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbInfo.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -220,13 +222,13 @@ public class ArbInfoTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbInfo.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllEventDescriptions(Solgen.ArbInfo.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbInfo.Abi).Should().BeEmpty();
+        AbiMetadata.GetAllErrorDescriptions(Solgen.ArbInfo.Abi).Should().BeEmpty();
     }
 
     [Test]

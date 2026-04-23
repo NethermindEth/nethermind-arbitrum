@@ -19,8 +19,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 // ArbSys provides system-level functionality for interacting with L1 and understanding the call stack.
 public static class ArbSys
 {
-    public const string Abi = Solgen.ArbSys.Abi;
-
     public static Address Address => ArbosAddresses.ArbSysAddress;
 
     // Events

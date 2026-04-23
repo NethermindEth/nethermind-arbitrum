@@ -9,6 +9,7 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -19,6 +20,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -885,7 +887,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbRetryableTx.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbRetryableTx.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -903,7 +905,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbRetryableTx.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Solgen.ArbRetryableTx.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("TicketCreated", "LifetimeExtended", "RedeemScheduled", "Canceled", "Redeemed");
     }
@@ -911,7 +913,7 @@ public class ArbRetryableTxTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbRetryableTx.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Solgen.ArbRetryableTx.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("NoTicketWithID", "NotCallable");
     }

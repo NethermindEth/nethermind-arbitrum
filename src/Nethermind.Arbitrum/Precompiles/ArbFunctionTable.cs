@@ -16,8 +16,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// </summary>
 public static class ArbFunctionTable
 {
-    public const string Abi = Solgen.ArbFunctionTable.Abi;
-
     public static Address Address => ArbosAddresses.ArbFunctionTableAddress;
 
     /// <summary>

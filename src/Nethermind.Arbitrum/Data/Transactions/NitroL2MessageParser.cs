@@ -10,8 +10,7 @@ using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Evm;
+using Nethermind.Arbitrum.Abi;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 

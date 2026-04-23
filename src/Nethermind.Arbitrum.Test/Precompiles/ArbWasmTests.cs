@@ -6,6 +6,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -16,7 +17,7 @@ using Nethermind.Evm.State;
 using Nethermind.Logging;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
-using ArbWasm = Nethermind.Arbitrum.Precompiles.ArbWasm;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -356,7 +357,7 @@ public sealed class ArbWasmTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbWasm.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(Solgen.ArbWasm.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
@@ -386,7 +387,7 @@ public sealed class ArbWasmTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbWasm.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Solgen.ArbWasm.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("ProgramActivated", "ProgramLifetimeExtended");
     }
@@ -394,7 +395,7 @@ public sealed class ArbWasmTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbWasm.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(Solgen.ArbWasm.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("ProgramNotWasm", "ProgramNotActivated", "ProgramNeedsUpgrade", "ProgramExpired", "ProgramUpToDate", "ProgramKeepaliveTooSoon", "ProgramInsufficientValue");
     }
@@ -427,7 +428,7 @@ public sealed class ArbWasmTests
     [Test]
     public void EventTopics_AllEvents_MatchExpectedHashes()
     {
-        Dictionary<string, AbiEventDescription> events = AbiMetadata.GetAllEventDescriptions(ArbWasm.Abi);
+        Dictionary<string, AbiEventDescription> events = AbiMetadata.GetAllEventDescriptions(Solgen.ArbWasm.Abi);
 
         // keccak256("ProgramActivated(bytes32,bytes32,address,uint256,uint16)")
         events["ProgramActivated"].GetHash().Should().Be(
@@ -441,7 +442,7 @@ public sealed class ArbWasmTests
     [Test]
     public void ErrorSelectors_AllErrors_MatchExpectedValues()
     {
-        Dictionary<string, AbiErrorDescription> errors = AbiMetadata.GetAllErrorDescriptions(ArbWasm.Abi);
+        Dictionary<string, AbiErrorDescription> errors = AbiMetadata.GetAllErrorDescriptions(Solgen.ArbWasm.Abi);
 
         // keccak256("ProgramNotWasm()")[0..4]
         errors["ProgramNotWasm"].GetSelector().Should().Be(0x27f38212u);
