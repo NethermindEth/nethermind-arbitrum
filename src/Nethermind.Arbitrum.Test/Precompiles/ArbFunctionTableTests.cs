@@ -42,7 +42,7 @@ public sealed class ArbFunctionTableTests
     public void Upload_WithAnyData_DoesNothing()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+        byte[] buffer = [0, 0, 0, 0];
 
         Action action = () => ArbFunctionTable.Upload(_context, buffer);
 

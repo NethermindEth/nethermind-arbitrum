@@ -47,7 +47,7 @@ public sealed class ArbFunctionTableParserTests
     public void ParsesUpload_WithValidInputData_Succeeds()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+        byte[] buffer = [0, 0, 0, 0];
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

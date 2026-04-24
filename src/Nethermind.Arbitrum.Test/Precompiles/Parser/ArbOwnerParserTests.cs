@@ -770,9 +770,7 @@ public class ArbOwnerParserTests
         context.WithArbosState();
 
         if (arbosVersion > ArbosVersion.One)
-        {
             context.ArbosState.UpgradeArbosVersion(arbosVersion, false, chain.MainWorldState, chain.SpecProvider.GenesisSpec);
-        }
 
         bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(SetMaxTxGasLimitId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
@@ -790,15 +788,11 @@ public class ArbOwnerParserTests
         result.Should().BeEmpty();
 
         if (shouldSetBlockLimit)
-        {
             context.ArbosState.L2PricingState.PerBlockGasLimitStorage.Get().Should().Be(limit.ToUInt64(null),
                 $"Before ArbOS 50 (version {arbosVersion}), SetMaxTxGasLimit should set PerBlockGasLimit");
-        }
         else
-        {
             context.ArbosState.L2PricingState.PerTxGasLimitStorage.Get().Should().Be(limit.ToUInt64(null),
                 $"At/After ArbOS 50 (version {arbosVersion}), SetMaxTxGasLimit should set PerTxGasLimit");
-        }
     }
 
     [Test]
@@ -2004,9 +1998,7 @@ public class ArbOwnerParserTests
         const ulong n = 10;
         ulong[][] constraints = new ulong[n][];
         for (ulong i = 0; i < n; i++)
-        {
             constraints[i] = [100 * i + 1, 100 * i + 2, 100 * i + 3];
-        }
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

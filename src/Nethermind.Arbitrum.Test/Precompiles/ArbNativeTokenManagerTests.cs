@@ -313,9 +313,7 @@ public class ArbNativeTokenManagerTests
         UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
 
         for (int i = 0; i < numberOfMints; i++)
-        {
             ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-        }
 
         UInt256 balanceAfter = testContext.WorldState.GetBalance(owner);
         balanceAfter.Should().Be(balanceBefore + (mintAmount * (UInt256)numberOfMints));
@@ -337,9 +335,7 @@ public class ArbNativeTokenManagerTests
         UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
 
         for (int i = 0; i < numberOfBurns; i++)
-        {
             ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
-        }
 
         UInt256 balanceAfter = testContext.WorldState.GetBalance(owner);
         balanceAfter.Should().Be(balanceBefore - (burnAmount * (UInt256)numberOfBurns));
@@ -441,9 +437,7 @@ public class ArbNativeTokenManagerTests
         ArbOSInitialization.Create(worldState);
 
         if (initialBalance.HasValue)
-        {
             worldState.CreateAccount(owner, initialBalance.Value);
-        }
 
         PrecompileTestContextBuilder contextBuilder = new PrecompileTestContextBuilder(worldState, gasSupplied)
             .WithArbosState()
@@ -452,9 +446,7 @@ public class ArbNativeTokenManagerTests
             .WithReleaseSpec();
 
         if (authorizeOwner)
-        {
             contextBuilder.WithNativeTokenOwners(owner);
-        }
 
         return new TestContext(worldState, worldStateDisposer, contextBuilder);
     }

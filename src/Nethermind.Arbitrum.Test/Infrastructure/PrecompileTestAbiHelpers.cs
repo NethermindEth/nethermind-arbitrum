@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core.Crypto;
+using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -17,7 +20,7 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 /// </summary>
 public static class PrecompileTestAbiHelpers
 {
-    private static readonly JsonSerializerOptions _jso = new()
+    private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
@@ -34,12 +37,26 @@ public static class PrecompileTestAbiHelpers
         return BinaryPrimitives.ReadUInt32BigEndian(error.GetHash().Bytes[..4]);
     }
 
+    public static bool TryCheckMethodVisibility(this IArbitrumPrecompile precompile,
+        ArbitrumPrecompileExecutionContext context,
+        ILogger logger,
+        uint methodId,
+        out bool shouldRevert,
+        [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
+    {
+        Span<byte> calldataBytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(calldataBytes, methodId);
+        ReadOnlySpan<byte> calldata = calldataBytes;
+
+        return PrecompileHelper.TryCheckMethodVisibility(precompile, context, logger, ref calldata, out shouldRevert, out methodToExecute);
+    }
+
     public static Dictionary<string, AbiErrorDescription> GetAllErrorDescriptions(string abiJson)
     {
         if (string.IsNullOrWhiteSpace(abiJson))
             return [];
 
-        List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso) ?? [];
+        List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, Options) ?? [];
 
         return abiItems
             .Where(item => item.Type == "error")
@@ -60,7 +77,7 @@ public static class PrecompileTestAbiHelpers
         if (string.IsNullOrWhiteSpace(abiJson))
             return [];
 
-        List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso) ?? [];
+        List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, Options) ?? [];
 
         return abiItems
             .Where(item => item.Type == "event")
@@ -83,7 +100,7 @@ public static class PrecompileTestAbiHelpers
         if (string.IsNullOrWhiteSpace(abiJson))
             return [];
 
-        List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, _jso) ?? [];
+        List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, Options) ?? [];
 
         return abiItems
             .Where(item => item.Type == "function")

@@ -131,9 +131,7 @@ public class ArbDebugTests
         messageBytes.CopyTo(expectedErrorData, offset); // message dynamic data
         offset += messageBytes.Length;
         if (!isMultipleOf32)
-        {
             new byte[expectedErrorData.Length - offset].CopyTo(expectedErrorData, offset); // right padding if needed
-        }
 
         result.Output.Should().BeEquivalentTo(expectedErrorData);
         result.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
@@ -143,8 +141,8 @@ public class ArbDebugTests
     public void OverwriteContractCode_WithExistingCode_ReturnsOldCodeAndSetsNewCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000456");
-        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
-        byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
+        byte[] originalCode = [0x60, 0x80, 0x60, 0x40, 0x52];
+        byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
 
         _worldState.CreateAccount(targetAddress, UInt256.Zero);
         _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
@@ -161,7 +159,7 @@ public class ArbDebugTests
     public void OverwriteContractCode_WithNoExistingCode_ReturnsEmptyAndSetsNewCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000789");
-        byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
+        byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
 
         byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, newCode);
 
@@ -175,8 +173,8 @@ public class ArbDebugTests
     public void OverwriteContractCode_WithEmptyNewCode_ReturnsOldCodeAndClearsCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000ABC");
-        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
-        byte[] emptyCode = Array.Empty<byte>();
+        byte[] originalCode = [0x60, 0x80, 0x60, 0x40, 0x52];
+        byte[] emptyCode = [];
 
         _worldState.CreateAccount(targetAddress, UInt256.Zero);
         _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);

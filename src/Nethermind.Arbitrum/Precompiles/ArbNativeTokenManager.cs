@@ -39,9 +39,7 @@ public static class ArbNativeTokenManager
     {
         // Access control - burn ALL gas if unauthorized
         if (!HasAccess(context))
-        {
             context.BurnOut(); // Burns all gas and throws OutOfGasException
-        }
 
         // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
         context.Burn(MintBurnOperation);
@@ -60,9 +58,7 @@ public static class ArbNativeTokenManager
     {
         // Access control - burn ALL gas if unauthorized
         if (!HasAccess(context))
-        {
             context.BurnOut(); // Burns all gas and throws OutOfGasException
-        }
 
         // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
         context.Burn(MintBurnOperation);

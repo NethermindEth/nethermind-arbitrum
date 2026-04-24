@@ -161,13 +161,9 @@ public static class ArbOwner
         // Before ArbOS 50: SetMaxTxGasLimit controlled the block limit (backward compatibility)
         // After ArbOS 50: SetMaxTxGasLimit controls the per-transaction limit
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.Fifty)
-        {
             context.ArbosState.L2PricingState.SetMaxPerBlockGasLimit(limit);
-        }
         else
-        {
             context.ArbosState.L2PricingState.SetMaxPerTxGasLimit(limit);
-        }
     }
 
     public static void SetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context, ulong limit)

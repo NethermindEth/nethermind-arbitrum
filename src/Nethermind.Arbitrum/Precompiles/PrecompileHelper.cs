@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
@@ -14,15 +13,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class PrecompileHelper
 {
-    public static bool TryCheckMethodVisibility(this IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, uint methodId, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
-    {
-        Span<byte> calldataBytes = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(calldataBytes, methodId);
-        ReadOnlySpan<byte> calldata = calldataBytes;
-
-        return TryCheckMethodVisibility(precompile, context, logger, ref calldata, out shouldRevert, out methodToExecute);
-    }
-
     public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         => precompile switch
         {

@@ -25,9 +25,7 @@ public sealed class ArbWasmParserTests
     private static readonly Address TestProgram = new("0x1234567890123456789012345678901234567890");
     private static readonly Hash256 TestCodeHash = new("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd");
 
-
     private PrecompileTestContextBuilder _context = null!;
-    private ArbWasmParser _parser = null!;
     private IDisposable? _worldStateScope;
 
     private static readonly uint ActivateProgramId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
@@ -63,7 +61,6 @@ public sealed class ArbWasmParserTests
             .WithArbosState()
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec();
-        _parser = new ArbWasmParser();
     }
 
     [TearDown]

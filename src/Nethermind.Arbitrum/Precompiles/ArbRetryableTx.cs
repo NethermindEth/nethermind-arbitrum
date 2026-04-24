@@ -196,10 +196,8 @@ public static class ArbRetryableTx
         ulong futureGasCosts = eventGasCost + gasCostToReturnResult + gasPoolUpdateCost;
 
         if (context.GasLeft < futureGasCosts)
-        {
             // This will throw
             context.Burn(futureGasCosts);
-        }
 
         ulong gasToDonate = context.GasLeft - futureGasCosts;
         if (gasToDonate < GasCostOf.Transaction)

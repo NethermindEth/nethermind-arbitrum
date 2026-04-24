@@ -26,8 +26,7 @@ public class ArbOwnerTests
     private static readonly Address ExampleOwnerA = new("0x0000000000000000000000000000000000000aaa");
     private static readonly Address ExampleOwnerB = new("0x0000000000000000000000000000000000000bbb");
 
-    private static readonly Hash256 ExpectedOwnerActsTopic =
-        new(Solgen.ArbOwner.Events.OwnerActs.Topic0Hex);
+    private static readonly Hash256 ExpectedOwnerActsTopic = new(Solgen.ArbOwner.Events.OwnerActs.Topic0Hex);
 
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
@@ -522,10 +521,10 @@ public class ArbOwnerTests
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         ulong[][] constraints =
-        {
+        [
             [1_000_000, 60, 5_000_000],
-            [500_000, 120, 1_000_000],
-        };
+            [500_000, 120, 1_000_000]
+        ];
 
         ArbOwner.SetGasPricingConstraints(context, constraints);
 
@@ -547,7 +546,7 @@ public class ArbOwnerTests
     public void SetGasPricingConstraints_InvalidTarget_Throws()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
-        ulong[][] constraints = { [0, 60, 0] };
+        ulong[][] constraints = [[0, 60, 0]];
 
         Action act = () => ArbOwner.SetGasPricingConstraints(context, constraints);
 

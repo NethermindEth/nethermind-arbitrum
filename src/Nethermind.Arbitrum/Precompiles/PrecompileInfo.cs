@@ -9,18 +9,12 @@ using Nethermind.Evm.Precompiles;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public sealed class PrecompileInfo : CodeInfo
+public sealed class PrecompileInfo(IArbitrumPrecompile precompile) : CodeInfo(PrecompileStub, PrecompileCode)
 {
     private static readonly byte[] PrecompileCode = [(byte)Instruction.INVALID];
     private static readonly IPrecompile PrecompileStub = new ArbitrumPrecompileStub();
 
-    public PrecompileInfo(IArbitrumPrecompile precompile)
-        : base(PrecompileStub, PrecompileCode)
-    {
-        ArbitrumPrecompile = precompile;
-    }
-
-    public IArbitrumPrecompile ArbitrumPrecompile { get; }
+    public IArbitrumPrecompile ArbitrumPrecompile { get; } = precompile;
 
     /// <summary>
     /// Stateless stub that satisfies <see cref="CodeInfo"/>'s <see cref="IPrecompile"/> requirement

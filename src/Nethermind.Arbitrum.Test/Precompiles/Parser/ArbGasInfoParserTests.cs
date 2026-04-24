@@ -402,9 +402,7 @@ public class ArbGasInfoParserTests
         UInt256 nonce;
 
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.MainWorldState.GetNonce(sender);
-        }
 
         // Calldata to call getMaxTxGasLimit() on ArbGasInfo precompile
         byte[] calldata = KeccakHash.ComputeHashBytes("getMaxTxGasLimit()"u8)[..4];
@@ -810,9 +808,7 @@ public class ArbGasInfoParserTests
         UInt256 nonce;
 
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.MainWorldState.GetNonce(sender);
-        }
 
         // Calldata to call getMinimumGasPrice() on ArbGasInfo precompile
         byte[] calldata = KeccakHash.ComputeHashBytes("getMinimumGasPrice()"u8)[..4];
@@ -852,9 +848,7 @@ public class ArbGasInfoParserTests
         UInt256 nonce;
 
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.MainWorldState.GetNonce(sender);
-        }
 
         // Calldata to call getGasAccountingParams() on ArbGasInfo precompile
         byte[] calldata = KeccakHash.ComputeHashBytes("getGasAccountingParams()"u8)[..4];

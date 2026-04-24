@@ -67,7 +67,7 @@ public class ArbRetryableTxTests
         Hash256 retryTxHash256 = new(retryTxHash.ToBigEndian());
         UInt256 sequenceNum = 1;
         Hash256 sequenceNumHash256 = new(sequenceNum.ToBigEndian());
-        Hash256[] expectedEventTopics = new Hash256[] { Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256 };
+        Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256];
 
         // Construct event data
         ulong donatedGas = 1;

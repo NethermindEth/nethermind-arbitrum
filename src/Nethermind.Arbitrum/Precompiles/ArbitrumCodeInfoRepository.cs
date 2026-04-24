@@ -57,9 +57,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
                 arbosVersionProvider.Get() >= ArbosVersion.Fifty &&
                 delegationAddress is not null &&
                 vmSpec.IsPrecompile(delegationAddress))
-            {
                 return CodeInfo.Empty;
-            }
 
             return result;
         }
