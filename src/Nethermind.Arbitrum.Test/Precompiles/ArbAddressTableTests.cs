@@ -12,6 +12,7 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -267,41 +268,41 @@ public sealed class ArbAddressTableTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbAddressTable.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbAddressTable.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("addressExists(address)"),
-            PrecompileHelper.GetMethodId("compress(address)"),
-            PrecompileHelper.GetMethodId("decompress(bytes,uint256)"),
-            PrecompileHelper.GetMethodId("lookup(address)"),
-            PrecompileHelper.GetMethodId("lookupIndex(uint256)"),
-            PrecompileHelper.GetMethodId("register(address)"),
-            PrecompileHelper.GetMethodId("size()"),
+            PrecompileTestAbiHelpers.GetMethodId("addressExists(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("compress(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("decompress(bytes,uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("lookup(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("lookupIndex(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("register(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("size()"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbAddressTable.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbAddressTable.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbAddressTable.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbAddressTable.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("addressExists(address)").Should().Be(0xa5025222u);
-        PrecompileHelper.GetMethodId("compress(address)").Should().Be(0xf6a455a2u);
-        PrecompileHelper.GetMethodId("decompress(bytes,uint256)").Should().Be(0x31862adau);
-        PrecompileHelper.GetMethodId("lookup(address)").Should().Be(0xd4b6b5dau);
-        PrecompileHelper.GetMethodId("lookupIndex(uint256)").Should().Be(0x8a186788u);
-        PrecompileHelper.GetMethodId("register(address)").Should().Be(0x4420e486u);
-        PrecompileHelper.GetMethodId("size()").Should().Be(0x949d225du);
+        PrecompileTestAbiHelpers.GetMethodId("addressExists(address)").Should().Be(Solgen.ArbAddressTable.Methods.AddressExists);
+        PrecompileTestAbiHelpers.GetMethodId("compress(address)").Should().Be(Solgen.ArbAddressTable.Methods.Compress);
+        PrecompileTestAbiHelpers.GetMethodId("decompress(bytes,uint256)").Should().Be(Solgen.ArbAddressTable.Methods.Decompress);
+        PrecompileTestAbiHelpers.GetMethodId("lookup(address)").Should().Be(Solgen.ArbAddressTable.Methods.Lookup);
+        PrecompileTestAbiHelpers.GetMethodId("lookupIndex(uint256)").Should().Be(Solgen.ArbAddressTable.Methods.LookupIndex);
+        PrecompileTestAbiHelpers.GetMethodId("register(address)").Should().Be(Solgen.ArbAddressTable.Methods.Register);
+        PrecompileTestAbiHelpers.GetMethodId("size()").Should().Be(Solgen.ArbAddressTable.Methods.Size);
     }
 }

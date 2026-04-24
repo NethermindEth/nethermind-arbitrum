@@ -11,6 +11,7 @@ using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
 using NSubstitute;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
@@ -29,7 +30,7 @@ public class ArbBlsTests
     [Test]
     public void Abi_WhenQueried_ReturnsEmptyArray()
     {
-        ArbBls.Abi.Should().Be("[]");
+        Solgen.ArbBLS.Abi.Should().Be("[]");
     }
 
     [Test]
