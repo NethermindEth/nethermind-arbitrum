@@ -11,7 +11,6 @@ using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Nethermind.Arbitrum.Precompiles.Abi;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 
