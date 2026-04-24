@@ -21,16 +21,10 @@ public static class ArbNativeTokenManager
 {
     public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
 
-    private static readonly AbiEventDescription NativeTokenMintedEvent;
-    private static readonly AbiEventDescription NativeTokenBurnedEvent;
+    private static readonly AbiEventDescription NativeTokenMintedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenMinted.ToAbiEventDescription();
+    private static readonly AbiEventDescription NativeTokenBurnedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenBurned.ToAbiEventDescription();
 
     public const long MintBurnOperation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
-
-    static ArbNativeTokenManager()
-    {
-        NativeTokenMintedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenMinted.ToAbiEventDescription();
-        NativeTokenBurnedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenBurned.ToAbiEventDescription();
-    }
 
     /// <summary>
     /// Mints some amount of the native gas token for this chain to the caller
