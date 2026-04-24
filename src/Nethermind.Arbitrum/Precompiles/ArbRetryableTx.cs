@@ -21,34 +21,19 @@ public static class ArbRetryableTx
     public static Address Address => ArbosAddresses.ArbRetryableTxAddress;
 
     // Events
-    public static readonly AbiEventDescription TicketCreatedEvent;
-    public static readonly AbiEventDescription LifetimeExtendedEvent;
-    public static readonly AbiEventDescription RedeemScheduledEvent;
-    public static readonly AbiEventDescription CanceledEvent;
+    public static readonly AbiEventDescription TicketCreatedEvent = Solgen.ArbRetryableTx.Events.TicketCreated.ToAbiEventDescription();
+    public static readonly AbiEventDescription LifetimeExtendedEvent = Solgen.ArbRetryableTx.Events.LifetimeExtended.ToAbiEventDescription();
+    public static readonly AbiEventDescription RedeemScheduledEvent = Solgen.ArbRetryableTx.Events.RedeemScheduled.ToAbiEventDescription();
+    public static readonly AbiEventDescription CanceledEvent = Solgen.ArbRetryableTx.Events.Canceled.ToAbiEventDescription();
 
-    public static readonly Hash256 RedeemScheduledEventHash;
+    public static readonly Hash256 RedeemScheduledEventHash = new(Solgen.ArbRetryableTx.Events.RedeemScheduled.Topic0Hex);
 
     // Solidity errors
-    public static readonly AbiErrorDescription NoTicketWithID;
-    public static readonly AbiErrorDescription NotCallable;
+    public static readonly AbiErrorDescription NoTicketWithID = Solgen.ArbRetryableTx.Errors.NoTicketWithID.ToAbiErrorDescription();
+    public static readonly AbiErrorDescription NotCallable = Solgen.ArbRetryableTx.Errors.NotCallable.ToAbiErrorDescription();
 
-    private static readonly AbiSignature RedeemCallSignature;
-
-    static ArbRetryableTx()
-    {
-        TicketCreatedEvent = Solgen.ArbRetryableTx.Events.TicketCreated.ToAbiEventDescription();
-        RedeemScheduledEvent = Solgen.ArbRetryableTx.Events.RedeemScheduled.ToAbiEventDescription();
-        LifetimeExtendedEvent = Solgen.ArbRetryableTx.Events.LifetimeExtended.ToAbiEventDescription();
-        CanceledEvent = Solgen.ArbRetryableTx.Events.Canceled.ToAbiEventDescription();
-
-        RedeemScheduledEventHash = RedeemScheduledEvent.GetHash();
-
-        NoTicketWithID = Solgen.ArbRetryableTx.Errors.NoTicketWithID.ToAbiErrorDescription();
-        NotCallable = Solgen.ArbRetryableTx.Errors.NotCallable.ToAbiErrorDescription();
-
-        RedeemCallSignature = Solgen.ArbRetryableTx.Functions.All[Solgen.ArbRetryableTx.Methods.Redeem]
-            .ToAbiFunctionDescription().GetCallInfo().Signature;
-    }
+    private static readonly AbiSignature RedeemCallSignature = Solgen.ArbRetryableTx.Functions.All[Solgen.ArbRetryableTx.Methods.Redeem]
+        .ToAbiFunctionDescription().GetCallInfo().Signature;
 
     public static void EmitTicketCreatedEvent(ArbitrumPrecompileExecutionContext context, Hash256 ticketId)
     {

@@ -20,17 +20,17 @@ public class ArbosActsParser : IArbitrumPrecompile<ArbosActsParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private const uint _startBlockId = Solgen.ArbosActs.Methods.StartBlock;
-    private const uint _batchPostingReportId = Solgen.ArbosActs.Methods.BatchPostingReport;
-    private const uint _batchPostingReportV2Id = Solgen.ArbosActs.Methods.BatchPostingReportV2;
+    private const uint StartBlockId = Solgen.ArbosActs.Methods.StartBlock;
+    private const uint BatchPostingReportId = Solgen.ArbosActs.Methods.BatchPostingReport;
+    private const uint BatchPostingReportV2Id = Solgen.ArbosActs.Methods.BatchPostingReportV2;
 
     static ArbosActsParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _startBlockId, StartBlock },
-            { _batchPostingReportId, BatchPostingReport },
-            { _batchPostingReportV2Id, BatchPostingReportV2 },
+            { StartBlockId, StartBlock },
+            { BatchPostingReportId, BatchPostingReport },
+            { BatchPostingReportV2Id, BatchPostingReportV2 },
         }.ToFrozenDictionary();
     }
 
@@ -38,7 +38,7 @@ public class ArbosActsParser : IArbitrumPrecompile<ArbosActsParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_startBlockId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[StartBlockId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -56,7 +56,7 @@ public class ArbosActsParser : IArbitrumPrecompile<ArbosActsParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_batchPostingReportId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[BatchPostingReportId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -75,7 +75,7 @@ public class ArbosActsParser : IArbitrumPrecompile<ArbosActsParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_batchPostingReportV2Id].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[BatchPostingReportV2Id].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 

@@ -25,12 +25,7 @@ public static class ArbOwner
 
     public const ulong NativeTokenEnableDelay = 7 * 24 * 60 * 60; // 1 week in seconds
 
-    public static readonly AbiEventDescription OwnerActsEvent;
-
-    static ArbOwner()
-    {
-        OwnerActsEvent = Solgen.ArbOwner.Events.OwnerActs.ToAbiEventDescription();
-    }
+    public static readonly AbiEventDescription OwnerActsEvent = Solgen.ArbOwner.Events.OwnerActs.ToAbiEventDescription();
 
     // AddChainOwner adds a new owner to the chain
     public static void AddChainOwner(ArbitrumPrecompileExecutionContext context, Address newOwner)

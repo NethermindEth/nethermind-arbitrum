@@ -20,17 +20,17 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private const uint _uploadId = Solgen.ArbFunctionTable.Methods.Upload;
-    private const uint _sizeId = Solgen.ArbFunctionTable.Methods.Size;
-    private const uint _getId = Solgen.ArbFunctionTable.Methods.Get;
+    private const uint UploadId = Solgen.ArbFunctionTable.Methods.Upload;
+    private const uint SizeId = Solgen.ArbFunctionTable.Methods.Size;
+    private const uint GetId = Solgen.ArbFunctionTable.Methods.Get;
 
     static ArbFunctionTableParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _uploadId, Upload },
-            { _sizeId, Size },
-            { _getId, Get },
+            { UploadId, Upload },
+            { SizeId, Size },
+            { GetId, Get },
         }.ToFrozenDictionary();
     }
 
@@ -38,7 +38,7 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_uploadId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[UploadId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -53,7 +53,7 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_sizeId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[SizeId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -65,7 +65,7 @@ public class ArbFunctionTableParser : IArbitrumPrecompile<ArbFunctionTableParser
 
     private static byte[] Get(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

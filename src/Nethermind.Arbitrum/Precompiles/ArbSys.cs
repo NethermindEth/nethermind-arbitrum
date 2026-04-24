@@ -22,34 +22,24 @@ public static class ArbSys
     public static Address Address => ArbosAddresses.ArbSysAddress;
 
     // Events
-    public static readonly AbiEventDescription SendMerkleUpdateEvent;
-    public static readonly AbiEventDescription L2ToL1TxEvent;
+    public static readonly AbiEventDescription SendMerkleUpdateEvent = Solgen.ArbSys.Events.SendMerkleUpdate.ToAbiEventDescription();
+    public static readonly AbiEventDescription L2ToL1TxEvent = Solgen.ArbSys.Events.L2ToL1Tx.ToAbiEventDescription();
     // Deprecated in favour of the new L2ToL1Tx event above after the nitro upgrade
-    public static readonly AbiEventDescription L2ToL1TransactionEvent;
+    public static readonly AbiEventDescription L2ToL1TransactionEvent = Solgen.ArbSys.Events.L2ToL1Transaction.ToAbiEventDescription();
 
-    public static readonly Hash256 L2ToL1TxEventHash;
-    public static readonly Hash256 L2ToL1TransactionEventHash;
+    public static readonly Hash256 L2ToL1TxEventHash = new(Solgen.ArbSys.Events.L2ToL1Tx.Topic0Hex);
+    public static readonly Hash256 L2ToL1TransactionEventHash = new(Solgen.ArbSys.Events.L2ToL1Transaction.Topic0Hex);
 
     // Solidity errors
-    public static readonly AbiErrorDescription InvalidBlockNumber;
+    public static readonly AbiErrorDescription InvalidBlockNumber = Solgen.ArbSys.Errors.InvalidBlockNumber.ToAbiErrorDescription();
 
     private static readonly UInt256 AddressAliasOffset;
     private static readonly UInt256 InverseAddressAliasOffset;
 
     static ArbSys()
     {
-        SendMerkleUpdateEvent = Solgen.ArbSys.Events.SendMerkleUpdate.ToAbiEventDescription();
-        L2ToL1TxEvent = Solgen.ArbSys.Events.L2ToL1Tx.ToAbiEventDescription();
-        L2ToL1TransactionEvent = Solgen.ArbSys.Events.L2ToL1Transaction.ToAbiEventDescription();
-
-        L2ToL1TxEventHash = L2ToL1TxEvent.GetHash();
-        L2ToL1TransactionEventHash = L2ToL1TransactionEvent.GetHash();
-
-        InvalidBlockNumber = Solgen.ArbSys.Errors.InvalidBlockNumber.ToAbiErrorDescription();
-
         Address offset = new("0x1111000000000000000000000000000000001111");
         AddressAliasOffset = new(offset.Bytes, isBigEndian: true);
-
         InverseAddressAliasOffset = (UInt256.One << 160) - AddressAliasOffset;
     }
 

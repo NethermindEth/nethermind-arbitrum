@@ -20,31 +20,31 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private const uint _addressExistsId = Solgen.ArbAddressTable.Methods.AddressExists;
-    private const uint _compressId = Solgen.ArbAddressTable.Methods.Compress;
-    private const uint _decompressId = Solgen.ArbAddressTable.Methods.Decompress;
-    private const uint _lookupId = Solgen.ArbAddressTable.Methods.Lookup;
-    private const uint _lookupIndexId = Solgen.ArbAddressTable.Methods.LookupIndex;
-    private const uint _registerId = Solgen.ArbAddressTable.Methods.Register;
-    private const uint _sizeId = Solgen.ArbAddressTable.Methods.Size;
+    private const uint AddressExistsId = Solgen.ArbAddressTable.Methods.AddressExists;
+    private const uint CompressId = Solgen.ArbAddressTable.Methods.Compress;
+    private const uint DecompressId = Solgen.ArbAddressTable.Methods.Decompress;
+    private const uint LookupId = Solgen.ArbAddressTable.Methods.Lookup;
+    private const uint LookupIndexId = Solgen.ArbAddressTable.Methods.LookupIndex;
+    private const uint RegisterId = Solgen.ArbAddressTable.Methods.Register;
+    private const uint SizeId = Solgen.ArbAddressTable.Methods.Size;
 
     static ArbAddressTableParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _addressExistsId, AddressExists },
-            { _compressId, Compress },
-            { _decompressId, Decompress },
-            { _lookupId, Lookup },
-            { _lookupIndexId, LookupIndex },
-            { _registerId, Register },
-            { _sizeId, Size },
+            { AddressExistsId, AddressExists },
+            { CompressId, Compress },
+            { DecompressId, Decompress },
+            { LookupId, Lookup },
+            { LookupIndexId, LookupIndex },
+            { RegisterId, Register },
+            { SizeId, Size },
         }.ToFrozenDictionary();
     }
 
     private static byte[] AddressExists(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_addressExistsId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[AddressExistsId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -66,7 +66,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Compress(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_compressId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[CompressId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -88,7 +88,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Decompress(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_decompressId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[DecompressId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -113,7 +113,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Lookup(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_lookupId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[LookupId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -129,7 +129,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] LookupIndex(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_lookupIndexId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[LookupIndexId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -149,7 +149,7 @@ public sealed class ArbAddressTableParser : IArbitrumPrecompile<ArbAddressTableP
 
     private static byte[] Register(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_registerId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[RegisterId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

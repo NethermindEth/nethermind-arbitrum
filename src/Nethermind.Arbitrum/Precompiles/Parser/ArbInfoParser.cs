@@ -19,15 +19,15 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private const uint _getBalanceId = Solgen.ArbInfo.Methods.GetBalance;
-    private const uint _getCodeId = Solgen.ArbInfo.Methods.GetCode;
+    private const uint GetBalanceId = Solgen.ArbInfo.Methods.GetBalance;
+    private const uint GetCodeId = Solgen.ArbInfo.Methods.GetCode;
 
     static ArbInfoParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _getBalanceId, GetBalance },
-            { _getCodeId, GetCode },
+            { GetBalanceId, GetBalance },
+            { GetCodeId, GetCode },
         }.ToFrozenDictionary();
     }
 
@@ -35,7 +35,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_getBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[GetBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -45,7 +45,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     private static byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getCodeId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetCodeId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

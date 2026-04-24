@@ -23,65 +23,65 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private const uint _getPricesInWeiWithAggregatorId = Solgen.ArbGasInfo.Methods.GetPricesInWeiWithAggregator;
-    private const uint _getPricesInWeiId = Solgen.ArbGasInfo.Methods.GetPricesInWei;
-    private const uint _getPricesInArbGasWithAggregatorId = Solgen.ArbGasInfo.Methods.GetPricesInArbGasWithAggregator;
-    private const uint _getPricesInArbGasId = Solgen.ArbGasInfo.Methods.GetPricesInArbGas;
-    private const uint _getGasAccountingParamsId = Solgen.ArbGasInfo.Methods.GetGasAccountingParams;
-    private const uint _getMinimumGasPriceId = Solgen.ArbGasInfo.Methods.GetMinimumGasPrice;
-    private const uint _getL1BaseFeeEstimateId = Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimate;
-    private const uint _getL1BaseFeeEstimateInertiaId = Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimateInertia;
-    private const uint _getL1RewardRateId = Solgen.ArbGasInfo.Methods.GetL1RewardRate;
-    private const uint _getL1RewardRecipientId = Solgen.ArbGasInfo.Methods.GetL1RewardRecipient;
-    private const uint _getL1GasPriceEstimateId = Solgen.ArbGasInfo.Methods.GetL1GasPriceEstimate;
-    private const uint _getCurrentTxL1GasFeesId = Solgen.ArbGasInfo.Methods.GetCurrentTxL1GasFees;
-    private const uint _getGasBacklogId = Solgen.ArbGasInfo.Methods.GetGasBacklog;
-    private const uint _getPricingInertiaId = Solgen.ArbGasInfo.Methods.GetPricingInertia;
-    private const uint _getGasBacklogToleranceId = Solgen.ArbGasInfo.Methods.GetGasBacklogTolerance;
-    private const uint _getMaxTxGasLimitId = Solgen.ArbGasInfo.Methods.GetMaxTxGasLimit;
-    private const uint _getL1PricingSurplusId = Solgen.ArbGasInfo.Methods.GetL1PricingSurplus;
-    private const uint _getPerBatchGasChargeId = Solgen.ArbGasInfo.Methods.GetPerBatchGasCharge;
-    private const uint _getAmortizedCostCapBipsId = Solgen.ArbGasInfo.Methods.GetAmortizedCostCapBips;
-    private const uint _getL1FeesAvailableId = Solgen.ArbGasInfo.Methods.GetL1FeesAvailable;
-    private const uint _getL1PricingEquilibrationUnitsId = Solgen.ArbGasInfo.Methods.GetL1PricingEquilibrationUnits;
-    private const uint _getLastL1PricingUpdateTimeId = Solgen.ArbGasInfo.Methods.GetLastL1PricingUpdateTime;
-    private const uint _getL1PricingFundsDueForRewardsId = Solgen.ArbGasInfo.Methods.GetL1PricingFundsDueForRewards;
-    private const uint _getL1PricingUnitsSinceUpdateId = Solgen.ArbGasInfo.Methods.GetL1PricingUnitsSinceUpdate;
-    private const uint _getLastL1PricingSurplusId = Solgen.ArbGasInfo.Methods.GetLastL1PricingSurplus;
-    private const uint _getMaxBlockGasLimitId = Solgen.ArbGasInfo.Methods.GetMaxBlockGasLimit;
-    private const uint _getGasPricingConstraintsId = Solgen.ArbGasInfo.Methods.GetGasPricingConstraints;
+    private const uint GetPricesInWeiWithAggregatorId = Solgen.ArbGasInfo.Methods.GetPricesInWeiWithAggregator;
+    private const uint GetPricesInWeiId = Solgen.ArbGasInfo.Methods.GetPricesInWei;
+    private const uint GetPricesInArbGasWithAggregatorId = Solgen.ArbGasInfo.Methods.GetPricesInArbGasWithAggregator;
+    private const uint GetPricesInArbGasId = Solgen.ArbGasInfo.Methods.GetPricesInArbGas;
+    private const uint GetGasAccountingParamsId = Solgen.ArbGasInfo.Methods.GetGasAccountingParams;
+    private const uint GetMinimumGasPriceId = Solgen.ArbGasInfo.Methods.GetMinimumGasPrice;
+    private const uint GetL1BaseFeeEstimateId = Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimate;
+    private const uint GetL1BaseFeeEstimateInertiaId = Solgen.ArbGasInfo.Methods.GetL1BaseFeeEstimateInertia;
+    private const uint GetL1RewardRateId = Solgen.ArbGasInfo.Methods.GetL1RewardRate;
+    private const uint GetL1RewardRecipientId = Solgen.ArbGasInfo.Methods.GetL1RewardRecipient;
+    private const uint GetL1GasPriceEstimateId = Solgen.ArbGasInfo.Methods.GetL1GasPriceEstimate;
+    private const uint GetCurrentTxL1GasFeesId = Solgen.ArbGasInfo.Methods.GetCurrentTxL1GasFees;
+    private const uint GetGasBacklogId = Solgen.ArbGasInfo.Methods.GetGasBacklog;
+    private const uint GetPricingInertiaId = Solgen.ArbGasInfo.Methods.GetPricingInertia;
+    private const uint GetGasBacklogToleranceId = Solgen.ArbGasInfo.Methods.GetGasBacklogTolerance;
+    private const uint GetMaxTxGasLimitId = Solgen.ArbGasInfo.Methods.GetMaxTxGasLimit;
+    private const uint GetL1PricingSurplusId = Solgen.ArbGasInfo.Methods.GetL1PricingSurplus;
+    private const uint GetPerBatchGasChargeId = Solgen.ArbGasInfo.Methods.GetPerBatchGasCharge;
+    private const uint GetAmortizedCostCapBipsId = Solgen.ArbGasInfo.Methods.GetAmortizedCostCapBips;
+    private const uint GetL1FeesAvailableId = Solgen.ArbGasInfo.Methods.GetL1FeesAvailable;
+    private const uint GetL1PricingEquilibrationUnitsId = Solgen.ArbGasInfo.Methods.GetL1PricingEquilibrationUnits;
+    private const uint GetLastL1PricingUpdateTimeId = Solgen.ArbGasInfo.Methods.GetLastL1PricingUpdateTime;
+    private const uint GetL1PricingFundsDueForRewardsId = Solgen.ArbGasInfo.Methods.GetL1PricingFundsDueForRewards;
+    private const uint GetL1PricingUnitsSinceUpdateId = Solgen.ArbGasInfo.Methods.GetL1PricingUnitsSinceUpdate;
+    private const uint GetLastL1PricingSurplusId = Solgen.ArbGasInfo.Methods.GetLastL1PricingSurplus;
+    private const uint GetMaxBlockGasLimitId = Solgen.ArbGasInfo.Methods.GetMaxBlockGasLimit;
+    private const uint GetGasPricingConstraintsId = Solgen.ArbGasInfo.Methods.GetGasPricingConstraints;
 
     static ArbGasInfoParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _getPricesInWeiWithAggregatorId, GetPricesInWeiWithAggregator },
-            { _getPricesInWeiId, GetPricesInWei },
-            { _getPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
-            { _getPricesInArbGasId, GetPricesInArbGas },
-            { _getGasAccountingParamsId, GetGasAccountingParams },
-            { _getMinimumGasPriceId, GetMinimumGasPrice },
-            { _getL1BaseFeeEstimateId, GetL1BaseFeeEstimate },
-            { _getL1BaseFeeEstimateInertiaId, GetL1BaseFeeEstimateInertia },
-            { _getL1RewardRateId, GetL1RewardRate },
-            { _getL1RewardRecipientId, GetL1RewardRecipient },
-            { _getL1GasPriceEstimateId, GetL1GasPriceEstimate },
-            { _getCurrentTxL1GasFeesId, GetCurrentTxL1GasFees },
-            { _getGasBacklogId, GetGasBacklog },
-            { _getPricingInertiaId, GetPricingInertia },
-            { _getGasBacklogToleranceId, GetGasBacklogTolerance },
-            { _getMaxTxGasLimitId, GetMaxTxGasLimit },
-            { _getL1PricingSurplusId, GetL1PricingSurplus },
-            { _getPerBatchGasChargeId, GetPerBatchGasCharge },
-            { _getAmortizedCostCapBipsId, GetAmortizedCostCapBips },
-            { _getL1FeesAvailableId, GetL1FeesAvailable },
-            { _getL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
-            { _getLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },
-            { _getL1PricingFundsDueForRewardsId, GetL1PricingFundsDueForRewards },
-            { _getL1PricingUnitsSinceUpdateId, GetL1PricingUnitsSinceUpdate },
-            { _getLastL1PricingSurplusId, GetLastL1PricingSurplus },
-            { _getMaxBlockGasLimitId, GetMaxBlockGasLimit },
-            { _getGasPricingConstraintsId, GetGasPricingConstraints },
+            { GetPricesInWeiWithAggregatorId, GetPricesInWeiWithAggregator },
+            { GetPricesInWeiId, GetPricesInWei },
+            { GetPricesInArbGasWithAggregatorId, GetPricesInArbGasWithAggregator },
+            { GetPricesInArbGasId, GetPricesInArbGas },
+            { GetGasAccountingParamsId, GetGasAccountingParams },
+            { GetMinimumGasPriceId, GetMinimumGasPrice },
+            { GetL1BaseFeeEstimateId, GetL1BaseFeeEstimate },
+            { GetL1BaseFeeEstimateInertiaId, GetL1BaseFeeEstimateInertia },
+            { GetL1RewardRateId, GetL1RewardRate },
+            { GetL1RewardRecipientId, GetL1RewardRecipient },
+            { GetL1GasPriceEstimateId, GetL1GasPriceEstimate },
+            { GetCurrentTxL1GasFeesId, GetCurrentTxL1GasFees },
+            { GetGasBacklogId, GetGasBacklog },
+            { GetPricingInertiaId, GetPricingInertia },
+            { GetGasBacklogToleranceId, GetGasBacklogTolerance },
+            { GetMaxTxGasLimitId, GetMaxTxGasLimit },
+            { GetL1PricingSurplusId, GetL1PricingSurplus },
+            { GetPerBatchGasChargeId, GetPerBatchGasCharge },
+            { GetAmortizedCostCapBipsId, GetAmortizedCostCapBips },
+            { GetL1FeesAvailableId, GetL1FeesAvailable },
+            { GetL1PricingEquilibrationUnitsId, GetL1PricingEquilibrationUnits },
+            { GetLastL1PricingUpdateTimeId, GetLastL1PricingUpdateTime },
+            { GetL1PricingFundsDueForRewardsId, GetL1PricingFundsDueForRewards },
+            { GetL1PricingUnitsSinceUpdateId, GetL1PricingUnitsSinceUpdate },
+            { GetLastL1PricingSurplusId, GetLastL1PricingSurplus },
+            { GetMaxBlockGasLimitId, GetMaxBlockGasLimit },
+            { GetGasPricingConstraintsId, GetGasPricingConstraints },
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -89,22 +89,22 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static void CustomizeFunctionDescriptionsWithArbosVersion()
     {
-        PrecompileFunctionDescription[_getL1FeesAvailableId].ArbOSVersion = ArbosVersion.Ten;
-        PrecompileFunctionDescription[_getL1RewardRateId].ArbOSVersion = ArbosVersion.Eleven;
-        PrecompileFunctionDescription[_getL1RewardRecipientId].ArbOSVersion = ArbosVersion.Eleven;
-        PrecompileFunctionDescription[_getL1PricingEquilibrationUnitsId].ArbOSVersion = ArbosVersion.Twenty;
-        PrecompileFunctionDescription[_getLastL1PricingUpdateTimeId].ArbOSVersion = ArbosVersion.Twenty;
-        PrecompileFunctionDescription[_getL1PricingFundsDueForRewardsId].ArbOSVersion = ArbosVersion.Twenty;
-        PrecompileFunctionDescription[_getL1PricingUnitsSinceUpdateId].ArbOSVersion = ArbosVersion.Twenty;
-        PrecompileFunctionDescription[_getLastL1PricingSurplusId].ArbOSVersion = ArbosVersion.Twenty;
-        PrecompileFunctionDescription[_getMaxTxGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
-        PrecompileFunctionDescription[_getMaxBlockGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
-        PrecompileFunctionDescription[_getGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[GetL1FeesAvailableId].ArbOSVersion = ArbosVersion.Ten;
+        PrecompileFunctionDescription[GetL1RewardRateId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctionDescription[GetL1RewardRecipientId].ArbOSVersion = ArbosVersion.Eleven;
+        PrecompileFunctionDescription[GetL1PricingEquilibrationUnitsId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctionDescription[GetLastL1PricingUpdateTimeId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctionDescription[GetL1PricingFundsDueForRewardsId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctionDescription[GetL1PricingUnitsSinceUpdateId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctionDescription[GetLastL1PricingSurplusId].ArbOSVersion = ArbosVersion.Twenty;
+        PrecompileFunctionDescription[GetMaxTxGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[GetMaxBlockGasLimitId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[GetGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
     }
 
     private static byte[] GetPricesInWeiWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getPricesInWeiWithAggregatorId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetPricesInWeiWithAggregatorId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -127,7 +127,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.PricesInWei prices = ArbGasInfo.GetPricesInWei(context);
 
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getPricesInWeiId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetPricesInWeiId].AbiFunctionDescription;
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -139,7 +139,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
     private static byte[] GetPricesInArbGasWithAggregator(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getPricesInArbGasWithAggregatorId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetPricesInArbGasWithAggregatorId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -161,7 +161,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.PricesInArbGas prices = ArbGasInfo.GetPricesInArbGas(context);
 
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getPricesInArbGasId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetPricesInArbGasId].AbiFunctionDescription;
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -174,7 +174,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
     {
         ArbGasInfo.GasAccountingParams accountingParams = ArbGasInfo.GetGasAccountingParams(context);
 
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getGasAccountingParamsId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetGasAccountingParamsId].AbiFunctionDescription;
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -201,7 +201,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_getL1RewardRecipientId].AbiFunctionDescription.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[GetL1RewardRecipientId].AbiFunctionDescription.GetReturnInfo().Signature,
             l1RewardRecipient
         );
     }
@@ -275,7 +275,7 @@ public class ArbGasInfoParser : IArbitrumPrecompile<ArbGasInfoParser>
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_getGasPricingConstraintsId].AbiFunctionDescription.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[GetGasPricingConstraintsId].AbiFunctionDescription.GetReturnInfo().Signature,
             constraintsObjects
         );
     }

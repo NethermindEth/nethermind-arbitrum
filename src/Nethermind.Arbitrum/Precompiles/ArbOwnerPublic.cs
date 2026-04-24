@@ -19,12 +19,7 @@ public static class ArbOwnerPublic
 {
     public static Address Address => ArbosAddresses.ArbOwnerPublicAddress;
 
-    public static readonly AbiEventDescription ChainOwnerRectifiedEvent;
-
-    static ArbOwnerPublic()
-    {
-        ChainOwnerRectifiedEvent = Solgen.ArbOwnerPublic.Events.ChainOwnerRectified.ToAbiEventDescription();
-    }
+    public static readonly AbiEventDescription ChainOwnerRectifiedEvent = Solgen.ArbOwnerPublic.Events.ChainOwnerRectified.ToAbiEventDescription();
 
     /// <summary>
     /// IsChainOwner checks if the user is a chain owner

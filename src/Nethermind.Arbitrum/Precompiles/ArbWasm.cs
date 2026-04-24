@@ -20,33 +20,19 @@ public static class ArbWasm
 {
     public static Address Address => ArbosAddresses.ArbWasmAddress;
 
-    private static readonly AbiEventDescription ProgramActivatedEvent;
-    private static readonly AbiEventDescription ProgramLifetimeExtendedEvent;
+    private static readonly AbiEventDescription ProgramActivatedEvent = Solgen.ArbWasm.Events.ProgramActivated.ToAbiEventDescription();
+    private static readonly AbiEventDescription ProgramLifetimeExtendedEvent = Solgen.ArbWasm.Events.ProgramLifetimeExtended.ToAbiEventDescription();
 
     // Solidity errors
-    private static readonly AbiErrorDescription ProgramNotWasm;
-    private static readonly AbiErrorDescription ProgramNotActivated;
-    private static readonly AbiErrorDescription ProgramNeedsUpgrade;
-    private static readonly AbiErrorDescription ProgramExpired;
-    private static readonly AbiErrorDescription ProgramUpToDate;
-    private static readonly AbiErrorDescription ProgramKeepaliveTooSoon;
-    private static readonly AbiErrorDescription ProgramInsufficientValue;
+    private static readonly AbiErrorDescription ProgramNotWasm = Solgen.ArbWasm.Errors.ProgramNotWasm.ToAbiErrorDescription();
+    private static readonly AbiErrorDescription ProgramNotActivated = Solgen.ArbWasm.Errors.ProgramNotActivated.ToAbiErrorDescription();
+    private static readonly AbiErrorDescription ProgramNeedsUpgrade = Solgen.ArbWasm.Errors.ProgramNeedsUpgrade.ToAbiErrorDescription();
+    private static readonly AbiErrorDescription ProgramExpired = Solgen.ArbWasm.Errors.ProgramExpired.ToAbiErrorDescription();
+    private static readonly AbiErrorDescription ProgramUpToDate = Solgen.ArbWasm.Errors.ProgramUpToDate.ToAbiErrorDescription();
+    private static readonly AbiErrorDescription ProgramKeepaliveTooSoon = Solgen.ArbWasm.Errors.ProgramKeepaliveTooSoon.ToAbiErrorDescription();
+    private static readonly AbiErrorDescription ProgramInsufficientValue = Solgen.ArbWasm.Errors.ProgramInsufficientValue.ToAbiErrorDescription();
 
     private const ulong ActivationFixedCost = 1_659_168;
-
-    static ArbWasm()
-    {
-        ProgramActivatedEvent = Solgen.ArbWasm.Events.ProgramActivated.ToAbiEventDescription();
-        ProgramLifetimeExtendedEvent = Solgen.ArbWasm.Events.ProgramLifetimeExtended.ToAbiEventDescription();
-
-        ProgramNotWasm = Solgen.ArbWasm.Errors.ProgramNotWasm.ToAbiErrorDescription();
-        ProgramNotActivated = Solgen.ArbWasm.Errors.ProgramNotActivated.ToAbiErrorDescription();
-        ProgramNeedsUpgrade = Solgen.ArbWasm.Errors.ProgramNeedsUpgrade.ToAbiErrorDescription();
-        ProgramExpired = Solgen.ArbWasm.Errors.ProgramExpired.ToAbiErrorDescription();
-        ProgramUpToDate = Solgen.ArbWasm.Errors.ProgramUpToDate.ToAbiErrorDescription();
-        ProgramKeepaliveTooSoon = Solgen.ArbWasm.Errors.ProgramKeepaliveTooSoon.ToAbiErrorDescription();
-        ProgramInsufficientValue = Solgen.ArbWasm.Errors.ProgramInsufficientValue.ToAbiErrorDescription();
-    }
 
     public static ArbitrumPrecompileException ProgramNotWasmError()
     {

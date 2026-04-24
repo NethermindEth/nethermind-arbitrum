@@ -20,13 +20,13 @@ public class ArbosTestParser : IArbitrumPrecompile<ArbosTestParser>
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private const uint _burnArbGasId = Solgen.ArbosTest.Methods.BurnArbGas;
+    private const uint BurnArbGasId = Solgen.ArbosTest.Methods.BurnArbGas;
 
     static ArbosTestParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _burnArbGasId, BurnArbGas },
+            { BurnArbGasId, BurnArbGas },
         }.ToFrozenDictionary();
     }
 
@@ -34,7 +34,7 @@ public class ArbosTestParser : IArbitrumPrecompile<ArbosTestParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_burnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[BurnArbGasId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 

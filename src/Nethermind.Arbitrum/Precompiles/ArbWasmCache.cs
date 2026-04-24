@@ -18,12 +18,7 @@ public static class ArbWasmCache
     public static Address Address => ArbosAddresses.ArbWasmCacheAddress;
 
     // Events
-    public static readonly AbiEventDescription UpdateProgramCache;
-
-    static ArbWasmCache()
-    {
-        UpdateProgramCache = Solgen.ArbWasmCache.Events.UpdateProgramCache.ToAbiEventDescription();
-    }
+    public static readonly AbiEventDescription UpdateProgramCache = Solgen.ArbWasmCache.Events.UpdateProgramCache.ToAbiEventDescription();
 
     public static void EmitUpdateProgramCacheEvent(ArbitrumPrecompileExecutionContext context, Address caller, Hash256 codeHash, bool cached)
     {

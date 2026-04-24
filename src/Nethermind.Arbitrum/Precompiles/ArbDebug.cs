@@ -20,23 +20,13 @@ public static class ArbDebug
     public static Address Address => ArbosAddresses.ArbDebugAddress;
 
     // Events
-    public static readonly AbiEventDescription Basic;
-    public static readonly AbiEventDescription Mixed;
-    public static readonly AbiEventDescription Store;
+    public static readonly AbiEventDescription Basic = Solgen.ArbDebug.Events.Basic.ToAbiEventDescription();
+    public static readonly AbiEventDescription Mixed = Solgen.ArbDebug.Events.Mixed.ToAbiEventDescription();
+    public static readonly AbiEventDescription Store = Solgen.ArbDebug.Events.Store.ToAbiEventDescription();
 
     // Solidity errors
-    public static readonly AbiErrorDescription Custom;
-    public static readonly AbiErrorDescription Unused;
-
-    static ArbDebug()
-    {
-        Basic = Solgen.ArbDebug.Events.Basic.ToAbiEventDescription();
-        Mixed = Solgen.ArbDebug.Events.Mixed.ToAbiEventDescription();
-        Store = Solgen.ArbDebug.Events.Store.ToAbiEventDescription();
-
-        Custom = Solgen.ArbDebug.Errors.Custom.ToAbiErrorDescription();
-        Unused = Solgen.ArbDebug.Errors.Unused.ToAbiErrorDescription();
-    }
+    public static readonly AbiErrorDescription Custom = Solgen.ArbDebug.Errors.Custom.ToAbiErrorDescription();
+    public static readonly AbiErrorDescription Unused = Solgen.ArbDebug.Errors.Unused.ToAbiErrorDescription();
 
     public static void EmitBasicEvent(ArbitrumPrecompileExecutionContext context, bool flag, Hash256 value)
     {
