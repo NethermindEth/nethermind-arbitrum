@@ -3,8 +3,9 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
@@ -124,7 +125,7 @@ namespace Nethermind.Arbitrum.Execution
         )
         {
             ulong timePassed = newHeader.Timestamp - parent.Timestamp;
-            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1 ?? UInt256.Zero, l1Header.BlockNumber, newHeader.Number, timePassed);
+            byte[] binaryData = ArbosActsCodec.PackInput(ArbosActsMethod.StartBlock, l1Header.BaseFeeL1 ?? UInt256.Zero, l1Header.BlockNumber, newHeader.Number, timePassed);
 
             return new ArbitrumInternalTransaction
             {

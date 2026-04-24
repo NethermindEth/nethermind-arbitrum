@@ -23,7 +23,7 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Execution
@@ -498,7 +498,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ReadOnlyMemory<byte> methodId = tx.Data[..4];
 
-            if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
+            if (methodId.Span.SequenceEqual(ArbosActsCodec.StartBlockMethodId))
             {
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
@@ -517,7 +517,7 @@ namespace Nethermind.Arbitrum.Execution
                     ProcessParentBlockHash(prevHash);
 
                 Dictionary<string, object> callArguments =
-                    AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
+                    ArbosActsCodec.UnpackInput(ArbosActsMethod.StartBlock, tx.Data.ToArray());
 
                 ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 ulong timePassed = (ulong)callArguments["timePassed"];
@@ -552,9 +552,9 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, TransactionResult.Ok);
             }
 
-            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportMethodId))
+            if (methodId.Span.SequenceEqual(ArbosActsCodec.BatchPostingReportMethodId))
             {
-                Dictionary<string, object> callArguments = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+                Dictionary<string, object> callArguments = ArbosActsCodec.UnpackInput(ArbosActsMethod.BatchPostingReport, tx.Data.ToArray());
 
                 UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
                 Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
@@ -579,16 +579,16 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportV2MethodId))
+            if (methodId.Span.SequenceEqual(ArbosActsCodec.BatchPostingReportV2MethodId))
             {
                 Dictionary<string, object> callArguments =
-                    AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReportV2, tx.Data.ToArray());
+                    ArbosActsCodec.UnpackInput(ArbosActsMethod.BatchPostingReportV2, tx.Data.ToArray());
 
                 UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
                 Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
                 ulong batchNumber = (ulong)callArguments["batchNumber"];
-                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];
-                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];
+                ulong batchCallDataLength = (ulong)callArguments["batchCalldataLength"];
+                ulong batchCallDataNonZeros = (ulong)callArguments["batchCalldataNonZeros"];
                 ulong batchExtraGas = (ulong)callArguments["batchExtraGas"];
                 UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
 

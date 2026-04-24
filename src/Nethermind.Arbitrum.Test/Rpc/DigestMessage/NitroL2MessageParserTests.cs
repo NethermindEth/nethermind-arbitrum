@@ -9,7 +9,8 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Abi;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -198,7 +199,7 @@ public class NitroL2MessageParserTests
 
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
-        byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
+        byte[] packedData = ArbosActsCodec.PackInput(ArbosActsMethod.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
             l1BaseFee);
 
         ArbitrumInternalTransaction expectedTransaction = new()
@@ -531,7 +532,7 @@ public class NitroL2MessageParserTests
         gas += 2 * 20000;
         ulong legacyGas = gas;
 
-        byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, legacyGas, l1BaseFee);
+        byte[] packedData = ArbosActsCodec.PackInput(ArbosActsMethod.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, legacyGas, l1BaseFee);
 
         transaction.Data.ToArray().Should().BeEquivalentTo(packedData);
     }
@@ -610,8 +611,8 @@ public class NitroL2MessageParserTests
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.BatchPostingReportV2,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.BatchPostingReportV2,
             batchTimestamp,
             batchPosterAddr,
             batchNum,
@@ -661,8 +662,8 @@ public class NitroL2MessageParserTests
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.BatchPostingReportV2,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.BatchPostingReportV2,
             batchTimestamp,
             batchPosterAddr,
             batchNum,
