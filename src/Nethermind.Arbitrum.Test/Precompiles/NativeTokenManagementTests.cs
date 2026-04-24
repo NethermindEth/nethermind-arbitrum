@@ -315,17 +315,13 @@ public class NativeTokenManagementTests
             .WithReleaseSpec();
 
         foreach (Address owner in newOwners)
-        {
             ArbOwner.AddNativeTokenOwner(contextAfter, owner);
-        }
 
         Address[] retrievedOwners = ArbOwner.GetAllNativeTokenOwners(contextAfter);
 
         retrievedOwners.Should().HaveCount(newOwners.Length);
         foreach (Address owner in newOwners)
-        {
             retrievedOwners.Should().Contain(owner);
-        }
     }
 
     [Test]

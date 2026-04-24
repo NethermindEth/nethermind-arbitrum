@@ -12,6 +12,7 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -41,7 +42,7 @@ public sealed class ArbFunctionTableTests
     public void Upload_WithAnyData_DoesNothing()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+        byte[] buffer = [0, 0, 0, 0];
 
         Action action = () => ArbFunctionTable.Upload(_context, buffer);
 
@@ -82,33 +83,33 @@ public sealed class ArbFunctionTableTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbFunctionTable.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbFunctionTable.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("upload(bytes)"),
-            PrecompileHelper.GetMethodId("size(address)"),
-            PrecompileHelper.GetMethodId("get(address,uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("upload(bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("size(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbFunctionTable.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbFunctionTable.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbFunctionTable.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbFunctionTable.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("upload(bytes)").Should().Be(0xce2ae159u);
-        PrecompileHelper.GetMethodId("size(address)").Should().Be(0x88987068u);
-        PrecompileHelper.GetMethodId("get(address,uint256)").Should().Be(0xb464631bu);
+        PrecompileTestAbiHelpers.GetMethodId("upload(bytes)").Should().Be(Solgen.ArbFunctionTable.Methods.Upload);
+        PrecompileTestAbiHelpers.GetMethodId("size(address)").Should().Be(Solgen.ArbFunctionTable.Methods.Size);
+        PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)").Should().Be(Solgen.ArbFunctionTable.Methods.Get);
     }
 }

@@ -6,7 +6,6 @@ using Nethermind.Int256;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Data;
 

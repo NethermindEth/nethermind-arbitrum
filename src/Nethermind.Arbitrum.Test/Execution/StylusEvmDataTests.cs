@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Test.Execution;
 public class StylusEvmDataTests
 {
     private static readonly Address EcrecoverAddress = new("0x0000000000000000000000000000000000000001");
-    private static readonly Address ArbTestAddress = ArbosAddresses.ArbosTestAddress;
+    private static readonly Address ArbosTestAddress = ArbosAddresses.ArbosTestAddress;
 
     [Test]
     public void EvmData_StylusContractAccount_ReturnsCorrectContractCodeHashes()
@@ -33,7 +33,7 @@ public class StylusEvmDataTests
         byte[] callData = EvmDataCallData.CreateCallData(
             balanceCheckAddress: context.Sender,
             ethPrecompileAddress: EcrecoverAddress,
-            arbTestAddress: ArbTestAddress,
+            arbosTestAddress: ArbosTestAddress,
             contractAddress: context.EvmDataContractAddress,
             burnCallData: EvmDataCallData.CreateBurnArbGasCallData(new UInt256(1000)));
 
@@ -54,7 +54,7 @@ public class StylusEvmDataTests
         byte[] callData = EvmDataCallData.CreateCallData(
             balanceCheckAddress: address,
             ethPrecompileAddress: EcrecoverAddress,
-            arbTestAddress: ArbTestAddress,
+            arbosTestAddress: ArbosTestAddress,
             contractAddress: address,
             burnCallData: EvmDataCallData.CreateBurnArbGasCallData(new UInt256(1000)));
 
@@ -77,7 +77,7 @@ public class StylusEvmDataTests
         byte[] callData = EvmDataCallData.CreateCallData(
             balanceCheckAddress: eoa,
             ethPrecompileAddress: EcrecoverAddress,
-            arbTestAddress: ArbTestAddress,
+            arbosTestAddress: ArbosTestAddress,
             contractAddress: eoa,
             burnCallData: EvmDataCallData.CreateBurnArbGasCallData(new UInt256(1000)));
 
@@ -97,7 +97,7 @@ public class StylusEvmDataTests
         byte[] callData = EvmDataCallData.CreateCallData(
             balanceCheckAddress: context.Sender,
             ethPrecompileAddress: EcrecoverAddress,
-            arbTestAddress: ArbTestAddress,
+            arbosTestAddress: ArbosTestAddress,
             contractAddress: context.EvmDataContractAddress,
             burnCallData: EvmDataCallData.CreateBurnArbGasCallData(new UInt256(1000)));
 
@@ -121,7 +121,7 @@ public class StylusEvmDataTests
         byte[] callData = EvmDataCallData.CreateCallData(
             balanceCheckAddress: context.Sender,
             ethPrecompileAddress: EcrecoverAddress,
-            arbTestAddress: ArbTestAddress,
+            arbosTestAddress: ArbosTestAddress,
             contractAddress: context.EvmDataContractAddress,
             burnCallData: EvmDataCallData.CreateBurnArbGasCallData(new UInt256(1000)));
 
@@ -149,7 +149,7 @@ public class StylusEvmDataTests
         byte[] callData = EvmDataCallData.CreateCallData(
             balanceCheckAddress: accountToCheck,
             ethPrecompileAddress: EcrecoverAddress,
-            arbTestAddress: ArbTestAddress,
+            arbosTestAddress: ArbosTestAddress,
             contractAddress: context.EvmDataContractAddress,
             burnCallData: EvmDataCallData.CreateBurnArbGasCallData(new UInt256(1000)));
 

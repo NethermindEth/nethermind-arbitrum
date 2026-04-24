@@ -4,7 +4,6 @@
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 
 namespace Nethermind.Arbitrum.Modules;

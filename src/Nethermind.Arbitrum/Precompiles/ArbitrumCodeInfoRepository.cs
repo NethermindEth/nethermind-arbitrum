@@ -30,9 +30,9 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
             [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
             [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
             [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
-            [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
+            [ArbosActsParser.Address] = new PrecompileInfo(ArbosActsParser.Instance),
             [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
-            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
+            [ArbosTestParser.Address] = new PrecompileInfo(ArbosTestParser.Instance),
             [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
             [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
             [ArbWasmCacheParser.Address] = new PrecompileInfo(ArbWasmCacheParser.Instance),
@@ -57,9 +57,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
                 arbosVersionProvider.Get() >= ArbosVersion.Fifty &&
                 delegationAddress is not null &&
                 vmSpec.IsPrecompile(delegationAddress))
-            {
                 return CodeInfo.Empty;
-            }
 
             return result;
         }
