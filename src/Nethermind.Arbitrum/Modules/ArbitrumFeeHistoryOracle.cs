@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Blockchain;
