@@ -637,7 +637,7 @@ public class MarkValidTests
             Receiver: TestItem.AddressB,
             Value: UInt256.One);
 
-        (await chain.Digest(testEthDeposit)).Should().RequestSucceed();
+        chain.Digest(testEthDeposit).ShouldAsync().RequestSucceed();
 
         await Task.Delay(delayMs, ct);
     }
