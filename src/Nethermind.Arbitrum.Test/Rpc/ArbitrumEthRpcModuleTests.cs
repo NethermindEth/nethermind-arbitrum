@@ -439,7 +439,7 @@ public partial class ArbitrumEthRpcModuleTests
         await ProduceBlockWithBaseFee(100.Wei);
         await ProduceBlockWithBaseFee(200.Wei);
 
-        ResultWrapper<FeeHistoryResults> result = _chain.ArbitrumEthRpcModule.eth_feeHistory(2, BlockParameter.Latest);
+        ResultWrapper<FeeHistoryResults> result = _chain.ArbitrumEthRpcModule.eth_feeHistory(2, BlockParameter.Latest, []);
 
         result.Result.ResultType.Should().Be(ResultType.Success);
         using FeeHistoryResults data = result.Data;
@@ -459,7 +459,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         long headNumber = _chain.BlockTree.Head!.Number;
 
-        ResultWrapper<FeeHistoryResults> result = _chain.ArbitrumEthRpcModule.eth_feeHistory(1000, BlockParameter.Latest);
+        ResultWrapper<FeeHistoryResults> result = _chain.ArbitrumEthRpcModule.eth_feeHistory(1000, BlockParameter.Latest, []);
 
         result.Result.ResultType.Should().Be(ResultType.Success);
         using FeeHistoryResults data = result.Data;

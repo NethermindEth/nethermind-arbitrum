@@ -426,7 +426,8 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)authCost);
         }
 
-        long floorCost = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorCost(tx, spec, tokensInCallData);
+        long floorTokensInAccessList = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorTokensInAccessList(tx, spec);
+        long floorCost = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorCost(tx, spec, tokensInCallData, floorTokensInAccessList);
         ArbitrumGasPolicy floorGas = FromLong(floorCost);
 
         return new IntrinsicGas<ArbitrumGasPolicy>(gas, floorGas);
