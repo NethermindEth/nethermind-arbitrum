@@ -13,6 +13,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Threading;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 
@@ -175,6 +176,9 @@ public sealed class ArbitrumBlockFactory(
 
     private async Task<ResultWrapper<Block>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
+        bool previousMainThread = ProcessingThread.IsBlockProcessingThread;
+        ProcessingThread.IsBlockProcessingThread = true;
+
         try
         {
             Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
@@ -187,16 +191,30 @@ public sealed class ArbitrumBlockFactory(
         {
             return ResultWrapper<Block>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
+        finally
+        {
+            ProcessingThread.IsBlockProcessingThread = previousMainThread;
+        }
     }
 
     private async Task<ResultWrapper<Block>> ProduceBlockWhileLockedAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
         return await WaitForBlockProcessingAsync(async () =>
         {
-            Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
-            return block?.Hash is null
-                ? ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError)
-                : ResultWrapper<Block>.Success(block);
+            bool previousMainThread = ProcessingThread.IsBlockProcessingThread;
+            ProcessingThread.IsBlockProcessingThread = true;
+
+            try
+            {
+                Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
+                return block?.Hash is null
+                    ? ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError)
+                    : ResultWrapper<Block>.Success(block);
+            }
+            finally
+            {
+                ProcessingThread.IsBlockProcessingThread = previousMainThread;
+            }
         });
     }
 

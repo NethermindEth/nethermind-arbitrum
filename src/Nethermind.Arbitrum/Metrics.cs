@@ -3,6 +3,7 @@
 
 using System.ComponentModel;
 using Nethermind.Core.Attributes;
+using Nethermind.Core.Metric;
 using Nethermind.Core.Threading;
 
 namespace Nethermind.Arbitrum;
@@ -54,4 +55,33 @@ public class Metrics
     {
         _currentTxUsedStylus = false;
     }
+
+    [CounterMetric]
+    [Description("Total transactions processed")]
+    public static long ArbTransactionsProcessed { get; set; }
+
+    [CounterMetric]
+    [Description("Total Arbitrum-specific transactions processed")]
+    public static long ArbSpecificTransactionsProcessed { get; set; }
+
+    [CounterMetric]
+    [Description("Total Stylus contract executions")]
+    public static long ArbStylusContractsExecuted { get; set; }
+
+    [CounterMetric]
+    [Description("Total Stylus API calls processed")]
+    [KeyIsLabel("api")]
+    public static NonBlocking.ConcurrentDictionary<int, long> ArbStylusApiCallsProcessed { get; } = new();
+
+    [SummaryMetric(LabelNames = ["type"], ObjectiveQuantile = [0.5, 0.75, 0.9, 0.95, 0.99], ObjectiveEpsilon = [0.05, 0.05, 0.05, 0.01, 0.005])]
+    [Description("Time to execute Arbitrum transactions by type.")]
+    public static IMetricObserver ArbTransactionDurationMicros = NoopMetricObserver.Instance;
+
+    [SummaryMetric(LabelNames = ["method"], ObjectiveQuantile = [0.5, 0.75, 0.9, 0.95, 0.99], ObjectiveEpsilon = [0.05, 0.05, 0.05, 0.01, 0.005])]
+    [Description("Time to process Arbitrum JSON-RPC calls by method.")]
+    public static IMetricObserver ArbRpcCallDurationMicros = NoopMetricObserver.Instance;
+
+    [SummaryMetric(LabelNames = ["op"], ObjectiveQuantile = [0.5, 0.75, 0.9, 0.95, 0.99], ObjectiveEpsilon = [0.05, 0.05, 0.05, 0.01, 0.005])]
+    [Description("Time to execute an operation during Arbitrum block processing.")]
+    public static IMetricObserver ArbProcessingOpDurationMicros = NoopMetricObserver.Instance;
 }

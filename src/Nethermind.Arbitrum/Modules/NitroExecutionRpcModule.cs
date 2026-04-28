@@ -117,4 +117,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine, ArbitrumCl
 
     public Task<ResultWrapper<EmptyResponse>> nitroexecution_prepareForRecord(ulong start, ulong end)
         => engine.PrepareForRecord(new PrepareForRecordParameters(start, end));
+
+    public Task<ResultWrapper<bool>> nitroexecution_pruneHistory()
+        => engine.PruneHistory();
 }

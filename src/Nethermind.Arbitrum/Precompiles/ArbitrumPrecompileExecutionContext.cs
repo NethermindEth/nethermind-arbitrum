@@ -83,6 +83,9 @@ public record ArbitrumPrecompileExecutionContext(
 
     public void Burn(ulong amount)
     {
+        if (Out.TraceShowBurn)
+            Out.Log($"context burn={amount}");
+
         if (GasLeft < amount)
             BurnOut();
         else

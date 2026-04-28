@@ -397,7 +397,8 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IExpressLaneTracker>(),
             chain.Container.Resolve<IAuctionResolutionQueue>(),
             chain.Container.Resolve<IEthereumEcdsa>(),
-            chain.Dependencies.StateReconstructor);
+            chain.Dependencies.StateReconstructor,
+            chain.Container.Resolve<IArbitrumHistoryPruner>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
@@ -662,7 +663,6 @@ public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address S
     public TestL2Transactions(UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
         : this(new(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, Sender, Transactions)
     {
-
     }
 }
 
