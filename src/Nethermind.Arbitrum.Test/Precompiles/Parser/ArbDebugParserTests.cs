@@ -31,13 +31,13 @@ public class ArbDebugParserTests
     private IWorldState _worldState = null!;
     private ArbosState _freeArbosState = null!;
 
-    private static readonly uint _becomeChainOwnerId = PrecompileHelper.GetMethodId("becomeChainOwner()");
-    private static readonly uint _eventsId = PrecompileHelper.GetMethodId("events(bool,bytes32)");
-    private static readonly uint _eventsViewId = PrecompileHelper.GetMethodId("eventsView()");
-    private static readonly uint _customRevertId = PrecompileHelper.GetMethodId("customRevert(uint64)");
-    private static readonly uint _panicId = PrecompileHelper.GetMethodId("panic()");
-    private static readonly uint _legacyErrorId = PrecompileHelper.GetMethodId("legacyError()");
-    private static readonly uint _overwriteContractCodeId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
+    private static readonly uint BecomeChainOwnerId = PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()");
+    private static readonly uint EventsId = PrecompileTestAbiHelpers.GetMethodId("events(bool,bytes32)");
+    private static readonly uint EventsViewId = PrecompileTestAbiHelpers.GetMethodId("eventsView()");
+    private static readonly uint CustomRevertId = PrecompileTestAbiHelpers.GetMethodId("customRevert(uint64)");
+    private static readonly uint PanicId = PrecompileTestAbiHelpers.GetMethodId("panic()");
+    private static readonly uint LegacyErrorId = PrecompileTestAbiHelpers.GetMethodId("legacyError()");
+    private static readonly uint OverwriteContractCodeId = PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)");
 
     [SetUp]
     public void SetUp()
@@ -62,10 +62,10 @@ public class ArbDebugParserTests
     [Test]
     public void BecomeChainOwner_Always_AddsSenderAsChainOwner()
     {
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_becomeChainOwnerId, out PrecompileHandler? becomeChainOwner);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(BecomeChainOwnerId, out PrecompileHandler? becomeChainOwner);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_becomeChainOwnerId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[BecomeChainOwnerId].AbiFunctionDescription;
 
         byte[] result = becomeChainOwner!(_context, []);
 
@@ -80,10 +80,10 @@ public class ArbDebugParserTests
         UInt256 paid = 1; // value sent to precompile
         _context = _context.WithCaller(sender).WithValue(paid);
 
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_eventsId, out PrecompileHandler? events);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(EventsId, out PrecompileHandler? events);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_eventsId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[EventsId].AbiFunctionDescription;
 
         bool flag = true;
         Hash256 value = Hash256FromUlong(2);
@@ -119,10 +119,10 @@ public class ArbDebugParserTests
             ReadOnly = true,
         };
 
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_eventsViewId, out PrecompileHandler? eventsView);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(EventsViewId, out PrecompileHandler? eventsView);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_eventsViewId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[EventsViewId].AbiFunctionDescription;
 
         Action action = () => eventsView!(context, []);
 
@@ -134,10 +134,10 @@ public class ArbDebugParserTests
     [Test]
     public void CustomRevert_Always_ThrowsSolidityError()
     {
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_customRevertId, out PrecompileHandler? customRevert);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(CustomRevertId, out PrecompileHandler? customRevert);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_customRevertId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[CustomRevertId].AbiFunctionDescription;
 
         ulong number = 1;
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -156,10 +156,10 @@ public class ArbDebugParserTests
     [Test]
     public void Panic_Always_ThrowsFailureException()
     {
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_panicId, out PrecompileHandler? panic);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(PanicId, out PrecompileHandler? panic);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_panicId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[PanicId].AbiFunctionDescription;
 
         Action action = () => panic!(_context, []);
 
@@ -171,10 +171,10 @@ public class ArbDebugParserTests
     [Test]
     public void LegacyError_Always_ThrowsFailureException()
     {
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_legacyErrorId, out PrecompileHandler? legacyError);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(LegacyErrorId, out PrecompileHandler? legacyError);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_legacyErrorId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[LegacyErrorId].AbiFunctionDescription;
 
         Action action = () => legacyError!(_context, []);
 
@@ -193,10 +193,10 @@ public class ArbDebugParserTests
         _worldState.CreateAccount(targetAddress, UInt256.Zero);
         _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
 
-        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(_overwriteContractCodeId, out PrecompileHandler? overwriteContractCode);
+        bool exists = ArbDebugParser.PrecompileImplementation.TryGetValue(OverwriteContractCodeId, out PrecompileHandler? overwriteContractCode);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[_overwriteContractCodeId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbDebugParser.PrecompileFunctionDescription[OverwriteContractCodeId].AbiFunctionDescription;
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -255,7 +255,7 @@ public class ArbDebugParserTests
         byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
 
         // Call overwriteContractCode(address,bytes) on ArbDebug
-        uint overwriteContractCodeMethodId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
+        uint overwriteContractCodeMethodId = PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbDebugParser.PrecompileFunctionDescription[overwriteContractCodeMethodId].AbiFunctionDescription.GetCallInfo().Signature, targetContract, newCode);
@@ -337,7 +337,7 @@ public class ArbDebugParserTests
         byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
 
         // Call overwriteContractCode(address,bytes) on ArbDebug
-        uint overwriteContractCodeMethodId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
+        uint overwriteContractCodeMethodId = PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbDebugParser.PrecompileFunctionDescription[overwriteContractCodeMethodId].AbiFunctionDescription.GetCallInfo().Signature, targetContract, newCode);

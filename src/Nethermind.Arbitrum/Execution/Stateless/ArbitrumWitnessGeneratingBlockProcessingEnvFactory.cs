@@ -26,7 +26,6 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Config;
 using Nethermind.Evm;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Trie.Pruning;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 

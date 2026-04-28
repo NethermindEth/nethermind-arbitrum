@@ -4,14 +4,13 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Evm;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 
@@ -339,7 +338,7 @@ public static class NitroL2MessageParser
         if (lastArbosVersion < ArbosVersion.Fifty)
         {
             ulong batchDataGas = legacyGas.SaturateAdd(extraGas);
-            packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
+            packedData = ArbosActsCodec.PackInput(ArbosActsMethod.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, batchDataGas,
                 l1BaseFee);
         }
         else
@@ -347,8 +346,8 @@ public static class NitroL2MessageParser
             if (message.BatchDataStats is null)
                 throw new InvalidOperationException("no gas data stats in a batch posting report post arbos 50");
 
-            packedData = AbiMetadata.PackInput(
-                AbiMetadata.BatchPostingReportV2,
+            packedData = ArbosActsCodec.PackInput(
+                ArbosActsMethod.BatchPostingReportV2,
                 batchTimestamp,
                 batchPosterAddr,
                 batchNum,

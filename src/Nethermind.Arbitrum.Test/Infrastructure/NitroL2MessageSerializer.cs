@@ -3,6 +3,7 @@
 
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -175,7 +176,7 @@ public static class NitroL2MessageSerializer
         if (batchGasCost == null)
             throw new ArgumentException("BatchGasCost is required for BatchPostingReport");
 
-        Dictionary<string, object> decoded = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+        Dictionary<string, object> decoded = ArbosActsCodec.UnpackInput(ArbosActsMethod.BatchPostingReport, tx.Data.ToArray());
 
         UInt256 batchTimestamp = (UInt256)decoded["batchTimestamp"];
         Address batchPosterAddr = (Address)decoded["batchPosterAddress"];
