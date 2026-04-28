@@ -59,6 +59,7 @@ namespace Nethermind.Arbitrum.Execution
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
             IExecutionRequestsProcessor executionRequestsProcessor,
+            IBlockAccessListManager balManager,
             IArbitrumConfig arbitrumConfig)
             : base(
                 specProvider,
@@ -71,7 +72,8 @@ namespace Nethermind.Arbitrum.Execution
                 blockhashStore,
                 logManager,
                 withdrawalProcessor,
-                executionRequestsProcessor)
+                executionRequestsProcessor,
+                balManager)
         {
             _cachedL1PriceData = cachedL1PriceData;
             _wasmStore = wasmStore;

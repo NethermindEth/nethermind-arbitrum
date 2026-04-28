@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
@@ -76,9 +75,6 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
             // Must be Ethereum precompile - delegate to base repository
             codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
     }
-
-    public ValueHash256 GetExecutableCodeHash(Address address, IReleaseSpec spec) =>
-        codeInfoRepository.GetExecutableCodeHash(address, spec);
 
     public void InsertCode(ReadOnlyMemory<byte> code, Address codeOwner, IReleaseSpec spec) =>
         codeInfoRepository.InsertCode(code, codeOwner, spec);
