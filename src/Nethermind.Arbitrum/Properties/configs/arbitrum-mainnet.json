@@ -23,7 +23,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
+    "EngineEnabledModules": [ "Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution" ],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -51,6 +51,11 @@
   },
   "Pruning": {
     "PruningBoundary": 192
+  },
+  "History": {
+    "Pruning": "Rolling",
+    "PruningInterval": 384,
+    "PruningTimeoutSeconds": 60
   },
   "Blocks": {
     "SecondsPerSlot": 2,
