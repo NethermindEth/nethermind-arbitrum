@@ -14,8 +14,8 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
-using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
@@ -496,7 +496,7 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+        uint getL1BaseFeeEstimateMethodId = PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimate()");
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -574,7 +574,7 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        uint getNetworkFeeAccountMethodId = PrecompileHelper.GetMethodId("getNetworkFeeAccount()");
+        uint getNetworkFeeAccountMethodId = PrecompileTestAbiHelpers.GetMethodId("getNetworkFeeAccount()");
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -650,7 +650,7 @@ public class ArbitrumTransactionProcessorTests
         SystemBurner burner = new(readOnly: false);
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logManager.GetClassLogger<ArbosState>());
 
-        uint getL1BaseFeeEstimateMethodId = PrecompileHelper.GetMethodId("getL1BaseFeeEstimate()");
+        uint getL1BaseFeeEstimateMethodId = PrecompileTestAbiHelpers.GetMethodId("getL1BaseFeeEstimate()");
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -1929,8 +1929,8 @@ public class ArbitrumTransactionProcessorTests
             retryable.Timeout.Set(0);
         }
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.StartBlockMethod,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.StartBlock,
             (UInt256)100,
             (ulong)1,
             (ulong)1,
@@ -2025,8 +2025,8 @@ public class ArbitrumTransactionProcessorTests
         Address expiredEscrowAddress = ArbitrumTransactionProcessor.GetRetryableEscrowAddress(expiredRetryableId);
         worldState.AddToBalanceAndCreateIfNotExists(expiredEscrowAddress, 1000, GetSpecProvider().GenesisSpec);
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.StartBlockMethod,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.StartBlock,
             (UInt256)100,
             (ulong)1,
             (ulong)1,
@@ -2115,8 +2115,8 @@ public class ArbitrumTransactionProcessorTests
             retryable.Timeout.Set(0);
         }
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.StartBlockMethod,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.StartBlock,
             (UInt256)100,
             (ulong)1,
             (ulong)1,
@@ -2212,8 +2212,8 @@ public class ArbitrumTransactionProcessorTests
 
         UInt256 initialBeneficiaryBalance = worldState.GetBalance(TestItem.AddressF);
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.StartBlockMethod,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.StartBlock,
             (UInt256)100,
             (ulong)1,
             (ulong)1,

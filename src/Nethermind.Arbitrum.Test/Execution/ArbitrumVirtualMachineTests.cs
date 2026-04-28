@@ -1403,7 +1403,7 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+        uint getArbBlockNumberMethodId = PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)");
         UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -1474,7 +1474,7 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+        uint getArbBlockNumberMethodId = PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)");
         UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -1549,7 +1549,7 @@ public class ArbitrumVirtualMachineTests
 
         Address sender = TestItem.AddressA;
 
-        uint activateProgramMethodId = PrecompileHelper.GetMethodId("activateProgram(address)");
+        uint activateProgramMethodId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1618,7 +1618,7 @@ public class ArbitrumVirtualMachineTests
 
         Address sender = TestItem.AddressA;
 
-        uint activateProgramMethodId = PrecompileHelper.GetMethodId("activateProgram(address)");
+        uint activateProgramMethodId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1721,7 +1721,7 @@ public class ArbitrumVirtualMachineTests
         Address victimAddress = ContractAddress.From(orchestratorAddress, salt, victimInitCode);
 
         // Build ArbWasm calldata for activateProgram(victimAddress)
-        uint activateProgramMethodId = PrecompileHelper.GetMethodId("activateProgram(address)");
+        uint activateProgramMethodId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
         byte[] activateCalldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1821,7 +1821,7 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+        uint sendMerkleTreeStateMethodId = PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbSysParser.PrecompileFunctionDescription[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1886,7 +1886,7 @@ public class ArbitrumVirtualMachineTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
         arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Eleven - 1);
 
-        uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+        uint sendMerkleTreeStateMethodId = PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbSysParser.PrecompileFunctionDescription[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -2067,7 +2067,7 @@ public class ArbitrumVirtualMachineTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
         arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.StylusChargingFixes - 1);
 
-        uint minInitGasMethodId = PrecompileHelper.GetMethodId("minInitGas()");
+        uint minInitGasMethodId = PrecompileTestAbiHelpers.GetMethodId("minInitGas()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[minInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -2717,7 +2717,7 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
 
         // Calldata to call mapL1SenderContractAddressToL2Alias(address) on ArbSys precompile
-        uint setWasmMinInitGasMethodId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+        uint setWasmMinInitGasMethodId = PrecompileTestAbiHelpers.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
         Address addressToMap = TestItem.AddressB;
 
         byte[] calldata = AbiEncoder.Instance.Encode(

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Buffers.Binary;
-using System.Collections.Concurrent;
 using Nethermind.Api;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Blockchain;

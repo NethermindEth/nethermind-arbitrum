@@ -13,12 +13,9 @@ namespace Nethermind.Arbitrum.Precompiles;
 /// This exists for historical reasons. Pre-Nitro, ArbosTest had additional methods only the zero address could call.
 /// These have been removed since users don't use them and calls to missing methods revert.
 /// </summary>
-public static class ArbTest
+public static class ArbosTest
 {
     public static Address Address => ArbosAddresses.ArbosTestAddress;
-
-    public static readonly string Abi =
-        "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"gasAmount\",\"type\":\"uint256\"}],\"name\":\"burnArbGas\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"}]";
 
     /// <summary>
     /// Unproductively burns the amount of L2 ArbGas
