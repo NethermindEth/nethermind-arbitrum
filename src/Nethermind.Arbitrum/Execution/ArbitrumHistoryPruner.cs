@@ -42,6 +42,9 @@ public sealed class ArbitrumHistoryPruner(HistoryPruner inner, IBlocksConfig blo
         remove => inner.NewOldestBlock -= value;
     }
 
+    /// <summary>
+    /// Schedules history pruning when Arbitrum requires an explicit trigger.
+    /// </summary>
     /// <remarks>
     /// Only schedules when <c>BuildBlocksOnMainState</c> is enabled. When disabled, the existing
     /// <c>ProcessingQueueEmpty</c> subscription on the inner <see cref="HistoryPruner"/> handles
