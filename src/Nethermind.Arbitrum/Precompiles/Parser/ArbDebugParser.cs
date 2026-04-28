@@ -20,29 +20,29 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
     public static Address Address { get; } = ArbDebug.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbDebug.Abi);
+        = Solgen.ArbDebug.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _becomeChainOwnerId = PrecompileHelper.GetMethodId("becomeChainOwner()");
-    private static readonly uint _eventsId = PrecompileHelper.GetMethodId("events(bool,bytes32)");
-    private static readonly uint _eventsViewId = PrecompileHelper.GetMethodId("eventsView()");
-    private static readonly uint _customRevertId = PrecompileHelper.GetMethodId("customRevert(uint64)");
-    private static readonly uint _panicId = PrecompileHelper.GetMethodId("panic()");
-    private static readonly uint _legacyErrorId = PrecompileHelper.GetMethodId("legacyError()");
-    private static readonly uint _overwriteContractCodeId = PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)");
+    private const uint BecomeChainOwnerId = Solgen.ArbDebug.Methods.BecomeChainOwner;
+    private const uint EventsId = Solgen.ArbDebug.Methods.Events;
+    private const uint EventsViewId = Solgen.ArbDebug.Methods.EventsView;
+    private const uint CustomRevertId = Solgen.ArbDebug.Methods.CustomRevert;
+    private const uint PanicId = Solgen.ArbDebug.Methods.Panic;
+    private const uint LegacyErrorId = Solgen.ArbDebug.Methods.LegacyError;
+    private const uint OverwriteContractCodeId = Solgen.ArbDebug.Methods.OverwriteContractCode;
 
     static ArbDebugParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _becomeChainOwnerId, BecomeChainOwner },
-            { _eventsId, Events },
-            { _eventsViewId, EventsView },
-            { _customRevertId, CustomRevert },
-            { _panicId, Panic },
-            { _legacyErrorId, LegacyError },
-            { _overwriteContractCodeId, OverwriteContractCode },
+            { BecomeChainOwnerId, BecomeChainOwner },
+            { EventsId, Events },
+            { EventsViewId, EventsView },
+            { CustomRevertId, CustomRevert },
+            { PanicId, Panic },
+            { LegacyErrorId, LegacyError },
+            { OverwriteContractCodeId, OverwriteContractCode },
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -50,7 +50,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
 
     private static void CustomizeFunctionDescriptionsWithArbosVersion()
     {
-        PrecompileFunctionDescription[_panicId].ArbOSVersion = ArbosVersion.Stylus;
+        PrecompileFunctionDescription[PanicId].ArbOSVersion = ArbosVersion.Stylus;
     }
 
     private static byte[] BecomeChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
@@ -61,7 +61,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
 
     private static byte[] OverwriteContractCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_overwriteContractCodeId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[OverwriteContractCodeId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -83,7 +83,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
 
     private static byte[] Events(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_eventsId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[EventsId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -112,7 +112,7 @@ public class ArbDebugParser : IArbitrumPrecompile<ArbDebugParser>
 
     private static byte[] CustomRevert(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_customRevertId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[CustomRevertId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

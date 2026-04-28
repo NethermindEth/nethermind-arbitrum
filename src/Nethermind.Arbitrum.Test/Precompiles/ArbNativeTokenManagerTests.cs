@@ -20,6 +20,7 @@ using Nethermind.Evm.State;
 using Nethermind.Int256;
 using NSubstitute;
 using Nethermind.Arbitrum.Config;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -312,9 +313,7 @@ public class ArbNativeTokenManagerTests
         UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
 
         for (int i = 0; i < numberOfMints; i++)
-        {
             ArbNativeTokenManager.MintNativeToken(testContext.Context, mintAmount);
-        }
 
         UInt256 balanceAfter = testContext.WorldState.GetBalance(owner);
         balanceAfter.Should().Be(balanceBefore + (mintAmount * (UInt256)numberOfMints));
@@ -336,9 +335,7 @@ public class ArbNativeTokenManagerTests
         UInt256 balanceBefore = testContext.WorldState.GetBalance(owner);
 
         for (int i = 0; i < numberOfBurns; i++)
-        {
             ArbNativeTokenManager.BurnNativeToken(testContext.Context, burnAmount);
-        }
 
         UInt256 balanceAfter = testContext.WorldState.GetBalance(owner);
         balanceAfter.Should().Be(balanceBefore - (burnAmount * (UInt256)numberOfBurns));
@@ -398,19 +395,19 @@ public class ArbNativeTokenManagerTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbNativeTokenManager.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbNativeTokenManager.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("mintNativeToken(uint256)"),
-            PrecompileHelper.GetMethodId("burnNativeToken(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("mintNativeToken(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("burnNativeToken(uint256)"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbNativeTokenManager.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbNativeTokenManager.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("NativeTokenMinted", "NativeTokenBurned");
     }
@@ -418,14 +415,14 @@ public class ArbNativeTokenManagerTests
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbNativeTokenManager.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbNativeTokenManager.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("mintNativeToken(uint256)").Should().Be(0xa6f0f7c7u);
-        PrecompileHelper.GetMethodId("burnNativeToken(uint256)").Should().Be(0x1c679a3cu);
+        PrecompileTestAbiHelpers.GetMethodId("mintNativeToken(uint256)").Should().Be(Solgen.ArbNativeTokenManager.Methods.MintNativeToken);
+        PrecompileTestAbiHelpers.GetMethodId("burnNativeToken(uint256)").Should().Be(Solgen.ArbNativeTokenManager.Methods.BurnNativeToken);
     }
 
     private static TestContext CreateTestContext(
@@ -440,9 +437,7 @@ public class ArbNativeTokenManagerTests
         ArbOSInitialization.Create(worldState);
 
         if (initialBalance.HasValue)
-        {
             worldState.CreateAccount(owner, initialBalance.Value);
-        }
 
         PrecompileTestContextBuilder contextBuilder = new PrecompileTestContextBuilder(worldState, gasSupplied)
             .WithArbosState()
@@ -451,9 +446,7 @@ public class ArbNativeTokenManagerTests
             .WithReleaseSpec();
 
         if (authorizeOwner)
-        {
             contextBuilder.WithNativeTokenOwners(owner);
-        }
 
         return new TestContext(worldState, worldStateDisposer, contextBuilder);
     }

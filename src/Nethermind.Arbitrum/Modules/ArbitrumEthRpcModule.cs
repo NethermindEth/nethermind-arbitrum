@@ -129,7 +129,8 @@ namespace Nethermind.Arbitrum.Modules
         public override ResultWrapper<string> eth_call(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
-            Dictionary<Address, AccountOverride>? stateOverride = null)
+            Dictionary<Address, AccountOverride>? stateOverride = null,
+            BlockOverride? blockOverride = null)
         {
             SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
             if (searchResult is { IsError: true, Error: not null })
@@ -138,16 +139,23 @@ namespace Nethermind.Arbitrum.Modules
             if (searchResult.Object == null)
                 return ResultWrapper<string>.Fail("Block not found", 0);
 
+            if (blockOverride?.GasLimit > (ulong)_rpcConfig.GasCap!.Value)
+                return ResultWrapper<string>.Fail($"GasLimit value is too large, max value {_rpcConfig.GasCap.Value}", ErrorCodes.InvalidInput);
+
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumCallTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
+            {
+                BlockOverride = blockOverride
+            }
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
         public override ResultWrapper<UInt256?> eth_estimateGas(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
-            Dictionary<Address, AccountOverride>? stateOverride = null)
+            Dictionary<Address, AccountOverride>? stateOverride = null,
+            BlockOverride? blockOverride = null)
         {
             SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
             if (searchResult is { IsError: true, Error: not null })
@@ -156,9 +164,15 @@ namespace Nethermind.Arbitrum.Modules
             if (searchResult.Object == null)
                 return ResultWrapper<UInt256?>.Fail("Block not found", 0);
 
+            if (blockOverride?.GasLimit > (ulong)_rpcConfig.GasCap!.Value)
+                return ResultWrapper<UInt256?>.Fail($"GasLimit value is too large, max value {_rpcConfig.GasCap.Value}", ErrorCodes.InvalidInput);
+
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             ResultWrapper<UInt256?> ethEstimateGas = new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
+            {
+                BlockOverride = blockOverride
+            }
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
 
             return ethEstimateGas;
@@ -326,6 +340,9 @@ namespace Nethermind.Arbitrum.Modules
             protected readonly UInt256 _originalBaseFee = originalBaseFee;
             protected readonly ArbitrumChainSpecEngineParameters _chainSpecParams = chainSpecParams;
 
+            public BlockOverride? BlockOverride { get; init; }
+            protected UInt256? BlobBaseFeeOverride => BlockOverride?.BlobBaseFee;
+
             public override ResultWrapper<TResult> Execute(
                 TransactionForRpc transactionCall,
                 BlockParameter? blockParameter,
@@ -363,6 +380,8 @@ namespace Nethermind.Arbitrum.Modules
                 // Set base fee to 0 for EVM execution (like Ethereum's NoBaseFee)
                 arbitrumHeader.BaseFeePerGas = 0;
 
+                BlockOverride?.ApplyOverrides(arbitrumHeader);
+
                 if (tx is { IsContractCreation: true, DataLength: 0 })
                     return ResultWrapper<TResult>.Fail("Contract creation without any data provided.", ErrorCodes.InvalidInput);
 
@@ -382,7 +401,7 @@ namespace Nethermind.Arbitrum.Modules
         {
             protected override ResultWrapper<string> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, token);
+                CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, BlobBaseFeeOverride, token);
 
                 return result switch
                 {
@@ -405,7 +424,7 @@ namespace Nethermind.Arbitrum.Modules
 
             protected override ResultWrapper<UInt256?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.EstimateGas(header, tx, _errorMargin, stateOverride, token);
+                CallOutput result = _blockchainBridge.EstimateGas(header, tx, _errorMargin, stateOverride, BlobBaseFeeOverride, token);
 
                 return result switch
                 {
@@ -427,7 +446,7 @@ namespace Nethermind.Arbitrum.Modules
         {
             protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, stateOverride, token, optimize);
+                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, stateOverride, optimize, BlobBaseFeeOverride, token);
 
                 AccessListResultForRpc rpcAccessListResult = new(
                     accessList: AccessListForRpc.FromAccessList(result.AccessList ?? tx.AccessList),

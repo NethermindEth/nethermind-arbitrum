@@ -18,7 +18,7 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Stylus;
 
-[RunnerStepDependencies([typeof(InitializeBlockchain)], [typeof(StartBlockProcessor)])]
+[RunnerStepDependencies([typeof(InitializeBlockchain), typeof(ArbitrumInitializeStylusNative)], [typeof(StartBlockProcessor)])]
 public class ArbitrumInitializeWasmDb(
     IWasmDb wasmDb,
     [KeyFilter("code")] IDb codeDb,

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Collections.Frozen;
-using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 
@@ -19,14 +18,8 @@ public class ArbBlsParser : IArbitrumPrecompile<ArbBlsParser>
     public static Address Address { get; } = ArbBls.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbBls.Abi);
+        = FrozenDictionary<uint, ArbitrumFunctionDescription>.Empty;
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
-
-    static ArbBlsParser()
-    {
-        // Empty implementation - no functions to register
-        PrecompileImplementation = new Dictionary<uint, PrecompileHandler>()
-            .ToFrozenDictionary();
-    }
+        = FrozenDictionary<uint, PrecompileHandler>.Empty;
 }

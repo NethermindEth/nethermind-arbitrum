@@ -6,7 +6,6 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Config;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;

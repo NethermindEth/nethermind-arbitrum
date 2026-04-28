@@ -15,19 +15,19 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     public static Address Address { get; } = ArbInfo.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
+        = Solgen.ArbInfo.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
-    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
+    private const uint GetBalanceId = Solgen.ArbInfo.Methods.GetBalance;
+    private const uint GetCodeId = Solgen.ArbInfo.Methods.GetCode;
 
     static ArbInfoParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _getBalanceId, GetBalance },
-            { _getCodeId, GetCode },
+            { GetBalanceId, GetBalance },
+            { GetCodeId, GetCode },
         }.ToFrozenDictionary();
     }
 
@@ -35,7 +35,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_getBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[GetBalanceId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -45,7 +45,7 @@ public class ArbInfoParser : IArbitrumPrecompile<ArbInfoParser>
 
     private static byte[] GetCode(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getCodeId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetCodeId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

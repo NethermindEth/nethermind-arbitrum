@@ -18,6 +18,7 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -130,9 +131,7 @@ public class ArbDebugTests
         messageBytes.CopyTo(expectedErrorData, offset); // message dynamic data
         offset += messageBytes.Length;
         if (!isMultipleOf32)
-        {
             new byte[expectedErrorData.Length - offset].CopyTo(expectedErrorData, offset); // right padding if needed
-        }
 
         result.Output.Should().BeEquivalentTo(expectedErrorData);
         result.Type.Should().Be(ArbitrumPrecompileException.PrecompileExceptionType.SolidityError);
@@ -142,8 +141,8 @@ public class ArbDebugTests
     public void OverwriteContractCode_WithExistingCode_ReturnsOldCodeAndSetsNewCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000456");
-        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
-        byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
+        byte[] originalCode = [0x60, 0x80, 0x60, 0x40, 0x52];
+        byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
 
         _worldState.CreateAccount(targetAddress, UInt256.Zero);
         _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
@@ -160,7 +159,7 @@ public class ArbDebugTests
     public void OverwriteContractCode_WithNoExistingCode_ReturnsEmptyAndSetsNewCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000789");
-        byte[] newCode = new byte[] { 0x60, 0x60, 0x60, 0x60, 0x50 };
+        byte[] newCode = [0x60, 0x60, 0x60, 0x60, 0x50];
 
         byte[] returnedCode = ArbDebug.OverwriteContractCode(_context, targetAddress, newCode);
 
@@ -174,8 +173,8 @@ public class ArbDebugTests
     public void OverwriteContractCode_WithEmptyNewCode_ReturnsOldCodeAndClearsCode()
     {
         Address targetAddress = new("0x0000000000000000000000000000000000000ABC");
-        byte[] originalCode = new byte[] { 0x60, 0x80, 0x60, 0x40, 0x52 };
-        byte[] emptyCode = Array.Empty<byte>();
+        byte[] originalCode = [0x60, 0x80, 0x60, 0x40, 0x52];
+        byte[] emptyCode = [];
 
         _worldState.CreateAccount(targetAddress, UInt256.Zero);
         _worldState.InsertCode(targetAddress, originalCode, _context.ReleaseSpec);
@@ -191,24 +190,24 @@ public class ArbDebugTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbDebug.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbDebug.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("becomeChainOwner()"),
-            PrecompileHelper.GetMethodId("events(bool,bytes32)"),
-            PrecompileHelper.GetMethodId("eventsView()"),
-            PrecompileHelper.GetMethodId("customRevert(uint64)"),
-            PrecompileHelper.GetMethodId("panic()"),
-            PrecompileHelper.GetMethodId("legacyError()"),
-            PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()"),
+            PrecompileTestAbiHelpers.GetMethodId("events(bool,bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("eventsView()"),
+            PrecompileTestAbiHelpers.GetMethodId("customRevert(uint64)"),
+            PrecompileTestAbiHelpers.GetMethodId("panic()"),
+            PrecompileTestAbiHelpers.GetMethodId("legacyError()"),
+            PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbDebug.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbDebug.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("Basic", "Mixed", "Store");
     }
@@ -216,7 +215,7 @@ public class ArbDebugTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbDebug.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbDebug.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("Custom", "Unused");
     }
@@ -224,13 +223,13 @@ public class ArbDebugTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("becomeChainOwner()").Should().Be(0x0e5bbc11u);
-        PrecompileHelper.GetMethodId("events(bool,bytes32)").Should().Be(0x7b9963efu);
-        PrecompileHelper.GetMethodId("eventsView()").Should().Be(0x8e5f30abu);
-        PrecompileHelper.GetMethodId("customRevert(uint64)").Should().Be(0x7ea89f8bu);
-        PrecompileHelper.GetMethodId("panic()").Should().Be(0x4700d305u);
-        PrecompileHelper.GetMethodId("legacyError()").Should().Be(0x1e48fe82u);
-        PrecompileHelper.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(0x1be250d6u);
+        PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()").Should().Be(Solgen.ArbDebug.Methods.BecomeChainOwner);
+        PrecompileTestAbiHelpers.GetMethodId("events(bool,bytes32)").Should().Be(Solgen.ArbDebug.Methods.Events);
+        PrecompileTestAbiHelpers.GetMethodId("eventsView()").Should().Be(Solgen.ArbDebug.Methods.EventsView);
+        PrecompileTestAbiHelpers.GetMethodId("customRevert(uint64)").Should().Be(Solgen.ArbDebug.Methods.CustomRevert);
+        PrecompileTestAbiHelpers.GetMethodId("panic()").Should().Be(Solgen.ArbDebug.Methods.Panic);
+        PrecompileTestAbiHelpers.GetMethodId("legacyError()").Should().Be(Solgen.ArbDebug.Methods.LegacyError);
+        PrecompileTestAbiHelpers.GetMethodId("overwriteContractCode(address,bytes)").Should().Be(Solgen.ArbDebug.Methods.OverwriteContractCode);
     }
 
     [Test]
@@ -244,7 +243,7 @@ public class ArbDebugTests
             .WithArbosVersion(ArbosVersion.Stylus - 1);
 
         bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId("panic()"), out bool shouldRevert, out PrecompileHandler? _);
+            PrecompileTestAbiHelpers.GetMethodId("panic()"), out bool shouldRevert, out PrecompileHandler? _);
 
         result.Should().BeFalse();
         shouldRevert.Should().BeTrue();
@@ -258,7 +257,7 @@ public class ArbDebugTests
             .WithExecutingAccount(ArbDebugParser.Address);
 
         bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId("panic()"), out bool _, out PrecompileHandler? handler);
+            PrecompileTestAbiHelpers.GetMethodId("panic()"), out bool _, out PrecompileHandler? handler);
 
         result.Should().BeTrue();
         handler.Should().NotBeNull();
@@ -272,7 +271,7 @@ public class ArbDebugTests
             .WithExecutingAccount(ArbDebugParser.Address);
 
         bool result = ArbDebugParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
-            PrecompileHelper.GetMethodId("becomeChainOwner()"), out bool _, out PrecompileHandler? handler);
+            PrecompileTestAbiHelpers.GetMethodId("becomeChainOwner()"), out bool _, out PrecompileHandler? handler);
 
         result.Should().BeTrue();
         handler.Should().NotBeNull();

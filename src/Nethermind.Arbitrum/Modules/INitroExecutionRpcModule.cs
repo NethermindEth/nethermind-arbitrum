@@ -4,7 +4,6 @@
 using Nethermind.Arbitrum.Data;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
-using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules;
 

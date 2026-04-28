@@ -18,6 +18,7 @@ using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Specs.Forks;
 using System.Security.Cryptography;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -106,9 +107,7 @@ public class ArbInfoTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce = UInt256.Zero;
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.MainWorldState.GetNonce(sender);
-        }
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
@@ -208,31 +207,31 @@ public class ArbInfoTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbInfo.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbInfo.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("getBalance(address)"),
-            PrecompileHelper.GetMethodId("getCode(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getBalance(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getCode(address)"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbInfo.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbInfo.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsNoErrors()
     {
-        AbiMetadata.GetAllErrorDescriptions(ArbInfo.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbInfo.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("getBalance(address)").Should().Be(0xf8b2cb4fu);
-        PrecompileHelper.GetMethodId("getCode(address)").Should().Be(0x7e105ce2u);
+        PrecompileTestAbiHelpers.GetMethodId("getBalance(address)").Should().Be(Solgen.ArbInfo.Methods.GetBalance);
+        PrecompileTestAbiHelpers.GetMethodId("getCode(address)").Should().Be(Solgen.ArbInfo.Methods.GetCode);
     }
 }

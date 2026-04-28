@@ -15,17 +15,17 @@ public class ArbStatisticsParser : IArbitrumPrecompile<ArbStatisticsParser>
     public static Address Address { get; } = ArbStatistics.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbStatistics.Abi);
+        = Solgen.ArbStatistics.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _getStatsId = PrecompileHelper.GetMethodId("getStats()");
+    private const uint GetStatsId = Solgen.ArbStatistics.Methods.GetStats;
 
     static ArbStatisticsParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _getStatsId, GetStats },
+            { GetStatsId, GetStats },
         }.ToFrozenDictionary();
     }
 
@@ -33,7 +33,7 @@ public class ArbStatisticsParser : IArbitrumPrecompile<ArbStatisticsParser>
     {
         ArbStatistics.ArbStatisticsResult result = ArbStatistics.GetStats(context);
 
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getStatsId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetStatsId].AbiFunctionDescription;
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,

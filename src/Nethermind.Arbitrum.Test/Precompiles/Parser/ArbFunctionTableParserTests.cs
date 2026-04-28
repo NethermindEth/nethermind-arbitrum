@@ -21,9 +21,9 @@ public sealed class ArbFunctionTableParserTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
-    private static readonly uint _uploadId = PrecompileHelper.GetMethodId("upload(bytes)");
-    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size(address)");
-    private static readonly uint _getId = PrecompileHelper.GetMethodId("get(address,uint256)");
+    private static readonly uint UploadId = PrecompileTestAbiHelpers.GetMethodId("upload(bytes)");
+    private static readonly uint SizeId = PrecompileTestAbiHelpers.GetMethodId("size(address)");
+    private static readonly uint GetId = PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)");
 
     private IWorldState _worldState = null!;
     private ArbosState _arbosState = null!;
@@ -47,15 +47,15 @@ public sealed class ArbFunctionTableParserTests
     public void ParsesUpload_WithValidInputData_Succeeds()
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+        byte[] buffer = [0, 0, 0, 0];
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbFunctionTableParser.PrecompileFunctionDescription[_uploadId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbFunctionTableParser.PrecompileFunctionDescription[UploadId].AbiFunctionDescription.GetCallInfo().Signature,
             buffer
         );
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_uploadId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(UploadId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -68,7 +68,7 @@ public sealed class ArbFunctionTableParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_uploadId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(UploadId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -88,11 +88,11 @@ public sealed class ArbFunctionTableParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbFunctionTableParser.PrecompileFunctionDescription[_sizeId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbFunctionTableParser.PrecompileFunctionDescription[SizeId].AbiFunctionDescription.GetCallInfo().Signature,
             addr
         );
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(SizeId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -108,7 +108,7 @@ public sealed class ArbFunctionTableParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(SizeId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
@@ -129,12 +129,12 @@ public sealed class ArbFunctionTableParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbFunctionTableParser.PrecompileFunctionDescription[_getId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbFunctionTableParser.PrecompileFunctionDescription[GetId].AbiFunctionDescription.GetCallInfo().Signature,
             addr,
             index
         );
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_getId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(GetId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -149,7 +149,7 @@ public sealed class ArbFunctionTableParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(_getId, out PrecompileHandler? handler);
+        bool exists = ArbFunctionTableParser.PrecompileImplementation.TryGetValue(GetId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] malformedCalldata = new byte[10];
