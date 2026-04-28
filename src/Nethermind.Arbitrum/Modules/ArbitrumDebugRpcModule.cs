@@ -87,7 +87,7 @@ public class ArbitrumDebugRpcModule(
                 _logger.Warn("debug_schedulePruneHistory called but IHistoryPruner service is not available; cannot schedule history pruning");
             return Task.FromResult(ResultWrapper<bool>.Fail("IHistoryPruner service not available"));
         }
-        historyPruner?.SchedulePruneHistory();
+        historyPruner.SchedulePruneHistory();
         return Task.FromResult(ResultWrapper<bool>.Success(true));
     }
 
