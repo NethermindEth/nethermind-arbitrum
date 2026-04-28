@@ -9,8 +9,6 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
-using Nethermind.Evm.TransactionProcessing;
-using Nethermind.Logging;
 using Nethermind.State;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 

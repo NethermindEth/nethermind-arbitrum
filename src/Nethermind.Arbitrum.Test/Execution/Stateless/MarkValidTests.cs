@@ -8,7 +8,6 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Modules;
-using Nethermind.Arbitrum.Test.Execution.Stateless;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.FullPruning;
@@ -20,9 +19,8 @@ using Nethermind.Db.FullPruning;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules.Admin;
-using Nethermind.Trie;
 
-namespace Nethermind.Arbitrum.Test.Execution;
+namespace Nethermind.Arbitrum.Test.Execution.Stateless;
 
 public class MarkValidTests
 {
@@ -51,7 +49,7 @@ public class MarkValidTests
 
         BlockHeader? validHeader = ReadValidHeader(chain.StateReconstructor);
         validHeader.Should().NotBeNull();
-        validHeader!.Number.Should().Be((long)start - 1);
+        validHeader.Number.Should().Be((long)start - 1);
     }
 
     /// <summary>
@@ -77,7 +75,7 @@ public class MarkValidTests
 
         BlockHeader? validHeader = ReadValidHeader(chain.StateReconstructor);
         validHeader.Should().NotBeNull();
-        validHeader!.Number.Should().Be((long)lastMessage.Index - 1);
+        validHeader.Number.Should().Be((long)lastMessage.Index - 1);
     }
 
     /// <summary>
@@ -146,17 +144,15 @@ public class MarkValidTests
     /// the MemDb overlay and restores _validHeader.
     ///
     /// PruningBoundary is set to 0 so FullPruner only needs Head.Number > stateToCopy (not +64).
-    /// Three extra blocks from the recording are digested one-by-one to satisfy FullPruner's
-    /// three sequential WaitForMainChainChange conditions.  BestPersistedState is set manually
-    /// because TrieStoreBoundaryWatcher is not wired in tests.
+    /// Synthetic blocks are streamed until PruningFinished fires; see
+    /// DriveChainUntilPruningCompletes for why streaming is the chosen pattern.
     /// </summary>
     [Test]
     public async Task FullPruning_AfterCommit_ClearsMemDbAndValidStateRemainsAccessible()
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
-        DigestMessageParameters[] allMessages = recording.GetDigestMessages().ToArray();
 
-        // Digest only the first 5 messages so blocks 6-8 are available for driving FullPruner.
+        // Digest only the first 5 messages so further blocks can be streamed to drive FullPruner.
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording, numberToDigest: 5)
             .WithArbitrumConfig(config => config.ValidationEnabled = true)
@@ -181,7 +177,7 @@ public class MarkValidTests
 
         // PrepareForRecord reconstructs blocks [start-1, end) into the overlay, so block `start`
         // (= block 3) is present in the MemDb overlay before pruning.
-        BlockHeader? intermediateHeader = chain.BlockTree.FindHeader((long)start, BlockTreeLookupOptions.RequireCanonical)!;
+        BlockHeader intermediateHeader = chain.BlockTree.FindHeader((long)start, BlockTreeLookupOptions.RequireCanonical)!;
         reconStore.HasRoot(intermediateHeader.StateRoot!).Should().BeTrue(
             "block 3 state should be in the MemDb overlay after PrepareForRecord");
 
@@ -190,35 +186,15 @@ public class MarkValidTests
         TaskCompletionSource<bool> pruningTcs = new();
         fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
 
-        // admin_prune() → FullPruner.OnPrune → RunFullPruning (fire-and-forget async).
-        // RunFullPruning synchronously registers the first WaitForMainChainChange handler before
-        // its first await, so blocks can be digested immediately without yielding.
         IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
         adminModule.admin_prune().Data.Should().Be(PruningStatus.Starting);
 
-        // Drive FullPruner through its 3 sequential WaitForMainChainChange conditions.
-        // Each DigestMessage fires OnUpdateMainChain.  Task.Delay(10) yields the thread pool so
-        // RunFullPruning (RunContinuationsAsynchronously) can register the next handler before
-        // the subsequent OnUpdateMainChain event fires.
-        // BestPersistedState is updated manually between blocks because TrieStoreBoundaryWatcher
-        // is not active in tests.
-        int nextMsg = 5; // messages[0..4] already digested at build time → blocks 1-5
-
-        // Condition 1: captures blockToWaitFor from the first post-trigger block (block 6).
-        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-
-        // Condition 2: BestPersistedState (6) >= blockToWaitFor (6) → captures stateToCopy = 6.
-        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-
-        // Condition 3: Head (8) > stateToCopy + PruningBoundary(0) = 6 → CopyTrie executes.
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-
-        bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // FullPruner advances through three OnUpdateMainChain gates asynchronously; stream blocks
+        // until PruningFinished fires. See DriveChainUntilPruningCompletes for why.
+        bool success = await DriveChainUntilPruningCompletes(chain, pruningTcs.Task);
         success.Should().BeTrue("full pruning should complete successfully");
 
-        ReadValidHeader(stateReconstructor)!.Number.Should().Be(validHeader!.Number,
+        ReadValidHeader(stateReconstructor)!.Number.Should().Be(validHeader.Number,
             "_validHeader should be restored to the header that was copied to the new DB");
 
         // Only the last-valid state was copied to the new DB by CopyStatesForFullPruning.
@@ -253,7 +229,6 @@ public class MarkValidTests
     public async Task ReconstructedStateTrieStore_DuringFullPruning_TryLoadRlpUsesSkipDuplicateReadFlagNotPollutingNewDbWithPartialReconstructedState()
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
-        DigestMessageParameters[] allMessages = recording.GetDigestMessages().ToArray();
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording, numberToDigest: 5)
@@ -294,19 +269,9 @@ public class MarkValidTests
         reconStore.HasRoot(block3Header.StateRoot!).Should().BeTrue(
             "block 3 state root must be readable from disk during dual-write phase");
 
-        // Drive FullPruner through its 3 WaitForMainChainChange conditions.
-        int nextMsg = 5;
-
-        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-
-        // blockToPruneAfter = 6, stateToCopy = 6 in FullPruner
-        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[nextMsg++]).ShouldAsync().RequestSucceed();
-
-        bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // FullPruner advances through three OnUpdateMainChain gates asynchronously; stream blocks
+        // until PruningFinished fires. See DriveChainUntilPruningCompletes for why.
+        bool success = await DriveChainUntilPruningCompletes(chain, pruningTcs.Task);
         success.Should().BeTrue("full pruning should complete successfully");
 
         // After pruning, block 3's root should not be found anywhere
@@ -318,7 +283,7 @@ public class MarkValidTests
         //   the rest of block 3's trie was never copied.
         // With fix: TryReference(block3) returns false → falls back to validHeader (block 2, fully
         //   available) → re-executes block 3 from block 2 → RecordBlockCreation(4) succeeds.
-        DigestMessageParameters block4Message = allMessages.First(m => m.Index == 4);
+        DigestMessageParameters block4Message = GetDigestedMessage(4);
         ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(block4Message.Index, block4Message.Message, WasmTargets: []));
         recordResult.Result.Should().Be(Result.Success,
@@ -358,7 +323,7 @@ public class MarkValidTests
             long storedBlockNumber = BinaryPrimitives.ReadInt64BigEndian(bytes);
             Hash256 storedHash = new Hash256(bytes.AsSpan(sizeof(long)));
 
-            storedBlockNumber.Should().Be(validHeader!.Number);
+            storedBlockNumber.Should().Be(validHeader.Number);
             storedHash.Should().Be(validHeader.Hash!);
         }
         finally
@@ -402,7 +367,7 @@ public class MarkValidTests
 
             BlockHeader? restored = ReadValidHeader(stateReconstructor);
             restored.Should().NotBeNull("RestoreValidHeader should restore _validHeader from the marker file");
-            restored!.Number.Should().Be(validHeader!.Number);
+            restored.Number.Should().Be(validHeader.Number);
             restored.Hash.Should().Be(validHeader.Hash!);
         }
         finally
@@ -534,7 +499,7 @@ public class MarkValidTests
                 $"block {header.Number} is older or equal to reorg block, state should survive via overlay");
         }
 
-        reconStore.HasRoot(block11Header!.StateRoot!).Should().BeFalse(
+        reconStore.HasRoot(block11Header.StateRoot!).Should().BeFalse(
             $"block {block11Header.Number} is newer than reorg block, state should be dereferenced (hence evicted) from overlay");
     }
 
@@ -560,11 +525,8 @@ public class MarkValidTests
     [Test]
     public async Task ReorgDuringFullPruning_BeforeGateIsSet_ValidHeaderRemainsNullAfterPruning()
     {
-        FullChainSimulationRecordingFile recording = new(RecordingPath);
-        DigestMessageParameters[] allMessages = recording.GetDigestMessages().ToArray();
-
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(recording, numberToDigest: 5)
+            .WithRecording(new FullChainSimulationRecordingFile(RecordingPath), numberToDigest: 5)
             .WithArbitrumConfig(config => config.ValidationEnabled = true)
             .Build(c =>
             {
@@ -588,14 +550,12 @@ public class MarkValidTests
         IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
         adminModule.admin_prune().Data.Should().Be(PruningStatus.Starting);
 
-        // Condition 1: blockToWaitFor = 6
-        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[5]).ShouldAsync().RequestSucceed();
-
-        // Condition 2: BestPersistedState(6) >= blockToWaitFor(6) → stateToCopy = 6
-        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
-        chain.ArbitrumRpcModule.DigestMessage(allMessages[6]).ShouldAsync().RequestSucceed();
-        // FullPruner now waits for condition 3: Head > 6 (blockToPruneAfter = 6 + PruningBoundary(0))
+        // Drive gates 1 and 2 with the same block-streaming primitive the main helper uses.
+        // Condition 1: blockToWaitFor = 6 (captured from the new head after the first step).
+        await DrivePruningStep(chain, "pre-reorg-0", delayMs: 10);
+        // Condition 2: BestPersistedState(6) >= blockToWaitFor(6) → stateToCopy = 6.
+        await DrivePruningStep(chain, "pre-reorg-1", delayMs: 10);
+        // FullPruner now waits for condition 3: Head > 6 (blockToPruneAfter = 6 + PruningBoundary(0)).
 
         // Reorg to block 1 — happens while FullPruner is in the pre-gate phase.
         // ReorgTo acquires _validHeaderLock, sees _pruningGate = null (gate not yet set),
@@ -603,21 +563,9 @@ public class MarkValidTests
         chain.ReorgToMessageIndex(1).ShouldAsync().RequestSucceed();
         ReadValidHeader(stateReconstructor).Should().BeNull("reorg past _validHeader must clear it");
 
-        // Rebuild the chain to block 7 using fresh ETH deposits (value = i wei each) instead of
-        // replaying recording messages. This makes the post-reorg blocks clearly distinct from the
-        // pre-reorg ones.
-        // Head=7 > stateToCopy=6 satisfies FullPruner condition 3.
-        for (int i = 1; i <= 6; i++)
-        {
-            chain.Digest(new TestEthDeposit(
-                RequestId: Keccak.Compute(i.ToString()),
-                L1BaseFee: chain.InitialL1BaseFee,
-                Sender: TestItem.AddressA,
-                Receiver: TestItem.AddressB,
-                Value: (UInt256)i)).ShouldAsync().RequestSucceed();
-        }
-
-        bool success = await pruningTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // Rebuild the chain with synthetic deposits until FullPruner reaches condition 3 and fires
+        // PruningFinished. Head > stateToCopy=6 satisfies condition 3.
+        bool success = await DriveChainUntilPruningCompletes(chain, pruningTcs.Task);
         success.Should().BeTrue("full pruning should complete successfully");
 
         // _validHeader must NOT be restored: no gate was set, so OnPruningFinished had nothing to restore.
@@ -649,6 +597,49 @@ public class MarkValidTests
     {
         FullChainSimulationRecordingFile recording = new(RecordingPath);
         return recording.GetDigestMessages().Single(m => m.Index == index);
+    }
+
+    /// <summary>
+    /// Drives FullPruner's three-gate state machine by streaming synthetic blocks with
+    /// exponentially-growing inter-block delays. FullPruner re-subscribes its
+    /// OnUpdateMainChain handler between gates via a thread-pool continuation
+    /// (Wait.ForEventCondition uses TaskCompletionSource.RunContinuationsAsynchronously);
+    /// the delay gives that continuation room to run before the next event fires. This
+    /// mirrors production — blocks arrive continuously, absorbing scheduling jitter
+    /// naturally. Reflection and FullPruner subclassing were rejected because they
+    /// either weaken coverage or touch upstream code out of scope.
+    ///
+    /// Shortens the failure window to negligible; does not make the tests strictly
+    /// deterministic.
+    /// </summary>
+    private static async Task<bool> DriveChainUntilPruningCompletes(ArbitrumRpcTestBlockchain chain, Task<bool> pruningSignal, TimeSpan? budget = null)
+    {
+        using CancellationTokenSource cts = new(budget ?? TimeSpan.FromSeconds(30));
+
+        for (int i = 0; !pruningSignal.IsCompleted; i++)
+        {
+            cts.Token.ThrowIfCancellationRequested();
+            int delayMs = 1 << int.Min(i / 3, 8); // 1,1,1,2,2,2,4,4,4,...,256 max
+            await DrivePruningStep(chain, $"drive-{i}", delayMs, cts.Token);
+        }
+
+        return await pruningSignal;
+    }
+
+    private static async Task DrivePruningStep(ArbitrumRpcTestBlockchain chain, string requestIdSeed, int delayMs, CancellationToken ct = default)
+    {
+        chain.BlockTree.BestPersistedState = chain.BlockTree.BestKnownNumber;
+
+        TestEthDeposit testEthDeposit = new(
+            RequestId: Keccak.Compute(requestIdSeed),
+            L1BaseFee: chain.InitialL1BaseFee,
+            Sender: TestItem.AddressA,
+            Receiver: TestItem.AddressB,
+            Value: UInt256.One);
+
+        chain.Digest(testEthDeposit).ShouldAsync().RequestSucceed();
+
+        await Task.Delay(delayMs, ct);
     }
 
     private static BlockHeader? ReadValidHeader(IStateReconstructor stateReconstructor) =>

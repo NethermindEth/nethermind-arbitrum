@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.ComponentModel;
-using System.Threading;
 using Nethermind.Core.Attributes;
 using Nethermind.Core.Threading;
 

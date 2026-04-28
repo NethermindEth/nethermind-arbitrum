@@ -13,11 +13,12 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 [TestFixture]
-public sealed class ArbActsTests
+public sealed class ArbosActsTests
 {
     private const ulong DefaultGasSupplied = 100000;
 
@@ -43,7 +44,7 @@ public sealed class ArbActsTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        Action action = () => ArbActs.StartBlock(_context, 1000, 100UL, 200UL, 12UL);
+        Action action = () => ArbosActs.StartBlock(_context, 1000, 100UL, 200UL, 12UL);
 
         AssertCallerNotArbOSException(action);
     }
@@ -53,7 +54,7 @@ public sealed class ArbActsTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        Action action = () => ArbActs.StartBlock(_context, 0, 0UL, 0UL, 0UL);
+        Action action = () => ArbosActs.StartBlock(_context, 0, 0UL, 0UL, 0UL);
 
         AssertCallerNotArbOSException(action);
     }
@@ -63,7 +64,7 @@ public sealed class ArbActsTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        Action action = () => ArbActs.StartBlock(_context, UInt256.MaxValue, ulong.MaxValue, ulong.MaxValue, ulong.MaxValue);
+        Action action = () => ArbosActs.StartBlock(_context, UInt256.MaxValue, ulong.MaxValue, ulong.MaxValue, ulong.MaxValue);
 
         AssertCallerNotArbOSException(action);
     }
@@ -74,7 +75,7 @@ public sealed class ArbActsTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address batchPoster = new("0x0000000000000000000000000000000000000456");
 
-        Action action = () => ArbActs.BatchPostingReport(_context, 1234567890, batchPoster, 1UL, 50000UL, 2000);
+        Action action = () => ArbosActs.BatchPostingReport(_context, 1234567890, batchPoster, 1UL, 50000UL, 2000);
 
         AssertCallerNotArbOSException(action);
     }
@@ -84,7 +85,7 @@ public sealed class ArbActsTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        Action action = () => ArbActs.BatchPostingReport(_context, 0, Address.Zero, 0, 0, 0);
+        Action action = () => ArbosActs.BatchPostingReport(_context, 0, Address.Zero, 0, 0, 0);
 
         AssertCallerNotArbOSException(action);
     }
@@ -95,7 +96,7 @@ public sealed class ArbActsTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address batchPoster = new("0x0000000000000000000000000000000000000456");
 
-        Action action = () => ArbActs.BatchPostingReportV2(_context, 1234567890, batchPoster, 1UL, 1000UL, 800UL, 5000UL, 2000);
+        Action action = () => ArbosActs.BatchPostingReportV2(_context, 1234567890, batchPoster, 1UL, 1000UL, 800UL, 5000UL, 2000);
 
         AssertCallerNotArbOSException(action);
     }
@@ -103,7 +104,7 @@ public sealed class ArbActsTests
     [Test]
     public void Address_Always_ReturnsArbosAddress()
     {
-        ArbActs.Address.Should().Be(ArbosAddresses.ArbosAddress);
+        ArbosActs.Address.Should().Be(ArbosAddresses.ArbosAddress);
     }
 
     public static void AssertCallerNotArbOSException(Action action)
@@ -126,20 +127,20 @@ public sealed class ArbActsTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbActs.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbosActs.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)"),
-            PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)"),
-            PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("startBlock(uint256,uint64,uint64,uint64)"),
+            PrecompileTestAbiHelpers.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbActs.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbosActs.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("CallerNotArbOS");
     }
@@ -147,21 +148,20 @@ public sealed class ArbActsTests
     [Test]
     public void Abi_WhenParsed_ContainsNoEvents()
     {
-        AbiMetadata.GetAllEventDescriptions(ArbActs.Abi).Should().BeEmpty();
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbosActs.Abi).Should().BeEmpty();
     }
 
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("startBlock(uint256,uint64,uint64,uint64)").Should().Be(0x6bf6a42du);
-        PrecompileHelper.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)").Should().Be(0xb6693771u);
-        PrecompileHelper.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)").Should().Be(0x9998269eu);
+        PrecompileTestAbiHelpers.GetMethodId("startBlock(uint256,uint64,uint64,uint64)").Should().Be(Solgen.ArbosActs.Methods.StartBlock);
+        PrecompileTestAbiHelpers.GetMethodId("batchPostingReport(uint256,address,uint64,uint64,uint256)").Should().Be(Solgen.ArbosActs.Methods.BatchPostingReport);
+        PrecompileTestAbiHelpers.GetMethodId("batchPostingReportV2(uint256,address,uint64,uint64,uint64,uint64,uint256)").Should().Be(Solgen.ArbosActs.Methods.BatchPostingReportV2);
     }
 
     [Test]
     public void ErrorSelectors_AllErrors_MatchExpectedValues()
     {
-        // keccak256("CallerNotArbOS()")[0..4]
-        ArbActs.CallerNotArbOS.GetSelector().Should().Be(0xf812e656u);
+        ArbosActs.CallerNotArbOS.GetSelector().Should().Be(Solgen.ArbosActs.Errors.CallerNotArbOS.Selector);
     }
 }
