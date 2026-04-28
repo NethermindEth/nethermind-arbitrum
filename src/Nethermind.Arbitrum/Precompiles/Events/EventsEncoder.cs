@@ -15,9 +15,7 @@ public static class EventsEncoder
     private static LogEntry EncodeEvent(AbiEventDescription eventDescription, Address address, params object[] arguments)
     {
         if (arguments.Length != eventDescription.Inputs.Length)
-        {
             throw new AbiException($"Insufficient parameters for {eventDescription.Name}. Expected {eventDescription.Inputs.Length} arguments but got {arguments.Length}");
-        }
 
         // Collect indexed and non-indexed parameters
         List<object> nonIndexedParams = new();
@@ -25,9 +23,7 @@ public static class EventsEncoder
 
         // Add event signature as first topic (unless anonymous)
         if (!eventDescription.Anonymous)
-        {
             topics.Add(eventDescription.GetHash());
-        }
 
         for (int i = 0; i < eventDescription.Inputs.Length; i++)
         {
@@ -39,20 +35,16 @@ public static class EventsEncoder
                 topics.Add(parameter.Type.IsDynamic ? Keccak.Compute(encoded) : new Hash256(encoded));
             }
             else
-            {
                 nonIndexedParams.Add(arguments[i]);
-            }
         }
 
         // Encode non-indexed parameters as data
         byte[] data = [];
         if (nonIndexedParams.Count > 0)
-        {
             data = AbiEncoder.Instance.Encode(
                 AbiEncodingStyle.None,
                 new AbiSignature(string.Empty, eventDescription.Inputs.Where(p => !p.Indexed).Select(p => p.Type).ToArray()),
                 nonIndexedParams.ToArray());
-        }
 
         return new LogEntry(address, data, topics.ToArray());
     }
@@ -64,12 +56,10 @@ public static class EventsEncoder
         List<AbiEventParameter> nonIndexedParams = [];
         List<AbiEventParameter> indexedParams = [];
         foreach (AbiEventParameter parameter in eventDescription.Inputs)
-        {
             if (parameter.Indexed)
                 indexedParams.Add(parameter);
             else
                 nonIndexedParams.Add(parameter);
-        }
 
         var nonIndexedObjects = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,

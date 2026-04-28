@@ -19,6 +19,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -878,29 +879,29 @@ public class ArbSysTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = AbiMetadata.GetAllFunctionDescriptions(ArbSys.Abi);
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbSys.Abi);
 
         allFunctions.Keys.Should().BeEquivalentTo(new[]
         {
-            PrecompileHelper.GetMethodId("arbBlockNumber()"),
-            PrecompileHelper.GetMethodId("arbBlockHash(uint256)"),
-            PrecompileHelper.GetMethodId("arbChainID()"),
-            PrecompileHelper.GetMethodId("arbOSVersion()"),
-            PrecompileHelper.GetMethodId("getStorageGasAvailable()"),
-            PrecompileHelper.GetMethodId("isTopLevelCall()"),
-            PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)"),
-            PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()"),
-            PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()"),
-            PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)"),
-            PrecompileHelper.GetMethodId("sendMerkleTreeState()"),
-            PrecompileHelper.GetMethodId("withdrawEth(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("arbBlockNumber()"),
+            PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)"),
+            PrecompileTestAbiHelpers.GetMethodId("arbChainID()"),
+            PrecompileTestAbiHelpers.GetMethodId("arbOSVersion()"),
+            PrecompileTestAbiHelpers.GetMethodId("getStorageGasAvailable()"),
+            PrecompileTestAbiHelpers.GetMethodId("isTopLevelCall()"),
+            PrecompileTestAbiHelpers.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)"),
+            PrecompileTestAbiHelpers.GetMethodId("wasMyCallersAddressAliased()"),
+            PrecompileTestAbiHelpers.GetMethodId("myCallersAddressWithoutAliasing()"),
+            PrecompileTestAbiHelpers.GetMethodId("sendTxToL1(address,bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()"),
+            PrecompileTestAbiHelpers.GetMethodId("withdrawEth(address)"),
         });
     }
 
     [Test]
     public void Abi_WhenParsed_ContainsExpectedEvents()
     {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(ArbSys.Abi);
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbSys.Abi);
 
         allEvents.Keys.Should().BeEquivalentTo("SendMerkleUpdate", "L2ToL1Tx", "L2ToL1Transaction");
     }
@@ -908,7 +909,7 @@ public class ArbSysTests
     [Test]
     public void Abi_WhenParsed_ContainsExpectedErrors()
     {
-        Dictionary<string, AbiErrorDescription> allErrors = AbiMetadata.GetAllErrorDescriptions(ArbSys.Abi);
+        Dictionary<string, AbiErrorDescription> allErrors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbSys.Abi);
 
         allErrors.Keys.Should().BeEquivalentTo("InvalidBlockNumber");
     }
@@ -916,40 +917,36 @@ public class ArbSysTests
     [Test]
     public void MethodIds_AllFunctions_MatchExpectedSelectors()
     {
-        PrecompileHelper.GetMethodId("arbBlockNumber()").Should().Be(0xa3b1b31du);
-        PrecompileHelper.GetMethodId("arbBlockHash(uint256)").Should().Be(0x2b407a82u);
-        PrecompileHelper.GetMethodId("arbChainID()").Should().Be(0xd127f54au);
-        PrecompileHelper.GetMethodId("arbOSVersion()").Should().Be(0x051038f2u);
-        PrecompileHelper.GetMethodId("getStorageGasAvailable()").Should().Be(0xa94597ffu);
-        PrecompileHelper.GetMethodId("isTopLevelCall()").Should().Be(0x08bd624cu);
-        PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)").Should().Be(0x4dbbd506u);
-        PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()").Should().Be(0x175a260bu);
-        PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()").Should().Be(0xd74523b3u);
-        PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)").Should().Be(0x928c169au);
-        PrecompileHelper.GetMethodId("sendMerkleTreeState()").Should().Be(0x7aeecd2au);
-        PrecompileHelper.GetMethodId("withdrawEth(address)").Should().Be(0x25e16063u);
+        PrecompileTestAbiHelpers.GetMethodId("arbBlockNumber()").Should().Be(Solgen.ArbSys.Methods.ArbBlockNumber);
+        PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)").Should().Be(Solgen.ArbSys.Methods.ArbBlockHash);
+        PrecompileTestAbiHelpers.GetMethodId("arbChainID()").Should().Be(Solgen.ArbSys.Methods.ArbChainID);
+        PrecompileTestAbiHelpers.GetMethodId("arbOSVersion()").Should().Be(Solgen.ArbSys.Methods.ArbOSVersion);
+        PrecompileTestAbiHelpers.GetMethodId("getStorageGasAvailable()").Should().Be(Solgen.ArbSys.Methods.GetStorageGasAvailable);
+        PrecompileTestAbiHelpers.GetMethodId("isTopLevelCall()").Should().Be(Solgen.ArbSys.Methods.IsTopLevelCall);
+        PrecompileTestAbiHelpers.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)").Should().Be(Solgen.ArbSys.Methods.MapL1SenderContractAddressToL2Alias);
+        PrecompileTestAbiHelpers.GetMethodId("wasMyCallersAddressAliased()").Should().Be(Solgen.ArbSys.Methods.WasMyCallersAddressAliased);
+        PrecompileTestAbiHelpers.GetMethodId("myCallersAddressWithoutAliasing()").Should().Be(Solgen.ArbSys.Methods.MyCallersAddressWithoutAliasing);
+        PrecompileTestAbiHelpers.GetMethodId("sendTxToL1(address,bytes)").Should().Be(Solgen.ArbSys.Methods.SendTxToL1);
+        PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()").Should().Be(Solgen.ArbSys.Methods.SendMerkleTreeState);
+        PrecompileTestAbiHelpers.GetMethodId("withdrawEth(address)").Should().Be(Solgen.ArbSys.Methods.WithdrawEth);
     }
 
     [Test]
     public void EventTopics_AllEvents_MatchExpectedHashes()
     {
-        // keccak256("SendMerkleUpdate(uint256,bytes32,uint256)")
         ArbSys.SendMerkleUpdateEvent.GetHash().Should().Be(
-            new Hash256("0xe9e13da364699fb5b0496ff5a0fc70760ad5836e93ba96568a4e42b9914a8b95"));
+            new Hash256(Solgen.ArbSys.Events.SendMerkleUpdate.Topic0Hex));
 
-        // keccak256("L2ToL1Tx(address,address,uint256,uint256,uint256,uint256,uint256,uint256,bytes)")
         ArbSys.L2ToL1TxEvent.GetHash().Should().Be(
-            new Hash256("0x3e7aafa77dbf186b7fd488006beff893744caa3c4f6f299e8a709fa2087374fc"));
+            new Hash256(Solgen.ArbSys.Events.L2ToL1Tx.Topic0Hex));
 
-        // keccak256("L2ToL1Transaction(address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bytes)")
         ArbSys.L2ToL1TransactionEvent.GetHash().Should().Be(
-            new Hash256("0x5baaa87db386365b5c161be377bc3d8e317e8d98d71a3ca7ed7d555340c8f767"));
+            new Hash256(Solgen.ArbSys.Events.L2ToL1Transaction.Topic0Hex));
     }
 
     [Test]
     public void ErrorSelectors_AllErrors_MatchExpectedValues()
     {
-        // keccak256("InvalidBlockNumber(uint256,uint256)")[0..4]
-        ArbSys.InvalidBlockNumber.GetSelector().Should().Be(0xd5dc642du);
+        ArbSys.InvalidBlockNumber.GetSelector().Should().Be(Solgen.ArbSys.Errors.InvalidBlockNumber.Selector);
     }
 }
