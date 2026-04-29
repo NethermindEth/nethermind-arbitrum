@@ -56,6 +56,7 @@ using Nethermind.Blockchain.FullPruning;
 using Nethermind.Trie.Pruning;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Core.Crypto;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum;
 
@@ -170,6 +171,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 resettableBlockTree,
                 cacheAwareServices,
                 _api.LogManager,
+                _api.Context.ResolveOptional<IHistoryPruner>(),
                 blockhashCache,
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);
@@ -308,6 +310,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
             .AddSingleton<ArbitrumBlockFactory>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
+            .AddDecorator<IHistoryPruner, ArbitrumHistoryPruner>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
 

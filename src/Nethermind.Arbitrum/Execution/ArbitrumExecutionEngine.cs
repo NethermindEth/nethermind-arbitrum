@@ -25,6 +25,7 @@ using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -47,7 +48,8 @@ public sealed class ArbitrumExecutionEngine(
     IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
     IEthereumEcdsa ethereumEcdsa,
-    IStateReconstructor stateReconstructor)
+    IStateReconstructor stateReconstructor,
+    IHistoryPruner historyPruner)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -94,6 +96,8 @@ public sealed class ArbitrumExecutionEngine(
         ResultWrapper<Block> blockResult = await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<MessageResult>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+        historyPruner.SchedulePruneHistory();
 
         return ResultWrapper<MessageResult>.Success(new()
         {
