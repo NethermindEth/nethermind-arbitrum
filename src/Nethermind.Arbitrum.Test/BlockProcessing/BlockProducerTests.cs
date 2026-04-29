@@ -304,7 +304,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             receipts[1].TxType.Should().Be((TxType)ArbitrumTxType.ArbitrumSubmitRetryable);
             receipts[1].StatusCode.Should().Be(StatusCode.Failure);
             // Fails at balanceAfterMint < tx.MaxSubmissionFee check in arbitrum tx processor
-            receipts[1].Error.Should().Be("Fail : insufficient MaxFeePerGas for sender balance");
+            receipts[1].Error.Should().Be("Fail : insufficient funds for gas * price + value");
         }
 
         [Test]
