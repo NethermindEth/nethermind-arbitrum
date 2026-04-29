@@ -181,7 +181,7 @@ public class ProcessingStatsFormatterTests
             GasPrices: (Min: 0.5f, EstMedian: 0.5f, Ave: 0.5f, Max: 0.5f),
             ChunkCalls: 12751,
             ChunkEmptyCalls: 5,
-            ChunkSload: 22621 ,
+            ChunkSload: 22621,
             ChunkSstore: 5,
             ChunkCreates: 2,
             ChunkSelfDestructs: 0,

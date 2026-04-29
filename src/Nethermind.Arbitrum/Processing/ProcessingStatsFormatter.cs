@@ -94,7 +94,7 @@ internal static class ProcessingStatsFormatter
         string splash = isSignificant ? " ✨" : "   ";
         string stylusSection = $" | {MagentaText}stylus {GetGap(7, report.StylusCallsDelta)}{splash}{report.StylusCallsDelta:N0}{ResetColor}";
 
-        lines.Add($" Block{(report.ChunkBlocks > 1 ? $"s x{report.ChunkBlocks,-3:N0} " : "       ")} {mgasColor}{report.ChunkMGas,12:F2}{ResetColor} MGas | {report.ChunkTx,7:N0} txs{stylusSection} | calls {callsColor}{report.ChunkCalls,11:N0}{ResetColor} | sload {report.ChunkSload,6 :N0} | sstore {sstoreColor}{report.ChunkSstore,7:N0}{ResetColor} | create {createsColor}{report.ChunkCreates,4:N0}{ResetColor}");
+        lines.Add($" Block{(report.ChunkBlocks > 1 ? $"s x{report.ChunkBlocks,-3:N0} " : "       ")} {mgasColor}{report.ChunkMGas,12:F2}{ResetColor} MGas | {report.ChunkTx,7:N0} txs{stylusSection} | calls {callsColor}{report.ChunkCalls,11:N0}{ResetColor} | sload {report.ChunkSload,6:N0} | sstore {sstoreColor}{report.ChunkSstore,7:N0}{ResetColor} | create {createsColor}{report.ChunkCreates,4:N0}{ResetColor}");
 
         if (report.RecoveryQueueSize > 0 || report.ProcessingQueueSize > 0)
             lines.Add($" Throughput    {(report.MGasPerSecond > 1000 ? "🔥" : "  ")}{mgasPerSecondColor}{report.MGasPerSecond,7:F2}{ResetColor} MGas/s | {report.Txps,7:N1} tps " +
