@@ -108,7 +108,7 @@ internal static class ProcessingStatsFormatter
     {
         int digits = n == 0 ? 1 : (int)System.Math.Floor(System.Math.Log10(System.Math.Abs(n))) + 1;
         int length = digits + (digits - 1) / 3 + (n < 0 ? 1 : 0);
-        return new string(' ', gapMaxLength - length);
+        return new string(' ', System.Math.Max(0, gapMaxLength - length));
     }
 }
 
