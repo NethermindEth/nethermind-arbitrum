@@ -26,11 +26,12 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
     -p:PublishSingleFile=true \
     -p:SourceRevisionId=$1
 
-  # Restore Arbitrum plugin dependencies for the specific RID
-  dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
-    -r $rid
-
-  # Build Arbitrum plugin (not self-contained, will use runner's runtime)
+  # Build Arbitrum plugin (not self-contained, will use runner's runtime).
+  # The upfront --locked-mode restore already populated assets for every RID
+  # listed in Nethermind.Arbitrum's <RuntimeIdentifiers>; a per-RID restore
+  # here would traverse the Nethermind.Runner project reference and rewrite
+  # Runner's project.assets.json with only the current RID, breaking
+  # subsequent loop iterations.
   dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
     -c $build_config -r $rid -o $output_path/$rid/arbitrum-tmp --no-restore --sc false \
     -p:SourceRevisionId=$1
