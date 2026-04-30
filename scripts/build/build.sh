@@ -40,17 +40,20 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   cp $output_path/$rid/arbitrum-tmp/Nethermind.Arbitrum.* $output_path/$rid/plugins/
 
   # Copy Stylus native libraries from NuGet package output.
-  mkdir -p $output_path/$rid/runtimes
-  if [ -d "$output_path/$rid/arbitrum-tmp/runtimes" ]; then
-    cp -r $output_path/$rid/arbitrum-tmp/runtimes/. $output_path/$rid/runtimes/
-    if ! find "$output_path/$rid/runtimes" -name "*stylus*" -print -quit | grep -q .; then
-      echo "ERROR: No Stylus native libraries were copied for $rid"
-      exit 1
-    fi
-  else
+  # `dotnet publish -r <rid>` flattens the matching RID's native assets
+  # (runtimes/<rid>/native/libstylus.*) into the publish root, so the files
+  # are picked up there and placed back into the runtimes/<rid>/native layout
+  # the .NET host adds to the native library search path at startup.
+  native_dir=$output_path/$rid/runtimes/$rid/native
+  mkdir -p "$native_dir"
+  shopt -s nullglob
+  stylus_libs=("$output_path/$rid/arbitrum-tmp"/*stylus*)
+  shopt -u nullglob
+  if [ ${#stylus_libs[@]} -eq 0 ]; then
     echo "ERROR: Stylus native libraries not found for $rid"
     exit 1
   fi
+  cp "${stylus_libs[@]}" "$native_dir/"
 
   # Copy Arbitrum configs and chainspecs
   mkdir -p $output_path/$rid/configs $output_path/$rid/chainspec
