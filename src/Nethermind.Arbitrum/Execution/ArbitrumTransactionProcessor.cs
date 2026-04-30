@@ -640,7 +640,7 @@ namespace Nethermind.Arbitrum.Execution
                 DecodedMaxFeePerGas = UInt256.Zero,
             };
             systemTx.Hash = systemTx.CalculateHash();
-            TransactionResult systemTxResult = ((ITransactionProcessor)this).Execute(systemTx, NullTxTracer.Instance);
+            TransactionResult systemTxResult = Process(systemTx, NullTxTracer.Instance, ExecutionOptions.Commit);
             if (systemTxResult != TransactionResult.Ok)
                 throw new InvalidOperationException($"ProcessParentBlockHash system transaction execution failed. TxHash={systemTx.Hash}, PrevHash={prevHash}, Result={systemTxResult}");
         }
