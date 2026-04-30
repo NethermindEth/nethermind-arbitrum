@@ -9,8 +9,11 @@ output_path=/nethermind/output
 
 echo "Building Nethermind Arbitrum"
 
-# Restore dependencies
-dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --locked-mode
+# Restore dependencies. Pass PublishReadyToRun so the SDK fetches R2R platform
+# packs (crossgen2, runtime packs) for every RID listed in Nethermind.Runner's
+# <RuntimeIdentifiers>. Staying in --locked-mode preserves reproducibility —
+# platform packs are determined by the pinned SDK image, not the lock file.
+dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --locked-mode -p:PublishReadyToRun=true
 
 for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   echo "  Publishing for $rid"
