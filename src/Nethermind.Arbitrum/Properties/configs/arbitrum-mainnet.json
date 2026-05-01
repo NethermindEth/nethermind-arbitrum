@@ -50,7 +50,10 @@
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 2000,
+    "MaxBufferedCommitCount": 5000
   },
   "History": {
     "Pruning": "Rolling",
