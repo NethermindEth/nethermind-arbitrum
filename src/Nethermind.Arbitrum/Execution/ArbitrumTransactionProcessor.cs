@@ -87,9 +87,6 @@ namespace Nethermind.Arbitrum.Execution
             return result;
         }
 
-        public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer) =>
-            Execute(transaction, txTracer, ExecutionOptions.Warmup | ExecutionOptions.SkipValidation);
-
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
             _currentOpts = opts;
@@ -643,7 +640,7 @@ namespace Nethermind.Arbitrum.Execution
                 DecodedMaxFeePerGas = UInt256.Zero,
             };
             systemTx.Hash = systemTx.CalculateHash();
-            TransactionResult systemTxResult = base.Execute(systemTx, NullTxTracer.Instance);
+            TransactionResult systemTxResult = Process(systemTx, NullTxTracer.Instance, ExecutionOptions.Commit);
             if (systemTxResult != TransactionResult.Ok)
                 throw new InvalidOperationException($"ProcessParentBlockHash system transaction execution failed. TxHash={systemTx.Hash}, PrevHash={prevHash}, Result={systemTxResult}");
         }
