@@ -24,7 +24,7 @@
     "Port": 20545,
     "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
-    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
+    "EngineEnabledModules": [ "Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution" ],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -53,7 +53,10 @@
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 2000,
+    "MaxBufferedCommitCount": 5000
   },
   "Blocks": {
     "SecondsPerSlot": 2,
