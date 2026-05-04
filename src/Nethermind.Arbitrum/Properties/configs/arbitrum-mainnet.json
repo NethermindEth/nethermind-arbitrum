@@ -50,7 +50,10 @@
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 2000,
+    "MaxBufferedCommitCount": 5000
   },
   "History": {
     "Pruning": "Rolling",
@@ -69,9 +72,11 @@
     "Enabled": true
   },
   "Snapshot": {
-    "Enabled": true,
+    "Enabled": false,
     "SnapshotDirectory": "snapshot/mainnet",
-    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/451380230-neth.tar.zst",
+    "SnapshotFileName": "snapshot.tar.zst",
+    "StripComponents": 3
   },
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
