@@ -152,7 +152,8 @@ sequenceDiagram
     Eng-->>N: MessageResult { blockHash, sendRoot }
 ```
 
-## Validation flow {#validation-flow}
+<a id="validation-flow"></a>
+## Validation flow
 
 When the [validator role](roles/validator.md) is enabled, Nitro asks Nethermind for execution witnesses rather than just blocks.
 

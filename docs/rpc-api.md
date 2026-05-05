@@ -28,13 +28,15 @@ When a method is added or changed in Nitro, the corresponding Nethermind change 
 
 ---
 
-## `nitroexecution` namespace {#nitroexecution}
+<a id="nitroexecution"></a>
+## `nitroexecution` namespace
 
 Defined in `Modules/INitroExecutionRpcModule.cs`. All methods are JSON-RPC-prefixed with `nitroexecution_`. Listed below grouped by purpose.
 
 ### Block production from messages
 
-#### `nitroexecution_digestMessage` {#digest-message}
+<a id="digest-message"></a>
+#### `nitroexecution_digestMessage`
 
 Process a message and produce a block.
 
@@ -50,7 +52,8 @@ Errors:
 - `CreateBlock mutex held` — another block is being produced. Nitro is sending faster than Nethermind processes.
 - `Wrong block number` — message index doesn't match expected.
 
-#### `nitroexecution_reorg` {#reorg}
+<a id="reorg"></a>
+#### `nitroexecution_reorg`
 
 Handle chain reorganization.
 
@@ -66,7 +69,8 @@ Cannot reorg to genesis (`msgIdxOfFirstMsgToAdd != 0` is enforced).
 
 ### Index lookups
 
-#### `nitroexecution_resultAtMessageIndex` {#result-at-message-index}
+<a id="result-at-message-index"></a>
+#### `nitroexecution_resultAtMessageIndex`
 
 Get the block result at a specific message index.
 
@@ -76,13 +80,15 @@ Get the block result at a specific message index.
 
 Returns: `MessageResult`.
 
-#### `nitroexecution_headMessageIndex` {#head-message-index}
+<a id="head-message-index"></a>
+#### `nitroexecution_headMessageIndex`
 
 Get the current head message index. No parameters.
 
 Returns: `MessageIndex` (raw uint64, not hex).
 
-#### `nitroexecution_messageIndexToBlockNumber` {#message-index-to-block-number}
+<a id="message-index-to-block-number"></a>
+#### `nitroexecution_messageIndexToBlockNumber`
 
 | Position | Name | Type |
 |----------|------|------|
@@ -90,7 +96,8 @@ Returns: `MessageIndex` (raw uint64, not hex).
 
 Returns: `long` — corresponding block number.
 
-#### `nitroexecution_blockNumberToMessageIndex` {#block-number-to-message-index}
+<a id="block-number-to-message-index"></a>
+#### `nitroexecution_blockNumberToMessageIndex`
 
 | Position | Name | Type |
 |----------|------|------|
@@ -100,7 +107,8 @@ Returns: `MessageIndex`.
 
 ### Finality and sync
 
-#### `nitroexecution_setFinalityData` {#set-finality-data}
+<a id="set-finality-data"></a>
+#### `nitroexecution_setFinalityData`
 
 Update finality information (safe, finalized, validated).
 
@@ -125,7 +133,8 @@ Notes:
 - When [`FinalizedBlockWaitForValidator`](configuration.md#finalized-block-wait-for-validator) is enabled, the finalized tag is capped similarly.
 - When [`ValidationEnabled`](configuration.md#validation-enabled) is `true` and `validatedFinalityData` is non-null, this method also triggers the internal `MarkValid` flow that promotes the validator's candidate header. See the [validator role](roles/validator.md) for how this fits the validation pipeline.
 
-#### `nitroexecution_setConsensusSyncData` {#set-consensus-sync-data}
+<a id="set-consensus-sync-data"></a>
+#### `nitroexecution_setConsensusSyncData`
 
 Update consensus-layer sync status.
 
@@ -144,7 +153,8 @@ Update consensus-layer sync status.
 
 Returns: `EmptyResponse`.
 
-#### `nitroexecution_markFeedStart` {#mark-feed-start}
+<a id="mark-feed-start"></a>
+#### `nitroexecution_markFeedStart`
 
 Mark feed start position for L1 price data caching.
 
@@ -156,19 +166,22 @@ Returns: `EmptyResponse`.
 
 ### Maintenance
 
-#### `nitroexecution_triggerMaintenance` {#trigger-maintenance}
+<a id="trigger-maintenance"></a>
+#### `nitroexecution_triggerMaintenance`
 
 Trigger maintenance operations. No parameters.
 
 Returns: `string` (`"OK"` on success).
 
-#### `nitroexecution_shouldTriggerMaintenance` {#should-trigger-maintenance}
+<a id="should-trigger-maintenance"></a>
+#### `nitroexecution_shouldTriggerMaintenance`
 
 Check if maintenance should be triggered. No parameters.
 
 Returns: `bool`.
 
-#### `nitroexecution_maintenanceStatus` {#maintenance-status}
+<a id="maintenance-status"></a>
+#### `nitroexecution_maintenanceStatus`
 
 Get the current maintenance status. No parameters.
 
@@ -178,7 +191,8 @@ Returns: `MaintenanceStatus` — `{ isRunning: bool }`.
 
 These methods are used by the [sequencer role](roles/sequencer.md). Calling them when the role is not enabled returns the structured error code `-50001` (`NoSequencer`).
 
-#### `nitroexecution_startSequencing` {#start-sequencing}
+<a id="start-sequencing"></a>
+#### `nitroexecution_startSequencing`
 
 Begin sequencing a new block. Called by the consensus layer roughly every 250 ms.
 
@@ -192,7 +206,8 @@ Returns: `StartSequencingResult` — sequenced message + wait time hint.
 
 `AppendLastSequencedBlock` must complete before the next `StartSequencing` — this is a hard invariant.
 
-#### `nitroexecution_endSequencing` {#end-sequencing}
+<a id="end-sequencing"></a>
+#### `nitroexecution_endSequencing`
 
 Finalize the in-flight sequencing operation.
 
@@ -207,13 +222,15 @@ Three outcomes:
 - `"retry sequencer"`: forward to backup or re-queue. Submitters not notified yet.
 - non-retry error: return error to all submitters.
 
-#### `nitroexecution_appendLastSequencedBlock` {#append-last-sequenced-block}
+<a id="append-last-sequenced-block"></a>
+#### `nitroexecution_appendLastSequencedBlock`
 
 Mark the last produced block as appended; cache its L1 price data and clear temp state. No parameters.
 
 Returns: `EmptyResponse`.
 
-#### `nitroexecution_enqueueDelayedMessages` {#enqueue-delayed-messages}
+<a id="enqueue-delayed-messages"></a>
+#### `nitroexecution_enqueueDelayedMessages`
 
 Enqueue L1 delayed messages for processing.
 
@@ -224,13 +241,15 @@ Enqueue L1 delayed messages for processing.
 
 Returns: `EmptyResponse`.
 
-#### `nitroexecution_nextDelayedMessageNumber` {#next-delayed-message-number}
+<a id="next-delayed-message-number"></a>
+#### `nitroexecution_nextDelayedMessageNumber`
 
 Get the next delayed-message number expected by the sequencer. No parameters.
 
 Returns: `ulong`.
 
-#### `nitroexecution_resequenceReorgedMessage` {#resequence-reorged-message}
+<a id="resequence-reorged-message"></a>
+#### `nitroexecution_resequenceReorgedMessage`
 
 Re-sequence a message that was rolled back by a reorg.
 
@@ -240,19 +259,22 @@ Re-sequence a message that was rolled back by a reorg.
 
 Returns: `SequencedMsg?`.
 
-#### `nitroexecution_pause` {#pause}
+<a id="pause"></a>
+#### `nitroexecution_pause`
 
 Pause sequencing. New `eth_sendRawTransaction` calls are rejected; the sequencer returns a 50 ms wait. No parameters.
 
 Returns: `EmptyResponse`.
 
-#### `nitroexecution_activate` {#activate}
+<a id="activate"></a>
+#### `nitroexecution_activate`
 
 Resume sequencing from `Paused` or `Inactive` state. No parameters.
 
 Returns: `EmptyResponse`.
 
-#### `nitroexecution_forwardTo` {#forward-to}
+<a id="forward-to"></a>
+#### `nitroexecution_forwardTo`
 
 Switch to forwarding mode — incoming transactions are relayed to the URL via HTTP rather than sequenced locally.
 
@@ -266,7 +288,8 @@ Returns: `EmptyResponse`.
 
 Used when [`TimeboostEnabled`](configuration.md#timeboost-enabled) is `true`.
 
-#### `nitroexecution_publishAuctionResolutionTransaction` {#publish-auction-resolution-transaction}
+<a id="publish-auction-resolution-transaction"></a>
+#### `nitroexecution_publishAuctionResolutionTransaction`
 
 Publish a Timeboost auction-resolution transaction (the round winner). Bounded queue, drops oldest on overflow.
 
@@ -276,7 +299,8 @@ Publish a Timeboost auction-resolution transaction (the round winner). Bounded q
 
 Returns: `bool` — accepted into queue.
 
-#### `nitroexecution_publishExpressLaneTransaction` {#publish-express-lane-transaction}
+<a id="publish-express-lane-transaction"></a>
+#### `nitroexecution_publishExpressLaneTransaction`
 
 Publish a signed express-lane bid (Timeboost submission).
 
@@ -290,7 +314,8 @@ Returns: `bool`.
 
 Used when [`ValidationEnabled`](configuration.md#validation-enabled) is `true`. See the [validator role](roles/validator.md) and [architecture](architecture.md#validation-flow) for the full pipeline.
 
-#### `nitroexecution_prepareForRecord` {#prepare-for-record}
+<a id="prepare-for-record"></a>
+#### `nitroexecution_prepareForRecord`
 
 Pre-warm state for an upcoming range of `recordBlockCreation` calls. Genesis is skipped.
 
@@ -303,7 +328,8 @@ Returns: `EmptyResponse`.
 
 Walks each header in the range, calls `StateReconstructor.EnsureStateAvailable` + `UpdateValidCandidateHeader`, then `PreparedAddTrim` (FIFO with [`ValidatorMaxStateRootsInMem`](configuration.md#validator-max-state-roots-in-mem) cap).
 
-#### `nitroexecution_recordBlockCreation` {#record-block-creation}
+<a id="record-block-creation"></a>
+#### `nitroexecution_recordBlockCreation`
 
 Generate an execution witness for a specific block.
 
@@ -321,7 +347,8 @@ Cannot record genesis (returns `"Cannot generate witness for genesis block"`). B
 
 ---
 
-## `arbitrum` namespace (legacy) {#arbitrum-namespace}
+<a id="arbitrum-namespace"></a>
+## `arbitrum` namespace (legacy)
 
 Defined in `Modules/IArbitrumRpcModule.cs`. Provides the same core functionality as `nitroexecution` plus extras, with two shape differences:
 
@@ -386,7 +413,8 @@ Defined in `Modules/IArbitrumRpcModule.cs`. Provides the same core functionality
 
 ---
 
-## Debug methods {#debug}
+<a id="debug"></a>
+## Debug methods
 
 Defined in `Modules/IArbitrumDebugRpcModule.cs`. Available only on the `Debug` module; intended for system tests.
 
@@ -397,7 +425,8 @@ Defined in `Modules/IArbitrumDebugRpcModule.cs`. Available only on the `Debug` m
 
 ---
 
-## Common types {#types}
+<a id="types"></a>
+## Common types
 
 `MessageResult`:
 

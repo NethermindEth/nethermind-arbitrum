@@ -54,7 +54,8 @@ Known defect: CLI flags for `IWasmDbConfig` do not register because the interfac
 
 ---
 
-## `Arbitrum.*` settings {#arbitrum}
+<a id="arbitrum"></a>
+## `Arbitrum.*` settings
 
 Defined in `Config/IArbitrumConfig.cs` / `ArbitrumConfig.cs`. Grouped by what they control.
 
@@ -127,7 +128,8 @@ When `ConsensusNodeRpcEnabled = false`, transaction receipts omit the `timeboost
 
 ---
 
-## `VerifyBlockHash.*` settings {#verify-block-hash}
+<a id="verify-block-hash"></a>
+## `VerifyBlockHash.*` settings
 
 Defined in `Config/IVerifyBlockHashConfig.cs`. Optional safety net that cross-checks block hashes against an external Arbitrum RPC.
 
@@ -141,7 +143,8 @@ Mainnet and Sepolia configs pre-populate `ArbNodeRpcUrl` (`https://arb1.arbitrum
 
 ---
 
-## Standard Nethermind categories {#nethermind-base}
+<a id="nethermind-base"></a>
+## Standard Nethermind categories
 
 Base Nethermind settings that Arbitrum configs customize. These categories are documented in full at [docs.nethermind.io](https://docs.nethermind.io/); the table here lists only what each shipped Arbitrum config changes from the Nethermind defaults.
 
@@ -161,7 +164,8 @@ Base Nethermind settings that Arbitrum configs customize. These categories are d
 
 ---
 
-## Chainspec engine parameters {#chainspec-engine}
+<a id="chainspec-engine"></a>
+## Chainspec engine parameters
 
 Defined in `Config/ArbitrumChainSpecEngineParameters.cs`. Live in chainspec files under `engine.Arbitrum`.
 
@@ -180,7 +184,8 @@ Defined in `Config/ArbitrumChainSpecEngineParameters.cs`. Live in chainspec file
 
 ---
 
-## Shipped configurations {#shipped-configs}
+<a id="shipped-configs"></a>
+## Shipped configurations
 
 ### Config inventory
 
@@ -280,7 +285,7 @@ The value is passed directly to `CancellationTokenSource(int)`, which expects mi
 `ArbitrumSequencerModule` validates this at DI registration time and throws if Timeboost is enabled without a contract address.
 
 ### Archive vs pruned: sync strategy differs
-Archive configs omit `FastSync`/`SnapSync` and have no `History.Pruning`. They process every block from genesis (or snapshot), which is slower but preserves full historical state.
+Archive configs explicitly set `FastSync: false` and `SnapSync: false`, and have no `History.Pruning`. They process every block from genesis (or snapshot), which is slower but preserves full historical state.
 
 ### Mainnet genesis block is non-zero
 Arbitrum One was migrated from the "classic" chain, so `genesisBlockNum: 22207817` in the mainnet chainspec. Block 0 on mainnet is actually block 22207817 in the historical chain — a common source of confusion.

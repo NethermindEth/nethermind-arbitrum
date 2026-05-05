@@ -14,7 +14,8 @@ If you don't find your symptom here, check the [GitHub issues](https://github.co
 
 ---
 
-## FD exhaustion → misleading FileNotFoundException {#fd-exhaustion}
+<a id="fd-exhaustion"></a>
+## FD exhaustion → misleading FileNotFoundException
 
 **Symptom.**
 ```
@@ -61,7 +62,8 @@ If `fds` climbs monotonically toward `1048576` (or your ulimit), this is FD exha
 
 ---
 
-## Stylus "incompatible binary" panic {#stylus-wasmer-incompatible-binary}
+<a id="stylus-wasmer-incompatible-binary"></a>
+## Stylus "incompatible binary" panic
 
 **Symptom.** First Stylus call after a node upgrade panics:
 ```
@@ -75,7 +77,8 @@ incompatible binary: The provided bytes were serialized by an incompatible versi
 
 ---
 
-## "Waiting for connection from consensus layer..." {#waiting-for-cl}
+<a id="waiting-for-cl"></a>
+## "Waiting for connection from consensus layer..."
 
 **Symptom.** Every 30 seconds, indefinitely:
 ```
@@ -94,7 +97,8 @@ If Nitro logs auth or connection errors, fix those. If Nitro logs nothing releva
 
 ---
 
-## JWT mismatch / 401 Unauthorized {#jwt-mismatch}
+<a id="jwt-mismatch"></a>
+## JWT mismatch / 401 Unauthorized
 
 **Symptom.** Nitro logs `401 Unauthorized` against the engine URL, or `JWT mismatch`.
 
@@ -114,7 +118,8 @@ If Nitro logs auth or connection errors, fix those. If Nitro logs nothing releva
 
 ---
 
-## Sync stuck at a specific block {#sync-stuck}
+<a id="sync-stuck"></a>
+## Sync stuck at a specific block
 
 **Symptom.** Block height stops advancing. Nitro logs may show repeated reorg attempts or batch-replay stalls.
 
