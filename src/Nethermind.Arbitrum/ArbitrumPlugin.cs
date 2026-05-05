@@ -93,6 +93,8 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             TxGasDimensionByOpcodeTracer.TracerName,
             static (options, block, tx, _) => new TxGasDimensionByOpcodeTracer(tx, block, options));
 
+        File.AppendAllText("/srv/code/arbitrum-sync-tools/l2parse.log", $"[{DateTime.UtcNow:O}] started{Environment.NewLine}");
+
         return Task.CompletedTask;
     }
 
