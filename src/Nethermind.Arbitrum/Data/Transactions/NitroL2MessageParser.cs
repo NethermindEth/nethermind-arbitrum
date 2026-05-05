@@ -16,16 +16,22 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 public static class NitroL2MessageParser
 {
-    public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ulong lastArbosVersion, ILogger logger)
+    public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ulong lastArbosVersion, ILogger logger, long blockNumber = 0)
     {
         if (message.L2Msg is null || message.L2Msg.Length == 0)
         {
+            File.AppendAllText("/srv/code/arbitrum-sync-tools/l2parse.log", $"[{DateTime.UtcNow:O}] l2bn={blockNumber} l1bn={message.Header.BlockNumber} kind={message.Header.Kind} arbos={lastArbosVersion} sender={message.Header.Sender} batchGasCost={message.BatchGasCost} batchDataLength={message.BatchDataStats?.Length} batchDatNonZeros={message.BatchDataStats?.NonZeros} NoL2Msg{Environment.NewLine}");
+
             logger.Warn("L1 message contains no L2 message data.");
             return [];
         }
 
         if (message.L2Msg.Length > ArbitrumConstants.MaxL2MessageSize)
+        {
+            File.AppendAllText("/srv/code/arbitrum-sync-tools/l2parse.log", $"[{DateTime.UtcNow:O}] l2bn={blockNumber} l1bn={message.Header.BlockNumber} kind={message.Header.Kind} arbos={lastArbosVersion} sender={message.Header.Sender} batchGasCost={message.BatchGasCost} batchDataLength={message.BatchDataStats?.Length} batchDatNonZeros={message.BatchDataStats?.NonZeros} l2MsgLength={message.L2Msg.Length}{Environment.NewLine}");
+
             throw new ArgumentException($"L2 message size {message.L2Msg.Length} mustn't exceed maximum of {ArbitrumConstants.MaxL2MessageSize}.");
+        }
 
         ReadOnlySpan<byte> l2Message = message.L2Msg.AsSpan();
 
@@ -66,6 +72,9 @@ public static class NitroL2MessageParser
                     // Ignore unknown/invalid message types as per Go implementation
                     if (logger.IsWarn)
                         logger.Warn($"Ignoring L1 message with unknown kind: {message.Header.Kind}");
+
+                    File.AppendAllText("/srv/code/arbitrum-sync-tools/l2parse.log", $"[{DateTime.UtcNow:O}] l2bn={blockNumber} l1bn={message.Header.BlockNumber} kind={message.Header.Kind} arbos={lastArbosVersion} sender={message.Header.Sender} batchGasCost={message.BatchGasCost} batchDataLength={message.BatchDataStats?.Length} batchDatNonZeros={message.BatchDataStats?.NonZeros} msg={l2Message.ToHexString()}{Environment.NewLine}");
+
                     return [];
             }
         }
@@ -73,6 +82,9 @@ public static class NitroL2MessageParser
         {
             if (logger.IsWarn)
                 logger.Warn($"Error parsing incoming messages for: {message.Header.Kind} - {ex}");
+
+            File.AppendAllText("/srv/code/arbitrum-sync-tools/l2parse.log", $"[{DateTime.UtcNow:O}] l2bn={blockNumber} l1bn={message.Header.BlockNumber} kind={message.Header.Kind} arbos={lastArbosVersion} sender={message.Header.Sender} batchGasCost={message.BatchGasCost} batchDataLength={message.BatchDataStats?.Length} batchDatNonZeros={message.BatchDataStats?.NonZeros} err={ex.Message} msg={l2Message.ToHexString()}{Environment.NewLine}");
+
             return [];
         }
     }
