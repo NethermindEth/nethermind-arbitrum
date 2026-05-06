@@ -2186,7 +2186,7 @@ public class ArbitrumVirtualMachineTests
 
         // Calldata to call withdrawEth(address) on ArbSys precompile
         byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
+        sender.Bytes.CopyTo(addressBytes.AsSpan(12));
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("withdrawEth(address)"u8)[..4], .. addressBytes];
 
         UInt256 value = 1_000;
@@ -2250,7 +2250,7 @@ public class ArbitrumVirtualMachineTests
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
+        sender.Bytes.CopyTo(addressBytes.AsSpan(12));
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
 
         UInt256 value = 1_000;
@@ -2505,7 +2505,7 @@ public class ArbitrumVirtualMachineTests
         // Careful: arguments should be left-padded with 0s
         byte[] addressWhoseBalanceToGet = new byte[Hash256.Size];
         Address sender = TestItem.AddressA;
-        sender.Bytes.CopyTo(addressWhoseBalanceToGet, Hash256.Size - Address.Size);
+        sender.Bytes.CopyTo(addressWhoseBalanceToGet.AsSpan(Hash256.Size - Address.Size));
 
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.DELEGATECALL, ArbInfo.Address, methodSelector, addressWhoseBalanceToGet, outputSize: 32);
@@ -2582,7 +2582,7 @@ public class ArbitrumVirtualMachineTests
         // Careful: arguments should be left-padded with 0s
         byte[] addressToRegister = new byte[Hash256.Size];
         Address sender = TestItem.AddressA;
-        sender.Bytes.CopyTo(addressToRegister, Hash256.Size - Address.Size);
+        sender.Bytes.CopyTo(addressToRegister.AsSpan(Hash256.Size - Address.Size));
 
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.STATICCALL, ArbAddressTable.Address, methodSelector, addressToRegister, outputSize: 32);
@@ -2766,7 +2766,7 @@ public class ArbitrumVirtualMachineTests
         Address mappedAddress = new(sumBytes.ToBigEndian()[12..]);
 
         byte[] expectedResult = new byte[32];
-        mappedAddress.Bytes.CopyTo(expectedResult, 12);
+        mappedAddress.Bytes.CopyTo(expectedResult.AsSpan(12));
 
         tracer.ReturnValue.Should().BeEquivalentTo(expectedResult);
     }
@@ -2806,7 +2806,7 @@ public class ArbitrumVirtualMachineTests
 
         // Careful: arguments should be left-padded with 0s
         byte[] methodArgument = new byte[Hash256.Size];
-        addressWhoseBalanceToGet.Bytes.CopyTo(methodArgument, Hash256.Size - Address.Size);
+        addressWhoseBalanceToGet.Bytes.CopyTo(methodArgument.AsSpan(Hash256.Size - Address.Size));
 
         // outputSize is 32 because getBalance(address) returns a uint256
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
@@ -2929,7 +2929,7 @@ public class ArbitrumVirtualMachineTests
         // Expected result
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         byte[] abiEncodedAccount = new byte[Hash256.Size];
-        networkFeeAccount.Bytes.CopyTo(abiEncodedAccount, 12);
+        networkFeeAccount.Bytes.CopyTo(abiEncodedAccount.AsSpan(12));
 
         // Precompile output was effectively passed to the caller through the memory
         tracer.ReturnValue.Should().BeEquivalentTo(abiEncodedAccount);

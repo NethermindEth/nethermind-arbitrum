@@ -507,7 +507,7 @@ public class ArbGasInfoParserTests
         byte[] result = implementation!(_context, []);
 
         byte[] expectedResult = new byte[Hash256.Size];
-        l1RewardRecipient.Bytes.CopyTo(expectedResult, Hash256.Size - Address.Size);
+        l1RewardRecipient.Bytes.CopyTo(expectedResult.AsSpan(Hash256.Size - Address.Size));
 
         result.Should().BeEquivalentTo(expectedResult);
 
