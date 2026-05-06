@@ -925,7 +925,7 @@ public class ArbOwnerParserTests
         byte[] result = implementation!(context, []);
 
         byte[] expectedResult = new byte[WordSize];
-        networkFeeAccount.Bytes.CopyTo(expectedResult, WordSize - Address.Size);
+        networkFeeAccount.Bytes.CopyTo(expectedResult.AsSpan(WordSize - Address.Size));
         result.Should().BeEquivalentTo(expectedResult);
     }
 
@@ -949,7 +949,7 @@ public class ArbOwnerParserTests
         byte[] result = implementation!(context, []);
 
         byte[] expectedResult = new byte[WordSize];
-        infraFeeAccount.Bytes.CopyTo(expectedResult, WordSize - Address.Size);
+        infraFeeAccount.Bytes.CopyTo(expectedResult.AsSpan(WordSize - Address.Size));
         result.Should().BeEquivalentTo(expectedResult);
     }
 
