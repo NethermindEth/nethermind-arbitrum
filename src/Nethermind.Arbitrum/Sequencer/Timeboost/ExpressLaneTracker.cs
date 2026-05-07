@@ -88,6 +88,11 @@ public sealed class ExpressLaneTracker(
                 if (_logger.IsDebug)
                     _logger.Debug($"ExpressLaneTracker: poll failed: {ex.Message}");
             }
+            finally
+            {
+                // Ensure Start() is released even if PollResolvedRounds throws
+                started.TrySetResult();
+            }
         }
     }
 
