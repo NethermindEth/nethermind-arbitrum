@@ -23,6 +23,7 @@ public sealed class ExpressLaneTracker(
     private Task? _pollingTask;
 
     public event EventHandler<RoundControllerResolvedEventArgs>? ControllerResolved;
+    public event EventHandler? ControllerLoopAdvanced;
 
     public Address AuctionContractAddress => auctionContract.Address;
 
@@ -33,11 +34,7 @@ public sealed class ExpressLaneTracker(
 
         TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _pollingTask = Task.Run(async () =>
-        {
-            started.TrySetResult();
-            await PollContractLoopAsync(_cts.Token);
-        });
+        _pollingTask = Task.Run(() => PollContractLoopAsync(_cts.Token, started));
 
         return started.Task;
     }
@@ -66,14 +63,21 @@ public sealed class ExpressLaneTracker(
         _cts?.Dispose();
     }
 
-    private async Task PollContractLoopAsync(CancellationToken ct)
+    private async Task PollContractLoopAsync(CancellationToken ct, TaskCompletionSource started)
     {
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+                Task delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+
+                // Timer is now registered with the time provider; safe to release Start().
+                started.TrySetResult();
+
+                await delayTask;
                 PollResolvedRounds();
+
+                ControllerLoopAdvanced?.Invoke(this, EventArgs.Empty);
             }
             catch (OperationCanceledException)
             {
@@ -107,15 +111,12 @@ public sealed class ExpressLaneTracker(
                 ulong oldest = currentRound - 2;
                 List<ulong>? toRemove = null;
                 foreach (ulong key in _roundControllers.Keys)
-                {
                     if (key < oldest)
-                        (toRemove ??= new()).Add(key);
-                }
+                        (toRemove ??= []).Add(key);
+
                 if (toRemove is not null)
-                {
                     foreach (ulong key in toRemove)
                         _roundControllers.Remove(key);
-                }
             }
         }
 

@@ -30,9 +30,8 @@ public class TestExpressLane
         ManualRoundTimingInfo timing = new(config, DateTimeOffset.UtcNow, currentRound, TimeSpan.FromSeconds(intoRoundSeconds));
         FakeAuctionContract auctionContract = new() { Address = TestAuctionContract };
 
-        context = new(timing, auctionContract, config, currentRound, intoRoundSeconds);
-
         ExpressLaneTracker tracker = new(timing, auctionContract, config, LimboLogs.Instance);
+        context = new(timing, auctionContract, config, currentRound, tracker);
         tracker.Start(CancellationToken.None).GetAwaiter().GetResult();
 
         return tracker;
@@ -65,7 +64,7 @@ public record TestExpressLaneTrackerContext(
     FakeAuctionContract AuctionContract,
     ArbitrumConfig Config,
     ulong CurrentRound,
-    int IntoRoundSeconds)
+    ExpressLaneTracker Tracker)
 {
     public void AdvanceTime(TimeSpan delta) => Timing.Advance(delta);
 
@@ -77,9 +76,19 @@ public record TestExpressLaneTrackerContext(
     public async Task AdvanceLoop(ResolvedRound resolvedRound)
     {
         AuctionContract.Result = resolvedRound;
-        await Task.Delay(5); // Let ExpressLaneTracker loop to advance
-        Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs)); // Advance time to trigger next poll
-        await Task.Delay(5); // Let ExpressLaneTracker loop to process poll result
+
+        TaskCompletionSource pollDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler handler = (_, _) => pollDone.TrySetResult();
+        Tracker.ControllerLoopAdvanced += handler;
+        try
+        {
+            Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
+            await pollDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Tracker.ControllerLoopAdvanced -= handler;
+        }
     }
 }
 

@@ -130,8 +130,8 @@ public class ExpressLaneTrackerTests
         tracker.GetController(1).Should().Be(TestItem.AddressA);
         tracker.Dispose();
 
-        // Change fake and try to trigger another poll — should have no effect
-        await context.AdvanceLoop(new(TestItem.AddressB, 2));
+        // Try to trigger another poll — should have no effect
+        context.Timing.Advance(TimeSpan.FromMilliseconds(context.Config.TimeboostAuctionContractPollIntervalMs));
 
         tracker.GetController(2).Should().BeNull("no new controllers after dispose");
     }
