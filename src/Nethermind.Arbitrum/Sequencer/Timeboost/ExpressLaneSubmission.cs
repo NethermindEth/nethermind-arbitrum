@@ -40,7 +40,7 @@ public sealed class ExpressLaneSubmission
         BinaryPrimitives.WriteUInt64BigEndian(buf.AsSpan(pos + 24, 8), ChainId);
         pos += 32;
 
-        AuctionContractAddress.Bytes.CopyTo(buf, pos);
+        AuctionContractAddress.Bytes.CopyTo(buf.AsSpan(pos));
         pos += 20;
 
         BinaryPrimitives.WriteUInt64BigEndian(buf.AsSpan(pos, 8), Round);

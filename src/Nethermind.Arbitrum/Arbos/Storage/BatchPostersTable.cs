@@ -32,7 +32,7 @@ public class BatchPostersTable(ArbosStorage storage)
             throw new InvalidOperationException($"Tried to add a batch poster {posterAddress} that already exists.");
         }
 
-        ArbosStorage batchPosterStorage = _posterInfo.OpenSubStorage(posterAddress.Bytes);
+        ArbosStorage batchPosterStorage = _posterInfo.OpenSubStorage(posterAddress.Bytes.ToArray());
         ArbosStorageBackedBigInteger fundsDueStorage = new(batchPosterStorage, 0);
         fundsDueStorage.Set(0);
 
@@ -48,7 +48,7 @@ public class BatchPostersTable(ArbosStorage storage)
     {
         if (ContainsPoster(posterAddress))
         {
-            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes), this);
+            return new BatchPoster(_posterInfo.OpenSubStorage(posterAddress.Bytes.ToArray()), this);
         }
 
         return createIfNotExists

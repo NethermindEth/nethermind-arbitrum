@@ -111,7 +111,7 @@ public class ArbInfoTests
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
+        sender.Bytes.CopyTo(addressBytes.AsSpan(12));
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
 
         Transaction transaction = Build.A.Transaction

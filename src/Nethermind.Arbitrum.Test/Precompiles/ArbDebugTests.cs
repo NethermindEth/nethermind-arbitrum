@@ -85,13 +85,13 @@ public class ArbDebugTests
         flagAsTopic[31] = flag ? (byte)1 : (byte)0;
 
         byte[] callerAsTopic = new byte[32];
-        caller.Bytes.CopyTo(callerAsTopic, 12);
+        caller.Bytes.CopyTo(callerAsTopic.AsSpan(12));
 
         Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), new Hash256(flagAsTopic), value, new Hash256(callerAsTopic)];
 
         byte[] expectedEventData = new byte[64];
         expectedEventData[31] = not ? (byte)1 : (byte)0;
-        conn.Bytes.CopyTo(expectedEventData, 64 - Address.Size);
+        conn.Bytes.CopyTo(expectedEventData.AsSpan(64 - Address.Size));
 
         LogEntry expectedLogEntry = new(ArbDebug.Address, expectedEventData, expectedEventTopics);
 
