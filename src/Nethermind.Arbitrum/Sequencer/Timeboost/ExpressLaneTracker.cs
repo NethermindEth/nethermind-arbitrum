@@ -23,7 +23,7 @@ public sealed class ExpressLaneTracker(
     private Task? _pollingTask;
 
     public event EventHandler<RoundControllerResolvedEventArgs>? ControllerResolved;
-    public event EventHandler? ControllerLoopAdvanced;
+    public event EventHandler<ResolvedRound>? ControllerLoopAdvanced;
 
     public Address AuctionContractAddress => auctionContract.Address;
 
@@ -75,9 +75,9 @@ public sealed class ExpressLaneTracker(
                 started.TrySetResult();
 
                 await delayTask;
-                PollResolvedRounds();
+                ResolvedRound polled = PollResolvedRounds();
 
-                ControllerLoopAdvanced?.Invoke(this, EventArgs.Empty);
+                ControllerLoopAdvanced?.Invoke(this, polled);
             }
             catch (OperationCanceledException)
             {
@@ -91,12 +91,12 @@ public sealed class ExpressLaneTracker(
         }
     }
 
-    private void PollResolvedRounds()
+    private ResolvedRound PollResolvedRounds()
     {
         ResolvedRound resolved = auctionContract.ResolveRounds();
 
         if (resolved.Controller == Address.Zero || resolved.Round == 0)
-            return;
+            return resolved;
 
         ulong currentRound = roundTimingInfo.RoundNumber();
         bool isNewDiscovery;
@@ -125,5 +125,7 @@ public sealed class ExpressLaneTracker(
 
         if (_logger.IsDebug)
             _logger.Debug($"ExpressLaneTracker: round {resolved.Round} controller = {resolved.Controller}");
+
+        return resolved;
     }
 }

@@ -78,11 +78,28 @@ public record TestExpressLaneTrackerContext(
         AuctionContract.Result = resolvedRound;
 
         TaskCompletionSource pollDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        EventHandler handler = (_, _) => pollDone.TrySetResult();
+        EventHandler<ResolvedRound> handler = (_, polled) =>
+        {
+            if (polled == resolvedRound)
+                pollDone.TrySetResult();
+        };
+
         Tracker.ControllerLoopAdvanced += handler;
+
         try
         {
-            Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
+            // The polling loop's `await Task.Delay(...)` continuation may be async-scheduled
+            // by the runtime (stack guard), so its next Task.Delay can register *after* a single
+            // Timing.Advance — leaving the timer's deadline beyond what we advanced to and never
+            // firing. Loop until our matching event fires, yielding so threadpool continuations run.
+            for (int i = 0; i < 5 && !pollDone.Task.IsCompleted; i++)
+            {
+                if (i > 0)
+                    await Task.Yield();
+
+                Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
+            }
+
             await pollDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
         }
         finally

@@ -131,6 +131,7 @@ public class ExpressLaneTrackerTests
         tracker.Dispose();
 
         // Try to trigger another poll — should have no effect
+        context.AuctionContract.Result = new(TestItem.AddressB, 2);
         context.Timing.Advance(TimeSpan.FromMilliseconds(context.Config.TimeboostAuctionContractPollIntervalMs));
 
         tracker.GetController(2).Should().BeNull("no new controllers after dispose");
