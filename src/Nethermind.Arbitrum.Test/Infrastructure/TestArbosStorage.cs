@@ -3,10 +3,8 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 
@@ -57,6 +55,12 @@ public static class TestArbosStorage
             {
                 _availableGas -= amount;
             }
+        }
+
+        public void BurnOut()
+        {
+            _availableGas = 0;
+            throw new InvalidOperationException("TestBurner burnt out");
         }
     }
 }

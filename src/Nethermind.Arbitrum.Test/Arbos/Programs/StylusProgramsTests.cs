@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
-using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -22,6 +21,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Logging;
 using Nethermind.Specs.ChainSpecStyle;
+using Nethermind.Specs.Forks;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Programs;
 
@@ -37,8 +37,6 @@ public class StylusProgramsTests
     private const long CallBudget = 1_000_000;
 
     private const ulong DefaultArbosVersion = ArbosVersion.Forty;
-
-    private static readonly JournalSet<Address> EmptyDestroyList = new(Address.EqualityComparer);
 
     [Test]
     public void Initialize_EmptyState_InitializesState()
@@ -65,7 +63,8 @@ public class StylusProgramsTests
             expiryDays: 365,
             keepaliveDays: 31,
             blockCacheSize: 32,
-            maxWasmSize: 131072));
+            maxWasmSize: 131072,
+            maxFragmentCount: 0));
 
         // DataPricer, 5 slots
         ArbosStorage dataPricerStorage = storage.OpenSubStorage([3]);
@@ -86,13 +85,14 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_NonExistentAccount_DoesNotReturnSelfDestructError()
     {
+        using StackAccessTracker tracker = new();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         IWasmStore wasmStore = TestWasmStore.Create();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 
         Address randomAddress = new(RandomNumberGenerator.GetBytes(Address.Size));
-        ProgramActivationResult result = programs.ActivateProgram(randomAddress, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(randomAddress, Cancun.Instance, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true, tracker);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotWasm);
@@ -101,15 +101,16 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_SelfDestructedAccount_FailsWithSelfDestructError()
     {
+        using StackAccessTracker tracker = new();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         IWasmStore wasmStore = TestWasmStore.Create();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
 
         Address address = new(RandomNumberGenerator.GetBytes(Address.Size));
-        JournalSet<Address> destroyList = new(Address.EqualityComparer) { address };
+        tracker.ToBeDestroyed(address);
 
-        ProgramActivationResult result = programs.ActivateProgram(address, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true, destroyList);
+        ProgramActivationResult result = programs.ActivateProgram(address, Cancun.Instance, state, wasmStore, 0, MessageRunMode.MessageCommitMode, true, tracker);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
         result.IsSuccess.Should().BeFalse();
@@ -119,6 +120,7 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_AddressHasNoCode_Fails()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -131,7 +133,7 @@ public class StylusProgramsTests
         state.Commit(specProvider.GenesisSpec);
         state.CommitTree(0);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, 0, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, 0, MessageRunMode.MessageCommitMode, true, tracker);
 
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ProgramNotWasm);
@@ -141,13 +143,14 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_ContractIsNotWasm_Fails()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, prependStylusPrefix: false);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.InvalidByteCode, "Specified bytecode is not a Stylus program", []));
         result.Error.Should().BeEquivalentTo(expected.Error, o => o.ForStylusOperationError());
@@ -156,13 +159,14 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_ContractIsNotCompressed_Fails()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository, compress: false);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(false, new(StylusOperationResultType.UnknownError, "Failed to decompress data", []));
         result.IsSuccess.Should().BeFalse();
@@ -172,13 +176,14 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_NotEnoughGasForActivation_FailsAndConsumesAllGas()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
 
         ProgramActivationResult expected = ProgramActivationResult.Failure(true, new(StylusOperationResultType.ActivationFailed, "out of gas", []));
         result.IsSuccess.Should().BeFalse();
@@ -188,13 +193,14 @@ public class StylusProgramsTests
     [Test]
     public void ActivateProgram_ValidContractAndEnoughGas_Succeeds()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget);
         (_, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
 
         result.IsSuccess.Should().BeTrue();
         result.ModuleHash.Should().Be(new ValueHash256("0xdfa80e333e8a1bf4e46c4bf27eadd9abfe33b873f4118db208c03acbb671e223"));
@@ -230,6 +236,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_StylusVersionIsHigherThanPrograms_Fails()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -239,7 +246,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -262,6 +269,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_ProgramExpired_Fails()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -271,7 +279,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -295,6 +303,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_CorruptedCallData_Fails()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -304,7 +313,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         byte[] callData = [0x1, 0x2, 0x3]; // Corrupted call data that does not match the expected format
@@ -323,6 +332,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_SetGetNumber_SuccessfullySetsAndGets()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -332,7 +342,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
@@ -362,6 +372,7 @@ public class StylusProgramsTests
     [Test]
     public void CallProgram_IncrementNumber_SuccessfullyIncrements()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -371,7 +382,7 @@ public class StylusProgramsTests
         ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
         CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
 
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
@@ -433,6 +444,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramKeepalive_WithTooEarlyKeepalive_ReturnsFailure()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -441,7 +453,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -476,6 +488,7 @@ public class StylusProgramsTests
     [Test]
     public void CodeHashVersion_WithActivatedProgram_ReturnsVersion()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -484,7 +497,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -517,6 +530,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramAsmSize_WithActivatedProgram_ReturnsSize()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -525,7 +539,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -557,6 +571,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramInitGas_WithActivatedProgram_ReturnsGasValues()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -565,7 +580,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -598,6 +613,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramMemoryFootprint_WithActivatedProgram_ReturnsFootprint()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -606,7 +622,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
@@ -637,6 +653,7 @@ public class StylusProgramsTests
     [Test]
     public void ProgramTimeLeft_WithActivatedProgram_ReturnsTimeLeft()
     {
+        using StackAccessTracker tracker = new();
         IWasmStore store = TestWasmStore.Create();
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
@@ -645,7 +662,7 @@ public class StylusProgramsTests
         ValueHash256 codeHash = state.GetCodeHash(contract);
 
         // Activate the program first
-        ProgramActivationResult result = programs.ActivateProgram(contract, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, EmptyDestroyList);
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();

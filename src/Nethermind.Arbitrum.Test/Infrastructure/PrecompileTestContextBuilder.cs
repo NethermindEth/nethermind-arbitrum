@@ -185,9 +185,32 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         IDisposable scope = worldState.BeginScope(IWorldState.PreGenesis);
         _ = ArbOSInitialization.Create(worldState);
 
-        context = setup(new PrecompileTestContextBuilder(worldState, ulong.MaxValue));
+        // Mirror ArbitrumVirtualMachine.RunPrecompile so the activation path observes the same shape
+        // in tests as in production.
+        StackAccessTracker tracker = new();
+        context = setup(new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+        {
+            AccessTracker = tracker,
+        });
 
-        return scope;
+        return new TrackerScope(tracker, scope);
+    }
+
+    private sealed class TrackerScope(StackAccessTracker tracker, IDisposable scope) : IDisposable
+    {
+        // `tracker` is not stored in an extra field — the primary-ctor capture has the same
+        // _trackingState reference, so Dispose() on it returns the same pooled state.
+        public void Dispose()
+        {
+            try
+            {
+                scope.Dispose();
+            }
+            finally
+            {
+                tracker.Dispose();
+            }
+        }
     }
 
     // Test helper to create a mock blockhash provider

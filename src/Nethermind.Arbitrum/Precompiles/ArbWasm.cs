@@ -122,8 +122,10 @@ public static class ArbWasm
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108
-        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.WorldState, context.WasmStore,
-            context.BlockExecutionContext.Header.Timestamp, runMode, debugMode, context.DestroyList);
+        // AccessTracker is non-null on the live precompile path (set by ArbitrumVirtualMachine.RunPrecompile
+        // from VmState). ActivateProgram derives destroyList from accessTracker.DestroyList internally.
+        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.ReleaseSpec, context.WorldState, context.WasmStore,
+            context.BlockExecutionContext.Header.Timestamp, runMode, debugMode, context.AccessTracker!.Value);
 
         if (result.TakeAllGas)
             context.GasLeft = 0; // Burnout without throwing

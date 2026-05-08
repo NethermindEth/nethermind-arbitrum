@@ -6,13 +6,13 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
-using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
+using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
@@ -34,6 +34,7 @@ public sealed class ArbWasmTests
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
     private IDisposable? _worldStateScope;
+    private StackAccessTracker _accessTracker;
 
     [SetUp]
     public void SetUp()
@@ -47,7 +48,13 @@ public sealed class ArbWasmTests
             new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
 
+        // The fixture owns the tracker; tests reference _accessTracker rather than relying on the
+        // record's AccessTracker copy, which would alias the same _trackingState after Dispose.
+        _accessTracker = new StackAccessTracker();
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+        {
+            AccessTracker = _accessTracker,
+        }
             .WithArbosState()
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec();
@@ -56,6 +63,7 @@ public sealed class ArbWasmTests
     [TearDown]
     public void TearDown()
     {
+        _accessTracker.Dispose();
         _worldStateScope?.Dispose();
     }
 
@@ -265,7 +273,11 @@ public sealed class ArbWasmTests
     [Test]
     public void ActivateProgram_WithAnyCall_BurnsFixedCost()
     {
-        PrecompileTestContextBuilder context = new(_worldState, 2_000_000) { ArbosState = _arbosState };
+        PrecompileTestContextBuilder context = new(_worldState, 2_000_000)
+        {
+            ArbosState = _arbosState,
+            AccessTracker = _accessTracker,
+        };
         Address program = Address.Zero;
         ulong initialGas = context.GasLeft;
 

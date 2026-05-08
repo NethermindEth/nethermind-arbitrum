@@ -208,6 +208,23 @@ public class ArbosState
                         // No state changes needed
                         break;
 
+                    // Versions 52-59 are reserved for Orbit chains
+                    case 52:
+                    case 53:
+                    case 54:
+                    case 55:
+                    case 56:
+                    case 57:
+                    case 58:
+                    case 59:
+                        break;
+
+                    case 60: // StylusContractLimit
+                        StylusParams stylusParamsV60 = Programs.GetParams();
+                        stylusParamsV60.UpgradeToArbosVersion(nextArbosVersion);
+                        stylusParamsV60.Save();
+                        break;
+
                     default:
                         throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
                 }

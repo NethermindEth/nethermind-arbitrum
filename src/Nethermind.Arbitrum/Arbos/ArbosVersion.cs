@@ -33,6 +33,7 @@ public static class ArbosVersion
     public const ulong FortyNine = 49;
     public const ulong Fifty = 50;
     public const ulong FiftyOne = 51;
+    public const ulong Sixty = 60;
 
     // Semantic aliases for important milestones
     public const ulong FixRedeemGas = Eleven;
@@ -47,4 +48,5 @@ public static class ArbosVersion
     public const ulong NativeTokenManagement = FortyOne; // Version 41+ adds native token management precompile methods
     public const ulong Dia = Fifty; // Version 50+ (Dia) caps Stylus stack depth and adds per-tx gas limit
     public const ulong MultiConstraintPricing = Fifty; // Version 50+ introduces multi-constraint gas pricing
+    public const ulong StylusContractLimit = Sixty; // Version 60+ allows Stylus programs to be deployed across multiple fragment contracts
 }

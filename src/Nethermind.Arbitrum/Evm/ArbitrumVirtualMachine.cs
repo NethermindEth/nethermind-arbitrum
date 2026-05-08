@@ -406,7 +406,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
+        // Mirrors Nitro's go-ethereum/core/vm/interpreter.go:170-174: route to the Stylus runtime
+        // for any deployable Stylus prefix (classic at v30+, plus root at v60+).
+        if (StylusCode.IsStylusDeployableProgramPrefix(VmState.Env.CodeInfo.CodeSpan, CurrentArbosVersion))
             return RunWasmCode(ref gas);
 
         // Set the tracer on the gas struct for gas dimension capture.
@@ -542,7 +544,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
             SpecHelper = specHelper,
-            DestroyList = state.AccessTracker.DestroyList,
+            AccessTracker = state.AccessTracker,
         };
 
         return precompile.IsDebug
