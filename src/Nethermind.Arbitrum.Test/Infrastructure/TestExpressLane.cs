@@ -68,9 +68,27 @@ public record TestExpressLaneTrackerContext(
 {
     public void AdvanceTime(TimeSpan delta) => Timing.Advance(delta);
 
-    public void AdvanceToNextRound()
+    // Advances by a full round duration. The big jump fires the loop's pending Task.Delay,
+    // triggering one leftover poll iteration on the still-current Result. We wait for that
+    // iteration's event so the loop is back at `await delayTask` (next iter armed) before
+    // returning — without this, the next AdvanceLoop's single time advance can race with
+    // the leftover poll, and either pick up stale Result or arm a Task.Delay beyond reach.
+    public async Task AdvanceToNextRound()
     {
-        Timing.Advance(TimeSpan.FromSeconds(Config.TimeboostRoundDurationSeconds));
+        TaskCompletionSource leftoverDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<ResolvedRound> handler = (_, _) => leftoverDone.TrySetResult();
+
+        Tracker.ControllerLoopAdvanced += handler;
+
+        try
+        {
+            Timing.Advance(TimeSpan.FromSeconds(Config.TimeboostRoundDurationSeconds));
+            await leftoverDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Tracker.ControllerLoopAdvanced -= handler;
+        }
     }
 
     public async Task AdvanceLoop(ResolvedRound resolvedRound)
@@ -88,18 +106,7 @@ public record TestExpressLaneTrackerContext(
 
         try
         {
-            // The polling loop's `await Task.Delay(...)` continuation may be async-scheduled
-            // by the runtime (stack guard), so its next Task.Delay can register *after* a single
-            // Timing.Advance — leaving the timer's deadline beyond what we advanced to and never
-            // firing. Loop until our matching event fires, yielding so threadpool continuations run.
-            for (int i = 0; i < 5 && !pollDone.Task.IsCompleted; i++)
-            {
-                if (i > 0)
-                    await Task.Yield();
-
-                Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
-            }
-
+            Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
             await pollDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
         }
         finally

@@ -65,34 +65,41 @@ public sealed class ExpressLaneTracker(
 
     private async Task PollContractLoopAsync(CancellationToken ct, TaskCompletionSource started)
     {
-        while (!ct.IsCancellationRequested)
+        try
         {
-            try
-            {
-                Task delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+            Task delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
 
-                // Timer is now registered with the time provider; safe to release Start().
-                started.TrySetResult();
+            // Timer is now registered with the time provider; safe to release Start().
+            started.TrySetResult();
 
-                await delayTask;
-                ResolvedRound polled = PollResolvedRounds();
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await delayTask;
+                    ResolvedRound polled = PollResolvedRounds();
 
-                ControllerLoopAdvanced?.Invoke(this, polled);
+                    // Register the next Task.Delay BEFORE firing the event, so any observer that
+                    // resumes from this event sees the loop already armed for the next time advance.
+                    delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+
+                    ControllerLoopAdvanced?.Invoke(this, polled);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (_logger.IsDebug)
+                        _logger.Debug($"ExpressLaneTracker: poll failed: {ex.Message}");
+                }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsDebug)
-                    _logger.Debug($"ExpressLaneTracker: poll failed: {ex.Message}");
-            }
-            finally
-            {
-                // Ensure Start() is released even if PollResolvedRounds throws
-                started.TrySetResult();
-            }
+        }
+        finally
+        {
+            // Ensure Start() is released even if initial Task.Delay throws.
+            started.TrySetResult();
         }
     }
 

@@ -76,11 +76,11 @@ public class ExpressLaneTrackerTests
         tracker.GetController(resolvedRound.Round).Should().Be(resolvedRound.Controller);
 
         // Change to return round 4, advance to round 4 (by advancing RoundTimingInfo to provide new rounds)
-        context.AdvanceToNextRound();
+        await context.AdvanceToNextRound();
         await context.AdvanceLoop(new(TestItem.AddressB, 2));
-        context.AdvanceToNextRound();
+        await context.AdvanceToNextRound();
         await context.AdvanceLoop(new(TestItem.AddressC, 3));
-        context.AdvanceToNextRound();
+        await context.AdvanceToNextRound();
         await context.AdvanceLoop(new(TestItem.AddressD, 4));
 
         tracker.GetController(1).Should().BeNull("round 1 is more than 2 behind round 4 and must be evicted");
