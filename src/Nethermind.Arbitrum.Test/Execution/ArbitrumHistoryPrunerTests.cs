@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Headers;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
@@ -69,6 +70,7 @@ public sealed class ArbitrumHistoryPrunerTests
         return new HistoryPruner(
             blockTree: Substitute.For<IBlockTree>(),
             receiptStorage: Substitute.For<IReceiptStorage>(),
+            blockAccessListStore: Substitute.For<IBlockAccessListStore>(),
             specProvider: specProvider,
             chainLevelInfoRepository: Substitute.For<IChainLevelInfoRepository>(),
             dbProvider: dbProvider,
