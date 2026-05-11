@@ -422,6 +422,8 @@ test-coverage/
 
 # Environment variables
 .env
+.env.sepolia
+.env.mainnet
 
 # Data directories
 .snapshot-cache/
