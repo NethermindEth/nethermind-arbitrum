@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Nethermind.Arbitrum.Precompiles" Version="1.0.0" />
+    <PackageReference Include="Nethermind.Arbitrum.Precompiles" Version="2.0.0" />
     <PackageReference Include="Nethermind.Arbitrum.Stylus" Version="3.10.0-rc6" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj"/>

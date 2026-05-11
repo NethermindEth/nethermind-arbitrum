@@ -219,6 +219,8 @@ public class ArbGasInfoTests
             PrecompileTestAbiHelpers.GetMethodId("getLastL1PricingSurplus()"),
             PrecompileTestAbiHelpers.GetMethodId("getMaxBlockGasLimit()"),
             PrecompileTestAbiHelpers.GetMethodId("getGasPricingConstraints()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMultiGasBaseFee()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMultiGasPricingConstraints()"),
         });
     }
 

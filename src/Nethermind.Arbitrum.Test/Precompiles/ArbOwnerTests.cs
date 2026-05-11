@@ -84,6 +84,19 @@ public class ArbOwnerTests
             PrecompileTestAbiHelpers.GetMethodId("setParentGasFloorPerToken(uint64)"),
             PrecompileTestAbiHelpers.GetMethodId("setGasBacklog(uint64)"),
             PrecompileTestAbiHelpers.GetMethodId("setGasPricingConstraints(uint64[3][])"),
+            PrecompileTestAbiHelpers.GetMethodId("addTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("removeTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("isTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllTransactionFilterers()"),
+            PrecompileTestAbiHelpers.GetMethodId("setFilteredFundsRecipient(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getFilteredFundsRecipient()"),
+            PrecompileTestAbiHelpers.GetMethodId("setTransactionFilteringFrom(uint64)"),
+            PrecompileTestAbiHelpers.GetMethodId("setCollectTips(bool)"),
+            PrecompileTestAbiHelpers.GetMethodId("setMaxStylusContractFragments(uint8)"),
+            // `(())` mirrors the test parser: AbiTypeConverter collapses any JSON tuple[] to an empty AbiTuple, dropping components and the array suffix.
+            // This is not the on-chain selector (canonical signature is setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])).
+            PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())"),
+            PrecompileTestAbiHelpers.GetMethodId("setWasmActivationGas(uint64)"),
         });
     }
 
@@ -92,7 +105,15 @@ public class ArbOwnerTests
     {
         Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbOwner.Abi);
 
-        allEvents.Keys.Should().BeEquivalentTo("OwnerActs");
+        allEvents.Keys.Should().BeEquivalentTo(
+            "OwnerActs",
+            "ChainOwnerAdded",
+            "ChainOwnerRemoved",
+            "NativeTokenOwnerAdded",
+            "NativeTokenOwnerRemoved",
+            "TransactionFiltererAdded",
+            "TransactionFiltererRemoved",
+            "FilteredFundsRecipientSet");
     }
 
     [Test]

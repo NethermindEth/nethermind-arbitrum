@@ -381,6 +381,7 @@ public sealed class ArbWasmTests
             PrecompileTestAbiHelpers.GetMethodId("programInitGas(address)"),
             PrecompileTestAbiHelpers.GetMethodId("programMemoryFootprint(address)"),
             PrecompileTestAbiHelpers.GetMethodId("programTimeLeft(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("activationGas()"),
         });
     }
 
