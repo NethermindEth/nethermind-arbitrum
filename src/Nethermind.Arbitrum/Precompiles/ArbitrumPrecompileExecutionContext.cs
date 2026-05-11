@@ -29,7 +29,7 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    private static readonly IHashSetEnumerableCollection<Address> EmptyDestroyList = new JournalSet<Address>(Address.EqualityComparer);
+    private static readonly JournalSet<Address> EmptyDestroyList = new(Address.EqualityComparer);
 
     public bool ReadOnly { get; set; }
 
@@ -77,7 +77,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     public IArbitrumSpecHelper? SpecHelper { get; init; }
 
-    public IHashSetEnumerableCollection<Address> DestroyList { get; init; } = EmptyDestroyList;
+    public JournalSet<Address> DestroyList { get; init; } = EmptyDestroyList;
 
     private ulong _gasLeft = GasSupplied;
 

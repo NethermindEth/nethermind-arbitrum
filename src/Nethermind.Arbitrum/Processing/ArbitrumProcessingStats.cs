@@ -99,14 +99,27 @@ public class ArbitrumProcessingStats : IProcessingStats
         _startOpCodes = EvmMetrics.MainThreadOpCodes;
     }
 
-    public void UpdateStats(Block? block, BlockHeader? baseBlock, long blockProcessingTimeInMicros)
+    public void UpdateStats(IReadOnlyList<Block> blocks, BlockHeader? baseBlock, long blockProcessingTimeInMicros)
     {
-        if (block is null)
+        if (blocks.Count == 0)
             return;
+
+        Block block = blocks[^1];
+
+        long gasUsed = 0;
+        int transactionCount = 0;
+        foreach (Block b in blocks)
+        {
+            gasUsed += b.GasUsed;
+            transactionCount += b.Transactions.Length;
+        }
 
         BlockData blockData = _dataPool.Get();
         blockData.Block = block;
         blockData.BaseBlock = baseBlock;
+        blockData.BlockCount = blocks.Count;
+        blockData.GasUsed = gasUsed;
+        blockData.TransactionCount = transactionCount;
         blockData.RunningMicroseconds = _runStopwatch.ElapsedMicroseconds();
         blockData.RunMicroseconds = _runStopwatch.ElapsedMicroseconds() - _lastElapsedRunningMicroseconds;
         blockData.StartOpCodes = _startOpCodes;
@@ -157,24 +170,23 @@ public class ArbitrumProcessingStats : IProcessingStats
             return;
 
         long blockNumber = block.Number;
-        double chunkMGas = (_chunkMGas += block.GasUsed / 1_000_000.0);
+        double chunkMGas = (_chunkMGas += data.GasUsed / 1_000_000.0);
 
         // Update Prometheus metrics
-        double mgas = block.GasUsed / 1_000_000.0;
+        double mgas = data.GasUsed / 1_000_000.0;
         double timeSec = data.ProcessingMicroseconds / 1_000_000.0;
         BlockchainMetrics.BlockMGasPerSec.Observe(mgas / timeSec);
         BlockchainMetrics.BlockProcessingTimeMicros.Observe(data.ProcessingMicroseconds);
 
-        BlockchainMetrics.Mgas += block.GasUsed / 1_000_000.0;
-        Transaction[] txs = block.Transactions;
+        BlockchainMetrics.Mgas += data.GasUsed / 1_000_000.0;
         double chunkMicroseconds = (_chunkProcessingMicroseconds += data.ProcessingMicroseconds);
-        double chunkTx = (_chunkTx += txs.Length);
+        double chunkTx = (_chunkTx += data.TransactionCount);
 
-        long chunkBlocks = ++_chunkBlocks;
+        long chunkBlocks = (_chunkBlocks += data.BlockCount);
 
         BlockchainMetrics.Blocks = blockNumber;
         BlockchainMetrics.BlockchainHeight = blockNumber;
-        BlockchainMetrics.Transactions += txs.Length;
+        BlockchainMetrics.Transactions += data.TransactionCount;
         BlockchainMetrics.TotalDifficulty = block.TotalDifficulty ?? UInt256.Zero;
         BlockchainMetrics.LastDifficulty = block.Difficulty;
         BlockchainMetrics.GasUsed = block.GasUsed;
@@ -310,6 +322,9 @@ public class ArbitrumProcessingStats : IProcessingStats
     {
         public Block? Block;
         public BlockHeader? BaseBlock;
+        public int BlockCount;
+        public long GasUsed;
+        public int TransactionCount;
         public long CurrentOpCodes;
         public long CurrentSLoadOps;
         public long CurrentSStoreOps;
