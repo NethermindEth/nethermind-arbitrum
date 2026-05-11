@@ -79,7 +79,7 @@ public static class WasmGas
             return cost;
         }
 
-        Span<byte> originalValue = vm.WorldState.GetOriginal(in storageCell);
+        ReadOnlySpan<byte> originalValue = vm.WorldState.GetOriginal(in storageCell);
         if (Bytes.AreEqual(originalValue, currentValue))
         {
             if (originalValue.IsZero())

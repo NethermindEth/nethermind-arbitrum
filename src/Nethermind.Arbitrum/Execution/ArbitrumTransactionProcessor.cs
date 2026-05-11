@@ -199,8 +199,8 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, in ArbitrumGasPolicy floorGas,
-            in ArbitrumGasPolicy intrinsicGasStandard)
+            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long selfDestructStateRefund,
+            in ArbitrumGasPolicy floorGas, in ArbitrumGasPolicy intrinsicGasStandard, long postIntrinsicStateReservoir)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -310,7 +310,7 @@ namespace Nethermind.Arbitrum.Execution
             return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFail(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, BlockGasCalculation computeBlockGas, long floorGas = 0)
+        protected override GasConsumed RefundOnFail(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, in ArbitrumGasPolicy intrinsicGasStandard, long floorGas = 0)
         {
             BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
@@ -325,6 +325,9 @@ namespace Nethermind.Arbitrum.Execution
 
             return spentGas;
         }
+
+        protected override GasConsumed RefundOnContractCollision(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, in ArbitrumGasPolicy intrinsicGasStandard, long floorGas)
+            => RefundOnFail(tx, spec, opts, in gas, in gasPrice, in intrinsicGasStandard, floorGas);
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
             ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
