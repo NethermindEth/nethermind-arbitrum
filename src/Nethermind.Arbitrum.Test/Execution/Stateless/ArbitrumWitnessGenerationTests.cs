@@ -307,6 +307,10 @@ public class ArbitrumWitnessGenerationTests
         Hash256 callerCodeHash = Keccak.Compute(callerRuntimeCode);
         witnessCodes.Any(code => Keccak.Compute(code) == callerCodeHash).Should().BeTrue(
             "Caller contract's code should be recorded in witness since we executed it");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_ExtCodeSizeFollowedByIsZero_StillRecordsTargetCodeInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -413,6 +417,10 @@ public class ArbitrumWitnessGenerationTests
         // The witness should have exactly 1 code: Arbitrum precompile (0xfe)
         // No code from Ethereum precompile since it has empty bytecode
         witnessCodes.Length.Should().Be(1, "Witness should contain only Arbitrum precompile code (0xfe)");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_PrecompileCalls_RecordsArbitrumPrecompileCodeButNotEthereumPrecompileCode),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -518,6 +526,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(call2Params.Index, call2Params.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, call2Params.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(call2Params.Index, call2Params.Message, WasmTargets: []));
+
         // The storage slot accessed is: 1 + l1BlockNumber % 256 in the Blockhashes substorage (see GetL1BlockHash)
         // Too difficult to predict exact trie node hash here, so, using the hardcoded value (found during debugging)
         recordResult.Preimages.ContainsKey(new Hash256("0x30cfd2590e997a3c3bee0c89572aec183bae0976e06334354832b85514d0d37a")).Should().BeTrue(
@@ -525,6 +536,10 @@ public class ArbitrumWitnessGenerationTests
         // Similarly, checking for an intermediate node capture when accessing the storage slot
         recordResult.Preimages.ContainsKey(new Hash256("0xad9a2d73baabd92487dd1840cd076a06a3eded05e8cbdebb930ddad669e51880")).Should().BeTrue(
             "Witness state should contain intermediate trie node for BLOCKHASH storage access");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_BlockHashOpcode_RecordsStorageTrieNodeInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -596,6 +611,10 @@ public class ArbitrumWitnessGenerationTests
 
         // Compare hashsets instead of lists to avoid ordering issues, as order in witness does not matter
         actualHeaderHashes.Should().BeEquivalentTo(expectedHeaderHashes);
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_ArbBlockHash_RecordsHeadersInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -698,10 +717,17 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         // Assert some trie node on the path to the calldata storage slot has been captured (not captured elsewhere during block recording ofc, otherwise test is useless)
         // Here I assert the leaf node hash (found during debugging).
         recordResult.Preimages.ContainsKey(new Hash256("0xb2020a6fea12f86ace9de5bed3312ca953a2f8ae0730062fa9df4fc833c99782")).Should().BeTrue(
             "Witness state should contain trie node for retryable empty calldata storage slot");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_SubmitRetryableWithEmptyCalldata_RecordsCalldataTrieNodeInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -810,10 +836,17 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         // Assert the leaf trie node for TimeoutWindowsLeft (offset 6) has been captured.
         // Trie node hash determined during debugging — without the fix, this node would NOT be in the witness.
         recordResult.Preimages.ContainsKey(new Hash256("0xb9b0e8140da26e36ad74be6f20e6dc5073cda81b1ed9c3c8d63388f69640f24e")).Should().BeTrue(
             "Witness state should contain trie node for retryable TimeoutWindowsLeft storage slot");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_TryReapRetryableNotExpired_RecordsTimeoutWindowsLeftInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -850,11 +883,18 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         // Assert the leaf trie node for BrotliCompressionLevel (offset 7) has been captured.
         // Trie node hash determined during debugging — without the fix, this node would NOT be
         // in the witness because non-user txs returned early from CanAddTransaction.
         recordResult.Preimages.ContainsKey(new Hash256("0x9bcf99179b305f1d54185508b47cc61fb0f8b804dd449a9b60ed068af7b1d62f")).Should().BeTrue(
             "Witness state should contain trie node for BrotliCompressionLevel storage slot (offset 7)");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_NonUserTransaction_RecordsBrotliCompressionLevelInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -974,6 +1014,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         // Assert the storage slot still has its original value
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
@@ -999,6 +1042,10 @@ public class ArbitrumWitnessGenerationTests
                 "witness should contain storage trie proof node even when the net storage change " +
                 "is zero (slot was modified by TX1 then reset to original value by TX2)");
         }
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_WhenStorageSlotModifiedAndResetInSameBlockThroughSStoreOpcode_StillRecordsStorageTrieNodes),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -1109,6 +1156,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         // Assert the network fee account is indeed the original one (changed then reset)
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
         {
@@ -1137,6 +1187,10 @@ public class ArbitrumWitnessGenerationTests
                 "witness should contain storage trie proof node for NetworkFeeAccount " +
                 "even when the net storage change is zero (modified by TX1 then reset by TX2)");
         }
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_WhenStateModifiedAndResetDirectlyViaWorldStateNotSStoreOpcode_StillRecordsStorageTrieNodes),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -1242,6 +1296,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         // Compute the mapped Ethereum storage slot for AddressTable._backingStorage at offset 1.
         // This replicates ArbosStorage.MapAddress to determine the actual storage trie key.
         byte[] addressTableStorageKey = Keccak.Compute(ArbosSubspaceIDs.AddressTableSubspace).BytesToArray();
@@ -1265,6 +1322,10 @@ public class ArbitrumWitnessGenerationTests
                 "witness should contain storage trie proof node for AddressTable._backingStorage " +
                 "even when the transaction reverted");
         }
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_TransactionSetsSomeStateButReverts_StillRecordsStorageTrieNodes),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -1296,6 +1357,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+
         recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.HistoryStorageCodeHash).Should().BeTrue(
             "EIP-2935 history storage contract code should be recorded in witness " +
             "when ProcessParentBlockHash executes the contract via EVM");
@@ -1303,6 +1367,10 @@ public class ArbitrumWitnessGenerationTests
         recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.InvalidCodeHash).Should().BeTrue(
             "ArbSys precompile code (0xfe) should be recorded in witness because the EIP-2935 " +
             "contract STATICCALLs ArbSys to get the current block number");
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_ProcessParentBlockHash_RecordsHistoryStorageAndArbSysCodesInWitness),
+            recordResult, witness);
     }
 
     /// <summary>
@@ -1421,6 +1489,9 @@ public class ArbitrumWitnessGenerationTests
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
 
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+
         // Collect the account trie proof for target from the parent state.
         // If IsDeadAccount was called (as the fix ensures), the trie nodes along
         // the path to target are traversed and captured in the witness.
@@ -1442,6 +1513,66 @@ public class ArbitrumWitnessGenerationTests
                 "witness should contain account trie proof node for target address even when " +
                 "CALL OOGs at ConsumeCallValueTransfer — IsDeadAccount must be evaluated before any gas deduction");
         }
+
+        AssertExpectedWitness(
+            nameof(RecordBlockCreation_CallWithValueOogDuringGasCalculation_StillRecordsTargetAddressInWitness),
+            recordResult, witness);
+    }
+
+    [TestCaseSource(nameof(ExecutionWitnessForRecording1))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording2))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording3))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording3Cost))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording4Nested))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording5))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording6ContractAddress))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording7AccessList))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording8))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording8Payable))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording9))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording10))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording11))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording12))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording13))]
+    [TestCaseSource(nameof(ExecutionWitnessForRecording14))]
+    public async Task RecordBlockCreation_InPassedRecording_CapturesExactWitness(string recordingFile, ulong messageIndex, RecordResult? expectedRecordResult)
+    {
+        FullChainSimulationRecordingFile recording = new(recordingFile);
+        DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
+
+        using ArbitrumWitness witness = await chain.BuildBlockWitness(
+            new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
+        AssertWitnessMatchesRecordResult(witness, recordResult);
+
+        // if (expectedRecordResult is null)
+        // {
+        //     Console.WriteLine("No expected RecordResult provided for comparison. This block's witness has been bootstrapped as the expected value for future comparisons.");
+        //     // Bootstrap mode: no expected JSONL on disk yet, so append this block's witness
+        //     // as one line of <recording>__expected__witness.jsonl. The first write per
+        //     // recording within a `dotnet test` invocation truncates the file; subsequent
+        //     // writes append. Once every block in the recording has been bootstrapped (= one
+        //     // full test run), the file is complete and the next run flips automatically to
+        //     // comparison mode.
+        //     ExpectedWitnessRecording.WriteBootstrapEntry(
+        //         recordingFile, recordResult.Pos, recordResult.BlockHash, witness, recordResult.UserWasms);
+        //     Assert.Inconclusive(
+        //         $"Bootstrapped expected witness for {Path.GetFileName(recordingFile)} pos {recordResult.Pos} -> " +
+        //         $"{ExpectedWitnessRecording.ExpectedFilePath(recordingFile)}.");
+        //     return;
+        // }
+        // Console.WriteLine("--  Else:");
+
+        recordResult.Should().BeEquivalentTo(expectedRecordResult,
+            options => options.ComparingByMembers<RecordResult>());
     }
 
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
@@ -1508,11 +1639,103 @@ public class ArbitrumWitnessGenerationTests
         fromWitness.Should().BeEquivalentTo(recordResult);
     }
 
+    /// <summary>
+    /// For custom (on-the-fly chain) tests in this fixture: if the expected witness JSONL exists,
+    /// compare against it; if it is missing and <see cref="BootstrapEnvVar"/>=1, write the file and
+    /// mark the test Inconclusive; otherwise fail loud so an accidentally-deleted expected file
+    /// never silently gets re-blessed with whatever the (possibly broken) current behavior is.
+    /// </summary>
+    private static void AssertExpectedWitness(
+        string testName, RecordResult recordResult, ArbitrumWitness witness)
+    {
+        string path = ExpectedWitnessRecording.CustomTestExpectedFilePath(testName);
+
+        Assert.IsTrue(File.Exists(path));
+
+        RecordResult expected = ExpectedWitnessRecording.ReadAll(path).Single().ToRecordResult();
+        recordResult.Should().BeEquivalentTo(expected,
+            options => options.ComparingByMembers<RecordResult>());
+
+        //Used initially for bootstrapping expected witness file
+        // ExpectedWitnessRecording.WriteCustomTestEntry(
+        //     testName, recordResult.Pos, recordResult.BlockHash, witness, recordResult.UserWasms);
+        // Assert.Inconclusive($"Bootstrapped expected witness for {testName} -> {path}.");
+        // return;
+    }
+
     private static T ThrowOnFailure<T>(ResultWrapper<T> result, ulong msgIndex)
     {
         if (result.Result != Result.Success)
             throw new InvalidOperationException($"Failed to execute RPC method, message index {msgIndex}, code {result.ErrorCode}: {result.Result.Error}");
 
         return result.Data;
+    }
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording1()
+        => EnumerateExpectedWitnessCases("./Recordings/1__arbos32_basefee92.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording2()
+        => EnumerateExpectedWitnessCases("./Recordings/2__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording3()
+        => EnumerateExpectedWitnessCases("./Recordings/3__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording3Cost()
+        => EnumerateExpectedWitnessCases("./Recordings/3__stylus_cost.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording4Nested()
+        => EnumerateExpectedWitnessCases("./Recordings/4__stylus_nested.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording5()
+        => EnumerateExpectedWitnessCases("./Recordings/5__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording6ContractAddress()
+        => EnumerateExpectedWitnessCases("./Recordings/6__stylus_contract_address.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording7AccessList()
+        => EnumerateExpectedWitnessCases("./Recordings/7__stylus_accesslist.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording8()
+        => EnumerateExpectedWitnessCases("./Recordings/8__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording8Payable()
+        => EnumerateExpectedWitnessCases("./Recordings/8__stylus_payable.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording9()
+        => EnumerateExpectedWitnessCases("./Recordings/9__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording10()
+        => EnumerateExpectedWitnessCases("./Recordings/10__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording11()
+        => EnumerateExpectedWitnessCases("./Recordings/11__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording12()
+        => EnumerateExpectedWitnessCases("./Recordings/12__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording13()
+        => EnumerateExpectedWitnessCases("./Recordings/13__stylus.jsonl");
+
+    private static IEnumerable<TestCaseData> ExecutionWitnessForRecording14()
+        => EnumerateExpectedWitnessCases("./Recordings/14__stylus.jsonl");
+
+    /// <summary>
+    /// Yields one <see cref="TestCaseData"/> per block in the given recording, deriving the
+    /// block count from either the expected witness JSONL (comparison mode) or the recording
+    /// itself (bootstrap mode, when no expected JSONL exists yet).
+    /// </summary>
+    private static IEnumerable<TestCaseData> EnumerateExpectedWitnessCases(string recordingFilePath)
+    {
+        string expectedFilePath = ExpectedWitnessRecording.ExpectedFilePath(recordingFilePath);
+
+        Assert.IsTrue(File.Exists(expectedFilePath));
+
+        foreach (ExpectedWitnessRecording entry in ExpectedWitnessRecording.ReadAll(expectedFilePath))
+            yield return new TestCaseData(recordingFilePath, entry.Pos, entry.ToRecordResult());
+
+        //Used initially for bootstrapping expected witness file
+        // FullChainSimulationRecordingFile recording = new(recordingFilePath);
+        // foreach (DigestMessageParameters m in recording.GetDigestMessages())
+        //     yield return new TestCaseData(recordingFilePath, m.Index, (RecordResult?)null);
     }
 }
