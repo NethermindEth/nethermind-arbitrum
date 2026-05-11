@@ -73,7 +73,7 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.HasStateForBlock(baseBlock);
     }
 
-    public byte[] GetOriginal(in StorageCell storageCell)
+    public ReadOnlySpan<byte> GetOriginal(in StorageCell storageCell)
     {
         return worldState.GetOriginal(in storageCell);
     }

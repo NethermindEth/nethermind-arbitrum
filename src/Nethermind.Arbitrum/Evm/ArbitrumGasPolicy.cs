@@ -381,12 +381,25 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// <summary>
     /// Calculates intrinsic gas for a transaction with MultiGas breakdown.
     /// </summary>
-    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec) =>
+        CalculateIntrinsicGas(tx, spec, blockGasLimit: 0);
+
+    /// <summary>
+    /// Calculates intrinsic gas for a transaction with MultiGas breakdown.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="blockGasLimit"/> is required by the upstream <see cref="IGasPolicy{TSelf}"/>
+    /// contract for EIP-8037 state-cost scaling. Arbitrum does not enable EIP-8037 today, so the
+    /// value is forwarded to <see cref="EthereumGasPolicy.CalculateIntrinsicGas(Transaction, IReleaseSpec, long)"/>
+    /// only to keep the underlying single-dimension calculation aligned with upstream.
+    /// </remarks>
+    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec, long blockGasLimit)
     {
         long tokensInCallData = IGasPolicy<ArbitrumGasPolicy>.CalculateTokensInCallData(tx, spec);
 
         // Get base intrinsic gas from EthereumGasPolicy
-        IntrinsicGas<EthereumGasPolicy> ethIntrinsic = EthereumGasPolicy.CalculateIntrinsicGas(tx, spec);
+        IntrinsicGas<EthereumGasPolicy> ethIntrinsic = EthereumGasPolicy.CalculateIntrinsicGas(tx, spec, blockGasLimit);
         ArbitrumGasPolicy gas = new() { _ethereum = ethIntrinsic.Standard };
 
         // Now build the MultiGas breakdown (Arbitrum-specific categorization)
