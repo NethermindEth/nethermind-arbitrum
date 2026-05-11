@@ -73,7 +73,7 @@ public class ArbInfoParserTests
         exists.Should().BeTrue();
 
         Address testAccount = new("0x0000000000000000000000000000000000000123");
-        byte[] malformedCalldata = testAccount.Bytes; // Not left-padded to 32 bytes
+        byte[] malformedCalldata = testAccount.Bytes.ToArray(); // Not left-padded to 32 bytes
 
         Action action = () => implementation!(context, malformedCalldata);
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
@@ -137,7 +137,7 @@ public class ArbInfoParserTests
         bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(GetCodeId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        byte[] malformedCalldata = someContract.Bytes; // Not left-padded to 32 bytes
+        byte[] malformedCalldata = someContract.Bytes.ToArray(); // Not left-padded to 32 bytes
 
         Action action = () => implementation!(context, malformedCalldata);
 
