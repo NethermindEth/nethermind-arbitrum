@@ -356,14 +356,12 @@ namespace Nethermind.Arbitrum.Modules
                         transactionCall.Gas = searchResult.Value.Object?.GasLimit;
                 }
 
-                transactionCall.EnsureDefaults(_rpcConfig.GasCap);
-
                 return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
             }
 
             protected override Result<Transaction> Prepare(TransactionForRpc call, BlockHeader header)
             {
-                Result<Transaction> result = call.ToTransaction(validateUserInput: true);
+                Result<Transaction> result = call.ToTransaction(validateUserInput: true, gasCap: _rpcConfig.GasCap);
                 if (result.IsError)
                     return result;
 
