@@ -23,6 +23,7 @@ public sealed class ExpressLaneTracker(
     private Task? _pollingTask;
 
     public event EventHandler<RoundControllerResolvedEventArgs>? ControllerResolved;
+    public event EventHandler<ResolvedRound>? ControllerLoopAdvanced;
 
     public Address AuctionContractAddress => auctionContract.Address;
 
@@ -33,11 +34,7 @@ public sealed class ExpressLaneTracker(
 
         TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _pollingTask = Task.Run(async () =>
-        {
-            started.TrySetResult();
-            await PollContractLoopAsync(_cts.Token);
-        });
+        _pollingTask = Task.Run(() => PollContractLoopAsync(_cts.Token, started));
 
         return started.Task;
     }
@@ -66,33 +63,52 @@ public sealed class ExpressLaneTracker(
         _cts?.Dispose();
     }
 
-    private async Task PollContractLoopAsync(CancellationToken ct)
+    private async Task PollContractLoopAsync(CancellationToken ct, TaskCompletionSource started)
     {
-        while (!ct.IsCancellationRequested)
+        try
         {
-            try
+            Task delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+
+            // Timer is now registered with the time provider; safe to release Start().
+            started.TrySetResult();
+
+            while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
-                PollResolvedRounds();
+                try
+                {
+                    await delayTask;
+                    ResolvedRound polled = PollResolvedRounds();
+
+                    // Register the next Task.Delay BEFORE firing the event, so any observer that
+                    // resumes from this event sees the loop already armed for the next time advance.
+                    delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+
+                    ControllerLoopAdvanced?.Invoke(this, polled);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (_logger.IsDebug)
+                        _logger.Debug($"ExpressLaneTracker: poll failed: {ex.Message}");
+                }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                if (_logger.IsDebug)
-                    _logger.Debug($"ExpressLaneTracker: poll failed: {ex.Message}");
-            }
+        }
+        finally
+        {
+            // Ensure Start() is released even if initial Task.Delay throws.
+            started.TrySetResult();
         }
     }
 
-    private void PollResolvedRounds()
+    private ResolvedRound PollResolvedRounds()
     {
         ResolvedRound resolved = auctionContract.ResolveRounds();
 
         if (resolved.Controller == Address.Zero || resolved.Round == 0)
-            return;
+            return resolved;
 
         ulong currentRound = roundTimingInfo.RoundNumber();
         bool isNewDiscovery;
@@ -107,15 +123,12 @@ public sealed class ExpressLaneTracker(
                 ulong oldest = currentRound - 2;
                 List<ulong>? toRemove = null;
                 foreach (ulong key in _roundControllers.Keys)
-                {
                     if (key < oldest)
-                        (toRemove ??= new()).Add(key);
-                }
+                        (toRemove ??= []).Add(key);
+
                 if (toRemove is not null)
-                {
                     foreach (ulong key in toRemove)
                         _roundControllers.Remove(key);
-                }
             }
         }
 
@@ -124,5 +137,7 @@ public sealed class ExpressLaneTracker(
 
         if (_logger.IsDebug)
             _logger.Debug($"ExpressLaneTracker: round {resolved.Round} controller = {resolved.Controller}");
+
+        return resolved;
     }
 }
