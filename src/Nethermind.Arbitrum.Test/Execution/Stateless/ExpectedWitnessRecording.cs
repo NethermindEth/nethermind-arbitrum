@@ -101,7 +101,13 @@ internal sealed class ExpectedWitnessRecording
         return entries;
     }
 
-    public static void WriteBootstrapEntry(
+    /// <summary>
+    /// Method used initially to bootstrap the expected witness files from existing recordings (see Recordings/Witnesses/*).
+    /// Writes a new expected witness entry for the given recording. Appends to any existing file
+    /// for that recording, but truncates on the first write of each `dotnet test` run to ensure
+    /// we start with a clean slate.
+    /// </summary>
+    public static void WriteExpectedWitnessFileFromRecording(
         string recordingFilePath,
         ulong pos,
         Hash256 blockHash,
@@ -111,23 +117,7 @@ internal sealed class ExpectedWitnessRecording
         string path = ExpectedFilePath(recordingFilePath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-        ExpectedWitnessRecording entry = new()
-        {
-            Pos = pos,
-            BlockHash = blockHash,
-            Witness = new ExpectedWitnessFields
-            {
-                Codes = witness.Witness.Codes.ToArray(),
-                State = witness.Witness.State.ToArray(),
-                Keys = witness.Witness.Keys.ToArray(),
-                Headers = witness.Witness.Headers.ToArray(),
-            },
-            UserWasms = userWasms.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.ToDictionary(inner => inner.Key, inner => inner.Value)),
-        };
-
-        string line = Serializer.Serialize(entry) + "\n";
+        string line = Serializer.Serialize(BuildEntry(pos, blockHash, witness, userWasms)) + "\n";
 
         lock (s_writeLock)
         {
@@ -139,10 +129,11 @@ internal sealed class ExpectedWitnessRecording
     }
 
     /// <summary>
+    /// Method used initially to bootstrap the expected witness files from an existing test (see Recordings/Witnesses/ArbitrumWitnessGenerationTests/*).
     /// Writes the single expected witness entry for a custom test, keyed by the test method name.
     /// Truncates any existing file (custom tests produce exactly one entry, so no append semantics).
     /// </summary>
-    public static void WriteCustomTestEntry(
+    public static void WriteExpectedWitnessFileFromTest(
         string testName,
         ulong pos,
         Hash256 blockHash,
@@ -152,23 +143,7 @@ internal sealed class ExpectedWitnessRecording
         string path = CustomTestExpectedFilePath(testName);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-        ExpectedWitnessRecording entry = new()
-        {
-            Pos = pos,
-            BlockHash = blockHash,
-            Witness = new ExpectedWitnessFields
-            {
-                Codes = witness.Witness.Codes.ToArray(),
-                State = witness.Witness.State.ToArray(),
-                Keys = witness.Witness.Keys.ToArray(),
-                Headers = witness.Witness.Headers.ToArray(),
-            },
-            UserWasms = userWasms.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value.ToDictionary(inner => inner.Key, inner => inner.Value)),
-        };
-
-        File.WriteAllText(path, Serializer.Serialize(entry) + "\n");
+        File.WriteAllText(path, Serializer.Serialize(BuildEntry(pos, blockHash, witness, userWasms)) + "\n");
     }
 
     /// <summary>
@@ -195,4 +170,24 @@ internal sealed class ExpectedWitnessRecording
         using ArbitrumWitness arbWitness = new(witness, userWasmsByValueHash);
         return new RecordResult(Pos, BlockHash, arbWitness);
     }
+
+    private static ExpectedWitnessRecording BuildEntry(
+        ulong pos,
+        Hash256 blockHash,
+        ArbitrumWitness witness,
+        IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> userWasms) => new()
+    {
+        Pos = pos,
+        BlockHash = blockHash,
+        Witness = new ExpectedWitnessFields
+        {
+            Codes = witness.Witness.Codes.ToArray(),
+            State = witness.Witness.State.ToArray(),
+            Keys = witness.Witness.Keys.ToArray(),
+            Headers = witness.Witness.Headers.ToArray(),
+        },
+        UserWasms = userWasms.ToDictionary(
+            kvp => kvp.Key,
+            kvp => kvp.Value.ToDictionary(inner => inner.Key, inner => inner.Value)),
+    };
 }
