@@ -15,6 +15,7 @@ using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
+using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Logging;
@@ -50,11 +51,14 @@ public class ArbitrumEthModuleFactory(
     IArbitrumConfig arbitrumConfig,
     IBlockMetadataProvider blockMetadataProvider) : ModuleFactoryBase<IArbitrumEthRpcModule>
 {
+    private readonly HeadBlockSignal _headBlockSignal = new(blockTree);
+
     public override IArbitrumEthRpcModule Create()
     {
         return new ArbitrumEthRpcModule(
             jsonRpcConfig,
             blockchainBridgeFactory.CreateBlockchainBridge(),
+            blockTree,
             blockTree,
             receiptStorage,
             stateReader,
@@ -70,6 +74,7 @@ public class ArbitrumEthModuleFactory(
             forkInfo,
             logIndexConfig,
             blocksConfig.SecondsPerSlot,
+            _headBlockSignal,
             chainSpecParams,
             transactionQueue,
             sequencerState,
