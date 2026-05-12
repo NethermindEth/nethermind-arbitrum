@@ -596,6 +596,12 @@ public class ArbOwnerPublicTests
             PrecompileTestAbiHelpers.GetMethodId("getNativeTokenManagementFrom()"),
             PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()"),
             PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllTransactionFilterers()"),
+            PrecompileTestAbiHelpers.GetMethodId("isTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getFilteredFundsRecipient()"),
+            PrecompileTestAbiHelpers.GetMethodId("getTransactionFilteringFrom()"),
+            PrecompileTestAbiHelpers.GetMethodId("getCollectTips()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMaxStylusContractFragments()"),
         });
     }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Buffers.Binary;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
@@ -84,7 +85,54 @@ public class ArbOwnerTests
             PrecompileTestAbiHelpers.GetMethodId("setParentGasFloorPerToken(uint64)"),
             PrecompileTestAbiHelpers.GetMethodId("setGasBacklog(uint64)"),
             PrecompileTestAbiHelpers.GetMethodId("setGasPricingConstraints(uint64[3][])"),
+            PrecompileTestAbiHelpers.GetMethodId("addTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("removeTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("isTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllTransactionFilterers()"),
+            PrecompileTestAbiHelpers.GetMethodId("setFilteredFundsRecipient(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getFilteredFundsRecipient()"),
+            PrecompileTestAbiHelpers.GetMethodId("setTransactionFilteringFrom(uint64)"),
+            PrecompileTestAbiHelpers.GetMethodId("setCollectTips(bool)"),
+            PrecompileTestAbiHelpers.GetMethodId("setMaxStylusContractFragments(uint8)"),
+            // `(())` mirrors the test parser: AbiTypeConverter collapses any JSON tuple[] to an empty AbiTuple, dropping components and the array suffix.
+            // (canonical signature is setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])).
+            // See Abi_SetMultiGasPricingConstraints_ContainsExpectedFunctionSignatures for the additional verification
+            PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())"),
+            PrecompileTestAbiHelpers.GetMethodId("setWasmActivationGas(uint64)"),
         });
+    }
+
+    // The test is sanity check for the complex signature of
+    //   function setMultiGasPricingConstraints(
+    //       ((uint8,uint64)[],uint32,uint64,uint64)[] constraints
+    //   ) returns ();
+    //
+    // Unfolded from ArbOwner.g.cs Functions entry 0x2b05bb39:
+    //   AbiType.Array(AbiType.Tuple(
+    //       AbiType.Array(AbiType.Tuple(AbiType.UInt(8), AbiType.UInt(64))),
+    //       AbiType.UInt(32), AbiType.UInt(64), AbiType.UInt(64)))
+    [Test]
+    public void Abi_SetMultiGasPricingConstraints_ContainsExpectedFunctionSignatures()
+    {
+        AbiType resourceConstraint = new AbiTuple(
+            new AbiArray(new AbiTuple(AbiUInt.UInt8, AbiUInt.UInt64)),
+            AbiUInt.UInt32,
+            AbiUInt.UInt64,
+            AbiUInt.UInt64);
+
+        AbiSignature signature = new("setMultiGasPricingConstraints", new AbiArray(resourceConstraint));
+
+        uint canonicalMethodId = BinaryPrimitives.ReadUInt32BigEndian(signature.Address);
+        uint placeholderMethodId = PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())");
+
+        // Sanity-check the canonical signature string that Nethermind's ABI primitives produce.
+        signature.ToString().Should().Be("setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])");
+
+        // The Nethermind-ABI-derived selector must equal the package's authoritative constant.
+        canonicalMethodId.Should().Be(Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints);
+
+        // The "(())" placeholder is self-consistent with PrecompileTestAbiHelpers.GetAllFunctionDescriptions
+        placeholderMethodId.Should().NotBe(canonicalMethodId);
     }
 
     [Test]
@@ -92,7 +140,15 @@ public class ArbOwnerTests
     {
         Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbOwner.Abi);
 
-        allEvents.Keys.Should().BeEquivalentTo("OwnerActs");
+        allEvents.Keys.Should().BeEquivalentTo(
+            "OwnerActs",
+            "ChainOwnerAdded",
+            "ChainOwnerRemoved",
+            "NativeTokenOwnerAdded",
+            "NativeTokenOwnerRemoved",
+            "TransactionFiltererAdded",
+            "TransactionFiltererRemoved",
+            "FilteredFundsRecipientSet");
     }
 
     [Test]
