@@ -1660,7 +1660,7 @@ public class ArbitrumWitnessGenerationTests
     /// </summary>
     private static IEnumerable<TestCaseData> EnumerateExpectedWitnessCases(string recordingFilePath)
     {
-        string expectedFilePath = ExpectedWitnessRecording.ExpectedFilePath(recordingFilePath);
+        string expectedFilePath = ExpectedWitnessRecording.RecordingWitnessExpectedFilePath(recordingFilePath);
 
         Assert.IsTrue(File.Exists(expectedFilePath));
 
@@ -1678,7 +1678,7 @@ public class ArbitrumWitnessGenerationTests
     /// </summary>
     private static void AssertExpectedWitness(string testName, RecordResult recordResult)
     {
-        string path = ExpectedWitnessRecording.CustomTestExpectedFilePath(testName);
+        string path = ExpectedWitnessRecording.CustomTestWitnessExpectedFilePath(testName);
 
         Assert.IsTrue(File.Exists(path), "Either test was renamed or expected witness file got deleted");
 
