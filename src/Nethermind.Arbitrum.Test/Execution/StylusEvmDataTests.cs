@@ -90,7 +90,6 @@ public class StylusEvmDataTests
     [Test]
     public void EvmData_Always_ReturnsCorrectBlockData()
     {
-        UInt256 now = (UInt256)DateTimeOffset.Now.ToUnixTimeSeconds();
         TestContext context = SetupTestContext();
 
         byte[] evmDataCode = context.Chain.WorldStateAccessor.GetCode(context.EvmDataContractAddress)!;
@@ -109,7 +108,7 @@ public class StylusEvmDataTests
         response.GasPrice.Should().Be(1);
         response.GasLimit.Should().Be(1125899906842624);
         response.Value.Should().Be(1);
-        response.Timestamp.Should().BeGreaterOrEqualTo(now);
+        response.Timestamp.Should().Be(context.Chain.BlockTree.Head!.Header.Timestamp);
     }
 
     [Test]
