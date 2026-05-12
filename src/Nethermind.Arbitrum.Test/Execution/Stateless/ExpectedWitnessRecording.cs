@@ -176,18 +176,18 @@ internal sealed class ExpectedWitnessRecording
         Hash256 blockHash,
         ArbitrumWitness witness,
         IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> userWasms) => new()
-    {
-        Pos = pos,
-        BlockHash = blockHash,
-        Witness = new ExpectedWitnessFields
         {
-            Codes = witness.Witness.Codes.ToArray(),
-            State = witness.Witness.State.ToArray(),
-            Keys = witness.Witness.Keys.ToArray(),
-            Headers = witness.Witness.Headers.ToArray(),
-        },
-        UserWasms = userWasms.ToDictionary(
+            Pos = pos,
+            BlockHash = blockHash,
+            Witness = new ExpectedWitnessFields
+            {
+                Codes = witness.Witness.Codes.ToArray(),
+                State = witness.Witness.State.ToArray(),
+                Keys = witness.Witness.Keys.ToArray(),
+                Headers = witness.Witness.Headers.ToArray(),
+            },
+            UserWasms = userWasms.ToDictionary(
             kvp => kvp.Key,
             kvp => kvp.Value.ToDictionary(inner => inner.Key, inner => inner.Value)),
-    };
+        };
 }
