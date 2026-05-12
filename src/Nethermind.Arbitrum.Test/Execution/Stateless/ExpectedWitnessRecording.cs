@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Runtime.CompilerServices;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
@@ -41,16 +43,17 @@ internal sealed class ExpectedWitnessRecording
     }
 
     /// <summary>
-    /// Path to the Recordings/Witnesses folder under the test assembly's output directory, populated
-    /// at build time by the csproj's <c>Content Include="Recordings/**/*"</c> copy step. Anchoring on
-    /// <see cref="AppContext.BaseDirectory"/> rather than a source-tree path keeps the resolution
-    /// independent of deterministic-source-path rewriting (which on CI maps <c>[CallerFilePath]</c>
-    /// to a non-existent <c>/_/...</c> path).
+    /// Path to the Recordings/Witnesses folder used for both reads and writes.
     ///
-    /// Regenerating files writes here too, so the regen workflow is:
-    ///   1) delete the stale JSONL(s) under <c>src/Nethermind.Arbitrum.Test/Recordings/Witnesses/...</c>,
-    ///   2) run the tests (they write the new expected JSONL into this output dir),
-    ///   3) copy the regenerated JSONL(s) back to the source tree and commit.
+    /// Resolution rules:
+    /// - On local dev builds, <see cref="CallerFilePathAttribute"/> gives the real source-tree
+    ///   path of this .cs file, so we anchor on that and end up at
+    ///   <c>src/Nethermind.Arbitrum.Test/Recordings/Witnesses/</c>. Bootstrap writes land directly
+    ///   in the source tree (one step — no copy-back), and reads always see the up-to-date files.
+    /// - On CI builds with deterministic source paths, <c>[CallerFilePath]</c> maps to
+    ///   <c>/_/...</c> which doesn't exist on disk; we fall back to
+    ///   <see cref="AppContext.BaseDirectory"/>, where the csproj's
+    ///   <c>Content Include="Recordings/**/*"</c> copy step has placed the files at build time.
     ///
     /// Layout under this dir:
     /// - <c>{recording}__expected__witness.jsonl</c> — one file per recording-based test source,
@@ -58,8 +61,21 @@ internal sealed class ExpectedWitnessRecording
     /// - <c>ArbitrumWitnessGenerationTests/{testName}.jsonl</c> — one file per on-the-fly custom
     ///   test in <see cref="ArbitrumWitnessGenerationTests"/>, single line.
     /// </summary>
-    private static readonly string s_runtimeWitnessesDir =
-        Path.Combine(AppContext.BaseDirectory, "Recordings", "Witnesses");
+    private static readonly string s_witnessesDir = ResolveWitnessesDir();
+
+    private static string ResolveWitnessesDir([CallerFilePath] string? sourceFile = null)
+    {
+        if (sourceFile is not null)
+        {
+            // sourceFile = <repo>/src/Nethermind.Arbitrum.Test/Execution/Stateless/ExpectedWitnessRecording.cs
+            // Walk up three segments to land on the test project root.
+            string testProjectDir = Path.GetFullPath(Path.Combine(sourceFile, "..", "..", ".."));
+            if (Directory.Exists(testProjectDir))
+                return Path.Combine(testProjectDir, "Recordings", "Witnesses");
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "Recordings", "Witnesses");
+    }
 
     private const string CustomTestsSubdir = "ArbitrumWitnessGenerationTests";
 
@@ -67,7 +83,7 @@ internal sealed class ExpectedWitnessRecording
     public static string RecordingWitnessExpectedFilePath(string recordingFilePath)
     {
         string name = Path.GetFileNameWithoutExtension(recordingFilePath);
-        return Path.Combine(s_runtimeWitnessesDir, $"{name}__expected__witness.jsonl");
+        return Path.Combine(s_witnessesDir, $"{name}__expected__witness.jsonl");
     }
 
     /// <summary>
@@ -76,7 +92,7 @@ internal sealed class ExpectedWitnessRecording
     /// subfolder to keep them separate from recording-driven expected files.
     /// </summary>
     public static string CustomTestWitnessExpectedFilePath(string testName)
-        => Path.Combine(s_runtimeWitnessesDir, CustomTestsSubdir, $"{testName}.jsonl");
+        => Path.Combine(s_witnessesDir, CustomTestsSubdir, $"{testName}.jsonl");
 
     // Tracks which expected JSONL files have already been truncated within the current test
     // run, so the very first bootstrap write per recording starts the file from scratch and
@@ -183,8 +199,27 @@ internal sealed class ExpectedWitnessRecording
                 Keys = witness.Witness.Keys.ToArray(),
                 Headers = witness.Witness.Headers.ToArray(),
             },
-            UserWasms = userWasms.ToDictionary(
-            kvp => kvp.Key,
-            kvp => kvp.Value.ToDictionary(inner => inner.Key, inner => inner.Value)),
+            UserWasms = KeepWavmOnly(userWasms),
         };
+
+    /// <summary>
+    /// Returns a copy of <paramref name="userWasms"/> that retains only the cross-platform
+    /// <c>wavm</c> target for each module hash, dropping platform-specific machine code
+    /// (<c>host</c>, <c>amd64</c>, <c>arm64</c>). Bootstrap files written on one OS would otherwise
+    /// fail comparison on CI running another OS — the wavm bytecode is identical everywhere,
+    /// platform machine code is not. Modules that don't have a wavm entry are dropped entirely.
+    /// </summary>
+    public static Dictionary<Hash256, Dictionary<string, byte[]>> KeepWavmOnly(
+        IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> userWasms)
+    {
+        Dictionary<Hash256, Dictionary<string, byte[]>> result = new();
+        foreach ((Hash256 moduleHash, IReadOnlyDictionary<string, byte[]> targets) in userWasms)
+        {
+            if (targets.TryGetValue(StylusTargets.WavmTargetName, out byte[]? wavm))
+                result[moduleHash] = new Dictionary<string, byte[]> { [StylusTargets.WavmTargetName] = wavm };
+            else
+                throw new InvalidOperationException($"Expected module hash {moduleHash} to have a {StylusTargets.WavmTargetName} entry, but it was missing. Actual targets: {string.Join(", ", targets.Keys)}");
+        }
+        return result;
+    }
 }
