@@ -1527,6 +1527,10 @@ public class ArbitrumWitnessGenerationTests
         AssertWitnessMatchesRecordResult(witness, recordResult);
 
         AssertRecordResultEquivalent(recordResult, expectedRecordResult);
+
+        // To generate the expected witness files, use following lines instead
+        // if (expectedRecordResult is null)
+        //     ExpectedWitnessRecording.WriteBootstrapEntry(recordingFile, recordResult.Pos, recordResult.BlockHash, witness, recordResult.UserWasms);
     }
 
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
@@ -1665,6 +1669,13 @@ public class ArbitrumWitnessGenerationTests
 
         foreach (ExpectedWitnessRecording entry in ExpectedWitnessRecording.ReadAll(expectedFilePath))
             yield return new TestCaseData(recordingFilePath, entry.Pos, entry.ToRecordResult());
+
+        // If want to bootstrap some expected witness files, use following lines instead to feed the existing recordings
+        // which will be used for generating witnesses that can then be written as expected files for future tests.
+        //
+        // FullChainSimulationRecordingFile recording = new(recordingFilePath);
+        // foreach (DigestMessageParameters m in recording.GetDigestMessages())
+        //     yield return new TestCaseData(recordingFilePath, m.Index, (RecordResult?)null);
     }
 
     /// <summary>
@@ -1683,6 +1694,11 @@ public class ArbitrumWitnessGenerationTests
 
         RecordResult expected = ExpectedWitnessRecording.ReadAll(path).Single().ToRecordResult();
         AssertRecordResultEquivalent(recordResult, expected);
+
+        // To generate the expected witness files, use following lines instead
+        //
+        // ExpectedWitnessRecording.WriteCustomTestEntry(
+        //     testName, recordResult.Pos, recordResult.BlockHash, witness, recordResult.UserWasms);
     }
 
     /// <summary>

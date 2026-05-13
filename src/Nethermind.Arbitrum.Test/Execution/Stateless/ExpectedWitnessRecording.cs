@@ -220,6 +220,6 @@ internal sealed class ExpectedWitnessRecording
                 Keys = witness.Witness.Keys.ToArray(),
                 Headers = witness.Witness.Headers.ToArray(),
             },
-            UserWasms = KeepWavmOnly(userWasms),
+            UserWasms = KeepWavmOnly(userWasms), // Only write wavm targets to the expected witness files as platform-agnostic
         };
 }
