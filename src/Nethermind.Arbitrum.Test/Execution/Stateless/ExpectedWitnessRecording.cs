@@ -27,21 +27,6 @@ internal sealed class ExpectedWitnessRecording
 {
     private static readonly EthereumJsonSerializer Serializer = new();
 
-    public ulong Pos { get; init; }
-    public Hash256 BlockHash { get; init; } = null!;
-    public ExpectedWitnessFields Witness { get; init; } = new();
-    // Inner type is concrete Dictionary<string, byte[]> rather than IReadOnlyDictionary so
-    // System.Text.Json can deserialize it; we cast to IReadOnlyDictionary in ToRecordResult.
-    public Dictionary<Hash256, Dictionary<string, byte[]>> UserWasms { get; init; } = new();
-
-    public sealed class ExpectedWitnessFields
-    {
-        public byte[][] Codes { get; init; } = Array.Empty<byte[]>();
-        public byte[][] State { get; init; } = Array.Empty<byte[]>();
-        public byte[][] Keys { get; init; } = Array.Empty<byte[]>();
-        public byte[][] Headers { get; init; } = Array.Empty<byte[]>();
-    }
-
     /// <summary>
     /// Path to the Recordings/Witnesses folder used for both reads and writes.
     ///
@@ -61,29 +46,37 @@ internal sealed class ExpectedWitnessRecording
     /// - <c>ArbitrumWitnessGenerationTests/{testName}.jsonl</c> — one file per on-the-fly custom
     ///   test in <see cref="ArbitrumWitnessGenerationTests"/>, single line.
     /// </summary>
-    private static readonly string s_witnessesDir = ResolveWitnessesDir();
-
-    private static string ResolveWitnessesDir([CallerFilePath] string? sourceFile = null)
-    {
-        if (sourceFile is not null)
-        {
-            // sourceFile = <repo>/src/Nethermind.Arbitrum.Test/Execution/Stateless/ExpectedWitnessRecording.cs
-            // Walk up three segments to land on the test project root.
-            string testProjectDir = Path.GetFullPath(Path.Combine(sourceFile, "..", "..", ".."));
-            if (Directory.Exists(testProjectDir))
-                return Path.Combine(testProjectDir, "Recordings", "Witnesses");
-        }
-
-        return Path.Combine(AppContext.BaseDirectory, "Recordings", "Witnesses");
-    }
+    private static readonly string _witnessesDir = ResolveWitnessesDir();
 
     private const string CustomTestsSubdir = "ArbitrumWitnessGenerationTests";
+
+    // Tracks which expected JSONL files have already been truncated within the current test
+    // run, so the very first bootstrap write per recording starts the file from scratch and
+    // every subsequent write appends to it. Lives for the lifetime of the AppDomain, i.e. one
+    // `dotnet test` invocation.
+    private static readonly HashSet<string> _truncatedThisRun = new();
+    private static readonly object _writeLock = new();
+
+    public ulong Pos { get; init; }
+    public Hash256 BlockHash { get; init; } = null!;
+    public ExpectedWitnessFields Witness { get; init; } = new();
+    // Inner type is concrete Dictionary<string, byte[]> rather than IReadOnlyDictionary so
+    // System.Text.Json can deserialize it; we cast to IReadOnlyDictionary in ToRecordResult.
+    public Dictionary<Hash256, Dictionary<string, byte[]>> UserWasms { get; init; } = new();
+
+    public sealed class ExpectedWitnessFields
+    {
+        public byte[][] Codes { get; init; } = Array.Empty<byte[]>();
+        public byte[][] State { get; init; } = Array.Empty<byte[]>();
+        public byte[][] Keys { get; init; } = Array.Empty<byte[]>();
+        public byte[][] Headers { get; init; } = Array.Empty<byte[]>();
+    }
 
     /// <summary>JSONL location holding one expected witness per line for the given recording.</summary>
     public static string RecordingWitnessExpectedFilePath(string recordingFilePath)
     {
         string name = Path.GetFileNameWithoutExtension(recordingFilePath);
-        return Path.Combine(s_witnessesDir, $"{name}__expected__witness.jsonl");
+        return Path.Combine(_witnessesDir, $"{name}__expected__witness.jsonl");
     }
 
     /// <summary>
@@ -92,14 +85,7 @@ internal sealed class ExpectedWitnessRecording
     /// subfolder to keep them separate from recording-driven expected files.
     /// </summary>
     public static string CustomTestWitnessExpectedFilePath(string testName)
-        => Path.Combine(s_witnessesDir, CustomTestsSubdir, $"{testName}.jsonl");
-
-    // Tracks which expected JSONL files have already been truncated within the current test
-    // run, so the very first bootstrap write per recording starts the file from scratch and
-    // every subsequent write appends to it. Lives for the lifetime of the AppDomain, i.e. one
-    // `dotnet test` invocation.
-    private static readonly HashSet<string> s_truncatedThisRun = new();
-    private static readonly object s_writeLock = new();
+        => Path.Combine(_witnessesDir, CustomTestsSubdir, $"{testName}.jsonl");
 
     public static IReadOnlyList<ExpectedWitnessRecording> ReadAll(string jsonlFilePath)
     {
@@ -132,9 +118,9 @@ internal sealed class ExpectedWitnessRecording
 
         string line = Serializer.Serialize(BuildEntry(pos, blockHash, witness, userWasms)) + "\n";
 
-        lock (s_writeLock)
+        lock (_writeLock)
         {
-            if (s_truncatedThisRun.Add(path))
+            if (_truncatedThisRun.Add(path))
                 File.WriteAllText(path, line);
             else
                 File.AppendAllText(path, line);
@@ -184,24 +170,6 @@ internal sealed class ExpectedWitnessRecording
         return new RecordResult(Pos, BlockHash, arbWitness);
     }
 
-    private static ExpectedWitnessRecording BuildEntry(
-        ulong pos,
-        Hash256 blockHash,
-        ArbitrumWitness witness,
-        IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> userWasms) => new()
-        {
-            Pos = pos,
-            BlockHash = blockHash,
-            Witness = new ExpectedWitnessFields
-            {
-                Codes = witness.Witness.Codes.ToArray(),
-                State = witness.Witness.State.ToArray(),
-                Keys = witness.Witness.Keys.ToArray(),
-                Headers = witness.Witness.Headers.ToArray(),
-            },
-            UserWasms = KeepWavmOnly(userWasms),
-        };
-
     /// <summary>
     /// Returns a copy of <paramref name="userWasms"/> that retains only the cross-platform
     /// <c>wavm</c> target for each module hash, dropping platform-specific machine code
@@ -222,4 +190,36 @@ internal sealed class ExpectedWitnessRecording
         }
         return result;
     }
+
+    private static string ResolveWitnessesDir([CallerFilePath] string? sourceFile = null)
+    {
+        if (sourceFile is not null)
+        {
+            // sourceFile = <repo>/src/Nethermind.Arbitrum.Test/Execution/Stateless/ExpectedWitnessRecording.cs
+            // Walk up three segments to land on the test project root.
+            string testProjectDir = Path.GetFullPath(Path.Combine(sourceFile, "..", "..", ".."));
+            if (Directory.Exists(testProjectDir))
+                return Path.Combine(testProjectDir, "Recordings", "Witnesses");
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "Recordings", "Witnesses");
+    }
+
+    private static ExpectedWitnessRecording BuildEntry(
+        ulong pos,
+        Hash256 blockHash,
+        ArbitrumWitness witness,
+        IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> userWasms) => new()
+        {
+            Pos = pos,
+            BlockHash = blockHash,
+            Witness = new ExpectedWitnessFields
+            {
+                Codes = witness.Witness.Codes.ToArray(),
+                State = witness.Witness.State.ToArray(),
+                Keys = witness.Witness.Keys.ToArray(),
+                Headers = witness.Witness.Headers.ToArray(),
+            },
+            UserWasms = KeepWavmOnly(userWasms),
+        };
 }
