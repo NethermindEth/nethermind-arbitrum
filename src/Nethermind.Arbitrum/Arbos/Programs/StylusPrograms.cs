@@ -734,7 +734,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     {
         byte[]? prefixedWasm = state.GetCode(address);
         if (prefixedWasm is null)
-            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.UnknownError, $"No WASM code found for {address} address", []));
+            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotWasm, $"No WASM code found for {address} address", []));
 
         return GetWasmFromContractCode(prefixedWasm, stylusParams, state, in charger)
             .WithErrorContext("address: " + address);
@@ -1011,7 +1011,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // before any state access for the fragment occurs.
         public void EnsureCanReadFragment(Address addr)
         {
-            if (!IsActive) return;
+            if (!IsActive)
+                return;
+
             bool warm = !accessTracker.IsCold(addr);
             MultiGas cost = FragmentReadGasCost(warm, maxCodeSize);
             if (burner.GasLeft < cost.SingleGas())
@@ -1023,7 +1025,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // the cold cost; the access-list mutation makes subsequent EVM accesses see warm.
         public void ChargeForReadingFragment(Address addr, long actualCodeSize)
         {
-            if (!IsActive) return;
+            if (!IsActive)
+                return;
+
             bool wasCold = accessTracker.WarmUp(addr);
             MultiGas cost = FragmentReadGasCost(warm: !wasCold, actualCodeSize);
             burner.Burn(in cost);

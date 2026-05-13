@@ -18,6 +18,7 @@ using Nethermind.Evm.State;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.Logging;
 using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
@@ -578,6 +579,42 @@ public class ArbOwnerPublicTests
     }
 
     [Test]
+    public void GetMaxStylusContractFragments_AfterSetterAtSixty_ReturnsValue()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetMaxStylusContractFragments(context, 13);
+
+        ArbOwnerPublic.GetMaxStylusContractFragments(context).Should().Be(13);
+    }
+
+    [Test]
+    public void GetMaxStylusContractFragments_BelowSixtyArbOSVersion_IsRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.Sixty - 1);
+
+        bool result = ArbOwnerPublicParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void GetMaxStylusContractFragments_AtSixtyArbOSVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context = context.WithExecutingAccount(ArbOwnerPublicParser.Address);
+
+        bool result = ArbOwnerPublicParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
         Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbOwnerPublic.Abi);
@@ -628,5 +665,6 @@ public class ArbOwnerPublicTests
         PrecompileTestAbiHelpers.GetMethodId("getNativeTokenManagementFrom()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetNativeTokenManagementFrom);
         PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade);
         PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()").Should().Be(Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled);
+        PrecompileTestAbiHelpers.GetMethodId("getMaxStylusContractFragments()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments);
     }
 }
