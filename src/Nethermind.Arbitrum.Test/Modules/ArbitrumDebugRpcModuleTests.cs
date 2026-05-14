@@ -330,6 +330,7 @@ public class ArbitrumDebugRpcModuleTests
             _blockTree,
             _cacheAwareServices,
             LimboLogs.Instance,
+            _arbosVersionOverride = Substitute.For<IArbOSVersionOverride>(),
             historyPruner);
 
         ResultWrapper<bool> result = await module.debug_schedulePruneHistory();

@@ -71,7 +71,7 @@ public sealed class ArbosTestTests
         UInt256 gasAmount = ulong.MaxValue;
 
         // BurnAllowingOutOfGas intentionally does not throw — it silently consumes all remaining gas
-        ArbTest.BurnArbGas(_context, gasAmount);
+        ArbosTest.BurnArbGas(_context, gasAmount);
 
         _context.GasLeft.Should().Be(0);
     }
