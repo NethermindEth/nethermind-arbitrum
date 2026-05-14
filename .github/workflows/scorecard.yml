@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
 
       - name: Run Scorecard Analysis
-        uses: ossf/scorecard-action@v2.4.0
+        uses: ossf/scorecard-action@v2.4.3
         with:
           results_file: results.sarif
           results_format: sarif
@@ -36,12 +36,12 @@ jobs:
           publish_results: true
 
       - name: Upload Scorecard Results to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
 
       - name: Upload Scorecard Results as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scorecard-results
           path: results.sarif

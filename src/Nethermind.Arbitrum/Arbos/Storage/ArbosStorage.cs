@@ -413,7 +413,7 @@ public class ArbosStorageBackedAddress(ArbosStorage storage, ulong offset)
     public void Set(Address val)
     {
         Span<byte> hashBytes = stackalloc byte[32];
-        val.Bytes.AsSpan().CopyTo(hashBytes[12..]);
+        val.Bytes.CopyTo(hashBytes[12..]);
         _slot.Set(new ValueHash256(hashBytes));
     }
 }
@@ -438,7 +438,7 @@ public class ArbosStorageBackedNullableAddress(ArbosStorage storage, ulong offse
         }
 
         Span<byte> hashBytes = stackalloc byte[32];
-        val.Bytes.AsSpan().CopyTo(hashBytes[12..]);
+        val.Bytes.CopyTo(hashBytes[12..]);
         _slot.Set(new ValueHash256(hashBytes));
     }
 }

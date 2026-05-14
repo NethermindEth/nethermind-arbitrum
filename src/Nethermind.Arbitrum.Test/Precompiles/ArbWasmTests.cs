@@ -2,8 +2,13 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Test.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Test;
@@ -12,6 +17,7 @@ using Nethermind.Evm.State;
 using Nethermind.Logging;
 using static Nethermind.Arbitrum.Precompiles.ArbWasm;
 using Address = Nethermind.Core.Address;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -346,5 +352,136 @@ public sealed class ArbWasmTests
         ushort size = BlockCacheSize(_context);
 
         size.Should().Be(32);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbWasm.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashKeepalive(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("stylusVersion()"),
+            PrecompileTestAbiHelpers.GetMethodId("inkPrice()"),
+            PrecompileTestAbiHelpers.GetMethodId("maxStackDepth()"),
+            PrecompileTestAbiHelpers.GetMethodId("freePages()"),
+            PrecompileTestAbiHelpers.GetMethodId("pageGas()"),
+            PrecompileTestAbiHelpers.GetMethodId("pageRamp()"),
+            PrecompileTestAbiHelpers.GetMethodId("pageLimit()"),
+            PrecompileTestAbiHelpers.GetMethodId("minInitGas()"),
+            PrecompileTestAbiHelpers.GetMethodId("initCostScalar()"),
+            PrecompileTestAbiHelpers.GetMethodId("expiryDays()"),
+            PrecompileTestAbiHelpers.GetMethodId("keepaliveDays()"),
+            PrecompileTestAbiHelpers.GetMethodId("blockCacheSize()"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashVersion(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("codehashAsmSize(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("programVersion(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("programInitGas(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("programMemoryFootprint(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("programTimeLeft(address)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbWasm.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ProgramActivated", "ProgramLifetimeExtended");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbWasm.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("ProgramNotWasm", "ProgramNotActivated", "ProgramNeedsUpgrade", "ProgramExpired", "ProgramUpToDate", "ProgramKeepaliveTooSoon", "ProgramInsufficientValue");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)").Should().Be(Solgen.ArbWasm.Methods.ActivateProgram);
+        PrecompileTestAbiHelpers.GetMethodId("codehashKeepalive(bytes32)").Should().Be(Solgen.ArbWasm.Methods.CodehashKeepalive);
+        PrecompileTestAbiHelpers.GetMethodId("stylusVersion()").Should().Be(Solgen.ArbWasm.Methods.StylusVersion);
+        PrecompileTestAbiHelpers.GetMethodId("inkPrice()").Should().Be(Solgen.ArbWasm.Methods.InkPrice);
+        PrecompileTestAbiHelpers.GetMethodId("maxStackDepth()").Should().Be(Solgen.ArbWasm.Methods.MaxStackDepth);
+        PrecompileTestAbiHelpers.GetMethodId("freePages()").Should().Be(Solgen.ArbWasm.Methods.FreePages);
+        PrecompileTestAbiHelpers.GetMethodId("pageGas()").Should().Be(Solgen.ArbWasm.Methods.PageGas);
+        PrecompileTestAbiHelpers.GetMethodId("pageRamp()").Should().Be(Solgen.ArbWasm.Methods.PageRamp);
+        PrecompileTestAbiHelpers.GetMethodId("pageLimit()").Should().Be(Solgen.ArbWasm.Methods.PageLimit);
+        PrecompileTestAbiHelpers.GetMethodId("minInitGas()").Should().Be(Solgen.ArbWasm.Methods.MinInitGas);
+        PrecompileTestAbiHelpers.GetMethodId("initCostScalar()").Should().Be(Solgen.ArbWasm.Methods.InitCostScalar);
+        PrecompileTestAbiHelpers.GetMethodId("expiryDays()").Should().Be(Solgen.ArbWasm.Methods.ExpiryDays);
+        PrecompileTestAbiHelpers.GetMethodId("keepaliveDays()").Should().Be(Solgen.ArbWasm.Methods.KeepaliveDays);
+        PrecompileTestAbiHelpers.GetMethodId("blockCacheSize()").Should().Be(Solgen.ArbWasm.Methods.BlockCacheSize);
+        PrecompileTestAbiHelpers.GetMethodId("codehashVersion(bytes32)").Should().Be(Solgen.ArbWasm.Methods.CodehashVersion);
+        PrecompileTestAbiHelpers.GetMethodId("codehashAsmSize(bytes32)").Should().Be(Solgen.ArbWasm.Methods.CodehashAsmSize);
+        PrecompileTestAbiHelpers.GetMethodId("programVersion(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramVersion);
+        PrecompileTestAbiHelpers.GetMethodId("programInitGas(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramInitGas);
+        PrecompileTestAbiHelpers.GetMethodId("programMemoryFootprint(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramMemoryFootprint);
+        PrecompileTestAbiHelpers.GetMethodId("programTimeLeft(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramTimeLeft);
+    }
+
+    [Test]
+    public void EventTopics_AllEvents_MatchExpectedHashes()
+    {
+        Dictionary<string, AbiEventDescription> events = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbWasm.Abi);
+
+        events["ProgramActivated"].GetHash().Should().Be(
+            new Hash256(Solgen.ArbWasm.Events.ProgramActivated.Topic0Hex));
+
+        events["ProgramLifetimeExtended"].GetHash().Should().Be(
+            new Hash256(Solgen.ArbWasm.Events.ProgramLifetimeExtended.Topic0Hex));
+    }
+
+    [Test]
+    public void ErrorSelectors_AllErrors_MatchExpectedValues()
+    {
+        Dictionary<string, AbiErrorDescription> errors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbWasm.Abi);
+
+        errors["ProgramNotWasm"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramNotWasm.Selector);
+        errors["ProgramNotActivated"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramNotActivated.Selector);
+        errors["ProgramNeedsUpgrade"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramNeedsUpgrade.Selector);
+        errors["ProgramExpired"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramExpired.Selector);
+        errors["ProgramUpToDate"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramUpToDate.Selector);
+        errors["ProgramKeepaliveTooSoon"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramKeepaliveTooSoon.Selector);
+        errors["ProgramInsufficientValue"].GetSelector().Should().Be(Solgen.ArbWasm.Errors.ProgramInsufficientValue.Selector);
+    }
+
+    [TestCase("stylusVersion()")]
+    [TestCase("activateProgram(address)")]
+    [TestCase("codehashVersion(bytes32)")]
+    public void MethodVisibility_BelowStylusArbOSVersion_IsSilentlyRejected(string signature)
+    {
+        // The entire ArbWasm precompile is gated at ArbosVersion.Stylus; below that, the check at
+        // PrecompileHelper.cs:61-62 exits before reading the method ID, so handler stays null too.
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus - 1);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileTestAbiHelpers.GetMethodId(signature), out bool shouldRevert, out PrecompileHandler? handler);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeFalse();
+        handler.Should().BeNull();
+    }
+
+    [TestCase("stylusVersion()")]
+    [TestCase("activateProgram(address)")]
+    [TestCase("codehashVersion(bytes32)")]
+    public void MethodVisibility_AtStylusArbOSVersion_IsDispatched(string signature)
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.Stylus)
+            .WithExecutingAccount(ArbWasmParser.Address);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            PrecompileTestAbiHelpers.GetMethodId(signature), out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 }

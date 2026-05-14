@@ -4,6 +4,7 @@ services:
     image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.1.0-alpha}
     container_name: nethermind-arbitrum
     restart: 'no'
+    stop_grace_period: 5m
     ports:
       - 20545:20545
       - 20551:20551
@@ -37,22 +38,24 @@ services:
       nethermind-arbitrum:
         condition: service_healthy
     restart: 'no'
+    stop_grace_period: 5m
     ports: []
     volumes:
-      - ./nitro-data:/tmp/nitro-data
+      - ./nitro-data:/app/nitro-data
       - ./nethermind-data:/nethermind-data:ro
     command:
       - --init.empty=true
-      - --init.validate-genesis-assertion=false
-      - --persistent.global-config=/tmp/nitro-data
+      - --persistent.global-config=/app/nitro-data
+      - --chain.id=${CHAIN_ID:-42161}
       - --parent-chain.connection.url=${PARENT_CHAIN_RPC_URL}
       - --parent-chain.blob-client.beacon-url=${PARENT_CHAIN_BEACON_URL}
-      - --chain.id=${CHAIN_ID:-42161}
-      - --execution.forwarding-target=null
       - --log-level=${LOG_LEVEL:-INFO}
       - --node.execution-rpc-client.url=http://nethermind-arbitrum:20551
       - --node.execution-rpc-client.jwtsecret=/nethermind-data/jwt.hex
+      - --node.staker.enable=false
       - --node.sequencer=false
+      - --init.validate-genesis-assertion=false
+      - --execution.forwarding-target=null
     networks:
       - nethermind-network
 

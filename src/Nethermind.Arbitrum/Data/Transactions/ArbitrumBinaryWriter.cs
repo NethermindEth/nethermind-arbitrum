@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Buffers.Binary;
-using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Data.Transactions;
 

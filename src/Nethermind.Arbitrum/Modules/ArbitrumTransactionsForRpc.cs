@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
@@ -40,7 +41,7 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumInternalTransaction
         {
@@ -52,8 +53,6 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
 
     public static ArbitrumInternalTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
         => new(tx, extraData);
-
-    public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -91,7 +90,7 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
         Value = transaction.Value;
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumDepositTransaction
         {
@@ -106,8 +105,6 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
 
     public static ArbitrumDepositTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
         => new(tx, extraData);
-
-    public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -153,7 +150,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumUnsignedTransaction
         {
@@ -173,8 +170,6 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
 
     public static ArbitrumUnsignedTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
         => new(tx, extraData);
-
-    public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -236,7 +231,7 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
         SubmissionFeeRefund = retryTx?.SubmissionFeeRefund;
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumRetryTransaction
         {
@@ -260,8 +255,6 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
 
     public static ArbitrumRetryTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
         => new(tx, extraData);
-
-    public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -337,7 +330,7 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumSubmitRetryableTransaction
         {
@@ -363,8 +356,6 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
 
     public static ArbitrumSubmitRetryableTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
         => new(tx, extraData);
-
-    public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -411,7 +402,7 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Result<Transaction> ToTransaction(bool validateUserInput = false)
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumContractTransaction
         {
@@ -431,8 +422,6 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
 
     public static ArbitrumContractTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
         => new(tx, extraData);
-
-    public override void EnsureDefaults(long? gasCap) { }
 
     public override bool ShouldSetBaseFee() => false;
 }

@@ -26,6 +26,15 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
 
+    [ConfigItem(Description = "Maximum number of state roots to keep pinned in the MemDb overlay simultaneously", DefaultValue = "1000")]
+    int ValidatorMaxStateRootsInMem { get; set; }
+
+    [ConfigItem(Description = "Maximum size in MB of the reconstructed state MemDb overlay before oldest roots are spilled to disk", DefaultValue = "1024")]
+    int ValidatorReconstructedStateMemDBMaxSizeMb { get; set; }
+
+    [ConfigItem(Description = "Whether validation is enabled", DefaultValue = "false")]
+    bool ValidationEnabled { get; set; }
+
     [ConfigItem(Description = "Enable ResettableArbitrumBlockTree and debug_reinitialize for system/comparison testing", DefaultValue = "false")]
     bool EnableTestReset { get; set; }
 
@@ -85,4 +94,13 @@ public interface IArbitrumConfig : IConfig
 
     [ConfigItem(Description = "Duration of the auction closing window at the end of each round in seconds", DefaultValue = "15")]
     int TimeboostAuctionClosingWindowSeconds { get; set; }
+
+    [ConfigItem(Description = "Whether to enable fetching block metadata from the Nitro consensus node", DefaultValue = "false")]
+    bool ConsensusNodeRpcEnabled { get; set; }
+
+    [ConfigItem(Description = "URL of the Nitro consensus node RPC for fetching block metadata", DefaultValue = "")]
+    string ConsensusNodeRpcUrl { get; set; }
+
+    [ConfigItem(Description = "Timeout in milliseconds for consensus node RPC calls", DefaultValue = "10000")]
+    int ConsensusNodeRpcTimeoutMs { get; set; }
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -10,18 +9,12 @@ using Nethermind.Evm.Precompiles;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
-public sealed class PrecompileInfo : CodeInfo
+public sealed class PrecompileInfo(IArbitrumPrecompile precompile) : CodeInfo(PrecompileStub, PrecompileCode)
 {
     private static readonly byte[] PrecompileCode = [(byte)Instruction.INVALID];
     private static readonly IPrecompile PrecompileStub = new ArbitrumPrecompileStub();
 
-    public PrecompileInfo(IArbitrumPrecompile precompile)
-        : base(PrecompileStub, version: 0, new ReadOnlyMemory<byte>(PrecompileCode))
-    {
-        ArbitrumPrecompile = precompile;
-    }
-
-    public IArbitrumPrecompile ArbitrumPrecompile { get; }
+    public IArbitrumPrecompile ArbitrumPrecompile { get; } = precompile;
 
     /// <summary>
     /// Stateless stub that satisfies <see cref="CodeInfo"/>'s <see cref="IPrecompile"/> requirement

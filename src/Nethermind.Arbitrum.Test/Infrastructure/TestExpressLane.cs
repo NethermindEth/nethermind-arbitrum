@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
+using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Crypto;
@@ -25,7 +26,6 @@ public class TestExpressLane
         int intoRoundSeconds = 30)
     {
         ArbitrumConfig config = TestSequencer.DefaultConfig(setup);
-        setup?.Invoke(config);
 
         ManualRoundTimingInfo timing = new(config, DateTimeOffset.UtcNow, currentRound, TimeSpan.FromSeconds(intoRoundSeconds));
         FakeAuctionContract auctionContract = new() { Address = TestAuctionContract };
@@ -41,6 +41,9 @@ public class TestExpressLane
     public static ExpressLaneService CreateService(ExpressLaneTracker tracker, TestExpressLaneTrackerContext trackerContext, out TestExpressLaneServiceContext context)
     {
         TransactionQueue txQueue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
+        IBlockTree blockTree = Substitute.For<IBlockTree>();
+        Block head = Build.A.Block.WithHeader(Build.A.BlockHeader.TestObject).TestObject;
+        blockTree.Head.Returns(head);
 
         context = new(txQueue);
 
@@ -51,6 +54,8 @@ public class TestExpressLane
             txQueue,
             new EthereumEcdsa(FullChainSimulationChainSpecProvider.ChainId),
             FullChainSimulationChainSpecProvider.Create(),
+            blockTree,
+            new FakeStateReader(),
             LimboLogs.Instance);
     }
 }

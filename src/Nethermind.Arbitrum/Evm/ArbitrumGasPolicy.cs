@@ -336,18 +336,22 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         return true;
     }
 
+    public static bool TryConsumeStateAndRegularGas(ref ArbitrumGasPolicy gas, long stateGasCost, long regularGasCost)
+    {
+        return UpdateGasWithResource(ref gas, regularGasCost, ResourceKind.StorageGrowth);
+    }
+
     /// <summary>
     /// Charges gas for SSTORE write operation (after cold/warm access cost).
     /// Tracks as StorageGrowth for slot creation, StorageAccess for modification.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ConsumeStorageWrite(ref ArbitrumGasPolicy gas, bool isSlotCreation, IReleaseSpec spec)
+    public static bool ConsumeStorageWrite<TEip8037, TSlotCreate>(ref ArbitrumGasPolicy gas, IReleaseSpec spec)
+        where TEip8037 : struct, IFlag
+        where TSlotCreate : struct, IFlag
     {
-        if (!EthereumGasPolicy.ConsumeStorageWrite(ref gas._ethereum, isSlotCreation, spec))
-            return false;
-        long cost = isSlotCreation ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
-        gas._accumulated.Increment(isSlotCreation ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess, (ulong)cost);
-        return true;
+        long cost = TSlotCreate.IsActive ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
+        return UpdateGasWithResource(ref gas, cost, TSlotCreate.IsActive ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess);
     }
 
     /// <summary>
@@ -368,9 +372,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// Tracks as StorageGrowth resource.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool ConsumeNewAccountCreation(ref ArbitrumGasPolicy gas)
+    public static bool ConsumeNewAccountCreation<TEip8037>(ref ArbitrumGasPolicy gas) where TEip8037 : struct, IFlag
     {
-        if (!EthereumGasPolicy.ConsumeNewAccountCreation(ref gas._ethereum))
+        if (!EthereumGasPolicy.ConsumeStateGas(ref gas._ethereum, GasCostOf.NewAccount))
             return false;
         gas._accumulated.Increment(ResourceKind.StorageGrowth, GasCostOf.NewAccount);
         return true;
@@ -447,12 +451,25 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// <summary>
     /// Calculates intrinsic gas for a transaction with MultiGas breakdown.
     /// </summary>
-    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec) =>
+        CalculateIntrinsicGas(tx, spec, blockGasLimit: 0);
+
+    /// <summary>
+    /// Calculates intrinsic gas for a transaction with MultiGas breakdown.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="blockGasLimit"/> is required by the upstream <see cref="IGasPolicy{TSelf}"/>
+    /// contract for EIP-8037 state-cost scaling. Arbitrum does not enable EIP-8037 today, so the
+    /// value is forwarded to <see cref="EthereumGasPolicy.CalculateIntrinsicGas(Transaction, IReleaseSpec, long)"/>
+    /// only to keep the underlying single-dimension calculation aligned with upstream.
+    /// </remarks>
+    public static IntrinsicGas<ArbitrumGasPolicy> CalculateIntrinsicGas(Transaction tx, IReleaseSpec spec, long blockGasLimit)
     {
         long tokensInCallData = IGasPolicy<ArbitrumGasPolicy>.CalculateTokensInCallData(tx, spec);
 
         // Get base intrinsic gas from EthereumGasPolicy
-        IntrinsicGas<EthereumGasPolicy> ethIntrinsic = EthereumGasPolicy.CalculateIntrinsicGas(tx, spec);
+        IntrinsicGas<EthereumGasPolicy> ethIntrinsic = EthereumGasPolicy.CalculateIntrinsicGas(tx, spec, blockGasLimit);
         ArbitrumGasPolicy gas = new() { _ethereum = ethIntrinsic.Standard };
 
         // Now build the MultiGas breakdown (Arbitrum-specific categorization)
@@ -498,7 +515,8 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             gas._accumulated.Increment(ResourceKind.StorageGrowth, (ulong)authCost);
         }
 
-        long floorCost = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorCost(tokensInCallData, spec);
+        long floorTokensInAccessList = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorTokensInAccessList(tx, spec);
+        long floorCost = IGasPolicy<ArbitrumGasPolicy>.CalculateFloorCost(tx, spec, tokensInCallData, floorTokensInAccessList);
         ArbitrumGasPolicy floorGas = FromLong(floorCost);
 
         return new IntrinsicGas<ArbitrumGasPolicy>(gas, floorGas);
@@ -509,6 +527,6 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// The accumulated breakdown from intrinsic gas is preserved for tracking.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ArbitrumGasPolicy CreateAvailableFromIntrinsic(long gasLimit, in ArbitrumGasPolicy intrinsicGas)
-        => intrinsicGas with { _ethereum = EthereumGasPolicy.CreateAvailableFromIntrinsic(gasLimit, in intrinsicGas._ethereum) };
+    public static ArbitrumGasPolicy CreateAvailableFromIntrinsic(long gasLimit, in ArbitrumGasPolicy intrinsicGas, IReleaseSpec spec)
+        => intrinsicGas with { _ethereum = EthereumGasPolicy.CreateAvailableFromIntrinsic(gasLimit, in intrinsicGas._ethereum, spec) };
 }

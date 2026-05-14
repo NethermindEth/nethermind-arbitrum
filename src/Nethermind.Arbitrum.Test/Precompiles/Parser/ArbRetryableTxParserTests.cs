@@ -24,21 +24,21 @@ public class ArbRetryableTxParserTests
 {
     private static readonly ILogManager Logger = LimboLogs.Instance;
 
-    private static readonly uint _redeemId = PrecompileHelper.GetMethodId("redeem(bytes32)");
-    private static readonly uint _getLifetimeId = PrecompileHelper.GetMethodId("getLifetime()");
-    private static readonly uint _getTimeoutId = PrecompileHelper.GetMethodId("getTimeout(bytes32)");
-    private static readonly uint _keepaliveId = PrecompileHelper.GetMethodId("keepalive(bytes32)");
-    private static readonly uint _getBeneficiaryId = PrecompileHelper.GetMethodId("getBeneficiary(bytes32)");
-    private static readonly uint _cancelId = PrecompileHelper.GetMethodId("cancel(bytes32)");
-    private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
-    private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
+    private static readonly uint RedeemId = PrecompileTestAbiHelpers.GetMethodId("redeem(bytes32)");
+    private static readonly uint GetLifetimeId = PrecompileTestAbiHelpers.GetMethodId("getLifetime()");
+    private static readonly uint GetTimeoutId = PrecompileTestAbiHelpers.GetMethodId("getTimeout(bytes32)");
+    private static readonly uint KeepaliveId = PrecompileTestAbiHelpers.GetMethodId("keepalive(bytes32)");
+    private static readonly uint GetBeneficiaryId = PrecompileTestAbiHelpers.GetMethodId("getBeneficiary(bytes32)");
+    private static readonly uint CancelId = PrecompileTestAbiHelpers.GetMethodId("cancel(bytes32)");
+    private static readonly uint GetCurrentRedeemerId = PrecompileTestAbiHelpers.GetMethodId("getCurrentRedeemer()");
+    private static readonly uint SubmitRetryableId = PrecompileTestAbiHelpers.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
 
     [Test]
     public void ParsesRedeem_ValidInputData_ReturnsCreatedRetryTxHash()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -90,10 +90,10 @@ public class ArbRetryableTxParserTests
         // Reset gas for correct retry tx hash computation (context initialization consumes gas)
         newContext.ResetGasLeft();
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_redeemId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(RedeemId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_redeemId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[RedeemId].AbiFunctionDescription;
         byte[] inputdata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -119,7 +119,7 @@ public class ArbRetryableTxParserTests
 
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_redeemId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(RedeemId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
@@ -134,12 +134,12 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getLifetimeId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(GetLifetimeId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -153,7 +153,7 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -170,10 +170,10 @@ public class ArbRetryableTxParserTests
         ulong timeoutWindowsLeft = 2;
         retryable.TimeoutWindowsLeft.Set(timeoutWindowsLeft);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getTimeoutId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(GetTimeoutId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_getTimeoutId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[GetTimeoutId].AbiFunctionDescription;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -200,7 +200,7 @@ public class ArbRetryableTxParserTests
 
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getTimeoutId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(GetTimeoutId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
@@ -215,7 +215,7 @@ public class ArbRetryableTxParserTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -236,10 +236,10 @@ public class ArbRetryableTxParserTests
         PrecompileTestContextBuilder newContext = new(worldState, gasSupplied);
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_keepaliveId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(KeepaliveId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_keepaliveId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[KeepaliveId].AbiFunctionDescription;
         byte[] inputdata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -266,7 +266,7 @@ public class ArbRetryableTxParserTests
 
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_keepaliveId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(KeepaliveId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
@@ -280,7 +280,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -294,10 +294,10 @@ public class ArbRetryableTxParserTests
             ticketId, Address.Zero, Address.Zero, 0, beneficiary, timeout, []
         );
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getBeneficiaryId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(GetBeneficiaryId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_getBeneficiaryId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[GetBeneficiaryId].AbiFunctionDescription;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -321,7 +321,7 @@ public class ArbRetryableTxParserTests
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getBeneficiaryId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(GetBeneficiaryId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         // too small ticketId parameter
@@ -337,7 +337,7 @@ public class ArbRetryableTxParserTests
     public void ParsesCancel_RetryableExists_ReturnsEmptyOutput()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -368,10 +368,10 @@ public class ArbRetryableTxParserTests
             .WithReleaseSpec()
             .WithCaller(beneficiary);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_cancelId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(CancelId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[_cancelId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbRetryableTxParser.PrecompileFunctionDescription[CancelId].AbiFunctionDescription;
         byte[] inputData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -397,7 +397,7 @@ public class ArbRetryableTxParserTests
 
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_cancelId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(CancelId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, invalidInputData);
@@ -411,7 +411,7 @@ public class ArbRetryableTxParserTests
     public void ParsesGetCurrentRedeemer_Always_ReturnsRedeemerOrZeroAddress()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -421,7 +421,7 @@ public class ArbRetryableTxParserTests
             CurrentRefundTo = redeemer
         };
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_getCurrentRedeemerId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(GetCurrentRedeemerId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -447,7 +447,7 @@ public class ArbRetryableTxParserTests
             Address.Zero, Address.Zero, Array.Empty<byte>()
         );
 
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_submitRetryableId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(SubmitRetryableId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(null!, encodedParams);
@@ -460,7 +460,7 @@ public class ArbRetryableTxParserTests
     [Test]
     public void ParsesSubmitRetryable_WithInvalidInputData_ThrowsRevertException()
     {
-        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(_submitRetryableId, out PrecompileHandler? implementation);
+        bool exists = ArbRetryableTxParser.PrecompileImplementation.TryGetValue(SubmitRetryableId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         // too small ticketId parameter

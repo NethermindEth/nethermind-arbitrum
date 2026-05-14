@@ -1405,7 +1405,7 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+        uint getArbBlockNumberMethodId = PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)");
         UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -1417,9 +1417,9 @@ public class ArbitrumVirtualMachineTests
 
         long intrinsicGas = GasCostOf.Transaction + 204;
 
-        ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
+        ulong inputDataCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
         ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
+        ulong solidityErrorCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
         // input data cost + opening arbos + error data cost
         ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
 
@@ -1476,7 +1476,7 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        uint getArbBlockNumberMethodId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
+        uint getArbBlockNumberMethodId = PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)");
         UInt256 arbBlockNum = ulong.MaxValue + UInt256.One; // bigger than uint64 max to trigger the solidity error
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
@@ -1508,9 +1508,9 @@ public class ArbitrumVirtualMachineTests
 
         long intrinsicGas = GasCostOf.Transaction + 204;
 
-        ulong inputDataCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
+        ulong inputDataCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
         ArbitrumPrecompileException expectedSolidityError = ArbSys.InvalidBlockNumberSolidityError(arbBlockNum, blCtx.Number);
-        ulong solidityErrorCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
+        ulong solidityErrorCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)expectedSolidityError.Output.Length);
         // input data cost + opening arbos + error data cost
         ulong precompileExec = inputDataCost + ArbosStorage.StorageReadCost + solidityErrorCost;
 
@@ -1551,7 +1551,7 @@ public class ArbitrumVirtualMachineTests
 
         Address sender = TestItem.AddressA;
 
-        uint activateProgramMethodId = PrecompileHelper.GetMethodId("activateProgram(address)");
+        uint activateProgramMethodId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1588,6 +1588,220 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
+    public void ActivateProgram_NonExistentAccount_RevertsWithProgramNotWasmError()
+    {
+        // Verifies that calling activateProgram on a non-existent account does NOT
+        // short-circuit at the self-destruct check. It should proceed through GetParams
+        // and GetProgram (charging gas), then fail with ProgramNotWasm SolError.
+        // This matches Nitro's HasSelfDestructed semantics (false for non-existent accounts).
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Initialize StylusPrograms in ArbOS state so GetParams/GetProgram succeed
+        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(worldState);
+
+        // Fixed address — deterministic calldata for precise gas calculation
+        Address nonExistentAddress = new("0x000000000000000000000000000000000000dead");
+
+        Address sender = TestItem.AddressA;
+
+        uint activateProgramMethodId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            nonExistentAddress
+        );
+
+        long gasLimit = 2_000_000;
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbWasmAddress)
+            .WithValue(0)
+            .WithData(calldata)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        UInt256 senderInitialBalance = worldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        // ProgramNotWasm is a SolidityError → revert (not failure)
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
+
+        // Should return ProgramNotWasm SolError output data
+        ArbitrumPrecompileException expectedError = ArbWasm.ProgramNotWasmError();
+        tracer.ReturnValue.Should().BeEquivalentTo(expectedError.Output);
+
+        // Precise gas accounting — each component:
+        // Intrinsic: tx base (21000) + calldata cost (16 per non-zero, 4 per zero byte)
+        long calldataCost = calldata.Sum(b => b == 0 ? GasCostOf.TxDataZero : GasCostOf.TxDataNonZeroEip2028);
+        long intrinsicGas = GasCostOf.Transaction + calldataCost;
+
+        // Precompile execution gas breakdown:
+        // ArbWasm.ActivateProgram fixed burn
+        const ulong activationFixedCost = 1_659_168;
+        // 3 gas per 32-byte word of input
+        ulong inputDataCost = (ulong)GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)calldata.Length - 4);
+        // 800 gas to open ArbOS state
+        ulong arbosOpenCost = ArbosStorage.StorageReadCost;
+        // 100 gas - StylusParams warm read
+        ulong paramsReadCost = (ulong)GasCostOf.CallPrecompileEip2929;
+        // 800 gas - Program storage read
+        ulong programReadCost = ArbosStorage.StorageReadCost;
+        // 3 gas per 32-byte word of output
+        ulong outputDataCost = (ulong)GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)expectedError.Output.Length);
+
+        ulong precompileGas = inputDataCost + arbosOpenCost + activationFixedCost + paramsReadCost + programReadCost + outputDataCost;
+        long expectedGasSpent = intrinsicGas + (long)precompileGas;
+
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = worldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas);
+    }
+
+    [Test]
+    public void ActivateProgram_SelfDestructedAccount_TriggersEarlyReturnWithNoOutputData()
+    {
+        // Verifies the DestroyList wiring end-to-end: an account self-destructed in the
+        // same transaction should trigger the early return in StylusPrograms.ActivateProgram.
+        // The early return produces a Failure exception (no output data), not a SolidityError.
+        // This distinguishes it from the ProgramNotWasm path which produces output data.
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Initialize StylusPrograms in ArbOS state
+        DeployTestsContract.CreateTestPrograms(worldState);
+
+        // Victim contract: self-destructs when called, sending balance to caller
+        Address orchestratorAddress = new("0x0000000000000000000000000000000000001234");
+        byte[] victimRuntimeCode = Prepare.EvmCode
+            .Op(Instruction.CALLER)
+            .Op(Instruction.SELFDESTRUCT)
+            .Done;
+        byte[] victimInitCode = Prepare.EvmCode
+            .ForInitOf(victimRuntimeCode)
+            .Done;
+
+        // Compute victim address via CREATE2 (salt=0)
+        byte[] salt = new byte[32];
+        Address victimAddress = ContractAddress.From(orchestratorAddress, salt, victimInitCode);
+
+        // Build ArbWasm calldata for activateProgram(victimAddress)
+        uint activateProgramMethodId = PrecompileTestAbiHelpers.GetMethodId("activateProgram(address)");
+        byte[] activateCalldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbWasmParser.PrecompileFunctionDescription[activateProgramMethodId].AbiFunctionDescription.GetCallInfo().Signature,
+            victimAddress
+        );
+
+        // Orchestrator: CREATE2 victim → CALL victim (self-destructs) → CALL ArbWasm → return result
+        byte[] orchestratorCode = Prepare.EvmCode
+            // Step 1: CREATE2 victim (created in same tx → EIP-6780 allows DestroyList addition)
+            .Create2(victimInitCode, salt, UInt256.Zero)
+            .Op(Instruction.POP)
+
+            // Step 2: CALL victim — its runtime code is just CALLER+SELFDESTRUCT,
+            // so any call to it triggers self-destruct (sending balance to caller)
+            .Call(victimAddress, 100_000)
+            .Op(Instruction.POP)
+
+            // Step 3: CALL ArbWasm with activateProgram(victimAddress)
+            .CallWithInput(ArbosAddresses.ArbWasmAddress, 1_800_000, activateCalldata)
+
+            // Step 4: Store CALL result (0=failed, 1=success) at memory[0]
+            .PushData(0)
+            .Op(Instruction.MSTORE)
+
+            // Step 5: Store RETURNDATASIZE at memory[32] — 0 means Failure (no output), >0 means SolidityError
+            .Op(Instruction.RETURNDATASIZE)
+            .PushData(32)
+            .Op(Instruction.MSTORE)
+
+            // Step 6: Return 64 bytes
+            .PushData(64)
+            .PushData(0)
+            .Op(Instruction.RETURN)
+            .Done;
+
+        // Deploy orchestrator
+        worldState.CreateAccount(orchestratorAddress, 0);
+        worldState.InsertCode(orchestratorAddress, orchestratorCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+        long gasLimit = 3_000_000;
+        Transaction tx = Build.A.Transaction
+            .WithTo(orchestratorAddress)
+            .WithValue(0)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        // Orchestrator completes without reverting
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.None);
+
+        // Parse return data: first 32 bytes = inner CALL result, next 32 bytes = RETURNDATASIZE
+        tracer.ReturnValue.Should().HaveCount(64);
+        UInt256 innerCallResult = new(tracer.ReturnValue.AsSpan(0, 32), isBigEndian: true);
+        UInt256 returnDataSize = new(tracer.ReturnValue.AsSpan(32, 32), isBigEndian: true);
+
+        // Inner CALL to ArbWasm should have failed (reverted)
+        innerCallResult.Should().Be(UInt256.Zero);
+
+        // RETURNDATASIZE = 0 confirms the Failure path (self-destruct early return),
+        // NOT the SolidityError path (ProgramNotWasm would produce output data > 0)
+        returnDataSize.Should().Be(UInt256.Zero);
+
+        // Precise gas: intrinsic + orchestrator EVM overhead + precompile consumption.
+        // The precompile consumes only inputData(3) + ArbOS open(800) + activationFixed(1,659,168)
+        // because the self-destruct early return skips GetParams(100), GetProgram(800), and output(3).
+        tracer.GasSpent.Should().Be(1_718_727);
+    }
+
+    [Test]
     public void PrecompileExecution_ThrowsExceptionButArbosVersionGreaterOrEqualToEleven_RevertsAndRefundsGasLeft()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
@@ -1609,7 +1823,7 @@ public class ArbitrumVirtualMachineTests
         IWorldState worldState = chain.MainWorldState;
         using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
 
-        uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+        uint sendMerkleTreeStateMethodId = PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbSysParser.PrecompileFunctionDescription[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1674,7 +1888,7 @@ public class ArbitrumVirtualMachineTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
         arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Eleven - 1);
 
-        uint sendMerkleTreeStateMethodId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
+        uint sendMerkleTreeStateMethodId = PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbSysParser.PrecompileFunctionDescription[sendMerkleTreeStateMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1855,7 +2069,7 @@ public class ArbitrumVirtualMachineTests
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
         arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.StylusChargingFixes - 1);
 
-        uint minInitGasMethodId = PrecompileHelper.GetMethodId("minInitGas()");
+        uint minInitGasMethodId = PrecompileTestAbiHelpers.GetMethodId("minInitGas()");
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.IncludeSignature,
             ArbWasmParser.PrecompileFunctionDescription[minInitGasMethodId].AbiFunctionDescription.GetCallInfo().Signature,
@@ -1974,7 +2188,7 @@ public class ArbitrumVirtualMachineTests
 
         // Calldata to call withdrawEth(address) on ArbSys precompile
         byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
+        sender.Bytes.CopyTo(addressBytes.AsSpan(12));
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("withdrawEth(address)"u8)[..4], .. addressBytes];
 
         UInt256 value = 1_000;
@@ -2038,7 +2252,7 @@ public class ArbitrumVirtualMachineTests
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
+        sender.Bytes.CopyTo(addressBytes.AsSpan(12));
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
 
         UInt256 value = 1_000;
@@ -2293,7 +2507,7 @@ public class ArbitrumVirtualMachineTests
         // Careful: arguments should be left-padded with 0s
         byte[] addressWhoseBalanceToGet = new byte[Hash256.Size];
         Address sender = TestItem.AddressA;
-        sender.Bytes.CopyTo(addressWhoseBalanceToGet, Hash256.Size - Address.Size);
+        sender.Bytes.CopyTo(addressWhoseBalanceToGet.AsSpan(Hash256.Size - Address.Size));
 
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.DELEGATECALL, ArbInfo.Address, methodSelector, addressWhoseBalanceToGet, outputSize: 32);
@@ -2370,7 +2584,7 @@ public class ArbitrumVirtualMachineTests
         // Careful: arguments should be left-padded with 0s
         byte[] addressToRegister = new byte[Hash256.Size];
         Address sender = TestItem.AddressA;
-        sender.Bytes.CopyTo(addressToRegister, Hash256.Size - Address.Size);
+        sender.Bytes.CopyTo(addressToRegister.AsSpan(Hash256.Size - Address.Size));
 
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
             Instruction.STATICCALL, ArbAddressTable.Address, methodSelector, addressToRegister, outputSize: 32);
@@ -2505,7 +2719,7 @@ public class ArbitrumVirtualMachineTests
         Address sender = TestItem.AddressA;
 
         // Calldata to call mapL1SenderContractAddressToL2Alias(address) on ArbSys precompile
-        uint setWasmMinInitGasMethodId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+        uint setWasmMinInitGasMethodId = PrecompileTestAbiHelpers.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
         Address addressToMap = TestItem.AddressB;
 
         byte[] calldata = AbiEncoder.Instance.Encode(
@@ -2554,7 +2768,7 @@ public class ArbitrumVirtualMachineTests
         Address mappedAddress = new(sumBytes.ToBigEndian()[12..]);
 
         byte[] expectedResult = new byte[32];
-        mappedAddress.Bytes.CopyTo(expectedResult, 12);
+        mappedAddress.Bytes.CopyTo(expectedResult.AsSpan(12));
 
         tracer.ReturnValue.Should().BeEquivalentTo(expectedResult);
     }
@@ -2594,7 +2808,7 @@ public class ArbitrumVirtualMachineTests
 
         // Careful: arguments should be left-padded with 0s
         byte[] methodArgument = new byte[Hash256.Size];
-        addressWhoseBalanceToGet.Bytes.CopyTo(methodArgument, Hash256.Size - Address.Size);
+        addressWhoseBalanceToGet.Bytes.CopyTo(methodArgument.AsSpan(Hash256.Size - Address.Size));
 
         // outputSize is 32 because getBalance(address) returns a uint256
         byte[] runtimeCode = PrepareByteCodeWithCallToPrecompile(
@@ -2717,7 +2931,7 @@ public class ArbitrumVirtualMachineTests
         // Expected result
         Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
         byte[] abiEncodedAccount = new byte[Hash256.Size];
-        networkFeeAccount.Bytes.CopyTo(abiEncodedAccount, 12);
+        networkFeeAccount.Bytes.CopyTo(abiEncodedAccount.AsSpan(12));
 
         // Precompile output was effectively passed to the caller through the memory
         tracer.ReturnValue.Should().BeEquivalentTo(abiEncodedAccount);

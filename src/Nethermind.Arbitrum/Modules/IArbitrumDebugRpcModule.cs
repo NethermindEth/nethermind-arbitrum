@@ -30,4 +30,8 @@ public interface IArbitrumDebugRpcModule : IRpcModule
         int arbosVersion,
         string accountsJson,
         string? maxCodeSize = null);
+
+    [JsonRpcMethod(Description = "Manually schedule prune history run (blocks and receipts). Follows the same behavior as the automatic pruning mechanism.",
+        IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<bool>> debug_schedulePruneHistory();
 }

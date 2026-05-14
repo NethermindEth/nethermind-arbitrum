@@ -58,14 +58,14 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
 
     public IWorldStateScopeProvider ScopeProvider => worldState.ScopeProvider;
 
-    public ref readonly UInt256 GetBalance(Address address)
+    public UInt256 GetBalance(Address address)
     {
-        return ref worldState.GetBalance(address);
+        return worldState.GetBalance(address);
     }
 
-    public ref readonly ValueHash256 GetCodeHash(Address address)
+    public ValueHash256 GetCodeHash(Address address)
     {
-        return ref worldState.GetCodeHash(address);
+        return worldState.GetCodeHash(address);
     }
 
     public bool HasStateForBlock(BlockHeader? baseBlock)
@@ -73,7 +73,7 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
         return worldState.HasStateForBlock(baseBlock);
     }
 
-    public byte[] GetOriginal(in StorageCell storageCell)
+    public ReadOnlySpan<byte> GetOriginal(in StorageCell storageCell)
     {
         return worldState.GetOriginal(in storageCell);
     }

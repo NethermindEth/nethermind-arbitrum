@@ -35,12 +35,12 @@ public class ArbWasmCacheParserTests
     private Block _genesis = null!;
     private ArbosState _freeArbosState = null!;
 
-    private static readonly uint _isCacheManagerId = PrecompileHelper.GetMethodId("isCacheManager(address)");
-    private static readonly uint _allCacheManagersId = PrecompileHelper.GetMethodId("allCacheManagers()");
-    private static readonly uint _cacheCodehashId = PrecompileHelper.GetMethodId("cacheCodehash(bytes32)");
-    private static readonly uint _cacheProgramId = PrecompileHelper.GetMethodId("cacheProgram(address)");
-    private static readonly uint _evictProgramId = PrecompileHelper.GetMethodId("evictCodehash(bytes32)");
-    private static readonly uint _codehashIsCachedId = PrecompileHelper.GetMethodId("codehashIsCached(bytes32)");
+    private static readonly uint IsCacheManagerId = PrecompileTestAbiHelpers.GetMethodId("isCacheManager(address)");
+    private static readonly uint AllCacheManagersId = PrecompileTestAbiHelpers.GetMethodId("allCacheManagers()");
+    private static readonly uint CacheCodehashId = PrecompileTestAbiHelpers.GetMethodId("cacheCodehash(bytes32)");
+    private static readonly uint CacheProgramId = PrecompileTestAbiHelpers.GetMethodId("cacheProgram(address)");
+    private static readonly uint EvictProgramId = PrecompileTestAbiHelpers.GetMethodId("evictCodehash(bytes32)");
+    private static readonly uint CodehashIsCachedId = PrecompileTestAbiHelpers.GetMethodId("codehashIsCached(bytes32)");
 
     [SetUp]
     public void SetUp()
@@ -53,7 +53,7 @@ public class ArbWasmCacheParserTests
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied).WithArbosState();
         _context.ResetGasLeft();
 
-        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        _freeArbosState = ArbosState.OpenArbosState(_worldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
     }
 
     [TearDown]
@@ -67,10 +67,10 @@ public class ArbWasmCacheParserTests
     [TestCase(false)]
     public void IsCacheManager_Always_ReturnsResult(bool setAsCacheManager)
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_isCacheManagerId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(IsCacheManagerId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[_isCacheManagerId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[IsCacheManagerId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
 
@@ -94,10 +94,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void AllCacheManagers_Always_ReturnsAllManagers()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_allCacheManagersId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(AllCacheManagersId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[_allCacheManagersId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[AllCacheManagersId].AbiFunctionDescription;
 
         Address account1 = new("0x0000000000000000000000000000000000000123");
         Address account2 = new("0x0000000000000000000000000000000000000456");
@@ -124,10 +124,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void CacheCodehash_ValidCodehash_CachesProgram()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheCodehashId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CacheCodehashId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheCodehashId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[CacheCodehashId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         _freeArbosState.Programs.CacheManagersStorage.Add(account);
@@ -170,10 +170,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void CacheProgram_ValidAddress_CachesProgram()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheProgramId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CacheProgramId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[CacheProgramId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         _freeArbosState.Programs.CacheManagersStorage.Add(account);
@@ -217,10 +217,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void CacheProgram_SenderIsNotCacheManagerNorChainOwner_BurnsOut()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheProgramId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CacheProgramId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[CacheProgramId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         Address contract = new("0x0000000000000000000000000000000000000456");
@@ -244,10 +244,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void CacheProgram_ProgramVersionDifferentFromStylusVersion_ThrowsProgramNeedsUpgradeSolidityError()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheProgramId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CacheProgramId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[CacheProgramId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         _freeArbosState.Programs.CacheManagersStorage.Add(account);
@@ -284,10 +284,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void CacheProgram_ProgramIsExpired_ThrowsProgramExpiredSolidityError()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheProgramId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CacheProgramId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[CacheProgramId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         _freeArbosState.Programs.CacheManagersStorage.Add(account);
@@ -328,10 +328,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void CacheProgram_ProgramIsAlreadyCached_ReturnsSuccessWithNoEvent()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_cacheProgramId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CacheProgramId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_cacheProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[CacheProgramId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         _freeArbosState.Programs.CacheManagersStorage.Add(account);
@@ -371,10 +371,10 @@ public class ArbWasmCacheParserTests
     [Test]
     public void EvictProgram_ValidCodehash_EvictsProgramFromCache()
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_evictProgramId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(EvictProgramId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[_evictProgramId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = ArbWasmCacheParser.PrecompileFunctionDescription[EvictProgramId].AbiFunctionDescription;
 
         Address account = new("0x0000000000000000000000000000000000000123");
         _freeArbosState.Programs.CacheManagersStorage.Add(account);
@@ -419,10 +419,10 @@ public class ArbWasmCacheParserTests
     [TestCase(false)]
     public void CodehashIsCached_Always_ReturnsResult(bool shouldBeCached)
     {
-        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(_codehashIsCachedId, out PrecompileHandler? implementation);
+        bool exists = ArbWasmCacheParser.PrecompileImplementation.TryGetValue(CodehashIsCachedId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[_codehashIsCachedId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbWasmCacheParser.PrecompileFunctionDescription[CodehashIsCachedId].AbiFunctionDescription;
 
         Program program = new(0, 0, 0, 0, 0, 0, 0, Cached: shouldBeCached);
         Hash256 testCodeHash = new("0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd");

@@ -39,7 +39,9 @@ using Nethermind.Wallet;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -56,7 +58,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         WorldStateAccessor = new ScopedGlobalWorldStateAccessor(this);
     }
 
-    public ArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
+    public IArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
     public INitroExecutionRpcModule NitroExecutionRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
@@ -395,24 +397,24 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IExpressLaneService>(),
             chain.Container.Resolve<IExpressLaneTracker>(),
             chain.Container.Resolve<IAuctionResolutionQueue>(),
-            chain.Container.Resolve<IEthereumEcdsa>());
+            chain.Container.Resolve<IEthereumEcdsa>(),
+            chain.Dependencies.StateReconstructor,
+            chain.Container.Resolve<IHistoryPruner>());
 
         chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
 
         IArbitrumConfig arbitrumConfig = chain.Container.Resolve<IArbitrumConfig>();
 
         if (arbitrumConfig.SequencerEnabled)
-        {
             chain.Container.Resolve<SequencerState>().Activate();
-        }
 
-        chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine);
+        chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine, chain.Container.Resolve<ArbitrumClHealthTracker>());
         chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
 
         return chain;
     }
 
-    internal static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain, TransactionQueue? transactionQueue = null, SequencerState? sequencerState = null)
+    private static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain)
     {
         return new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
@@ -433,10 +435,11 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
-            transactionQueue ?? chain.Container.Resolve<TransactionQueue>(),
-            sequencerState ?? chain.Container.Resolve<SequencerState>(),
+            chain.Container.Resolve<TransactionQueue>(),
+            chain.Container.Resolve<SequencerState>(),
             chain.Container.Resolve<IEthereumEcdsa>(),
-            chain.Container.Resolve<IArbitrumConfig>()
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IBlockMetadataProvider>()
         );
     }
 
@@ -536,7 +539,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.ArbOSVersionForMessageIndex(messageIndex);
         }
 
-        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+        public Task<ResultWrapper<string>> SetFinalityData(SetFinalityDataParams parameters)
         {
             return rpc.SetFinalityData(parameters);
         }
@@ -577,9 +580,10 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         }
 
         public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
-        {
-            return rpc.RecordBlockCreation(parameters);
-        }
+            => rpc.RecordBlockCreation(parameters);
+
+        public Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
+            => rpc.PrepareForRecord(parameters);
 
         public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
             => rpc.StartSequencing(parameters);

@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Tracing;
@@ -71,7 +72,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             initTransaction.SenderAddress.Should().Be(ArbosAddresses.ArbosAddress);
             initTransaction.To.Should().Be(ArbosAddresses.ArbosAddress);
 
-            var binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, incomingHeader.BaseFeeL1 ?? UInt256.Zero, incomingHeader.BlockNumber, chain.BlockTree.Head!.Number + 1, 1500);
+            byte[] binaryData = ArbosActsCodec.PackInput(ArbosActsMethod.StartBlock, incomingHeader.BaseFeeL1 ?? UInt256.Zero, incomingHeader.BlockNumber, chain.BlockTree.Head!.Number + 1, 1500);
             initTransaction.Data.ToArray().Should().BeEquivalentTo(binaryData);
         }
 
@@ -303,7 +304,7 @@ namespace Nethermind.Arbitrum.Test.BlockProcessing
             receipts[1].TxType.Should().Be((TxType)ArbitrumTxType.ArbitrumSubmitRetryable);
             receipts[1].StatusCode.Should().Be(StatusCode.Failure);
             // Fails at balanceAfterMint < tx.MaxSubmissionFee check in arbitrum tx processor
-            receipts[1].Error.Should().Be("Fail : insufficient MaxFeePerGas for sender balance");
+            receipts[1].Error.Should().Be("Fail : insufficient sender balance for gas * price + value");
         }
 
         [Test]

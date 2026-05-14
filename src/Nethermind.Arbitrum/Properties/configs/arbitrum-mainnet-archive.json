@@ -8,6 +8,9 @@
   "TxPool": {
     "BlobsSupport": "Disabled"
   },
+  "Sync": {
+    "NetworkingEnabled": false
+  },
   "Discovery": {
     "DiscoveryVersion": "V5"
   },
@@ -42,10 +45,7 @@
     ]
   },
   "Pruning": {
-    "Mode": "None",
-    "MaxUnpersistedBlockCount": 2500,
-    "MinUnpersistedBlockCount": 72,
-    "MaxBufferedCommitCount": 2500
+    "Mode": "None"
   },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false,

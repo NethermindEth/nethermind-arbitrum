@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -12,13 +13,12 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
-using Nethermind.Logging;
 using Nethermind.Specs.Forks;
 using System.Security.Cryptography;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -29,7 +29,7 @@ public class ArbInfoTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -54,7 +54,7 @@ public class ArbInfoTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -81,7 +81,7 @@ public class ArbInfoTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -107,13 +107,11 @@ public class ArbInfoTests
         Address sender = FullChainSimulationAccounts.Owner.Address;
         UInt256 nonce = UInt256.Zero;
         using (chain.MainWorldState.BeginScope(chain.BlockTree.Head!.Header))
-        {
             nonce = chain.MainWorldState.GetNonce(sender);
-        }
 
         // Calldata to call getBalance(address) on ArbInfo precompile
         byte[] addressBytes = new byte[32];
-        sender.Bytes.CopyTo(addressBytes, 12);
+        sender.Bytes.CopyTo(addressBytes.AsSpan(12));
         byte[] calldata = [.. KeccakHash.ComputeHashBytes("getBalance(address)"u8)[..4], .. addressBytes];
 
         Transaction transaction = Build.A.Transaction
@@ -138,7 +136,7 @@ public class ArbInfoTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -150,7 +148,7 @@ public class ArbInfoTests
         worldState.Commit(London.Instance);
 
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
-        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords + 1;
+        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.Memory * codeLengthInWords + 1;
 
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
         byte[] code = ArbInfo.GetCode(context, someContract);
@@ -164,7 +162,7 @@ public class ArbInfoTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -190,7 +188,7 @@ public class ArbInfoTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -204,5 +202,36 @@ public class ArbInfoTests
         Assert.That(code, Is.EqualTo(Array.Empty<byte>()), "ArbInfo.GetCode should return the correct code");
         Assert.That(context.GasLeft, Is.EqualTo(1), "ArbInfo.GetCode should consume the correct amount of gas");
         ;
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbInfo.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("getBalance(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getCode(address)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbInfo.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbInfo.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("getBalance(address)").Should().Be(Solgen.ArbInfo.Methods.GetBalance);
+        PrecompileTestAbiHelpers.GetMethodId("getCode(address)").Should().Be(Solgen.ArbInfo.Methods.GetCode);
     }
 }

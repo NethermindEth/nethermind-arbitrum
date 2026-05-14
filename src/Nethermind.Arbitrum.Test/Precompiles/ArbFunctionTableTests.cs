@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -11,6 +12,7 @@ using Nethermind.Core.Test;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -28,7 +30,7 @@ public sealed class ArbFunctionTableTests
     public void SetUp()
     {
         _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
@@ -39,8 +41,8 @@ public sealed class ArbFunctionTableTests
     [Test]
     public void Upload_WithAnyData_DoesNothing()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
-        byte[] buffer = new byte[] { 0, 0, 0, 0 };
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        byte[] buffer = [0, 0, 0, 0];
 
         Action action = () => ArbFunctionTable.Upload(_context, buffer);
 
@@ -50,7 +52,7 @@ public sealed class ArbFunctionTableTests
     [Test]
     public void Size_WithAnyAddress_ReturnsZero()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address addr = new("0x0000000000000000000000000000000000000123");
 
         UInt256 size = ArbFunctionTable.Size(_context, addr);
@@ -61,7 +63,7 @@ public sealed class ArbFunctionTableTests
     [Test]
     public void Get_WithAnyAddressAndIndex_ThrowsTableIsEmptyException()
     {
-        using var worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         Address addr = new("0x0000000000000000000000000000000000000123");
         UInt256 index = 10;
 
@@ -79,11 +81,35 @@ public sealed class ArbFunctionTableTests
     }
 
     [Test]
-    public void Abi_Always_ContainsRequiredMethods()
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
-        ArbFunctionTable.Abi.Should().NotBeNullOrEmpty();
-        ArbFunctionTable.Abi.Should().Contain("upload");
-        ArbFunctionTable.Abi.Should().Contain("size");
-        ArbFunctionTable.Abi.Should().Contain("get");
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbFunctionTable.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("upload(bytes)"),
+            PrecompileTestAbiHelpers.GetMethodId("size(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbFunctionTable.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbFunctionTable.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("upload(bytes)").Should().Be(Solgen.ArbFunctionTable.Methods.Upload);
+        PrecompileTestAbiHelpers.GetMethodId("size(address)").Should().Be(Solgen.ArbFunctionTable.Methods.Size);
+        PrecompileTestAbiHelpers.GetMethodId("get(address,uint256)").Should().Be(Solgen.ArbFunctionTable.Methods.Get);
     }
 }

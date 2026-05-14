@@ -4,16 +4,12 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
-using Nethermind.Evm;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
 public static class ArbInfo
 {
     public static Address Address => ArbosAddresses.ArbInfoAddress;
-
-    public static readonly string Abi =
-        "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"getBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"getCode\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]";
 
     public static Int256.UInt256 GetBalance(ArbitrumPrecompileExecutionContext context, Address account)
     {
@@ -25,7 +21,7 @@ public static class ArbInfo
     {
         context.Burn(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
         byte[] code = context.WorldState.GetCode(account)!;
-        context.Burn(ResourceKind.StorageAccess, GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)code.Length));
+        context.Burn(ResourceKind.StorageAccess, GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)code.Length));
         return code;
     }
 }

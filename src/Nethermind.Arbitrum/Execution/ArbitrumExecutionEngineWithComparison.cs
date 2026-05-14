@@ -45,7 +45,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
     public ResultWrapper<ulong> BlockNumberToMessageIndex(ulong blockNumber)
         => innerEngine.BlockNumberToMessageIndex(blockNumber);
 
-    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
+    public Task<ResultWrapper<EmptyResponse>> SetFinalityData(SetFinalityDataParams parameters)
         => innerEngine.SetFinalityData(parameters);
 
     public ResultWrapper<EmptyResponse> MarkFeedStart(ulong to)
@@ -315,4 +315,7 @@ public sealed class ArbitrumExecutionEngineWithComparison(
 
     public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
         => innerEngine.RecordBlockCreation(parameters);
+
+    public Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
+        => innerEngine.PrepareForRecord(parameters);
 }

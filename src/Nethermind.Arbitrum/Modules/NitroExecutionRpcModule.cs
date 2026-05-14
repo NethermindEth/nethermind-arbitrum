@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.JsonRpc;
@@ -10,13 +11,14 @@ namespace Nethermind.Arbitrum.Modules;
 /// <summary>
 /// RPC module for the "nitroexecution" namespace. Thin facade that delegates to IArbitrumExecutionEngine.
 /// </summary>
-public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroExecutionRpcModule
+public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine, ArbitrumClHealthTracker clHealthTracker) : INitroExecutionRpcModule
 {
     public Task<ResultWrapper<MessageResult>> nitroexecution_digestMessage(
         MessageIndex msgIdx,
         MessageWithMetadata message,
         MessageWithMetadata? messageForPrefetch)
     {
+        clHealthTracker.MarkConnected();
         DigestMessageParameters parameters = new(msgIdx, message, messageForPrefetch);
         return engine.DigestMessageAsync(parameters);
     }
@@ -48,7 +50,7 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
         return Task.FromResult(ResultWrapper<MessageIndex>.From(result, (MessageIndex)result.Data));
     }
 
-    public ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData)
@@ -109,4 +111,10 @@ public class NitroExecutionRpcModule(IArbitrumExecutionEngine engine) : INitroEx
 
     public Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission)
         => engine.PublishExpressLaneTransactionAsync(submission);
+
+    public Task<ResultWrapper<RecordResult>> nitroexecution_recordBlockCreation(ulong pos, MessageWithMetadata message, string[] wasmTargets)
+        => engine.RecordBlockCreation(new RecordBlockCreationParameters(pos, message, wasmTargets));
+
+    public Task<ResultWrapper<EmptyResponse>> nitroexecution_prepareForRecord(ulong start, ulong end)
+        => engine.PrepareForRecord(new PrepareForRecordParameters(start, end));
 }

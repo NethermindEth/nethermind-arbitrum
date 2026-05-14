@@ -4,10 +4,10 @@
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -20,10 +20,12 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupplied)
     : ArbitrumPrecompileExecutionContext(Address.Zero, UInt256.Zero, GasSupplied, WorldState, TestWasmStore.Create(), new BlockExecutionContext(), 0, null)
 {
+    private const long DefaultBlockTimestamp = 1_700_000_000;
+
     public PrecompileTestContextBuilder WithArbosState()
     {
-        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger());
-        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger<ArbosState>());
+        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
         return this;
     }
 
@@ -43,6 +45,11 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
     {
         Caller = caller;
         return this;
+    }
+
+    public PrecompileTestContextBuilder WithExecutingAccount(Address executingAccount)
+    {
+        return this with { ExecutingAccount = executingAccount };
     }
 
     public void ResetGasLeft(ulong gasLeft = 0)
@@ -158,6 +165,29 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
             provider.SetBlockhash(blockNumber, hash);
         }
         return provider;
+    }
+
+    public static IDisposable CreateAtBlock(out PrecompileTestContextBuilder context, ulong blockNumber = 0, ulong blockTimestamp = DefaultBlockTimestamp, ulong arbosVersion = ArbosVersion.Fifty)
+    {
+        BlockHeader header = Build.A.BlockHeader
+            .WithNumber((long)blockNumber)
+            .WithTimestamp(blockTimestamp)
+            .TestObject;
+
+        return Create(out context, setup: c => c
+            .WithArbosVersion(arbosVersion)
+            .WithBlockExecutionContext(header));
+    }
+
+    public static IDisposable Create(out PrecompileTestContextBuilder context, Func<PrecompileTestContextBuilder, PrecompileTestContextBuilder> setup)
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IDisposable scope = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        context = setup(new PrecompileTestContextBuilder(worldState, ulong.MaxValue));
+
+        return scope;
     }
 
     // Test helper to create a mock blockhash provider

@@ -9,6 +9,7 @@ using Nethermind.Core.Caching;
 using Nethermind.Core;
 using Nethermind.Db;
 using Nethermind.JsonRpc;
+using Nethermind.History;
 using Nethermind.Logging;
 using NSubstitute;
 
@@ -307,6 +308,35 @@ public class ArbitrumDebugRpcModuleTests
 
         result.Data.Should().BeTrue();
         result.Result.ResultType.Should().Be(ResultType.Success);
+    }
+
+
+
+    [Test]
+    public async Task DebugSchedulePruneHistory_WhenHistoryPrunerIsNull_ReturnsFail()
+    {
+        ResultWrapper<bool> result = await _module.debug_schedulePruneHistory();
+
+        result.Result.ResultType.Should().Be(ResultType.Failure);
+        result.Result.Error.Should().Contain("IHistoryPruner service not available");
+    }
+
+    [Test]
+    public async Task DebugSchedulePruneHistory_WhenHistoryPrunerAvailable_SchedulesAndReturnsSuccess()
+    {
+        IHistoryPruner historyPruner = Substitute.For<IHistoryPruner>();
+        ArbitrumDebugRpcModule module = new(
+            _dbProvider,
+            _blockTree,
+            _cacheAwareServices,
+            LimboLogs.Instance,
+            historyPruner);
+
+        ResultWrapper<bool> result = await module.debug_schedulePruneHistory();
+
+        result.Data.Should().BeTrue();
+        result.Result.ResultType.Should().Be(ResultType.Success);
+        historyPruner.Received(1).SchedulePruneHistory();
     }
 
 

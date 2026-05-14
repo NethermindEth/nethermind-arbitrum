@@ -10,7 +10,6 @@ using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -24,13 +23,13 @@ public sealed class ArbAddressTableParserTests
     private const ulong DefaultGasSupplied = 100000;
     private static readonly Address TestAddress = new("0x1234567890123456789012345678901234567890");
 
-    private static readonly uint _addressExistsId = PrecompileHelper.GetMethodId("addressExists(address)");
-    private static readonly uint _compressId = PrecompileHelper.GetMethodId("compress(address)");
-    private static readonly uint _decompressId = PrecompileHelper.GetMethodId("decompress(bytes,uint256)");
-    private static readonly uint _lookupId = PrecompileHelper.GetMethodId("lookup(address)");
-    private static readonly uint _lookupIndexId = PrecompileHelper.GetMethodId("lookupIndex(uint256)");
-    private static readonly uint _registerId = PrecompileHelper.GetMethodId("register(address)");
-    private static readonly uint _sizeId = PrecompileHelper.GetMethodId("size()");
+    private static readonly uint AddressExistsId = PrecompileTestAbiHelpers.GetMethodId("addressExists(address)");
+    private static readonly uint CompressId = PrecompileTestAbiHelpers.GetMethodId("compress(address)");
+    private static readonly uint DecompressId = PrecompileTestAbiHelpers.GetMethodId("decompress(bytes,uint256)");
+    private static readonly uint LookupId = PrecompileTestAbiHelpers.GetMethodId("lookup(address)");
+    private static readonly uint LookupIndexId = PrecompileTestAbiHelpers.GetMethodId("lookupIndex(uint256)");
+    private static readonly uint RegisterId = PrecompileTestAbiHelpers.GetMethodId("register(address)");
+    private static readonly uint SizeId = PrecompileTestAbiHelpers.GetMethodId("size()");
 
     private ArbosState _arbosState = null!;
     private PrecompileTestContextBuilder _context = null!;
@@ -41,7 +40,7 @@ public sealed class ArbAddressTableParserTests
     public void SetUp()
     {
         _worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = _worldState.BeginScope(IWorldState.PreGenesis);
         Block b = ArbOSInitialization.Create(_worldState);
         _arbosState = ArbosState.OpenArbosState(_worldState, new SystemBurner(),
             LimboLogs.Instance.GetClassLogger<ArbosState>());
@@ -58,11 +57,11 @@ public sealed class ArbAddressTableParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_addressExistsId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[AddressExistsId].AbiFunctionDescription.GetCallInfo().Signature,
             TestAddress
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_addressExistsId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(AddressExistsId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -81,11 +80,11 @@ public sealed class ArbAddressTableParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_addressExistsId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[AddressExistsId].AbiFunctionDescription.GetCallInfo().Signature,
             TestAddress
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_addressExistsId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(AddressExistsId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -101,11 +100,11 @@ public sealed class ArbAddressTableParserTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_compressId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[CompressId].AbiFunctionDescription.GetCallInfo().Signature,
             TestAddress
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_compressId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(CompressId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -119,19 +118,19 @@ public sealed class ArbAddressTableParserTests
     {
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
 
-        const ulong gasSupplied = (GasCostOf.ColdSLoad + GasCostOf.DataCopy) * 2 + 1;
+        const ulong gasSupplied = (GasCostOf.ColdSLoad + GasCostOf.Memory) * 2 + 1;
         PrecompileTestContextBuilder context = new(_worldState, gasSupplied) { ArbosState = _arbosState };
 
         byte[] compressed = ArbAddressTable.Compress(context, TestAddress);
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_decompressId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[DecompressId].AbiFunctionDescription.GetCallInfo().Signature,
             compressed,
             UInt256.Zero
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_decompressId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(DecompressId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -148,11 +147,11 @@ public sealed class ArbAddressTableParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_lookupId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[LookupId].AbiFunctionDescription.GetCallInfo().Signature,
             TestAddress
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_lookupId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(LookupId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -169,11 +168,11 @@ public sealed class ArbAddressTableParserTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_lookupId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[LookupId].AbiFunctionDescription.GetCallInfo().Signature,
             TestAddress
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_lookupId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(LookupId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, calldata);
@@ -191,11 +190,11 @@ public sealed class ArbAddressTableParserTests
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_lookupIndexId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[LookupIndexId].AbiFunctionDescription.GetCallInfo().Signature,
             new UInt256(index)
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_lookupIndexId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(LookupIndexId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -213,11 +212,11 @@ public sealed class ArbAddressTableParserTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbAddressTableParser.PrecompileFunctionDescription[_registerId].AbiFunctionDescription.GetCallInfo().Signature,
+            ArbAddressTableParser.PrecompileFunctionDescription[RegisterId].AbiFunctionDescription.GetCallInfo().Signature,
             TestAddress
         );
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_registerId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(RegisterId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, calldata);
@@ -237,7 +236,7 @@ public sealed class ArbAddressTableParserTests
         _arbosState.AddressTable.Register(new Address("0x1111111111111111111111111111111111111111"));
         _arbosState.AddressTable.Register(new Address("0x2222222222222222222222222222222222222222"));
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_sizeId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(SizeId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         byte[] result = handler!(_context, []);
@@ -265,7 +264,7 @@ public sealed class ArbAddressTableParserTests
     {
         PrecompileTestContextBuilder contextWithNoGas = _context with { GasSupplied = 0 };
 
-        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(_addressExistsId, out PrecompileHandler? handler);
+        bool exists = ArbAddressTableParser.PrecompileImplementation.TryGetValue(AddressExistsId, out PrecompileHandler? handler);
         exists.Should().BeTrue();
 
         Action action = () => handler!(_context, []);

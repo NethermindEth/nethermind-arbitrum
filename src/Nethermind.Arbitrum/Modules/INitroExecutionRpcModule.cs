@@ -4,7 +4,6 @@
 using Nethermind.Arbitrum.Data;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
-using Nethermind.Core;
 
 namespace Nethermind.Arbitrum.Modules;
 
@@ -40,7 +39,7 @@ public interface INitroExecutionRpcModule : IRpcModule
     Task<ResultWrapper<MessageIndex>> nitroexecution_blockNumberToMessageIndex(ulong blockNumber);
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-    ResultWrapper<EmptyResponse> nitroexecution_setFinalityData(
+    Task<ResultWrapper<EmptyResponse>> nitroexecution_setFinalityData(
         RpcFinalityData? safeFinalityData,
         RpcFinalityData? finalizedFinalityData,
         RpcFinalityData? validatedFinalityData);
@@ -92,4 +91,10 @@ public interface INitroExecutionRpcModule : IRpcModule
 
     [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
     Task<ResultWrapper<bool>> nitroexecution_publishExpressLaneTransaction(ExpressLaneSubmissionForRpc submission);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<RecordResult>> nitroexecution_recordBlockCreation(ulong pos, MessageWithMetadata message, string[] wasmTargets);
+
+    [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+    Task<ResultWrapper<EmptyResponse>> nitroexecution_prepareForRecord(ulong start, ulong end);
 }

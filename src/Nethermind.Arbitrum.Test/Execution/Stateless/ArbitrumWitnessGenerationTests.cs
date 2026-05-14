@@ -36,7 +36,9 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
-            .Build();
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
@@ -74,7 +76,9 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
-            .Build();
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
@@ -112,7 +116,9 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
-            .Build();
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
@@ -158,7 +164,8 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
-            .Build();
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            .Build(); // no need to flush trie here, do it before RecordBlockCreation call
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
 
@@ -272,6 +279,9 @@ public class ArbitrumWitnessGenerationTests
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Step 5: Call RecordBlockCreation to generate the witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
@@ -311,6 +321,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -374,6 +385,9 @@ public class ArbitrumWitnessGenerationTests
         receipts[1].StatusCode.Should().Be(StatusCode.Success, "ArbSys call should succeed");
         receipts[2].StatusCode.Should().Be(StatusCode.Success, "ecrecover call should succeed");
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Call RecordBlockCreation to generate the witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
@@ -414,6 +428,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -493,6 +508,9 @@ public class ArbitrumWitnessGenerationTests
         call2Result.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Step 2: Call the contract again (would use cached value from the block that just got built
         // if cache were persisted into witness-generating env)
         // Making sure witness-generating VM has its own empty cache and must access storage, recording the trie nodes.
@@ -520,6 +538,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -551,6 +570,9 @@ public class ArbitrumWitnessGenerationTests
             await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, callTx));
         callResult.Result.Should().Be(Result.Success);
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "ArbBlockHash call should succeed");
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
@@ -589,6 +611,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithRecording(recording)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -668,6 +691,9 @@ public class ArbitrumWitnessGenerationTests
             await chain.DigestAndGetParams(retryable);
         result.Result.Should().Be(Result.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
@@ -689,6 +715,7 @@ public class ArbitrumWitnessGenerationTests
     {
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock()
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -776,6 +803,9 @@ public class ArbitrumWitnessGenerationTests
             await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, transferTx));
         result.Result.Should().Be(Result.Success);
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
@@ -802,6 +832,7 @@ public class ArbitrumWitnessGenerationTests
     {
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock()
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         UInt256 l1BaseFee = 92;
@@ -811,6 +842,9 @@ public class ArbitrumWitnessGenerationTests
         (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
             await chain.DigestAndGetParams(new TestEndOfBlock(l1BaseFee));
         result.Result.Should().Be(Result.Success);
+
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
@@ -838,6 +872,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -931,6 +966,9 @@ public class ArbitrumWitnessGenerationTests
         chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "TX1 (set to 2) should succeed");
         chain.LatestReceipts()[2].StatusCode.Should().Be(StatusCode.Success, "TX2 (reset to 1) should succeed");
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Record block creation and generate witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
@@ -978,6 +1016,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -993,7 +1032,7 @@ public class ArbitrumWitnessGenerationTests
         depositResult.Result.Should().Be(Result.Success);
 
         // Pre-populate NetworkFeeAccount (ArbOS root storage, offset 3) with a known original value.
-        // This creates a leaf trie node at that storage path so the assertion targets something unique.
+        // This creates a leaf trie node at that storage path so the assertion targets a unique trie node.
         Address originalFeeAccount = TestItem.AddressB;
         chain.AppendBlock(chain =>
         {
@@ -1062,6 +1101,9 @@ public class ArbitrumWitnessGenerationTests
                 "NetworkFeeAccount should retain its original value after modify + reset in the same block");
         }
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Record block creation and generate witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
@@ -1112,6 +1154,7 @@ public class ArbitrumWitnessGenerationTests
 
         using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
             .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
             .Build();
 
         Address sender = FullChainSimulationAccounts.Owner.Address;
@@ -1191,6 +1234,9 @@ public class ArbitrumWitnessGenerationTests
                 "address should not be registered since the transaction reverted");
         }
 
+        // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
         // Record the block and generate the witness
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
@@ -1218,6 +1264,183 @@ public class ArbitrumWitnessGenerationTests
             recordResult.Preimages.ContainsKey(Keccak.Compute(proofNode)).Should().BeTrue(
                 "witness should contain storage trie proof node for AddressTable._backingStorage " +
                 "even when the transaction reverted");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that ProcessParentBlockHash (called from the StartBlock ArbitrumInternalTransaction
+    /// for ArbOS >= 40) records the EIP-2935 history storage contract code and the ArbSys precompile
+    /// code in the witness. The Arbitrum EIP-2935 contract STATICCALLs ArbSys (0x64) via
+    /// arbBlockNumber() to get the current L2 block number, which triggers GetCode(ArbSys) during
+    /// dynamic gas calculation for the STATICCALL instruction.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_ProcessParentBlockHash_RecordsHistoryStorageAndArbSysCodesInWitness()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee, arbosVersion: ArbosVersion.Forty)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+
+        // EndOfBlock message produces a block with only the StartBlock internal tx (no user txs).
+        // ProcessParentBlockHash executes the EIP-2935 contract via EVM, which STATICCALLs ArbSys
+        // to get the current block number — recording both codes in the witness.
+        (ResultWrapper<MessageResult> result, DigestMessageParameters digestParams) =
+            await chain.DigestAndGetParams(new TestEndOfBlock(l1BaseFee));
+        result.Result.Should().Be(Result.Success);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(digestParams.Index, digestParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestParams.Index);
+
+        recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.HistoryStorageCodeHash).Should().BeTrue(
+            "EIP-2935 history storage contract code should be recorded in witness " +
+            "when ProcessParentBlockHash executes the contract via EVM");
+
+        recordResult.Preimages.ContainsKey(Arbitrum.Arbos.Precompiles.InvalidCodeHash).Should().BeTrue(
+            "ArbSys precompile code (0xfe) should be recorded in witness because the EIP-2935 " +
+            "contract STATICCALLs ArbSys to get the current block number");
+    }
+
+    /// <summary>
+    /// Verifies that when a CALL with value transfer runs out of gas during its gas calculation
+    /// phase inside InstructionCall, the target address is still recorded in the witness.
+    ///
+    /// In Nitro (go-ethereum), gasCall() is a pure accumulator: StateDB.Empty(address) always
+    /// executes before the single OOG check in the interpreter. In Nethermind, gas is deducted
+    /// inline, so the fix moves the IsDeadAccount (and AccountExists) state reads before any gas
+    /// deduction that could abort early.
+    /// </summary>
+    [Test]
+    public async Task RecordBlockCreation_CallWithValueOogDuringGasCalculation_StillRecordsTargetAddressInWitness()
+    {
+        UInt256 l1BaseFee = 92;
+
+        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: (ulong)l1BaseFee)
+            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+            .Build();
+
+        Address sender = FullChainSimulationAccounts.Owner.Address;
+
+        // Fund the sender so it can pay transaction fees.
+        ResultWrapper<MessageResult> depositResult = await chain.Digest(new TestEthDeposit(
+            Keccak.Compute("deposit"), l1BaseFee, sender, sender, 100.Ether));
+        depositResult.Result.Should().Be(Result.Success);
+
+        // Create an account for the target address so that it creates some trie nodes unique to it,
+        // so that we can assert the resulting witness contains those nodes that would not get
+        // recorded without the fix.
+        Address target = TestItem.AddressA;
+        chain.AppendBlock(c =>
+        {
+            c.MainWorldState.CreateAccount(target, balance: 0, nonce: 1);
+        });
+
+        // Deploy a contract that executes a value-transferring CALL to target.
+        // The sub-call gas (0) is irrelevant — the OOG happens in the CALLER's frame
+        // during InstructionCall gas calculation, before the sub-call ever starts.
+        //
+        // Stack layout for CALL (top to bottom): gas, addr, value, argsOffset, argsLength, retOffset, retLength
+        byte[] callerRuntimeCode = Prepare.EvmCode
+            .PushData(0)         // retLength
+            .PushData(0)         // retOffset
+            .PushData(0)         // argsLength
+            .PushData(0)         // argsOffset
+            .PushData(1)         // value = 1 (non-zero so the IsDeadAccount path is reached, but actually the AccountExists path would also work)
+            .PushData(target)    // target: existing, non-dead account
+            .PushData(0)         // gas forwarded to sub-call
+            .Op(Instruction.CALL)
+            .Op(Instruction.STOP)
+            .Done;
+
+        byte[] callerInitCode = Prepare.EvmCode
+            .ForInitOf(callerRuntimeCode)
+            .Done;
+
+        Transaction deployTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            deployTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(null)
+                .WithData(callerInitCode)
+                .WithMaxFeePerGas(10.GWei)
+                .WithGasLimit(500_000)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        ResultWrapper<MessageResult> deployResult = await chain.Digest(new TestL2Transactions(l1BaseFee, sender, deployTx));
+        deployResult.Result.Should().Be(Result.Success);
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Success, "contract deployment should succeed");
+
+        Address callerAddress = ContractAddress.From(sender, deployTx.Nonce);
+
+        // Parent state: target's account trie proof is collected from here for the assertion below.
+        BlockHeader parentHeader = chain.BlockTree.Head!.Header;
+
+        // Call the contract with a gas limit calibrated to have the CALL instruction OOGs at the first gas deducing step
+        // and make sure the target address is still recorded in the witness.
+        //
+        // Intrinsic (21_000) + 7 PUSH1 opcodes + not enough gas for the 1st gas cost in CALL instruction,
+        // which will fail (ConsumeCallValueTransfer(9_000))
+        const long callGasLimit = GasCostOf.Transaction + GasCostOf.VeryLow * 7 + (GasCostOf.CallValue - 1);
+
+        Transaction callTx;
+        using (chain.MainWorldState.BeginScope(chain.BlockTree.Head?.Header))
+        {
+            callTx = Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithTo(callerAddress)
+                .WithData([])
+                .WithMaxFeePerGas(10.GWei)
+                .WithGasLimit(callGasLimit)
+                .WithValue(0)
+                .WithNonce(chain.MainWorldState.GetNonce(sender))
+                .SignedAndResolved(FullChainSimulationAccounts.Owner)
+                .TestObject;
+        }
+
+        (ResultWrapper<MessageResult> callResult, DigestMessageParameters callParams) =
+            await chain.DigestAndGetParams(new TestL2Transactions(l1BaseFee, sender, callTx));
+        callResult.Result.Should().Be(Result.Success);
+        // The user transaction should fail: CALL OOGs at ConsumeCallValueTransfer.
+        chain.LatestReceipts()[1].StatusCode.Should().Be(StatusCode.Failure,
+            "transaction should fail: CALL OOGs during gas calculation inside InstructionCall");
+
+        // Flush trie nodes to make state roots accessible during witness generation.
+        chain.WorldStateManager.FlushCache(CancellationToken.None);
+
+        ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(
+            new RecordBlockCreationParameters(callParams.Index, callParams.Message, WasmTargets: []));
+        RecordResult recordResult = ThrowOnFailure(recordResultWrapper, callParams.Index);
+
+        // Collect the account trie proof for target from the parent state.
+        // If IsDeadAccount was called (as the fix ensures), the trie nodes along
+        // the path to target are traversed and captured in the witness.
+        //
+        // Without the fix, IsDeadAccount is never reached (OOG fires first), so those
+        // trie nodes are absent from the witness.
+        AccountProofCollector collector = new(target);
+        chain.StateReader.RunTreeVisitor(collector, parentHeader);
+        AccountProof accountProof = collector.BuildResult();
+
+        byte[][] accountProofNodes = accountProof.Proof!;
+
+        accountProofNodes.Should().NotBeEmpty(
+            "target should have a non-empty account trie proof in the parent state");
+
+        foreach (byte[] proofNode in accountProofNodes)
+        {
+            recordResult.Preimages.ContainsKey(Keccak.Compute(proofNode)).Should().BeTrue(
+                "witness should contain account trie proof node for target address even when " +
+                "CALL OOGs at ConsumeCallValueTransfer — IsDeadAccount must be evaluated before any gas deduction");
         }
     }
 
@@ -1281,7 +1504,7 @@ public class ArbitrumWitnessGenerationTests
 
     private static void AssertWitnessMatchesRecordResult(ArbitrumWitness witness, RecordResult recordResult)
     {
-        RecordResult fromWitness = new(recordResult.Index, recordResult.BlockHash, witness);
+        RecordResult fromWitness = new(recordResult.Pos, recordResult.BlockHash, witness);
         fromWitness.Should().BeEquivalentTo(recordResult);
     }
 

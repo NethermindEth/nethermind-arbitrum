@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Collections.Concurrent;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
@@ -9,6 +10,7 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
@@ -43,6 +45,7 @@ using Nethermind.State;
 using Nethermind.TxPool;
 using NSubstitute;
 using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainProcessor.Options;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -99,6 +102,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
     public IWasmStore WasmStore => Dependencies.WasmStore;
     public IArbosVersionProvider ArbosVersionProvider => Dependencies.ArbosVersionProvider;
+
+    public IStateReconstructor StateReconstructor => Dependencies.StateReconstructor;
 
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
@@ -264,7 +269,10 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 ctx.Resolve<IBlockTree>(),
                 BlockProducerRunner,
                 ctx.Resolve<IBlocksConfig>(),
-                NullLogManager.Instance));
+                NullLogManager.Instance))
+            .AddSingleton<FakeArbitrumConsensusClient>()
+            .AddSingleton<IArbitrumConsensusClient>(c => c.Resolve<FakeArbitrumConsensusClient>())
+            .AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
@@ -284,7 +292,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 ArbosState arbosState = ArbosState.OpenArbosState(
                     MainWorldState,
                     new SystemBurner(),
-                    LogManager.GetClassLogger());
+                    LogManager.GetClassLogger<ArbosState>());
 
                 StylusPrograms programs = arbosState.Programs;
 
@@ -292,7 +300,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                     WasmDB,
                     StylusTargetConfig,
                     programs,
-                    LogManager.GetClassLogger());
+                    LogManager.GetClassLogger<WasmStoreRebuilder>());
 
                 rebuilder.RebuildWasmStore(
                     CodeDB,
@@ -331,6 +339,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         CachedL1PriceData CachedL1PriceData,
         IWasmStore WasmStore,
         IArbosVersionProvider ArbosVersionProvider,
+        IStateReconstructor StateReconstructor,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)
@@ -349,7 +358,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     private IBlockProducer InitBlockProducer()
     {
         IBlockProducerEnvFactory blockProducerEnvFactory = Container.Resolve<IBlockProducerEnvFactory>();
-        IBlockProducerEnv producerEnv = blockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = blockProducerEnvFactory.CreatePersistent();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,
@@ -380,4 +389,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     }
 
     private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();
+}
+
+public sealed class FakeArbitrumConsensusClient : IArbitrumConsensusClient
+{
+    private readonly ConcurrentDictionary<long, byte[]?> _responses = new();
+
+    public void SetupResult(long blockNumber, byte[]? blockMetadata) =>
+        _responses.TryAdd(blockNumber, blockMetadata);
+
+    public Task<byte[]?> GetBlockMetadataAsync(long blockNumber) =>
+        Task.FromResult(_responses.TryGetValue(blockNumber, out byte[]? response) ? response : null);
 }

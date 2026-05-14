@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -12,6 +13,7 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -333,5 +335,48 @@ public class ArbAggregatorTests
         // Base fee should still be zero
         UInt256 finalFee = ArbAggregator.GetTxBaseFee(_context, aggregatorAddr);
         finalFee.Should().Be(UInt256.Zero);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbAggregator.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("getPreferredAggregator(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getDefaultAggregator()"),
+            PrecompileTestAbiHelpers.GetMethodId("getBatchPosters()"),
+            PrecompileTestAbiHelpers.GetMethodId("addBatchPoster(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getFeeCollector(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("setFeeCollector(address,address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getTxBaseFee(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("setTxBaseFee(address,uint256)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoEvents()
+    {
+        PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbAggregator.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsNoErrors()
+    {
+        PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbAggregator.Abi).Should().BeEmpty();
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("getPreferredAggregator(address)").Should().Be(Solgen.ArbAggregator.Methods.GetPreferredAggregator);
+        PrecompileTestAbiHelpers.GetMethodId("getDefaultAggregator()").Should().Be(Solgen.ArbAggregator.Methods.GetDefaultAggregator);
+        PrecompileTestAbiHelpers.GetMethodId("getBatchPosters()").Should().Be(Solgen.ArbAggregator.Methods.GetBatchPosters);
+        PrecompileTestAbiHelpers.GetMethodId("addBatchPoster(address)").Should().Be(Solgen.ArbAggregator.Methods.AddBatchPoster);
+        PrecompileTestAbiHelpers.GetMethodId("getFeeCollector(address)").Should().Be(Solgen.ArbAggregator.Methods.GetFeeCollector);
+        PrecompileTestAbiHelpers.GetMethodId("setFeeCollector(address,address)").Should().Be(Solgen.ArbAggregator.Methods.SetFeeCollector);
+        PrecompileTestAbiHelpers.GetMethodId("getTxBaseFee(address)").Should().Be(Solgen.ArbAggregator.Methods.GetTxBaseFee);
+        PrecompileTestAbiHelpers.GetMethodId("setTxBaseFee(address,uint256)").Should().Be(Solgen.ArbAggregator.Methods.SetTxBaseFee);
     }
 }

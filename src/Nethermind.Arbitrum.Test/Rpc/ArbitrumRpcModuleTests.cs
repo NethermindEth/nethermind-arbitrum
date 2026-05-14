@@ -89,7 +89,7 @@ public class ArbitrumRpcModuleTests
             FinalizedFinalityData = new RpcFinalityData { MsgIdx = 8UL, BlockHash = lastBlockHash }
         };
 
-        chain.ArbitrumRpcModule.SetFinalityData(finalityParams).Should().RequestSucceed();
+        chain.ArbitrumRpcModule.SetFinalityData(finalityParams).ShouldAsync().RequestSucceed();
         chain.ArbitrumRpcModule.MarkFeedStart(8UL).Should().RequestSucceed();
 
         ResultWrapper<MessageResult> resultAtIndex = await chain.ArbitrumRpcModule.ResultAtMessageIndex(7UL);
@@ -236,7 +236,7 @@ public class ArbitrumRpcModuleTests
         {
             SafeFinalityData = new RpcFinalityData { MsgIdx = 3UL, BlockHash = lastBlockHash },
             FinalizedFinalityData = new RpcFinalityData { MsgIdx = 3UL, BlockHash = lastBlockHash },
-        }).Should().RequestSucceed();
+        }).ShouldAsync().RequestSucceed();
 
         ResultWrapper<Dictionary<string, object>> result = chain.ArbitrumRpcModule.FullSyncProgressMap();
 
@@ -345,7 +345,7 @@ public class ArbitrumRpcModuleTests
 
         ResultWrapper<MessageResult> blockResult = await chain.ArbitrumRpcModule.ResultAtMessageIndex(messageIndex);
         BlockHeader? header = chain.BlockTree.FindHeader(blockResult.Data.BlockHash);
-        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger());
+        ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(header!, LimboLogs.Instance.GetClassLogger<ArbitrumRpcModuleTests>());
 
         versionResult.Data.Should().Be(headerInfo.ArbOSFormatVersion);
     }

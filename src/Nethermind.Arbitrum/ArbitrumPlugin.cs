@@ -18,6 +18,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
@@ -36,7 +37,6 @@ using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Container;
 using Nethermind.Core.Specs;
-using Nethermind.Crypto;
 using Nethermind.Db;
 using Nethermind.Db.Rocks.Config;
 using Nethermind.Evm;
@@ -55,10 +55,13 @@ using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Serialization.Rlp;
-using Nethermind.Arbitrum.Rpc;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
+using Nethermind.Blockchain.FullPruning;
+using Nethermind.Trie.Pruning;
+using Nethermind.Core.Crypto;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum;
 
@@ -143,11 +146,13 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         _api.RpcModuleProvider.RegisterSingle(arbitrumRpcModule);
 
         // Register nitroexecution namespace
-        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine);
+        ArbitrumClHealthTracker clHealthTracker = _api.Context.Resolve<ArbitrumClHealthTracker>();
+        _ = clHealthTracker.StartAsync();
+        INitroExecutionRpcModule nitroRpcModule = new NitroExecutionRpcModule(engine, clHealthTracker);
         _api.RpcModuleProvider.RegisterSingle(nitroRpcModule);
 
         _api.RpcModuleProvider.RegisterBounded(
-            _api.Context.Resolve<IRpcModuleFactory<IEthRpcModule>>(),
+            _api.Context.Resolve<IRpcModuleFactory<IArbitrumEthRpcModule>>(),
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
 
@@ -176,6 +181,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 cacheAwareServices,
                 _api.LogManager,
                 arbosVersionOverride,
+                _api.Context.ResolveOptional<IHistoryPruner>(),
                 blockhashCache,
                 preBlockCaches);
             _api.RpcModuleProvider.RegisterSingle(debugModule);
@@ -192,7 +198,7 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         StepDependencyException.ThrowIfNull(_api.SpecProvider);
         StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
 
-        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.CreatePersistent();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,
@@ -257,8 +263,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton(chainSpecParams)
             .AddSingleton<IArbOSVersionOverride, ArbOSVersionOverride>()
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
-            .AddSingleton<IClHealthTracker, NoOpClHealthTracker>()
-            .AddSingleton<IEngineRequestsTracker, NoOpClHealthTracker>()
+            .AddSingleton<ArbitrumClHealthTracker>()
+            .Bind<IClHealthTracker, ArbitrumClHealthTracker>()
 
             .AddStep(typeof(ArbitrumInitializeBlockchain))
             .AddStep(typeof(ArbitrumInitializeWasmDb))
@@ -284,6 +290,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
+            // IBlockhashStore is used only in ArbitrumBlockProcessor and we pass a NoOp because ApplyBlockhashStateChanges
+            // should not get called as disabled in nitro and is taken care of in tx processor ProcessParentBlockHash()
+            .AddScoped<IBlockhashStore, NoOpBlockhashStore>()
             .AddScoped<IBlockhashProvider, ArbitrumBlockhashProvider>()
             .AddSingleton<IBlockValidationModule, ArbitrumBlockValidationModule>()
             .AddScoped<ITransactionProcessor, ArbitrumTransactionProcessor>()
@@ -318,21 +327,36 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IClearableCache, IChainLevelInfoRepository>(repo => (IClearableCache)repo)
             .AddSingleton<ArbitrumBlockFactory>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
+            .AddDecorator<IHistoryPruner, ArbitrumHistoryPruner>()
 
             .AddScoped<IProcessingStats, ArbitrumProcessingStats>()
 
             // Rpcs
             .AddSingleton<IFeeHistoryOracle, ArbitrumFeeHistoryOracle>()
-            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>()
-            .AddSingleton<ArbitrumEthModuleFactory>()
-            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>()
+            .AddDecorator<IGasPriceOracle, ArbitrumGasPriceOracle>();
 
-            .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
-            .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+        if (arbitrumConfig.ConsensusNodeRpcEnabled)
+        {
+            if (!Uri.TryCreate(arbitrumConfig.ConsensusNodeRpcUrl, UriKind.Absolute, out Uri? consensusUri) ||
+                (consensusUri.Scheme != Uri.UriSchemeHttp && consensusUri.Scheme != Uri.UriSchemeHttps))
+                throw new ArgumentException(
+                    $"{nameof(ArbitrumConfig.ConsensusNodeRpcUrl)} must be a valid absolute http/https URL when {nameof(ArbitrumConfig.ConsensusNodeRpcEnabled)} is true. " +
+                    $"Configured value: '{arbitrumConfig.ConsensusNodeRpcUrl}'.");
 
-            .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
+            builder.AddSingleton<IArbitrumConsensusClient, ArbitrumConsensusClient>();
+        }
+        else
+            builder.AddSingleton<IArbitrumConsensusClient, DisabledArbitrumConsensusClient>();
+
+        builder.AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
 
         builder
+            .AddSingleton<ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IArbitrumEthRpcModule>, ArbitrumEthModuleFactory>()
+            .Bind<IRpcModuleFactory<IEthRpcModule>, ArbitrumEthModuleFactory>();
+
+        builder
+            .AddModule(new ArbitrumValidatorModule(arbitrumConfig))
             .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
 
         if (arbitrumConfig.EnableTestReset)
@@ -355,6 +379,34 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
         else
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumBlockProducerEnvFactory>();
+    }
+
+    private sealed class NoOpBlockhashStore : IBlockhashStore
+    {
+        public void ApplyBlockhashStateChanges(BlockHeader blockHeader, IReleaseSpec spec) { }
+        public Hash256? GetBlockHashFromState(BlockHeader currentBlockHeader, long requiredBlockNumber, IReleaseSpec spec) => null;
+    }
+
+    private class ArbitrumValidatorModule(IArbitrumConfig arbitrumConfig) : Module
+    {
+        protected override void Load(ContainerBuilder builder)
+        {
+            builder
+                // Always needed: witness factory for debug_executionWitness endpoint
+                .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
+                .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+                .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
+                .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
+
+            if (arbitrumConfig.ValidationEnabled)
+                builder
+                    .AddSingleton<ArbitrumStateReconstructionBlockProcessingEnvFactory>()
+                    .AddSingleton<IStateReconstructor, StateReconstructor>()
+                    .AddSingleton<IFullPrunerFactory, ArbitrumFullPrunerFactory>();
+            else
+                builder
+                    .AddSingleton<IStateReconstructor, NoOpStateReconstructor>();
+        }
     }
 
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule

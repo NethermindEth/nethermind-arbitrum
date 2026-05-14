@@ -38,12 +38,13 @@ using Nethermind.Wallet;
 namespace Nethermind.Arbitrum.Modules
 {
     [RpcModule(ModuleType.Eth)]
-    public class ArbitrumEthRpcModule : EthRpcModule
+    public class ArbitrumEthRpcModule : EthRpcModule, IArbitrumEthRpcModule
     {
         private readonly ArbitrumChainSpecEngineParameters _chainSpecParams;
         private readonly TransactionQueue _transactionQueue;
         private readonly SequencerState _sequencerState;
         private readonly IEthereumEcdsa _ecdsa;
+        private readonly IBlockMetadataProvider _blockMetadataProvider;
         private readonly HashSet<Address>? _senderWhitelist;
         private readonly int _queueTimeoutMs;
 
@@ -69,13 +70,15 @@ namespace Nethermind.Arbitrum.Modules
             TransactionQueue transactionQueue,
             SequencerState sequencerState,
             IEthereumEcdsa ecdsa,
-            IArbitrumConfig arbitrumConfig)
+            IArbitrumConfig arbitrumConfig,
+            IBlockMetadataProvider blockMetadataProvider)
             : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
         {
             _chainSpecParams = chainSpecParams;
             _transactionQueue = transactionQueue;
             _sequencerState = sequencerState;
             _ecdsa = ecdsa;
+            _blockMetadataProvider = blockMetadataProvider;
             _senderWhitelist = ParseSenderWhitelist(arbitrumConfig.SequencerSenderWhitelist);
             _queueTimeoutMs = arbitrumConfig.SequencerQueueTimeoutMs
                 + (arbitrumConfig.TimeboostEnabled ? arbitrumConfig.TimeboostExpressLaneAdvantageMs : 0);
@@ -83,66 +86,34 @@ namespace Nethermind.Arbitrum.Modules
 
         public override async Task<ResultWrapper<Hash256>> eth_sendRawTransaction(byte[] transaction)
         {
-            Transaction tx;
-            try
-            {
-                tx = Rlp.Decode<Transaction>(transaction,
-                    RlpBehaviors.AllowUnsigned | RlpBehaviors.SkipTypedWrapping | RlpBehaviors.InMempoolForm);
-            }
-            catch (RlpException)
-            {
-                return ResultWrapper<Hash256>.Fail("Invalid RLP.", ErrorCodes.TransactionRejected);
-            }
+            ResultWrapper<Transaction> decoded = DecodeAndValidate(transaction);
+            if (decoded.Result != Result.Success)
+                return ResultWrapper<Hash256>.Fail(decoded.Result.Error!, ErrorCodes.TransactionRejected);
 
-            tx.SenderAddress = _ecdsa.RecoverAddress(tx);
-            // Force hash computation before enqueuing so tx.Hash is available for the response
-            _ = tx.Hash;
+            return await DispatchTransaction(transaction, decoded.Data, options: null);
+        }
 
-            if (tx.Type >= (TxType)ArbitrumTxType.ArbitrumDeposit || tx.Type == TxType.Blob)
-                return ResultWrapper<Hash256>.Fail("transaction type not supported", ErrorCodes.TransactionRejected);
+        public async Task<ResultWrapper<Hash256>> eth_sendRawTransactionConditional(byte[] transaction, ConditionalOptions options)
+        {
+            ResultWrapper<Transaction> decoded = DecodeAndValidate(transaction);
+            if (decoded.Result != Result.Success)
+                return ResultWrapper<Hash256>.Fail(decoded.Result.Error!, ErrorCodes.TransactionRejected);
 
-            if (_senderWhitelist is not null && tx.SenderAddress is not null
-                && !_senderWhitelist.Contains(tx.SenderAddress))
-                return ResultWrapper<Hash256>.Fail("transaction sender is not on the whitelist", ErrorCodes.TransactionRejected);
+            BlockHeader? head = _blockFinder.Head?.Header;
+            if (head is null)
+                return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
 
-            SequencerStateSnapshot state = _sequencerState.Current;
-            switch (state.Mode)
-            {
-                case SequencerMode.Active:
-                    return await _transactionQueue.EnqueueAsync(TxQueueItem.CreateRegular(tx, TimeSpan.FromMilliseconds(_queueTimeoutMs)));
-                case SequencerMode.Forwarding:
-                    if (state.Forwarder is null)
-                        return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
+            ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(head, _logger).L1BlockNumber;
+            Result checkResult = options.Check(l1BlockNumber, head.Timestamp, _stateReader, head);
+            if (!checkResult)
+                return ResultWrapper<Hash256>.Fail(checkResult.Error!, ErrorCodes.TransactionRejected);
 
-                    using (CancellationTokenSource cts = new(_queueTimeoutMs))
-                    {
-                        return await state.Forwarder.ForwardTransactionAsync(Rlp.Encode(tx).Bytes, tx.Hash!, cts.Token);
-                    }
-                default:
-                    return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
-            }
+            return await DispatchTransaction(transaction, decoded.Data, options);
         }
 
         public new ResultWrapper<TransactionForRpc[]> eth_pendingTransactions()
         {
             return ResultWrapper<TransactionForRpc[]>.Success([]);
-        }
-
-        protected override ResultWrapper<BlockForRpc?> GetBlock(BlockParameter blockParameter, bool returnFullTransactionObjects)
-        {
-            SearchResult<Block> searchResult = _blockFinder.SearchForBlock(blockParameter, true);
-            if (searchResult.IsError)
-                return ResultWrapper<BlockForRpc?>.Success(null);
-
-            Block? block = searchResult.Object;
-            if (block is null)
-                return ResultWrapper<BlockForRpc?>.Success(null);
-
-            if (returnFullTransactionObjects)
-                _blockchainBridge.RecoverTxSenders(block);
-
-            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
-            return ResultWrapper<BlockForRpc?>.Success(new ArbitrumBlockForRpc(block, returnFullTransactionObjects, _specProvider, headerInfo));
         }
 
         public new async Task<ResultWrapper<UInt256>> eth_getTransactionCount(Address address, BlockParameter? blockParameter)
@@ -158,7 +129,8 @@ namespace Nethermind.Arbitrum.Modules
         public override ResultWrapper<string> eth_call(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
-            Dictionary<Address, AccountOverride>? stateOverride = null)
+            Dictionary<Address, AccountOverride>? stateOverride = null,
+            BlockOverride? blockOverride = null)
         {
             SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
             if (searchResult is { IsError: true, Error: not null })
@@ -167,16 +139,23 @@ namespace Nethermind.Arbitrum.Modules
             if (searchResult.Object == null)
                 return ResultWrapper<string>.Fail("Block not found", 0);
 
+            if (blockOverride?.GasLimit > (ulong)_rpcConfig.GasCap!.Value)
+                return ResultWrapper<string>.Fail($"GasLimit value is too large, max value {_rpcConfig.GasCap.Value}", ErrorCodes.InvalidInput);
+
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             return new ArbitrumCallTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
+            {
+                BlockOverride = blockOverride
+            }
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
         }
 
         public override ResultWrapper<UInt256?> eth_estimateGas(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
-            Dictionary<Address, AccountOverride>? stateOverride = null)
+            Dictionary<Address, AccountOverride>? stateOverride = null,
+            BlockOverride? blockOverride = null)
         {
             SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
             if (searchResult is { IsError: true, Error: not null })
@@ -185,9 +164,15 @@ namespace Nethermind.Arbitrum.Modules
             if (searchResult.Object == null)
                 return ResultWrapper<UInt256?>.Fail("Block not found", 0);
 
+            if (blockOverride?.GasLimit > (ulong)_rpcConfig.GasCap!.Value)
+                return ResultWrapper<UInt256?>.Fail($"GasLimit value is too large, max value {_rpcConfig.GasCap.Value}", ErrorCodes.InvalidInput);
+
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
             ResultWrapper<UInt256?> ethEstimateGas = new ArbitrumEstimateGasTxExecutor(_blockchainBridge, _blockFinder, _rpcConfig, originalBaseFee, _chainSpecParams)
+            {
+                BlockOverride = blockOverride
+            }
                 .Execute(transactionCall, blockParameter, stateOverride, searchResult);
 
             return ethEstimateGas;
@@ -230,13 +215,17 @@ namespace Nethermind.Arbitrum.Modules
                 }
             }
 
+            byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(receipt.BlockNumber).GetAwaiter().GetResult();
+            bool? isTimeboosted = Data.BlockMetadata.IsTxTimeboosted(blockMetadata, receipt.Index);
+
             ArbitrumReceiptForRpc result = new(
                 txHash,
                 receipt,
                 blockTimestamp,
                 gasInfo,
                 l1BlockNumber,
-                logIndexStart);
+                logIndexStart,
+                isTimeboosted);
 
             return ResultWrapper<ReceiptForRpc?>.Success(result);
         }
@@ -250,6 +239,7 @@ namespace Nethermind.Arbitrum.Modules
             Block block = searchResult.Object!;
             TxReceipt[] receipts = _receiptFinder.Get(block);
             ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger).L1BlockNumber;
+            byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(block.Number).GetAwaiter().GetResult();
 
             TxGasInfo gasInfo = new(block.Header.BaseFeePerGas);
             ReceiptForRpc[] result = receipts
@@ -260,10 +250,72 @@ namespace Nethermind.Arbitrum.Modules
                         block.Timestamp,
                         gasInfo,
                         l1BlockNumber,
-                        receipts.GetBlockLogFirstIndex(receipt.Index)))
+                        receipts.GetBlockLogFirstIndex(receipt.Index),
+                        Data.BlockMetadata.IsTxTimeboosted(blockMetadata, receipt.Index)))
                 .ToArray();
 
             return ResultWrapper<ReceiptForRpc[]?>.Success(result);
+        }
+
+        protected override ResultWrapper<BlockForRpc?> GetBlock(BlockParameter blockParameter, bool returnFullTransactionObjects)
+        {
+            SearchResult<Block> searchResult = _blockFinder.SearchForBlock(blockParameter, true);
+            if (searchResult.IsError)
+                return ResultWrapper<BlockForRpc?>.Success(null);
+
+            Block? block = searchResult.Object;
+            if (block is null)
+                return ResultWrapper<BlockForRpc?>.Success(null);
+
+            if (returnFullTransactionObjects)
+                _blockchainBridge.RecoverTxSenders(block);
+
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+            return ResultWrapper<BlockForRpc?>.Success(new ArbitrumBlockForRpc(block, returnFullTransactionObjects, _specProvider, headerInfo));
+        }
+
+        private ResultWrapper<Transaction> DecodeAndValidate(byte[] transaction)
+        {
+            Transaction tx;
+            try
+            {
+                tx = Rlp.Decode<Transaction>(transaction, RlpBehaviors.AllowUnsigned | RlpBehaviors.SkipTypedWrapping | RlpBehaviors.InMempoolForm);
+            }
+            catch (RlpException ex)
+            {
+                return ResultWrapper<Transaction>.Fail($"Invalid RLP: {ex.Message}");
+            }
+
+            tx.SenderAddress = _ecdsa.RecoverAddress(tx);
+
+            // Force hash computation before enqueuing so tx.Hash is available for the response
+            _ = tx.Hash;
+
+            if (tx.Type is >= (TxType)ArbitrumTxType.ArbitrumDeposit or TxType.Blob)
+                return ResultWrapper<Transaction>.Fail($"Transaction type {tx.Type} not supported");
+
+            if (_senderWhitelist is not null && tx.SenderAddress is not null && !_senderWhitelist.Contains(tx.SenderAddress))
+                return ResultWrapper<Transaction>.Fail($"Transaction sender {tx.SenderAddress} is not on the whitelist");
+
+            return ResultWrapper<Transaction>.Success(tx);
+        }
+
+        private async Task<ResultWrapper<Hash256>> DispatchTransaction(byte[] rawTx, Transaction tx, ConditionalOptions? options)
+        {
+            SequencerStateSnapshot state = _sequencerState.Current;
+            switch (state.Mode)
+            {
+                case SequencerMode.Active:
+                    return await _transactionQueue.EnqueueAsync(TxQueueItem.CreateRegular(tx, TimeSpan.FromMilliseconds(_queueTimeoutMs), options));
+                case SequencerMode.Forwarding:
+                    if (state.Forwarder is null)
+                        return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
+
+                    using (CancellationTokenSource cts = new(_queueTimeoutMs))
+                        return await state.Forwarder.ForwardTransactionAsync(rawTx, options, tx.Hash!, cts.Token);
+                default:
+                    return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available.", ErrorCodes.TransactionRejected);
+            }
         }
 
         private static HashSet<Address>? ParseSenderWhitelist(string whitelist)
@@ -292,6 +344,9 @@ namespace Nethermind.Arbitrum.Modules
             protected readonly UInt256 _originalBaseFee = originalBaseFee;
             protected readonly ArbitrumChainSpecEngineParameters _chainSpecParams = chainSpecParams;
 
+            public BlockOverride? BlockOverride { get; init; }
+            protected UInt256? BlobBaseFeeOverride => BlockOverride?.BlobBaseFee;
+
             public override ResultWrapper<TResult> Execute(
                 TransactionForRpc transactionCall,
                 BlockParameter? blockParameter,
@@ -305,14 +360,12 @@ namespace Nethermind.Arbitrum.Modules
                         transactionCall.Gas = searchResult.Value.Object?.GasLimit;
                 }
 
-                transactionCall.EnsureDefaults(_rpcConfig.GasCap);
-
                 return base.Execute(transactionCall, blockParameter, stateOverride, searchResult);
             }
 
-            protected override Result<Transaction> Prepare(TransactionForRpc call)
+            protected override Result<Transaction> Prepare(TransactionForRpc call, BlockHeader header)
             {
-                Result<Transaction> result = call.ToTransaction(validateUserInput: true);
+                Result<Transaction> result = call.ToTransaction(validateUserInput: true, gasCap: _rpcConfig.GasCap);
                 if (result.IsError)
                     return result;
 
@@ -328,6 +381,8 @@ namespace Nethermind.Arbitrum.Modules
 
                 // Set base fee to 0 for EVM execution (like Ethereum's NoBaseFee)
                 arbitrumHeader.BaseFeePerGas = 0;
+
+                BlockOverride?.ApplyOverrides(arbitrumHeader);
 
                 if (tx is { IsContractCreation: true, DataLength: 0 })
                     return ResultWrapper<TResult>.Fail("Contract creation without any data provided.", ErrorCodes.InvalidInput);
@@ -348,7 +403,7 @@ namespace Nethermind.Arbitrum.Modules
         {
             protected override ResultWrapper<string> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, token);
+                CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, BlobBaseFeeOverride, token);
 
                 return result switch
                 {
@@ -371,7 +426,7 @@ namespace Nethermind.Arbitrum.Modules
 
             protected override ResultWrapper<UInt256?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.EstimateGas(header, tx, _errorMargin, stateOverride, token);
+                CallOutput result = _blockchainBridge.EstimateGas(header, tx, _errorMargin, stateOverride, BlobBaseFeeOverride, token);
 
                 return result switch
                 {
@@ -393,7 +448,7 @@ namespace Nethermind.Arbitrum.Modules
         {
             protected override ResultWrapper<AccessListResultForRpc?> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
-                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, stateOverride, token, optimize);
+                CallOutput result = _blockchainBridge.CreateAccessList(header, tx, stateOverride, optimize, BlobBaseFeeOverride, token);
 
                 AccessListResultForRpc rpcAccessListResult = new(
                     accessList: AccessListForRpc.FromAccessList(result.AccessList ?? tx.AccessList),

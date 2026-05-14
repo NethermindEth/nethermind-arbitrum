@@ -23,7 +23,6 @@ using Nethermind.Crypto;
 using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing.State;
-using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Execution
@@ -87,9 +86,6 @@ namespace Nethermind.Arbitrum.Execution
 
             return result;
         }
-
-        public override TransactionResult Warmup(Transaction transaction, ITxTracer txTracer) =>
-            Execute(transaction, txTracer, ExecutionOptions.Warmup | ExecutionOptions.SkipValidation);
 
         protected override TransactionResult Execute(Transaction tx, ITxTracer tracer, ExecutionOptions opts)
         {
@@ -196,7 +192,8 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        protected override TransactionResult CalculateAvailableGas(Transaction tx, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas, out ArbitrumGasPolicy gasAvailable)
+        protected override TransactionResult CalculateAvailableGas(Transaction tx, IReleaseSpec spec, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas,
+            out ArbitrumGasPolicy gasAvailable)
         {
             // Capture intrinsic gas for gas dimension tracers
             if (_tracingInfo?.Tracer.IsTracingGasDimension == true)
@@ -216,7 +213,8 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override GasConsumed Refund(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts,
-            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, ArbitrumGasPolicy floorGas)
+            in TransactionSubstate substate, in ArbitrumGasPolicy unspentGas, in UInt256 gasPrice, int codeInsertRefunds, long selfDestructStateRefund,
+            in ArbitrumGasPolicy floorGas, in ArbitrumGasPolicy intrinsicGasStandard, long postIntrinsicStateReservoir)
         {
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
@@ -235,7 +233,8 @@ namespace Nethermind.Arbitrum.Execution
 
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
-                    totalToRefund += substate.Refund + substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
+                    totalToRefund += substate.Refund +
+                                     substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
                 refund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
@@ -295,38 +294,45 @@ namespace Nethermind.Arbitrum.Execution
         {
             opcodeGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in baseFee);
 
+            // effectiveGasPrice relies on OriginalBaseFee (not the potentially-zeroed baseFee), matching Nitro's
+            // TransactionToMessage which computes msg.GasPrice with the real header BaseFee before zeroing.
             UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
             UInt256 effectiveGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in effectiveBaseFee);
 
-            // Drop tip if necessary (Arbitrum-specific logic)
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > effectiveBaseFee)
-            {
-                return effectiveBaseFee;
-            }
+            // Tip-drop uses baseFee (not effectiveBaseFee), matching Nitro's
+            // go-ethereum:consensus-v51/core/state_transition.go:execute which uses evm.Context.BaseFee.
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > baseFee)
+                return baseFee;
 
             return effectiveGasPrice;
         }
 
         protected override bool TryCalculatePremiumPerGas(Transaction tx, in UInt256 baseFee, out UInt256 premiumPerGas)
         {
-            UInt256 effectiveBaseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
+            // baseFee is header.BaseFeePerGas — matches Nitro's evm.Context.BaseFee:
+            //   - During block processing: the real base fee (same as OriginalBaseFee)
+            //   - During eth_call/eth_createAccessList: zeroed to 0 (NoBaseFee mode)
+            // We intentionally use baseFee (not GetEffectiveBaseFeeForGasCalculations/OriginalBaseFee)
+            // to match Nitro's tip-drop check (go-ethereum:consensus-v51/core/state_transition.go:execute) which
+            // compares against evm.Context.BaseFee, not BaseFeeInBlock.
 
-            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in effectiveBaseFee, out _);
+            UInt256 effectiveGasPrice = base.CalculateEffectiveGasPrice(tx, _currentSpec!.IsEip1559Enabled, in baseFee, out _);
 
-            // We repeat the drop tip logic as in nitro they previously set GasTipCap to 0 if we dropped tip
-            // which is then used for effectiveTip (premiumPerGas)
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) &&
-                effectiveGasPrice > effectiveBaseFee)
+            // Mirrors Nitro (go-ethereum:consensus-v51/core/state_transition.go:execute): when tips are not
+            // collected and the effective gas price exceeds the base fee (i.e. there is a tip
+            // component), drop it. In Nitro this is done by setting msg.GasTipCap = 0.
+            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > baseFee)
             {
                 premiumPerGas = UInt256.Zero;
                 return true;
             }
 
-            return base.TryCalculatePremiumPerGas(tx, in effectiveBaseFee, out premiumPerGas);
+            return base.TryCalculatePremiumPerGas(tx, in baseFee, out premiumPerGas);
         }
 
-        protected override GasConsumed RefundOnFailContractCreation(Transaction tx, BlockHeader header, IReleaseSpec spec, ExecutionOptions opts)
+        protected override GasConsumed RefundOnFail(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, in ArbitrumGasPolicy intrinsicGasStandard, long floorGas = 0)
         {
+            BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
             UInt256 effectiveGasPrice = CalculateEffectiveGasPrice(tx, spec.IsEip1559Enabled, header.BaseFeePerGas, out _);
 
             long spentGas = tx.GasLimit;
@@ -339,6 +345,9 @@ namespace Nethermind.Arbitrum.Execution
 
             return spentGas;
         }
+
+        protected override GasConsumed RefundOnContractCollision(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, in ArbitrumGasPolicy intrinsicGasStandard, long floorGas)
+            => RefundOnFail(tx, spec, opts, in gas, in gasPrice, in intrinsicGasStandard, floorGas);
 
         private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
             ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
@@ -508,7 +517,7 @@ namespace Nethermind.Arbitrum.Execution
 
             ReadOnlyMemory<byte> methodId = tx.Data[..4];
 
-            if (methodId.Span.SequenceEqual(AbiMetadata.StartBlockMethodId))
+            if (methodId.Span.SequenceEqual(ArbosActsCodec.StartBlockMethodId))
             {
                 ValueHash256 prevHash = ValueKeccak.Zero;
                 if (blCtx.Header.Number > 0)
@@ -516,8 +525,18 @@ namespace Nethermind.Arbitrum.Execution
                     prevHash = blCtx.Header.ParentHash!;
                 }
 
+                // For ArbOS versions >= 40, execute the EIP-2935 (Arbitrum variant) contract via EVM
+                // to record all state accesses (GetCode, STATICCALL to ArbSys, SSTORE) exactly as
+                // Nitro does in core.ProcessParentBlockHash. This is required for correct witness generation.
+                //
+                // Note: BlockProcessor.ProcessBlock also calls BlockhashStore.ApplyBlockhashStateChanges
+                // before ProcessTransactions — the EVM call here is idempotent for state but records
+                // additional accesses (GetCode(HistoryStorageCodeArbitrum), GetCode(ArbSys at 0x64) during STATICCALL gas calculation).
+                if (_arbosState!.CurrentArbosVersion >= ArbosVersion.ParentBlockHashSupport)
+                    ProcessParentBlockHash(prevHash);
+
                 Dictionary<string, object> callArguments =
-                    AbiMetadata.UnpackInput(AbiMetadata.StartBlockMethod, tx.Data.ToArray());
+                    ArbosActsCodec.UnpackInput(ArbosActsMethod.StartBlock, tx.Data.ToArray());
 
                 ulong l1BlockNumber = (ulong)callArguments["l1BlockNumber"];
                 ulong timePassed = (ulong)callArguments["timePassed"];
@@ -552,9 +571,9 @@ namespace Nethermind.Arbitrum.Execution
                 return new(false, TransactionResult.Ok);
             }
 
-            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportMethodId))
+            if (methodId.Span.SequenceEqual(ArbosActsCodec.BatchPostingReportMethodId))
             {
-                Dictionary<string, object> callArguments = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+                Dictionary<string, object> callArguments = ArbosActsCodec.UnpackInput(ArbosActsMethod.BatchPostingReport, tx.Data.ToArray());
 
                 UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
                 Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
@@ -579,16 +598,16 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            if (methodId.Span.SequenceEqual(AbiMetadata.BatchPostingReportV2MethodId))
+            if (methodId.Span.SequenceEqual(ArbosActsCodec.BatchPostingReportV2MethodId))
             {
                 Dictionary<string, object> callArguments =
-                    AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReportV2, tx.Data.ToArray());
+                    ArbosActsCodec.UnpackInput(ArbosActsMethod.BatchPostingReportV2, tx.Data.ToArray());
 
                 UInt256 batchTimestamp = (UInt256)callArguments["batchTimestamp"];
                 Address batchPosterAddress = (Address)callArguments["batchPosterAddress"];
                 ulong batchNumber = (ulong)callArguments["batchNumber"];
-                ulong batchCallDataLength = (ulong)callArguments["batchCallDataLength"];
-                ulong batchCallDataNonZeros = (ulong)callArguments["batchCallDataNonZeros"];
+                ulong batchCallDataLength = (ulong)callArguments["batchCalldataLength"];
+                ulong batchCallDataNonZeros = (ulong)callArguments["batchCalldataNonZeros"];
                 ulong batchExtraGas = (ulong)callArguments["batchExtraGas"];
                 UInt256 l1BaseFeeWei = (UInt256)callArguments["l1BaseFeeWei"];
 
@@ -629,6 +648,24 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             return new(false, TransactionResult.Ok);
+        }
+
+        private void ProcessParentBlockHash(ValueHash256 prevHash)
+        {
+            Transaction systemTx = new()
+            {
+                Value = UInt256.Zero,
+                Data = prevHash.Bytes.ToArray(),
+                To = Eip2935Constants.BlockHashHistoryAddress,
+                SenderAddress = Address.SystemUser,
+                GasLimit = 30_000_000,
+                GasPrice = UInt256.Zero,
+                DecodedMaxFeePerGas = UInt256.Zero,
+            };
+            systemTx.Hash = systemTx.CalculateHash();
+            TransactionResult systemTxResult = Process(systemTx, NullTxTracer.Instance, ExecutionOptions.Commit);
+            if (systemTxResult != TransactionResult.Ok)
+                throw new InvalidOperationException($"ProcessParentBlockHash system transaction execution failed. TxHash={systemTx.Hash}, PrevHash={prevHash}, Result={systemTxResult}");
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumSubmitRetryableTransaction(

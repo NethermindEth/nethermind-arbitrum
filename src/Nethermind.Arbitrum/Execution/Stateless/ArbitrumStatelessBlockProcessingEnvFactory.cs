@@ -8,7 +8,6 @@ using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.BeaconBlockRoot;
-using Nethermind.Blockchain.Blocks;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Consensus;
 using Nethermind.Consensus.ExecutionRequests;
@@ -107,7 +106,6 @@ public class ArbitrumStatelessBlockProcessingEnvFactory(ILifetimeScope rootLifet
                 .AddScoped<IRewardCalculator>(_ => NoBlockRewards.Instance)
                 .AddScoped<IReceiptStorage>(_ => NullReceiptStorage.Instance)
                 .AddScoped<CachedL1PriceData, ILogManager>(logManager => new CachedL1PriceData(logManager))
-                .AddScoped<IBlockhashStore, IWorldState>(worldState => new BlockhashStore(worldState))
 
                 .AddScoped<IBeaconBlockRootHandler, ITransactionProcessor, IWorldState>(
                     (txProcessor, worldState) => new BeaconBlockRootHandler(txProcessor, worldState))

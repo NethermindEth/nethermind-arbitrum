@@ -256,7 +256,7 @@ public sealed class ArbitrumSequencerEngine(
         _ = Task.Run(async () =>
         {
             ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(
-                item.RlpEncoded, item.Tx.Hash!, item.CancellationToken);
+                item.RlpEncoded, item.Options, item.Tx.Hash!, item.CancellationToken);
             item.ReturnResult(result.Result != Result.Success
                 ? new Exception(result.Result.Error!)
                 : null);
@@ -295,7 +295,8 @@ public sealed class ArbitrumSequencerEngine(
     private static async Task<(TxQueueItem Item, ResultWrapper<Hash256> Result)> ForwardSingleAsync(
         TransactionForwarder forwarder, TxQueueItem item)
     {
-        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(item.RlpEncoded, item.Tx.Hash!, item.CancellationToken);
+        ResultWrapper<Hash256> result = await forwarder.ForwardTransactionAsync(
+            item.RlpEncoded, item.Options, item.Tx.Hash!, item.CancellationToken);
         return (item, result);
     }
 
@@ -378,6 +379,27 @@ public sealed class ArbitrumSequencerEngine(
                 queueItems[feeWriteIdx++] = queueItems[i];
         }
         queueItems.RemoveRange(feeWriteIdx, queueItems.Count - feeWriteIdx);
+
+        if (queueItems.Count == 0)
+            return null;
+
+        // Conditional options validation: evict txs whose state conditions are no longer met
+        int optionsWriteIdx = 0;
+        for (int i = 0; i < queueItems.Count; i++)
+        {
+            TxQueueItem it = queueItems[i];
+            if (it.Options is not null)
+            {
+                Result checkResult = it.Options.Check(l1BlockNumber, timestamp, stateReader, currentHead);
+                if (checkResult != Result.Success)
+                {
+                    it.ReturnResult(new InvalidOperationException(checkResult.Error));
+                    continue;
+                }
+            }
+            queueItems[optionsWriteIdx++] = it;
+        }
+        queueItems.RemoveRange(optionsWriteIdx, queueItems.Count - optionsWriteIdx);
 
         if (queueItems.Count == 0)
             return null;

@@ -13,8 +13,8 @@ using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
@@ -53,9 +53,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return StylusParams.CreateFromStorage(paramsStorage, ArbosVersion);
     }
 
-    public ProgramActivationResult ActivateProgram(Address address, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode)
+    public ProgramActivationResult ActivateProgram(Address address, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode, JournalSet<Address> destroyList)
     {
-        if (state.IsDeadAccount(address))
+        if (destroyList.Contains(address))
             return ProgramActivationResult.Failure(takeAllGas: false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
 
         ValueHash256 codeHash = state.GetCodeHash(address);
@@ -137,7 +137,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
             codeSource = delegatedCodeSource;
 
-        ref readonly ValueHash256 codeHash = ref ResolveCodeHash(vmHost, codeSource);
+        ValueHash256 codeHash = ResolveCodeHash(vmHost, codeSource);
 
         StylusOperationResult<Program> program = GetActiveProgram(in codeHash, vmHost.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
@@ -754,7 +754,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         }
     }
 
-    private StylusOperationResult<Program> GetActiveProgram(in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    private StylusOperationResult<Program> GetActiveProgram(scoped in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
     {
         Program program = GetProgram(in codeHash, timestamp);
         if (program.Version == 0)
@@ -864,13 +864,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
 
-    private ref readonly ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
+    private ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
     {
         if (codeSource != Address.Zero)
-            return ref vmHost.WorldState.GetCodeHash(codeSource);
+            return vmHost.WorldState.GetCodeHash(codeSource);
 
-        Hash256 initCodeHash = new(ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan));
-        return ref initCodeHash.ValueHash256;
+        return ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan);
     }
 }
 

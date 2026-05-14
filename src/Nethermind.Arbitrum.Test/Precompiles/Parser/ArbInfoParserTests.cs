@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Evm;
 using Nethermind.Specs.Forks;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -20,8 +19,8 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbInfoParserTests
 {
-    private static readonly uint _getBalanceId = PrecompileHelper.GetMethodId("getBalance(address)");
-    private static readonly uint _getCodeId = PrecompileHelper.GetMethodId("getCode(address)");
+    private static readonly uint GetBalanceId = PrecompileTestAbiHelpers.GetMethodId("getBalance(address)");
+    private static readonly uint GetCodeId = PrecompileTestAbiHelpers.GetMethodId("getCode(address)");
 
     [Test]
     public void ParsesGetBalance_ValidInputData_ReturnsBalance()
@@ -43,10 +42,10 @@ public class ArbInfoParserTests
         ulong gasSupplied = GasCostOf.BalanceEip1884;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getBalanceId, out PrecompileHandler? implementation);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(GetBalanceId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbInfoParser.PrecompileFunctionDescription[_getBalanceId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbInfoParser.PrecompileFunctionDescription[GetBalanceId].AbiFunctionDescription;
 
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
@@ -70,11 +69,11 @@ public class ArbInfoParserTests
 
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getBalanceId, out PrecompileHandler? implementation);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(GetBalanceId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Address testAccount = new("0x0000000000000000000000000000000000000123");
-        byte[] malformedCalldata = testAccount.Bytes; // Not left-padded to 32 bytes
+        byte[] malformedCalldata = testAccount.Bytes.ToArray(); // Not left-padded to 32 bytes
 
         Action action = () => implementation!(context, malformedCalldata);
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
@@ -87,7 +86,7 @@ public class ArbInfoParserTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -100,13 +99,13 @@ public class ArbInfoParserTests
         worldState.Commit(London.Instance);
 
         ulong codeLengthInWords = (ulong)(runtimeCode.Length + 31) / 32;
-        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.DataCopy * codeLengthInWords;
+        ulong gasSupplied = GasCostOf.ColdSLoad + GasCostOf.Memory * codeLengthInWords;
         PrecompileTestContextBuilder context = new(worldState, gasSupplied);
 
-        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getCodeId, out PrecompileHandler? implementation);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(GetCodeId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbInfoParser.PrecompileFunctionDescription[_getCodeId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbInfoParser.PrecompileFunctionDescription[GetCodeId].AbiFunctionDescription;
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
@@ -117,9 +116,7 @@ public class ArbInfoParserTests
 
         byte[] expectedAbiEncodedCode = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            function.GetReturnInfo().Signature,
-            [runtimeCode]
-        );
+            function.GetReturnInfo().Signature, runtimeCode);
 
         Assert.That(code, Is.EqualTo(expectedAbiEncodedCode), "ArbInfoParser.GetCode should return the correct code");
     }
@@ -137,10 +134,10 @@ public class ArbInfoParserTests
 
         PrecompileTestContextBuilder context = new(worldState, 0);
 
-        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(_getCodeId, out PrecompileHandler? implementation);
+        bool exists = ArbInfoParser.PrecompileImplementation.TryGetValue(GetCodeId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
-        byte[] malformedCalldata = someContract.Bytes; // Not left-padded to 32 bytes
+        byte[] malformedCalldata = someContract.Bytes.ToArray(); // Not left-padded to 32 bytes
 
         Action action = () => implementation!(context, malformedCalldata);
 

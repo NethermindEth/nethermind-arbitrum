@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Security.Cryptography;
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
@@ -14,11 +14,11 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -88,7 +88,7 @@ public class ArbOwnerPublicTests
         UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Calldata to call getAllChainOwners() on ArbOwnerPublic precompile
-        uint methodId = PrecompileHelper.GetMethodId("getAllChainOwners()");
+        uint methodId = PrecompileTestAbiHelpers.GetMethodId("getAllChainOwners()");
         AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
         AbiSignature signature = functionDescription.GetCallInfo().Signature;
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
@@ -428,7 +428,7 @@ public class ArbOwnerPublicTests
         UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Calldata to call getScheduledUpgrade() on ArbOwnerPublic precompile
-        uint methodId = PrecompileHelper.GetMethodId("getScheduledUpgrade()");
+        uint methodId = PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()");
         AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
         AbiSignature signature = functionDescription.GetCallInfo().Signature;
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
@@ -575,5 +575,52 @@ public class ArbOwnerPublicTests
         ulong result = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
 
         result.Should().Be(0);
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbOwnerPublic.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("isChainOwner(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllChainOwners()"),
+            PrecompileTestAbiHelpers.GetMethodId("rectifyChainOwner(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("isNativeTokenOwner(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllNativeTokenOwners()"),
+            PrecompileTestAbiHelpers.GetMethodId("getNetworkFeeAccount()"),
+            PrecompileTestAbiHelpers.GetMethodId("getInfraFeeAccount()"),
+            PrecompileTestAbiHelpers.GetMethodId("getBrotliCompressionLevel()"),
+            PrecompileTestAbiHelpers.GetMethodId("getParentGasFloorPerToken()"),
+            PrecompileTestAbiHelpers.GetMethodId("getNativeTokenManagementFrom()"),
+            PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()"),
+            PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbOwnerPublic.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ChainOwnerRectified");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("isChainOwner(address)").Should().Be(Solgen.ArbOwnerPublic.Methods.IsChainOwner);
+        PrecompileTestAbiHelpers.GetMethodId("getAllChainOwners()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetAllChainOwners);
+        PrecompileTestAbiHelpers.GetMethodId("rectifyChainOwner(address)").Should().Be(Solgen.ArbOwnerPublic.Methods.RectifyChainOwner);
+        PrecompileTestAbiHelpers.GetMethodId("isNativeTokenOwner(address)").Should().Be(Solgen.ArbOwnerPublic.Methods.IsNativeTokenOwner);
+        PrecompileTestAbiHelpers.GetMethodId("getAllNativeTokenOwners()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetAllNativeTokenOwners);
+        PrecompileTestAbiHelpers.GetMethodId("getNetworkFeeAccount()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetNetworkFeeAccount);
+        PrecompileTestAbiHelpers.GetMethodId("getInfraFeeAccount()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetInfraFeeAccount);
+        PrecompileTestAbiHelpers.GetMethodId("getBrotliCompressionLevel()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetBrotliCompressionLevel);
+        PrecompileTestAbiHelpers.GetMethodId("getParentGasFloorPerToken()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetParentGasFloorPerToken);
+        PrecompileTestAbiHelpers.GetMethodId("getNativeTokenManagementFrom()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetNativeTokenManagementFrom);
+        PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade);
+        PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()").Should().Be(Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled);
     }
 }

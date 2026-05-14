@@ -208,7 +208,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "WebAssembly translation error");
+        StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "Middleware error");
         StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor, false);
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());

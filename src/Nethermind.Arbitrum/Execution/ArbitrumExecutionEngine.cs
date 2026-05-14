@@ -25,6 +25,7 @@ using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Stylus;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -46,7 +47,9 @@ public sealed class ArbitrumExecutionEngine(
     IExpressLaneService expressLaneService,
     IExpressLaneTracker expressLaneTracker,
     IAuctionResolutionQueue auctionResolutionQueue,
-    IEthereumEcdsa ethereumEcdsa)
+    IEthereumEcdsa ethereumEcdsa,
+    IStateReconstructor stateReconstructor,
+    IHistoryPruner historyPruner)
     : IArbitrumExecutionEngine
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumExecutionEngine>();
@@ -93,6 +96,8 @@ public sealed class ArbitrumExecutionEngine(
         ResultWrapper<Block> blockResult = await arbitrumBlockFactory.DigestMessageAsync(blockNumberResult.Data, parameters.Message);
         if (blockResult.Result != Result.Success)
             return ResultWrapper<MessageResult>.Fail(blockResult.Result.Error!, blockResult.ErrorCode);
+
+        historyPruner.SchedulePruneHistory();
 
         return ResultWrapper<MessageResult>.Success(new()
         {
@@ -182,7 +187,7 @@ public sealed class ArbitrumExecutionEngine(
         }
     }
 
-    public ResultWrapper<EmptyResponse> SetFinalityData(SetFinalityDataParams parameters)
+    public async Task<ResultWrapper<EmptyResponse>> SetFinalityData(SetFinalityDataParams parameters)
     {
         try
         {
@@ -198,6 +203,11 @@ public sealed class ArbitrumExecutionEngine(
 
             // Set finality data
             _syncMonitor.SetFinalityData(safeFinalityData, finalizedFinalityData, validatedFinalityData);
+
+            // No need to really check the result of MarkValid i believe because
+            // nitro's MarkValid does not return any error, only logs warnings/errors
+            if (arbitrumConfig.ValidationEnabled && validatedFinalityData.HasValue)
+                await MarkValid(new MarkValidParameters(validatedFinalityData.Value.MessageIndex, validatedFinalityData.Value.BlockHash));
 
             if (_logger.IsDebug)
                 _logger.Debug("SetFinalityData completed successfully");
@@ -402,7 +412,8 @@ public sealed class ArbitrumExecutionEngine(
             SequenceNumber = rpcSubmission.SequenceNumber,
             Signature = rpcSubmission.Signature,
             ChainId = rpcSubmission.ChainId,
-            AuctionContractAddress = rpcSubmission.AuctionContractAddress
+            AuctionContractAddress = rpcSubmission.AuctionContractAddress,
+            Options = rpcSubmission.Options
         };
 
         ulong currentBlock = (ulong)blockTree.Head!.Header.Number;
@@ -442,6 +453,7 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
     {
+        await stateReconstructor.WaitForPruningGateAsync();
         long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
         if (blockNumber == 0)
         {
@@ -462,55 +474,147 @@ public sealed class ArbitrumExecutionEngine(
             Number = blockNumber
         };
 
+        // References temporarily parent trie
+        stateReconstructor.EnsureStateAvailable(parent);
+
         string[] wasmTargets = parameters.WasmTargets;
         string localTarget = StylusTargets.GetLocalTargetName();
         if (!wasmTargets.Contains(localTarget))
             wasmTargets = wasmTargets.Append(localTarget).ToArray();
 
-        using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
-        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-        (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
-
-        using (witness)
+        try
         {
-            if (builtBlock.Hash is null)
-                return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
+            using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
+            IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+            (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
 
-            TaskCompletionSource<Hash256> blockAddedTcs = new();
-
-            void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
+            using (witness)
             {
-                if (e.Block.Number == blockNumber)
-                    blockAddedTcs.TrySetResult(e.Block.Hash!);
-            }
+                if (builtBlock.Hash is null)
+                    return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
-            blockTree.BlockAddedToMain += OnBlockAddedToMain;
+                TaskCompletionSource<Hash256> blockAddedTcs = new();
+
+                void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
+                {
+                    if (e.Block.Number == blockNumber)
+                        blockAddedTcs.TrySetResult(e.Block.Hash!);
+                }
+
+                blockTree.BlockAddedToMain += OnBlockAddedToMain;
+
+                try
+                {
+                    // Check immediately in case the block was committed before we subscribed
+                    Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
+                    if (canonicalHash is null)
+                    {
+                        using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
+                        canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
+                    }
+
+                    if (canonicalHash != builtBlock.Hash)
+                        return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
+
+                    stateReconstructor.UpdateValidCandidateHeader(parent);
+
+                    RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
+                    return ResultWrapper<RecordResult>.Success(result);
+                }
+                catch (OperationCanceledException)
+                {
+                    return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
+                }
+                finally
+                {
+                    blockTree.BlockAddedToMain -= OnBlockAddedToMain;
+                }
+            }
+        }
+        finally
+        {
+            // Removes temporary reference to parent trie
+            // Gets removed by any execution path and after call to UpdateValidCandidateHeader
+            stateReconstructor.DereferenceRoot(parent.StateRoot!);
+        }
+    }
+
+    public async Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
+    {
+        await stateReconstructor.WaitForPruningGateAsync();
+        if (parameters.End < parameters.Start)
+            return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
+
+        ulong numOfBlocks = parameters.End + 1 - parameters.Start;
+        long headerNum = MessageIndexToBlockNumber(parameters.Start).Data;
+        if (parameters.Start > 0)
+            headerNum--; // need to get previous as RecordBlockCreation executes from the parent block's state
+        else
+            numOfBlocks--; // genesis block doesn't need preparation, so recording one less block
+
+        long lastHeaderNum = headerNum + (long)numOfBlocks;
+        List<BlockHeader> referencedHeaders = new((int)numOfBlocks);
+
+        for (long current = headerNum; current <= lastHeaderNum; current++)
+        {
+            BlockHeader? header = blockTree.FindHeader(current);
+            if (header is null)
+            {
+                _logger.Warn($"PrepareForRecord: header not found for block {current}");
+                break;
+            }
 
             try
             {
-                // Check immediately in case the block was committed before we subscribed
-                Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
-                if (canonicalHash is null)
-                {
-                    using CancellationTokenSource cts = arbitrumConfig.BuildProcessingTimeoutTokenSource();
-                    canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
-                }
-
-                if (canonicalHash != builtBlock.Hash)
-                    return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
-
-                RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
-                return ResultWrapper<RecordResult>.Success(result);
+                stateReconstructor.EnsureStateAvailable(header);
+                stateReconstructor.UpdateValidCandidateHeader(header);
+                referencedHeaders.Add(header);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex)
             {
-                return ResultWrapper<RecordResult>.Fail(ArbitrumRpcErrors.BlockNotFound(blockNumber));
-            }
-            finally
-            {
-                blockTree.BlockAddedToMain -= OnBlockAddedToMain;
+                _logger.Warn($"PrepareForRecord: failed to ensure state for block {current}: {ex.Message}");
+                break;
             }
         }
+
+        stateReconstructor.PreparedAddTrim(referencedHeaders);
+
+        return ResultWrapper<EmptyResponse>.Success(default);
+    }
+
+    private async Task<ResultWrapper<EmptyResponse>> MarkValid(MarkValidParameters parameters)
+    {
+        await stateReconstructor.WaitForPruningGateAsync();
+
+        ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
+        if (blockNumberResult.Result != Result.Success)
+            return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
+
+        long validBlockNumber = blockNumberResult.Data;
+
+        // Verify the canonical block at validBlockNumber is canonical
+        Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
+        if (canonicalHash != parameters.ResultHash)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
+            return ResultWrapper<EmptyResponse>.Fail($"MarkValid: canonical hash {canonicalHash} at block {validBlockNumber} does not match expected {parameters.ResultHash}");
+        }
+
+        // Promote the candidate (its block number must be ≤ validBlockNumber)
+        BlockHeader? validHeader = stateReconstructor.TryPromoteValidCandidate(validBlockNumber);
+
+        if (validHeader is null)
+        {
+            if (_logger.IsWarn)
+                _logger.Warn($"MarkValid: no candidate to promote for block {validBlockNumber}");
+        }
+        else if (_logger.IsDebug)
+        {
+            _logger.Debug($"MarkValid: promoted candidate block {validHeader.Number} hash {validHeader.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
+        }
+
+        return ResultWrapper<EmptyResponse>.Success(default);
     }
 
     private Hash256 GetSendRootFromBlock(Block block)

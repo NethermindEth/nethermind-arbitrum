@@ -43,6 +43,7 @@ namespace Nethermind.Arbitrum.Execution
     {
         private readonly CachedL1PriceData _cachedL1PriceData;
         private readonly IWasmStore _wasmStore;
+        private readonly IProcessingStats _stats;
 
         public ArbitrumBlockProcessor(
             ISpecProvider specProvider,
@@ -59,6 +60,8 @@ namespace Nethermind.Arbitrum.Execution
             ILogManager logManager,
             IWithdrawalProcessor withdrawalProcessor,
             IExecutionRequestsProcessor executionRequestsProcessor,
+            IBlockAccessListManager balManager,
+            IProcessingStats stats,
             IArbitrumConfig arbitrumConfig)
             : base(
                 specProvider,
@@ -71,10 +74,12 @@ namespace Nethermind.Arbitrum.Execution
                 blockhashStore,
                 logManager,
                 withdrawalProcessor,
-                executionRequestsProcessor)
+                executionRequestsProcessor,
+                balManager)
         {
             _cachedL1PriceData = cachedL1PriceData;
             _wasmStore = wasmStore;
+            _stats = stats;
             ReceiptsTracer = new ArbitrumBlockReceiptTracer((txProcessor as ArbitrumTransactionProcessor)!.TxExecContext, arbitrumConfig);
         }
 
@@ -86,6 +91,7 @@ namespace Nethermind.Arbitrum.Execution
             CancellationToken token)
         {
             _wasmStore.GetRecentWasms().Clear();
+            _stats.Start();
 
             TxReceipt[] receipts = base.ProcessBlock(block, blockTracer, options, releaseSpec, token);
             _cachedL1PriceData.CacheL1PriceDataOfMsg(
@@ -105,7 +111,7 @@ namespace Nethermind.Arbitrum.Execution
             BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? transactionProcessedHandler = null)
             : IBlockProductionTransactionsExecutor
         {
-            private readonly ILogger _logger = logManager.GetClassLogger();
+            private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockProductionTransactionsExecutor>();
             private BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler? _transactionProcessedHandler = transactionProcessedHandler;
 
             event EventHandler<AddingTxEventArgs>? IBlockProductionTransactionsExecutor.AddingTransaction

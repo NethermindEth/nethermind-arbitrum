@@ -5,7 +5,6 @@ using System.Diagnostics.CodeAnalysis;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.CodeAnalysis;
@@ -30,9 +29,9 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
             [ArbWasmParser.Address] = new PrecompileInfo(ArbWasmParser.Instance),
             [ArbGasInfoParser.Address] = new PrecompileInfo(ArbGasInfoParser.Instance),
             [ArbAggregatorParser.Address] = new PrecompileInfo(ArbAggregatorParser.Instance),
-            [ArbActsParser.Address] = new PrecompileInfo(ArbActsParser.Instance),
+            [ArbosActsParser.Address] = new PrecompileInfo(ArbosActsParser.Instance),
             [ArbFunctionTableParser.Address] = new PrecompileInfo(ArbFunctionTableParser.Instance),
-            [ArbTestParser.Address] = new PrecompileInfo(ArbTestParser.Instance),
+            [ArbosTestParser.Address] = new PrecompileInfo(ArbosTestParser.Instance),
             [ArbStatisticsParser.Address] = new PrecompileInfo(ArbStatisticsParser.Instance),
             [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
             [ArbWasmCacheParser.Address] = new PrecompileInfo(ArbWasmCacheParser.Instance),
@@ -57,9 +56,7 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
                 arbosVersionProvider.Get() >= ArbosVersion.Fifty &&
                 delegationAddress is not null &&
                 vmSpec.IsPrecompile(delegationAddress))
-            {
                 return CodeInfo.Empty;
-            }
 
             return result;
         }
@@ -78,9 +75,6 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
             // Must be Ethereum precompile - delegate to base repository
             codeInfoRepository.GetCachedCodeInfo(codeSource, followDelegation, vmSpec, out delegationAddress);
     }
-
-    public ValueHash256 GetExecutableCodeHash(Address address, IReleaseSpec spec) =>
-        codeInfoRepository.GetExecutableCodeHash(address, spec);
 
     public void InsertCode(ReadOnlyMemory<byte> code, Address codeOwner, IReleaseSpec spec) =>
         codeInfoRepository.InsertCode(code, codeOwner, spec);

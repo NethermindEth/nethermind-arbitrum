@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Blockchain;
@@ -12,6 +13,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Threading;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 
@@ -29,6 +31,7 @@ public sealed class ArbitrumBlockFactory(
     IBlocksConfig blocksConfig,
     IArbitrumConfig arbitrumConfig,
     IArbitrumSequencerBlockSuggester blockSuggester,
+    IStateReconstructor stateReconstructor,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumBlockFactory>();
@@ -153,6 +156,9 @@ public sealed class ArbitrumBlockFactory(
                 messageResults[i] = blockResult.Data;
             }
 
+            if (arbitrumConfig.ValidationEnabled)
+                stateReconstructor.ReorgTo(blockToKeep.Header);
+
             // 10. Return results
             return ResultWrapper<Block[]>.Success(messageResults);
         }
@@ -170,6 +176,9 @@ public sealed class ArbitrumBlockFactory(
 
     private async Task<ResultWrapper<Block>> ProduceBlockWithoutWaitingOnProcessingQueueAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
+        bool previousMainThread = ProcessingThread.IsBlockProcessingThread;
+        ProcessingThread.IsBlockProcessingThread = true;
+
         try
         {
             Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
@@ -182,16 +191,30 @@ public sealed class ArbitrumBlockFactory(
         {
             return ResultWrapper<Block>.Fail("Timeout waiting for block processing result.", ErrorCodes.Timeout);
         }
+        finally
+        {
+            ProcessingThread.IsBlockProcessingThread = previousMainThread;
+        }
     }
 
     private async Task<ResultWrapper<Block>> ProduceBlockWhileLockedAsync(ArbitrumPayloadAttributes payload, BlockHeader? parentHeader)
     {
         return await WaitForBlockProcessingAsync(async () =>
         {
-            Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
-            return block?.Hash is null
-                ? ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError)
-                : ResultWrapper<Block>.Success(block);
+            bool previousMainThread = ProcessingThread.IsBlockProcessingThread;
+            ProcessingThread.IsBlockProcessingThread = true;
+
+            try
+            {
+                Block? block = await trigger.BuildBlock(parentHeader: parentHeader, payloadAttributes: payload);
+                return block?.Hash is null
+                    ? ResultWrapper<Block>.Fail("Failed to build block or block has no hash.", ErrorCodes.InternalError)
+                    : ResultWrapper<Block>.Success(block);
+            }
+            finally
+            {
+                ProcessingThread.IsBlockProcessingThread = previousMainThread;
+            }
         });
     }
 

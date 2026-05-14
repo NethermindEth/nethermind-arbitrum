@@ -30,6 +30,7 @@ concurrency:
 permissions:
   id-token: write
   attestations: write
+  artifact-metadata: write
   contents: read
 
 jobs:
@@ -44,7 +45,7 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
             arch_suffix: -amd64
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.11.4
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v2.0.0
     with:
       runner: ${{ matrix.runner }}
       group_name: core
@@ -80,14 +81,14 @@ jobs:
     steps:
       - name: Install JFrog CLI
         id: jfrog
-        uses: jfrog/setup-jfrog-cli@v4
+        uses: jfrog/setup-jfrog-cli@v5
         env:
           JF_URL: https://nethermind.jfrog.io
         with:
           oidc-provider-name: github-nethermindeth
 
       - name: Login to Registry with OIDC
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: nethermind.jfrog.io
           username: ${{ steps.jfrog.outputs.oidc-user }}

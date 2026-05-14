@@ -30,7 +30,7 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
+        Task<ResultWrapper<string>> SetFinalityData(SetFinalityDataParams parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<string> MarkFeedStart(ulong to);
@@ -58,6 +58,9 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters);

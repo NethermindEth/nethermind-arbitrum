@@ -23,11 +23,11 @@ using Nethermind.Arbitrum.Arbos.Storage;
 using static Nethermind.Arbitrum.Precompiles.Exceptions.ArbitrumPrecompileException;
 using static Nethermind.Evm.VirtualMachineStatics;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Core.Crypto;
 using Nethermind.Arbitrum.Execution.Stateless;
 using System.Diagnostics;
+using static Nethermind.Evm.EvmInstructions;
 
 [assembly: InternalsVisibleTo("Nethermind.Arbitrum.Evm.Test")]
 namespace Nethermind.Arbitrum.Evm;
@@ -216,7 +216,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ? EvmExceptionType.Revert
             : txnSubstrate.EvmExceptionType;
 
-        return new StylusEvmResult(txnSubstrate.Output.Bytes.ToArray(), gasCost, exceptionType);
+        return new StylusEvmResult(txnSubstrate.Output.ToArray(), gasCost, exceptionType);
     OutOfGas:
         return new StylusEvmResult([], gasLeftReportedByRust, EvmExceptionType.OutOfGas);
     }
@@ -307,7 +307,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         state.IncrementNonce(env.ExecutingAccount);
 
         // Analyze and compile the initialization code.
-        CodeInfoFactory.CreateInitCodeInfo(initCode, Spec, out CodeInfo? codeinfo, out _);
+        CodeInfo codeInfo = CodeInfoFactory.CreateCodeInfo(initCode);
 
         // Take a snapshot of the current state. This allows the state to be reverted if contract creation fails.
         Snapshot snapshot = state.TakeSnapshot();
@@ -332,7 +332,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Construct a new execution environment for the contract creation call.
         // This environment sets up the call frame for executing the contract's initialization code.
         ExecutionEnvironment callEnv = ExecutionEnvironment.Rent(
-            codeInfo: codeinfo ?? throw new InvalidOperationException(),
+            codeInfo: codeInfo,
             executingAccount: contractAddress,
             caller: env.ExecutingAccount,
             codeSource: null,
@@ -370,9 +370,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
         if (txnSubstrate.EvmExceptionType == EvmExceptionType.None && !txnSubstrate.ShouldRevert)
         {
-            ReadOnlyMemory<byte> deployedCode = txnSubstrate.Output.Bytes;
+            ReadOnlyMemory<byte> deployedCode = txnSubstrate.Output;
             long codeDepositGasCost = CodeDepositHandler.CalculateCost(Spec, deployedCode.Length);
-            bool invalidCode = !CodeDepositHandler.IsValidWithLegacyRules(Spec, deployedCode);
+            bool invalidCode = !CodeDepositHandler.CodeIsValid(Spec, deployedCode);
 
             long gasRemainingForCodeDeposit = ArbitrumGasPolicy.GetRemainingGas(returnData.Gas);
 
@@ -424,6 +424,40 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (enableWitnessGeneration)
         {
             opcodes[(int)Instruction.EXTCODESIZE] = &ArbitrumEvmInstructions.InstructionExtCodeSize<ArbitrumGasPolicy, TTracingInst>;
+            opcodes[(int)Instruction.CALL] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+            {
+                (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OnFlag, OnFlag>,
+                (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OnFlag, OffFlag>,
+                (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OffFlag, OnFlag>,
+                (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCall, TTracingInst, OffFlag, OffFlag>,
+            };
+            opcodes[(int)Instruction.CALLCODE] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+            {
+                (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OnFlag, OnFlag>,
+                (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OnFlag, OffFlag>,
+                (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OffFlag, OnFlag>,
+                (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpCallCode, TTracingInst, OffFlag, OffFlag>,
+            };
+            if (spec.DelegateCallEnabled)
+            {
+                opcodes[(int)Instruction.DELEGATECALL] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+                {
+                    (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OnFlag, OnFlag>,
+                    (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OnFlag, OffFlag>,
+                    (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OffFlag, OnFlag>,
+                    (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpDelegateCall, TTracingInst, OffFlag, OffFlag>,
+                };
+            }
+            if (spec.StaticCallEnabled)
+            {
+                opcodes[(int)Instruction.STATICCALL] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+                {
+                    (true, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OnFlag, OnFlag>,
+                    (true, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OnFlag, OffFlag>,
+                    (false, true) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OffFlag, OnFlag>,
+                    (false, false) => &ArbitrumEvmInstructions.InstructionCall<ArbitrumGasPolicy, OpStaticCall, TTracingInst, OffFlag, OffFlag>,
+                };
+            }
         }
         return opcodes;
     }
@@ -504,6 +538,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
             SpecHelper = specHelper,
+            DestroyList = state.AccessTracker.DestroyList,
         };
 
         CallResult result = precompile.IsDebug
@@ -529,7 +564,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             Logger.Warn($"Debug precompiles are disabled for this chain");
 
         ConsumeAllGas(state); // Consumes all gas, and anyway call fails (not a revert), so, no refund
-        return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
+        return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
         {
             SubstateError = "Debug precompiles are disabled for this chain"
         };
@@ -554,7 +589,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             {
                 AddOwnerCheckMultiGasDelta(ref state.Gas, savedMultiGas);
                 ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
-                return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
+                return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
                 {
                     SubstateError = "Out of gas checking chain owner status"
                 };
@@ -569,7 +604,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                     Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
 
                 ReturnSomeGas(state, context.GasLeft); // Does not matter as call fails (not a revert), no refund anyway
-                return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
+                return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
                 {
                     SubstateError = $"Caller {context.Caller} is not a chain owner"
                 };
@@ -644,19 +679,19 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 ? $"Calldata too short: {copyCalldata.Length} bytes (minimum 4 bytes required for method ID), calldata: {copyCalldata.ToHexString()}"
                 : $"Method not found or visibility check failed, calldata: {copyCalldata.ToHexString()}";
 
-            return new(output: default, precompileSuccess: !shouldRevert, fromVersion: 0, shouldRevert, exceptionType)
+            return new(output: default, precompileSuccess: !shouldRevert, shouldRevert, exceptionType)
             {
                 SubstateError = shouldRevert ? errorMsg : null
             };
         }
 
         // Burn gas for argument data supplied (excluding method id)
-        ulong dataGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)calldata.Length);
+        ulong dataGasCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)calldata.Length);
         // Revert if user cannot afford the argument data supplied
         if (dataGasCost > context.GasLeft)
         {
             ConsumeAllGas(state);
-            return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: true, exceptionType: EvmExceptionType.Revert)
+            return new(output: default, precompileSuccess: false, shouldRevert: true, exceptionType: EvmExceptionType.Revert)
             {
                 SubstateError = "Insufficient gas for calldata"
             };
@@ -670,7 +705,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             if (ArbosStorage.StorageReadCost > context.GasLeft)
             {
                 ConsumeAllGas(state);
-                return new(output: default, precompileSuccess: false, fromVersion: 0, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
+                return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
                 {
                     SubstateError = "Out of gas opening ArbOS state"
                 };
@@ -691,7 +726,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new(
             output: shouldRevert ? default : output,
             precompileSuccess: !shouldRevert,
-            fromVersion: 0,
             shouldRevert,
             exceptionType: shouldRevert ? EvmExceptionType.Revert : EvmExceptionType.None
         )
@@ -702,7 +736,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private static PrecompileOutcome PayForOutput(ArbitrumPrecompileExecutionContext context, byte[] executionOutput, bool success)
     {
-        ulong outputGasCost = GasCostOf.DataCopy * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
+        ulong outputGasCost = GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)executionOutput.Length);
 
         // user cannot afford the result data returned
         if (outputGasCost > context.GasLeft)
@@ -759,7 +793,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _ => $"Precompile execution error: {exception.Message} with type {exception.GetType()}"
         };
 
-        return new(output, precompileSuccess: false, fromVersion: 0, shouldRevert, exceptionType)
+        return new(output, precompileSuccess: false, shouldRevert, exceptionType)
         {
             SubstateError = errorMessage
         };
@@ -800,7 +834,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 debugMode);
 
             return output.IsSuccess
-                ? new CallResult(null, output.Value, null, codeInfo.Version)
+                ? new CallResult(output.Value, null)
                 : CreateErrorResult(output, codeInfo);
         }
         finally
@@ -834,7 +868,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
         return new CallResult(
             errorData,
             precompileSuccess: null,
-            fromVersion: codeInfo.Version,
             shouldRevert: shouldRevert,
             exceptionType: exceptionType);
     }
@@ -885,7 +918,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                         }
                         else
                         {
-                            callResult = CallResult.InvalidCodeException;
+                            callResult = new(EvmExceptionType.InvalidCode);
                         }
 
                         // If the call did not finish with a return, set up the next call frame and continue.
@@ -950,22 +983,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
                             if (previousState.ExecutionType.IsAnyCreate())
                             {
                                 PrepareCreateData(previousState, ref previousCallOutput);
-                                if (previousState.ExecutionType.IsAnyCreateLegacy())
-                                {
-                                    HandleLegacyCreate(
-                                        in callResult,
-                                        previousState,
-                                        gasAvailableForCodeDeposit,
-                                        ref previousStateSucceeded);
-                                }
-                                else if (previousState.ExecutionType.IsAnyCreateEof())
-                                {
-                                    HandleEofCreate(
-                                        in callResult,
-                                        previousState,
-                                        gasAvailableForCodeDeposit,
-                                        ref previousStateSucceeded);
-                                }
+                                HandleCreate(
+                                    in callResult,
+                                    previousState,
+                                    gasAvailableForCodeDeposit,
+                                    ref previousStateSucceeded);
                             }
                             else
                             {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Blockchain;
@@ -14,7 +15,6 @@ using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
-using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Logging;
@@ -47,9 +47,10 @@ public class ArbitrumEthModuleFactory(
     IEthereumEcdsa ecdsa,
     TransactionQueue transactionQueue,
     SequencerState sequencerState,
-    IArbitrumConfig arbitrumConfig) : ModuleFactoryBase<IEthRpcModule>
+    IArbitrumConfig arbitrumConfig,
+    IBlockMetadataProvider blockMetadataProvider) : ModuleFactoryBase<IArbitrumEthRpcModule>
 {
-    public override IEthRpcModule Create()
+    public override IArbitrumEthRpcModule Create()
     {
         return new ArbitrumEthRpcModule(
             jsonRpcConfig,
@@ -73,6 +74,7 @@ public class ArbitrumEthModuleFactory(
             transactionQueue,
             sequencerState,
             ecdsa,
-            arbitrumConfig);
+            arbitrumConfig,
+            blockMetadataProvider);
     }
 }

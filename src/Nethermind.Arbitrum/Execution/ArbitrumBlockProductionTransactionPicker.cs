@@ -17,7 +17,7 @@ public class ArbitrumBlockProductionTransactionPicker : BlockProcessor.BlockProd
     }
 
     public override BlockProcessor.AddingTxEventArgs CanAddTransaction(Block block, Transaction currentTx,
-        IReadOnlySet<Transaction> transactionsInBlock, IWorldState stateProvider)
+        IReadOnlySet<Transaction> transactionsInBlock, IReadOnlyStateProvider stateProvider)
     {
         BlockProcessor.AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
 

@@ -10,6 +10,7 @@ using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Int256;
+using Nethermind.Serialization.Json;
 using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.Rpc;
@@ -83,7 +84,9 @@ public class ArbitrumReceiptForRpcTests
             baseReceipt,
             1234567890,
             new TxGasInfo(new UInt256(1000)),
-            l1BlockNumber: 1234567890);
+            l1BlockNumber: 1234567890,
+            logIndexStart: 0,
+            isTimeboosted: null);
 
         receiptForRpc.GasUsedForL1.Should().Be(500);
         receiptForRpc.MultiGasUsed.Should().NotBeNull();
@@ -105,7 +108,9 @@ public class ArbitrumReceiptForRpcTests
             baseReceipt,
             1234567890,
             new TxGasInfo(new UInt256(1000)),
-            1234567890);
+            1234567890,
+            logIndexStart: 0,
+            isTimeboosted: null);
 
         receiptForRpc.GasUsedForL1.Should().Be(500);
         receiptForRpc.MultiGasUsed.Should().BeNull();
@@ -242,6 +247,90 @@ public class ArbitrumReceiptForRpcTests
         serialized.Should().Contain("\"refund\":7");
     }
 
+    [Test]
+    public void Constructor_WithTimeboostedTrue_ReturnsTrue()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+
+        ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt, isTimeboosted: true);
+
+        receiptForRpc.IsTimeboosted.Should().BeTrue();
+    }
+
+    [Test]
+    public void Constructor_WithTimeboostedFalse_ReturnsFalse()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+
+        ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt, isTimeboosted: false);
+
+        receiptForRpc.IsTimeboosted.Should().BeFalse();
+    }
+
+    [Test]
+    public void Constructor_WithTimeboostedNull_ReturnsNull()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+
+        ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt);
+
+        receiptForRpc.IsTimeboosted.Should().BeNull();
+    }
+
+    [Test]
+    public void Json_TimeboostedTrue_IncludedInOutput()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+
+        ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt, isTimeboosted: true);
+        EthereumJsonSerializer serializer = new();
+        string serialized = serializer.Serialize(receiptForRpc);
+
+        serialized.Should().Contain("\"timeboosted\":true");
+    }
+
+    [Test]
+    public void Json_TimeboostedFalse_IncludedInOutput()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+
+        ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt, isTimeboosted: false);
+        EthereumJsonSerializer serializer = new();
+        string serialized = serializer.Serialize(receiptForRpc);
+
+        serialized.Should().Contain("\"timeboosted\":false");
+    }
+
+    [Test]
+    public void Json_TimeboostedNull_OmittedFromOutput()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+
+        ArbitrumReceiptForRpc receiptForRpc = CreateReceiptForRpc(receipt);
+        EthereumJsonSerializer serializer = new();
+        string serialized = serializer.Serialize(receiptForRpc);
+
+        serialized.Should().NotContain("timeboosted");
+    }
+
+    [Test]
+    public void Constructor_BaseReceiptWithTimeboosted_ReturnsTrue()
+    {
+        ArbitrumTxReceipt receipt = CreateBasicReceipt();
+        TxReceipt baseReceipt = receipt;
+
+        ArbitrumReceiptForRpc receiptForRpc = new(
+            receipt.TxHash!,
+            baseReceipt,
+            1234567890,
+            new TxGasInfo(new UInt256(1000)),
+            l1BlockNumber: 1234567890,
+            logIndexStart: 0,
+            isTimeboosted: true);
+
+        receiptForRpc.IsTimeboosted.Should().BeTrue();
+    }
+
     private static ArbitrumTxReceipt CreateBasicReceipt()
     {
         return new ArbitrumTxReceipt
@@ -260,14 +349,16 @@ public class ArbitrumReceiptForRpcTests
         };
     }
 
-    private static ArbitrumReceiptForRpc CreateReceiptForRpc(ArbitrumTxReceipt receipt)
+    private static ArbitrumReceiptForRpc CreateReceiptForRpc(ArbitrumTxReceipt receipt, bool? isTimeboosted = null)
     {
         return new ArbitrumReceiptForRpc(
             receipt.TxHash!,
             receipt,
             1234567890,
             new TxGasInfo(new UInt256(1000)),
-            1234567890);
+            1234567890,
+            logIndexStart: 0,
+            isTimeboosted: isTimeboosted);
     }
 
     /// <summary>

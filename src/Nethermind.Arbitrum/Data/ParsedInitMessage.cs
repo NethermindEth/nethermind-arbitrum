@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 

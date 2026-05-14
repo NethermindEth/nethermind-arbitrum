@@ -63,26 +63,14 @@ public class ArbitrumProcessingStats : IProcessingStats
     private long _lastStylusCalls;
     private long _lastStylusExecutionMicroseconds;
 
-    // ANSI color codes
-    private const string ResetColor = "\u001b[37m";
-    private const string WhiteText = "\u001b[97m";
-    private const string YellowText = "\u001b[93m";
-    private const string OrangeText = "\u001b[38;5;208m";
-    private const string RedText = "\u001b[38;5;196m";
-    private const string GreenText = "\u001b[92m";
-    private const string DarkGreenText = "\u001b[32m";
-    private const string DarkCyanText = "\u001b[36m";
-    private const string BlueText = "\u001b[94m";
-    private const string MagentaText = "\u001b[95m";
-
-    // Threshold for showing splash emoji (stylus calls > 20% of total EVM calls)
-    private const double StylusSignificanceThreshold = 0.2;
+    // Reused buffer for formatter output to avoid per-report allocations.
+    private readonly List<string> _formatterLines = new(3);
 
     public ArbitrumProcessingStats(IStateReader stateReader, ILogManager logManager)
     {
         _executeFromThreadPool = ExecuteFromThreadPool;
         _stateReader = stateReader;
-        _logger = logManager.GetClassLogger();
+        _logger = logManager.GetClassLogger<ArbitrumProcessingStats>();
 
 #if DEBUG
         _logger.SetDebugMode();
@@ -100,25 +88,38 @@ public class ArbitrumProcessingStats : IProcessingStats
 
     public void CaptureStartStats()
     {
-        _startSLoadOps = EvmMetrics.ThreadLocalSLoadOpcode;
-        _startSStoreOps = EvmMetrics.ThreadLocalSStoreOpcode;
-        _startCallOps = EvmMetrics.ThreadLocalCalls;
-        _startEmptyCalls = EvmMetrics.ThreadLocalEmptyCalls;
-        _startContractsAnalyzed = EvmMetrics.ThreadLocalContractsAnalysed;
-        _startCachedContractsUsed = EvmMetrics.GetThreadLocalCodeDbCache();
-        _startCreateOps = EvmMetrics.ThreadLocalCreates;
-        _startSelfDestructOps = EvmMetrics.ThreadLocalSelfDestructs;
-        _startOpCodes = EvmMetrics.ThreadLocalOpCodes;
+        _startSLoadOps = EvmMetrics.MainThreadSLoadOpcode;
+        _startSStoreOps = EvmMetrics.MainThreadSStoreOpcode;
+        _startCallOps = EvmMetrics.MainThreadCalls;
+        _startEmptyCalls = EvmMetrics.MainThreadEmptyCalls;
+        _startContractsAnalyzed = EvmMetrics.MainThreadContractsAnalysed;
+        _startCachedContractsUsed = EvmMetrics.MainThreadCodeDbCache;
+        _startCreateOps = EvmMetrics.MainThreadCreates;
+        _startSelfDestructOps = EvmMetrics.MainThreadSelfDestructs;
+        _startOpCodes = EvmMetrics.MainThreadOpCodes;
     }
 
-    public void UpdateStats(Block? block, BlockHeader? baseBlock, long blockProcessingTimeInMicros)
+    public void UpdateStats(IReadOnlyList<Block> blocks, BlockHeader? baseBlock, long blockProcessingTimeInMicros)
     {
-        if (block is null)
+        if (blocks.Count == 0)
             return;
+
+        Block block = blocks[^1];
+
+        long gasUsed = 0;
+        int transactionCount = 0;
+        foreach (Block b in blocks)
+        {
+            gasUsed += b.GasUsed;
+            transactionCount += b.Transactions.Length;
+        }
 
         BlockData blockData = _dataPool.Get();
         blockData.Block = block;
         blockData.BaseBlock = baseBlock;
+        blockData.BlockCount = blocks.Count;
+        blockData.GasUsed = gasUsed;
+        blockData.TransactionCount = transactionCount;
         blockData.RunningMicroseconds = _runStopwatch.ElapsedMicroseconds();
         blockData.RunMicroseconds = _runStopwatch.ElapsedMicroseconds() - _lastElapsedRunningMicroseconds;
         blockData.StartOpCodes = _startOpCodes;
@@ -131,15 +132,15 @@ public class ArbitrumProcessingStats : IProcessingStats
         blockData.StartCreateOps = _startCreateOps;
         blockData.StartSelfDestructOps = _startSelfDestructOps;
         blockData.ProcessingMicroseconds = blockProcessingTimeInMicros;
-        blockData.CurrentOpCodes = EvmMetrics.ThreadLocalOpCodes;
-        blockData.CurrentSLoadOps = EvmMetrics.ThreadLocalSLoadOpcode;
-        blockData.CurrentSStoreOps = EvmMetrics.ThreadLocalSStoreOpcode;
-        blockData.CurrentCallOps = EvmMetrics.ThreadLocalCalls;
-        blockData.CurrentEmptyCalls = EvmMetrics.ThreadLocalEmptyCalls;
-        blockData.CurrentContractsAnalyzed = EvmMetrics.ThreadLocalContractsAnalysed;
-        blockData.CurrentCachedContractsUsed = EvmMetrics.GetThreadLocalCodeDbCache();
-        blockData.CurrentCreatesOps = EvmMetrics.ThreadLocalCreates;
-        blockData.CurrentSelfDestructOps = EvmMetrics.ThreadLocalSelfDestructs;
+        blockData.CurrentOpCodes = EvmMetrics.MainThreadOpCodes;
+        blockData.CurrentSLoadOps = EvmMetrics.MainThreadSLoadOpcode;
+        blockData.CurrentSStoreOps = EvmMetrics.MainThreadSStoreOpcode;
+        blockData.CurrentCallOps = EvmMetrics.MainThreadCalls;
+        blockData.CurrentEmptyCalls = EvmMetrics.MainThreadEmptyCalls;
+        blockData.CurrentContractsAnalyzed = EvmMetrics.MainThreadContractsAnalysed;
+        blockData.CurrentCachedContractsUsed = EvmMetrics.MainThreadCodeDbCache;
+        blockData.CurrentCreatesOps = EvmMetrics.MainThreadCreates;
+        blockData.CurrentSelfDestructOps = EvmMetrics.MainThreadSelfDestructs;
 
         ThreadPool.UnsafeQueueUserWorkItem(_executeFromThreadPool, blockData, preferLocal: false);
     }
@@ -149,9 +150,7 @@ public class ArbitrumProcessingStats : IProcessingStats
         try
         {
             lock (_reportLock)
-            {
                 GenerateReport(data);
-            }
         }
         catch (Exception ex)
         {
@@ -171,24 +170,23 @@ public class ArbitrumProcessingStats : IProcessingStats
             return;
 
         long blockNumber = block.Number;
-        double chunkMGas = (_chunkMGas += block.GasUsed / 1_000_000.0);
+        double chunkMGas = (_chunkMGas += data.GasUsed / 1_000_000.0);
 
         // Update Prometheus metrics
-        double mgas = block.GasUsed / 1_000_000.0;
+        double mgas = data.GasUsed / 1_000_000.0;
         double timeSec = data.ProcessingMicroseconds / 1_000_000.0;
         BlockchainMetrics.BlockMGasPerSec.Observe(mgas / timeSec);
         BlockchainMetrics.BlockProcessingTimeMicros.Observe(data.ProcessingMicroseconds);
 
-        BlockchainMetrics.Mgas += block.GasUsed / 1_000_000.0;
-        Transaction[] txs = block.Transactions;
+        BlockchainMetrics.Mgas += data.GasUsed / 1_000_000.0;
         double chunkMicroseconds = (_chunkProcessingMicroseconds += data.ProcessingMicroseconds);
-        double chunkTx = (_chunkTx += txs.Length);
+        double chunkTx = (_chunkTx += data.TransactionCount);
 
-        long chunkBlocks = ++_chunkBlocks;
+        long chunkBlocks = (_chunkBlocks += data.BlockCount);
 
         BlockchainMetrics.Blocks = blockNumber;
         BlockchainMetrics.BlockchainHeight = blockNumber;
-        BlockchainMetrics.Transactions += txs.Length;
+        BlockchainMetrics.Transactions += data.TransactionCount;
         BlockchainMetrics.TotalDifficulty = block.TotalDifficulty ?? UInt256.Zero;
         BlockchainMetrics.LastDifficulty = block.Difficulty;
         BlockchainMetrics.GasUsed = block.GasUsed;
@@ -208,16 +206,12 @@ public class ArbitrumProcessingStats : IProcessingStats
         // Skip logging during init/genesis when state isn't fully available
         if (data.BaseBlock is null || !_stateReader.HasStateForBlock(data.BaseBlock) ||
             block.StateRoot is null || !_stateReader.HasStateForBlock(block.Header))
-        {
             return;
-        }
 
         // Throttle logging to once per second (or always in debug mode)
         long reportMs = Environment.TickCount64;
         if (reportMs - _lastReportMs <= 1000 && !_logger.IsDebug)
-        {
             return;
-        }
         _lastReportMs = reportMs;
 
         // Capture Stylus metrics before resetting
@@ -248,9 +242,7 @@ public class ArbitrumProcessingStats : IProcessingStats
         // Calculate throughput metrics
         double mgasPerSecond = chunkMicroseconds == 0 ? -1 : chunkMGas / chunkMicroseconds * 1_000_000.0;
         if (chunkMicroseconds != 0 && chunkMGas != 0)
-        {
             BlockchainMetrics.MgasPerSec = mgasPerSecond;
-        }
 
         double txps = chunkMicroseconds == 0 ? -1 : chunkTx / chunkMicroseconds * 1_000_000.0;
         double bps = chunkMicroseconds == 0 ? -1 : chunkBlocks / chunkMicroseconds * 1_000_000.0;
@@ -281,92 +273,43 @@ public class ArbitrumProcessingStats : IProcessingStats
         if (!_logger.IsInfo)
             return;
 
-        string gasPrice = gasPrices is { } g
-            ? $"⛽ Gas gwei: {g.Min:N3} .. {WhiteText}{System.Math.Max(g.Min, g.EstMedian):N3}{ResetColor} ({g.Ave:N3}) .. {g.Max:N3}"
-            : "";
+        ProcessingStatsReport report = new(
+            BlockNumber: blockNumber,
+            ChunkBlocks: chunkBlocks,
+            ChunkMGas: chunkMGas,
+            ChunkTx: (long)chunkTx,
+            ChunkMs: chunkMs,
+            RunMs: runMs,
+            GasPrices: gasPrices,
+            ChunkCalls: chunkCalls,
+            ChunkEmptyCalls: chunkEmptyCalls,
+            ChunkSload: chunkSload,
+            ChunkSstore: chunkSstore,
+            ChunkCreates: chunkCreates,
+            ChunkSelfDestructs: chunkSelfDestructs,
+            ChunkOpCodes: chunkOpCodes,
+            MGasPerSecond: mgasPerSecond,
+            Txps: txps,
+            Bps: bps,
+            GasLimit: block.GasLimit,
+            StylusCallsDelta: stylusCallsDelta,
+            StylusMs: stylusCallsDelta > 0 ? stylusMicrosDelta / 1000.0 : 0,
+            CachedContractsUsed: cachedContractsUsed,
+            ContractsAnalysed: contractsAnalysed,
+            RecoveryQueueSize: BlockchainMetrics.RecoveryQueueSize,
+            ProcessingQueueSize: BlockchainMetrics.ProcessingQueueSize);
 
-        if (chunkBlocks > 1)
-        {
-            _logger.Info($"Processed    {block.Number - chunkBlocks + 1,10}...{block.Number,9}   | {chunkMs,10:N1} ms  | elapsed {runMs,15:N0} ms | {gasPrice}");
-        }
-        else
-        {
-            string chunkColor = chunkMs switch
-            {
-                < 200 => GreenText,
-                < 300 => DarkGreenText,
-                < 500 => WhiteText,
-                < 1000 => YellowText,
-                < 2000 => OrangeText,
-                _ => RedText
-            };
-            _logger.Info($"Processed          {block.Number,10}         | {chunkColor}{chunkMs,10:N1}{ResetColor} ms  | elapsed {runMs,15:N0} ms | {gasPrice}");
-        }
+        _formatterLines.Clear();
 
-        // Log block details
-        string mgasPerSecondColor = (mgasPerSecond / (block.GasLimit / 1_000_000.0)) switch
-        {
-            > 3 => GreenText,
-            > 2.5f => DarkGreenText,
-            > 2 => WhiteText,
-            > 1.5f => ResetColor,
-            > 1 => YellowText,
-            > 0.5f => OrangeText,
-            _ => RedText
-        };
-        string sstoreColor = chunkBlocks > 1 ? "" : chunkSstore switch
-        {
-            > 3500 => RedText,
-            > 2500 => OrangeText,
-            > 2000 => YellowText,
-            > 1500 => WhiteText,
-            > 900 when chunkCalls > 900 => WhiteText,
-            _ => ""
-        };
-        string callsColor = chunkBlocks > 1 ? "" : chunkCalls switch
-        {
-            > 3500 => RedText,
-            > 2500 => OrangeText,
-            > 2000 => YellowText,
-            > 1500 => WhiteText,
-            > 900 when chunkSstore > 900 => WhiteText,
-            _ => ""
-        };
-        string createsColor = chunkBlocks > 1 ? "" : chunkCreates switch
-        {
-            > 300 => RedText,
-            > 200 => OrangeText,
-            > 150 => YellowText,
-            > 75 => WhiteText,
-            _ => ""
-        };
+        ProcessingStatsFormatter.Format(in report, _formatterLines);
 
-        // Build Stylus section for Block line
-        double stylusMs = stylusCallsDelta > 0 ? stylusMicrosDelta / 1000.0 : 0;
-        bool isSignificant = stylusCallsDelta > 0 && (chunkCalls == 0 || stylusCallsDelta > chunkCalls * StylusSignificanceThreshold);
-        string splash = isSignificant ? " 🌊" : "   "; // space+emoji OR 3 spaces for alignment
-        string stylusSection = $" | {MagentaText}🦀 stylus {stylusCallsDelta,3:N0}{ResetColor} ({stylusMs,5:F1}ms){splash}";
-
-        _logger.Info($" Block{(chunkBlocks > 1 ? $"s  x{chunkBlocks,-9:N0} " : "              ")}{(chunkBlocks == 1 ? (chunkMGas / (block.GasLimit / 16_000_000.0)) switch { > 15 => RedText, > 14 => OrangeText, > 13 => YellowText, > 10 => DarkGreenText, > 7 => GreenText, > 6 => DarkGreenText, > 5 => WhiteText, > 4 => ResetColor, > 3 => DarkCyanText, _ => BlueText } : "")} {chunkMGas,8:F2}{ResetColor} MGas    | {chunkTx,8:N0}   txs{stylusSection} | calls {callsColor}{chunkCalls,10:N0}{ResetColor} ({chunkEmptyCalls,3:N0}) | sload {chunkSload,7:N0} | sstore {sstoreColor}{chunkSstore,6:N0}{ResetColor} | create {createsColor}{chunkCreates,3:N0}{ResetColor}{(chunkSelfDestructs > 0 ? $"({-chunkSelfDestructs,3:N0})" : "")}");
-
-        // Log throughput
-        long recoveryQueue = BlockchainMetrics.RecoveryQueueSize;
-        long processingQueue = BlockchainMetrics.ProcessingQueueSize;
-        string blocksPerSec = $"       {bps,14:F2} Blk/s ";
-
-        if (recoveryQueue > 0 || processingQueue > 0)
-        {
-            _logger.Info($" Block throughput {mgasPerSecondColor}{mgasPerSecond,11:F2}{ResetColor} MGas/s{(mgasPerSecond > 1000 ? "🔥" : "  ")}| {txps,10:N1} tps |{blocksPerSec}| recover {recoveryQueue,5:N0} | process {processingQueue,5:N0} | ops {chunkOpCodes,9:N0}");
-        }
-        else
-        {
-            _logger.Info($" Block throughput {mgasPerSecondColor}{mgasPerSecond,11:F2}{ResetColor} MGas/s{(mgasPerSecond > 1000 ? "🔥" : "  ")}| {txps,10:N1} tps |{blocksPerSec}| exec code{ResetColor} cache {cachedContractsUsed,6:N0} |{ResetColor} new {contractsAnalysed,9:N0} | ops {chunkOpCodes,9:N0}");
-        }
+        foreach (string line in _formatterLines)
+            _logger.Info(line);
     }
 
     private class BlockDataPolicy : IPooledObjectPolicy<BlockData>
     {
-        public BlockData Create() => new BlockData();
+        public BlockData Create() => new();
         public bool Return(BlockData data)
         {
             data.Block = null;
@@ -379,6 +322,9 @@ public class ArbitrumProcessingStats : IProcessingStats
     {
         public Block? Block;
         public BlockHeader? BaseBlock;
+        public int BlockCount;
+        public long GasUsed;
+        public int TransactionCount;
         public long CurrentOpCodes;
         public long CurrentSLoadOps;
         public long CurrentSStoreOps;

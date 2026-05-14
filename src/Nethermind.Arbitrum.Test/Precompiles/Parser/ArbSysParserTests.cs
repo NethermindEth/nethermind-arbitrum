@@ -21,18 +21,18 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbSysParserTests
 {
-    private static readonly uint _arbBlockNumberId = PrecompileHelper.GetMethodId("arbBlockNumber()");
-    private static readonly uint _arbBlockHashId = PrecompileHelper.GetMethodId("arbBlockHash(uint256)");
-    private static readonly uint _arbChainIdId = PrecompileHelper.GetMethodId("arbChainID()");
-    private static readonly uint _arbOSVersionId = PrecompileHelper.GetMethodId("arbOSVersion()");
-    private static readonly uint _getStorageGasAvailableId = PrecompileHelper.GetMethodId("getStorageGasAvailable()");
-    private static readonly uint _isTopLevelCallId = PrecompileHelper.GetMethodId("isTopLevelCall()");
-    private static readonly uint _mapL1SenderContractAddressToL2AliasId = PrecompileHelper.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-    private static readonly uint _wasMyCallersAddressAliasedId = PrecompileHelper.GetMethodId("wasMyCallersAddressAliased()");
-    private static readonly uint _myCallersAddressWithoutAliasingId = PrecompileHelper.GetMethodId("myCallersAddressWithoutAliasing()");
-    private static readonly uint _sendTxToL1Id = PrecompileHelper.GetMethodId("sendTxToL1(address,bytes)");
-    private static readonly uint _sendMerkleTreeStateId = PrecompileHelper.GetMethodId("sendMerkleTreeState()");
-    private static readonly uint _withdrawEthId = PrecompileHelper.GetMethodId("withdrawEth(address)");
+    private static readonly uint ArbBlockNumberId = PrecompileTestAbiHelpers.GetMethodId("arbBlockNumber()");
+    private static readonly uint ArbBlockHashId = PrecompileTestAbiHelpers.GetMethodId("arbBlockHash(uint256)");
+    private static readonly uint ArbChainIdId = PrecompileTestAbiHelpers.GetMethodId("arbChainID()");
+    private static readonly uint ArbOSVersionId = PrecompileTestAbiHelpers.GetMethodId("arbOSVersion()");
+    private static readonly uint GetStorageGasAvailableId = PrecompileTestAbiHelpers.GetMethodId("getStorageGasAvailable()");
+    private static readonly uint IsTopLevelCallId = PrecompileTestAbiHelpers.GetMethodId("isTopLevelCall()");
+    private static readonly uint MapL1SenderContractAddressToL2AliasId = PrecompileTestAbiHelpers.GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+    private static readonly uint WasMyCallersAddressAliasedId = PrecompileTestAbiHelpers.GetMethodId("wasMyCallersAddressAliased()");
+    private static readonly uint MyCallersAddressWithoutAliasingId = PrecompileTestAbiHelpers.GetMethodId("myCallersAddressWithoutAliasing()");
+    private static readonly uint SendTxToL1Id = PrecompileTestAbiHelpers.GetMethodId("sendTxToL1(address,bytes)");
+    private static readonly uint SendMerkleTreeStateId = PrecompileTestAbiHelpers.GetMethodId("sendMerkleTreeState()");
+    private static readonly uint WithdrawEthId = PrecompileTestAbiHelpers.GetMethodId("withdrawEth(address)");
 
     [Test]
     public void Instance_WhenAccessed_ReturnsSameSingleton()
@@ -76,7 +76,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesisBlock = ArbOSInitialization.Create(worldState);
         genesisBlock.Header.Number = blockNumber;
@@ -84,7 +84,7 @@ public class ArbSysParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState().WithBlockExecutionContext(genesisBlock.Header);
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_arbBlockNumberId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(ArbBlockNumberId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -98,13 +98,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_arbBlockHashId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(ArbBlockHashId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, []);
@@ -119,13 +119,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_arbChainIdId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(ArbChainIdId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -139,7 +139,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -147,7 +147,7 @@ public class ArbSysParserTests
 
         ulong currentVersion = context.ArbosState.CurrentArbosVersion;
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_arbOSVersionId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(ArbOSVersionId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -161,13 +161,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_getStorageGasAvailableId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(GetStorageGasAvailableId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -185,7 +185,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -194,7 +194,7 @@ public class ArbSysParserTests
         };
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_isTopLevelCallId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(IsTopLevelCallId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -213,7 +213,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -221,11 +221,10 @@ public class ArbSysParserTests
 
         byte[] inputData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            ArbSysParser.PrecompileFunctionDescription[_mapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature,
-            [new Address(senderHex), Address.Zero]  // 2nd address is needed by ABI even if unused in precompile
+            ArbSysParser.PrecompileFunctionDescription[MapL1SenderContractAddressToL2AliasId].AbiFunctionDescription.GetCallInfo().Signature, new Address(senderHex), Address.Zero // 2nd address is needed by ABI even if unused in precompile
         );
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_mapL1SenderContractAddressToL2AliasId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(MapL1SenderContractAddressToL2AliasId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
         byte[] result = implementation!(context, inputData);
 
@@ -240,13 +239,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_wasMyCallersAddressAliasedId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(WasMyCallersAddressAliasedId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -260,7 +259,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -271,7 +270,7 @@ public class ArbSysParserTests
         context.WithArbosState();
         // Ensure we're at top level (CallDepth should be 0 for IsTopLevel to return true in ArbOS >= 6)
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_wasMyCallersAddressAliasedId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(WasMyCallersAddressAliasedId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -286,7 +285,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue)
@@ -295,7 +294,7 @@ public class ArbSysParserTests
         };
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_myCallersAddressWithoutAliasingId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(MyCallersAddressWithoutAliasingId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -309,13 +308,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendTxToL1Id, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(SendTxToL1Id, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, []);
@@ -330,13 +329,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(WithdrawEthId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         Action action = () => implementation!(context, []);
@@ -351,7 +350,7 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
@@ -359,7 +358,7 @@ public class ArbSysParserTests
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_withdrawEthId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(WithdrawEthId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         //according to ABI, withdrawEth takes one address parameter (32 bytes), but we provide more data to test that it is ignored and method still executed
@@ -375,13 +374,13 @@ public class ArbSysParserTests
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
 
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
         context.WithArbosState();
 
-        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(_sendMerkleTreeStateId, out PrecompileHandler? implementation);
+        bool exists = ArbSysParser.PrecompileImplementation.TryGetValue(SendMerkleTreeStateId, out PrecompileHandler? implementation);
         exists.Should().BeTrue();
 
         byte[] result = implementation!(context, []);
@@ -392,22 +391,22 @@ public class ArbSysParserTests
 
     private static class ArbSysMethodIds
     {
-        private static readonly Dictionary<string, uint> _methodIds = new();
+        private static readonly Dictionary<string, uint> MethodIds = new();
 
         static ArbSysMethodIds()
         {
-            _methodIds["arbBlockNumber"] = GetMethodId("arbBlockNumber()");
-            _methodIds["arbBlockHash"] = GetMethodId("arbBlockHash(uint256)");
-            _methodIds["arbChainID"] = GetMethodId("arbChainID()");
-            _methodIds["arbOSVersion"] = GetMethodId("arbOSVersion()");
-            _methodIds["getStorageGasAvailable"] = GetMethodId("getStorageGasAvailable()");
-            _methodIds["isTopLevelCall"] = GetMethodId("isTopLevelCall()");
-            _methodIds["mapL1SenderContractAddressToL2Alias"] = GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
-            _methodIds["wasMyCallersAddressAliased"] = GetMethodId("wasMyCallersAddressAliased()");
-            _methodIds["myCallersAddressWithoutAliasing"] = GetMethodId("myCallersAddressWithoutAliasing()");
-            _methodIds["sendTxToL1"] = GetMethodId("sendTxToL1(address,bytes)");
-            _methodIds["sendMerkleTreeState"] = GetMethodId("sendMerkleTreeState()");
-            _methodIds["withdrawEth"] = GetMethodId("withdrawEth(address)");
+            MethodIds["arbBlockNumber"] = GetMethodId("arbBlockNumber()");
+            MethodIds["arbBlockHash"] = GetMethodId("arbBlockHash(uint256)");
+            MethodIds["arbChainID"] = GetMethodId("arbChainID()");
+            MethodIds["arbOSVersion"] = GetMethodId("arbOSVersion()");
+            MethodIds["getStorageGasAvailable"] = GetMethodId("getStorageGasAvailable()");
+            MethodIds["isTopLevelCall"] = GetMethodId("isTopLevelCall()");
+            MethodIds["mapL1SenderContractAddressToL2Alias"] = GetMethodId("mapL1SenderContractAddressToL2Alias(address,address)");
+            MethodIds["wasMyCallersAddressAliased"] = GetMethodId("wasMyCallersAddressAliased()");
+            MethodIds["myCallersAddressWithoutAliasing"] = GetMethodId("myCallersAddressWithoutAliasing()");
+            MethodIds["sendTxToL1"] = GetMethodId("sendTxToL1(address,bytes)");
+            MethodIds["sendMerkleTreeState"] = GetMethodId("sendMerkleTreeState()");
+            MethodIds["withdrawEth"] = GetMethodId("withdrawEth(address)");
         }
 
         private static uint GetMethodId(string methodSignature)

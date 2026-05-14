@@ -168,6 +168,11 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
     public bool IsBetterThanHead(BlockHeader? header)
         => _inner.IsBetterThanHead(header);
 
+    public void UpdateBeaconMainChain(IReadOnlyList<BlockInfo>? blockInfos, long clearBeaconMainChainStartPoint)
+    {
+        throw new NotImplementedException();
+    }
+
     public void UpdateBeaconMainChain(BlockInfo[]? blockInfos, long clearBeaconMainChainStartPoint)
         => _inner.UpdateBeaconMainChain(blockInfos, clearBeaconMainChainStartPoint);
 

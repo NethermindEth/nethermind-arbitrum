@@ -3,22 +3,18 @@
 
 using System.Text;
 using System.Text.Json;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 
 namespace Nethermind.Arbitrum.Sequencer;
 
-/// <summary>
-/// HTTP client that forwards eth_sendRawTransaction to a backup sequencer URL.
-/// </summary>
 public class TransactionForwarder(string targetUrl, ILogManager logManager, TimeSpan? timeout = null) : IDisposable
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private static readonly JsonSerializerOptions JsonOptions = EthereumJsonSerializer.JsonOptions;
 
     private readonly HttpClient _httpClient = new()
     {
@@ -31,10 +27,27 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
 
     public string PrimaryTarget { get; } = targetUrl;
 
-    /// <summary>
-    /// Forwards a transaction to the backup sequencer via eth_sendRawTransaction JSON-RPC.
-    /// </summary>
-    public async Task<ResultWrapper<Hash256>> ForwardTransactionAsync(byte[] rlpEncoded, Hash256 txHash, CancellationToken ct)
+    public Task<ResultWrapper<Hash256>> ForwardTransactionAsync(byte[] rlpEncoded, Hash256 txHash, CancellationToken ct)
+        => ForwardRpcCallAsync("eth_sendRawTransaction", [rlpEncoded.ToHexString(withZeroX: true)], txHash, ct);
+
+    public Task<ResultWrapper<Hash256>> ForwardTransactionAsync(byte[] rlpEncoded, ConditionalOptions? options, Hash256 txHash, CancellationToken ct)
+        => options is not null
+            ? ForwardRpcCallAsync("eth_sendRawTransactionConditional", [rlpEncoded.ToHexString(withZeroX: true), options], txHash, ct)
+            : ForwardRpcCallAsync("eth_sendRawTransaction", [rlpEncoded.ToHexString(withZeroX: true)], txHash, ct);
+
+    public void Disable()
+    {
+        _cts.Cancel();
+    }
+
+    public void Dispose()
+    {
+        Disable();
+        _httpClient.Dispose();
+        _cts.Dispose();
+    }
+
+    private async Task<ResultWrapper<Hash256>> ForwardRpcCallAsync(string method, object[] rpcParams, Hash256 txHash, CancellationToken ct)
     {
         if (_cts.IsCancellationRequested)
             return ResultWrapper<Hash256>.Fail("Sequencer temporarily not available", ErrorCodes.TransactionRejected);
@@ -46,8 +59,8 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
             JsonRpcRequest request = new()
             {
                 JsonRpc = "2.0",
-                Method = "eth_sendRawTransaction",
-                Params = [rlpEncoded.ToHexString(withZeroX: true)],
+                Method = method,
+                Params = rpcParams,
                 Id = 1
             };
 
@@ -94,21 +107,6 @@ public class TransactionForwarder(string targetUrl, ILogManager logManager, Time
                 _logger.Warn($"Error forwarding transaction to {PrimaryTarget}: {ex.Message}");
             return ResultWrapper<Hash256>.Fail(ex.Message, ErrorCodes.TransactionRejected);
         }
-    }
-
-    /// <summary>
-    /// Disables the forwarder, cancelling any in-flight forwards.
-    /// </summary>
-    public void Disable()
-    {
-        _cts.Cancel();
-    }
-
-    public void Dispose()
-    {
-        Disable();
-        _httpClient.Dispose();
-        _cts.Dispose();
     }
 
     private class JsonRpcRequest

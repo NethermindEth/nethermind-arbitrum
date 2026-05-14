@@ -136,7 +136,7 @@ public class SequencerLifecycleTests
     [Test]
     public async Task ForwardTo_WithUrl_ForwardsTransactions()
     {
-        TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
+        using TestHttpServer remoteSequencer = TestHttpServer.Start();
 
         bool transactionReceived = false;
         Task responseTask = remoteSequencer.Handle(body =>
@@ -196,7 +196,7 @@ public class SequencerLifecycleTests
     [Test]
     public async Task HandleInactive_ForwardsAndRequeues_OnNoSequencer()
     {
-        using TestRemoteSequencer remoteSequencer = TestRemoteSequencer.Start();
+        using TestHttpServer remoteSequencer = TestHttpServer.Start();
         Task responseTask = remoteSequencer
             .Handle(_ => """{"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"sequencer temporarily not available"}}"""u8.ToArray());
 
