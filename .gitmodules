@@ -1,4 +1,4 @@
 [submodule "src/Nethermind"]
 	path = src/Nethermind
 	url = https://github.com/NethermindEth/nethermind.git
-	branch = perf-jsonrpc-arb
+	branch = perf/rpc
