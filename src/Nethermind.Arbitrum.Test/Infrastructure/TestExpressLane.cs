@@ -30,9 +30,8 @@ public class TestExpressLane
         ManualRoundTimingInfo timing = new(config, DateTimeOffset.UtcNow, currentRound, TimeSpan.FromSeconds(intoRoundSeconds));
         FakeAuctionContract auctionContract = new() { Address = TestAuctionContract };
 
-        context = new(timing, auctionContract, config, currentRound, intoRoundSeconds);
-
         ExpressLaneTracker tracker = new(timing, auctionContract, config, LimboLogs.Instance);
+        context = new(timing, auctionContract, config, currentRound, tracker);
         tracker.Start(CancellationToken.None).GetAwaiter().GetResult();
 
         return tracker;
@@ -65,21 +64,55 @@ public record TestExpressLaneTrackerContext(
     FakeAuctionContract AuctionContract,
     ArbitrumConfig Config,
     ulong CurrentRound,
-    int IntoRoundSeconds)
+    ExpressLaneTracker Tracker)
 {
     public void AdvanceTime(TimeSpan delta) => Timing.Advance(delta);
 
-    public void AdvanceToNextRound()
+    // Advances by a full round duration. The big jump fires the loop's pending Task.Delay,
+    // triggering one leftover poll iteration on the still-current Result. We wait for that
+    // iteration's event so the loop is back at `await delayTask` (next iter armed) before
+    // returning — without this, the next AdvanceLoop's single time advance can race with
+    // the leftover poll, and either pick up stale Result or arm a Task.Delay beyond reach.
+    public async Task AdvanceToNextRound()
     {
-        Timing.Advance(TimeSpan.FromSeconds(Config.TimeboostRoundDurationSeconds));
+        TaskCompletionSource leftoverDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<ResolvedRound> handler = (_, _) => leftoverDone.TrySetResult();
+
+        Tracker.ControllerLoopAdvanced += handler;
+
+        try
+        {
+            Timing.Advance(TimeSpan.FromSeconds(Config.TimeboostRoundDurationSeconds));
+            await leftoverDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Tracker.ControllerLoopAdvanced -= handler;
+        }
     }
 
     public async Task AdvanceLoop(ResolvedRound resolvedRound)
     {
         AuctionContract.Result = resolvedRound;
-        await Task.Delay(5); // Let ExpressLaneTracker loop to advance
-        Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs)); // Advance time to trigger next poll
-        await Task.Delay(5); // Let ExpressLaneTracker loop to process poll result
+
+        TaskCompletionSource pollDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<ResolvedRound> handler = (_, polled) =>
+        {
+            if (polled == resolvedRound)
+                pollDone.TrySetResult();
+        };
+
+        Tracker.ControllerLoopAdvanced += handler;
+
+        try
+        {
+            Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
+            await pollDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Tracker.ControllerLoopAdvanced -= handler;
+        }
     }
 }
 

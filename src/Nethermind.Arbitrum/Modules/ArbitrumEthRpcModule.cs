@@ -8,6 +8,7 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Rpc;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Blockchain;
 using Nethermind.Blockchain.Find;
 using Nethermind.Db.LogIndex;
 using Nethermind.Blockchain.Receipts;
@@ -52,6 +53,7 @@ namespace Nethermind.Arbitrum.Modules
             IJsonRpcConfig rpcConfig,
             IBlockchainBridge blockchainBridge,
             IBlockFinder blockFinder,
+            IBlockTree blockTree,
             IReceiptFinder receiptFinder,
             IStateReader stateReader,
             ITxPool txPool,
@@ -66,13 +68,14 @@ namespace Nethermind.Arbitrum.Modules
             IForkInfo forkInfo,
             ILogIndexConfig? logIndexConfig,
             ulong? secondsPerSlot,
+            HeadBlockSignal headBlockSignal,
             ArbitrumChainSpecEngineParameters chainSpecParams,
             TransactionQueue transactionQueue,
             SequencerState sequencerState,
             IEthereumEcdsa ecdsa,
             IArbitrumConfig arbitrumConfig,
             IBlockMetadataProvider blockMetadataProvider)
-            : base(rpcConfig, blockchainBridge, blockFinder, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot)
+            : base(rpcConfig, blockchainBridge, blockFinder, blockTree, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot, headBlockSignal)
         {
             _chainSpecParams = chainSpecParams;
             _transactionQueue = transactionQueue;

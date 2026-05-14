@@ -29,6 +29,7 @@ using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Network;
@@ -420,6 +421,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IJsonRpcConfig>(),
             chain.Container.Resolve<IBlockchainBridge>(),
             chain.BlockTree,
+            chain.BlockTree,
             chain.Container.Resolve<IReceiptFinder>(),
             chain.Container.Resolve<IStateReader>(),
             chain.Container.Resolve<ITxPool>(),
@@ -434,6 +436,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IForkInfo>(),
             chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
+            new HeadBlockSignal(chain.BlockTree),
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
             chain.Container.Resolve<TransactionQueue>(),
             chain.Container.Resolve<SequencerState>(),
