@@ -48,7 +48,7 @@ public class ProcessingStatsFormatterTests
              Throughput       262.54 MGas/s | 1,947.5 tps |   404.03 blocks/s | code cache      0 | new        0 | ops 11,652,987 | destruct  0
             """;
 
-        Format(in report).Should().Be(expected);
+        Format(in report).Should().Be(expected.ReplaceLineEndings("\n"));
     }
 
     [Test]
@@ -87,7 +87,7 @@ public class ProcessingStatsFormatterTests
              Throughput    🔥2000.54 MGas/s | 1,947.5 tps |   404.03 blocks/s | code cache      0 | new        0 | ops          0 | destruct  0
             """;
 
-        Format(in report).Should().Be(expected);
+        Format(in report).Should().Be(expected.ReplaceLineEndings("\n"));
     }
 
     [Test]
@@ -126,7 +126,7 @@ public class ProcessingStatsFormatterTests
              Throughput        22.00 MGas/s |   200.0 tps |     4.00 blocks/s | code cache    100 | new        5 | ops      5,000 | destruct  0
             """;
 
-        Format(in report).Should().Be(expected);
+        Format(in report).Should().Be(expected.ReplaceLineEndings("\n"));
     }
 
     [Test]
@@ -165,7 +165,7 @@ public class ProcessingStatsFormatterTests
              Throughput       100.00 MGas/s | 1,000.0 tps |   100.00 blocks/s | recover         5 | process    3 | ops      1,000 | destruct  0
             """;
 
-        Format(in report).Should().Be(expected);
+        Format(in report).Should().Be(expected.ReplaceLineEndings("\n"));
     }
 
     [Test]
@@ -204,7 +204,7 @@ public class ProcessingStatsFormatterTests
              Throughput        50.00 MGas/s |   500.0 tps |   100.00 blocks/s | code cache 19,716 | new        0 | ops  5,630,090 | destruct  0
             """;
 
-        Format(in report).Should().Be(expected);
+        Format(in report).Should().Be(expected.ReplaceLineEndings("\n"));
     }
 
     [Test]
@@ -245,7 +245,7 @@ public class ProcessingStatsFormatterTests
              Throughput        10.00 MGas/s |    10.0 tps |    10.00 blocks/s | code cache      0 | new        0 | ops          0 | destruct 20
             """;
 
-        Format(in report).Should().Be(expected);
+        Format(in report).Should().Be(expected.ReplaceLineEndings("\n"));
     }
 
     private static string Format(in ProcessingStatsReport report)
