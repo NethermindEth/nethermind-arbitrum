@@ -636,6 +636,12 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return chain.MainWorldState.GetCode(address);
         }
 
+        public bool HasCode(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.HasCode(address);
+        }
+
         public ValueHash256 GetCodeHash(Address address, BlockHeader? header = null)
         {
             using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);

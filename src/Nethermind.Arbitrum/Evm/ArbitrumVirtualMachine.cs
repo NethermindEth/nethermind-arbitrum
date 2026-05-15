@@ -426,6 +426,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
+        opcodes[(int)Instruction.SELFDESTRUCT] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+        {
+            (true, true) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OnFlag, OnFlag>,
+            (true, false) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OnFlag, OffFlag>,
+            (false, true) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OffFlag, OnFlag>,
+            (false, false) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OffFlag, OffFlag>,
+        };
         // Opcode overrides specific for witness generation
         if (enableWitnessGeneration)
         {
