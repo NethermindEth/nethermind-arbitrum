@@ -160,7 +160,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong callCost = memoryModel.GetGasCost(program.Value.Footprint, openNow, openEver);
 
         // Pay for program init
-        bool cached = program.Value.Cached || vmHost.WasmStore.GetRecentWasms().Insert(in codeHash, stylusParams.BlockCacheSize);
+        bool cached = program.Value.Cached
+            || (ArbosVersion >= Arbos.ArbosVersion.StylusContractLimit && vmHost.WasmStore.GetRecentWasms().Insert(in codeHash, stylusParams.BlockCacheSize));
         if (cached || program.Value.Version > Arbos.ArbosVersion.One) // in version 1 cached cost is part of init cost
             callCost = callCost.SaturateAdd(program.Value.CachedGas(stylusParams));
 

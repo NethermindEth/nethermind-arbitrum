@@ -148,18 +148,26 @@ public readonly ref struct CloseOpenedPages(ushort openNow, IWasmStore store)
     }
 }
 
-// Type for managing recent program access.
-// The cache contained is discarded at the end of each block.
-// Fixed as per https://github.com/NethermindEth/nethermind-arbitrum/issues/414
-// TODO They can't fix it to work properly without introducing a new ArbOS version, so it should stay as is for now
-// Offchain Labs related issue https://github.com/OffchainLabs/nitro/pull/4035
-public class RecentWasms
+// Mirrors Nitro `core/state/statedb_arbitrum.go:RecentWasms` (after the v60 value-receiver fix) —
+// reference semantics so the lazily-allocated cache survives across calls.
+//
+// Not safe for concurrent use; the surrounding WasmStore is per-block-scope, single-threaded.
+public sealed class RecentWasms
 {
-    private ClockCache<Hash256AsKey, byte>? _cache = null!;
+    private LruCache<ValueHash256, byte>? _cache;
 
     public bool Insert(in ValueHash256 codeHash, ushort retain)
     {
-        // Wild fix for bug in Nitro's RecentWasms
+        // Mirror Nitro `lru.NewBasicLRU(int(retain))` which clamps non-positive capacity to 1
+        // (`go-ethereum/common/lru/basiclru.go`). Diverging here breaks consensus on a v60+ chain
+        // whose owner sets BlockCacheSize=0 via ArbOwner.SetWasmBlockCacheSize.
+        int capacity = retain == 0 ? 1 : retain;
+        _cache ??= new LruCache<ValueHash256, byte>(capacity, "RecentWasms");
+
+        if (_cache.TryGet(codeHash, out _))
+            return true;
+
+        _cache.Set(codeHash, 0);
         return false;
     }
 

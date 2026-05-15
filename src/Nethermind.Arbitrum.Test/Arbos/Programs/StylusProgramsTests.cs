@@ -409,21 +409,6 @@ public class StylusProgramsTests
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
-    {
-        ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
-    }
-
-    private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
-    {
-        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        BlockExecutionContext blockContext = new(header, specProvider.GenesisSpec);
-        TxExecutionContext transactionContext = new(caller, repository, [], 0);
-
-        return (blockContext, transactionContext);
-    }
-
     [Test]
     public void ProgramKeepalive_WithNonActivatedProgram_ReturnsFailure()
     {
@@ -688,23 +673,92 @@ public class StylusProgramsTests
         stylusParams.MaxStackDepth.Should().Be(262144u); // InitialStackDepth
     }
 
-    private static ISpecProvider CreateSpecProvider(ulong arbOsVersion = DefaultArbosVersion)
+    [Test]
+    public void CallProgram_PreV60SameContractTwiceInBlock_ChargesFullInitGasOnBoth()
     {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(arbOsVersion);
-        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
-        ArbosStateVersionProvider versionProvider = new(null!);
-        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
+        RepeatCallGasMetrics metrics = RunCounterTwice(ArbosVersion.Fifty, clearRecentWasmsBetweenCalls: false);
+
+        metrics.GasAfterCall2.Should().Be(metrics.GasAfterCall1);
     }
 
-    private record Program(
-        ushort Version,
-        ushort InitCost,
-        ushort CachedCost,
-        ushort Footprint,
-        uint ActivatedAtHours,
-        uint AsmEstimateKb,
-        ulong AgeSeconds,
-        bool Cached);
+    [Test]
+    public void CallProgram_V60SameContractTwiceInBlock_SecondCallSavesFullMinusCachedInitGas()
+    {
+        RepeatCallGasMetrics metrics = RunCounterTwice(ArbosVersion.Sixty, clearRecentWasmsBetweenCalls: false);
+
+        ulong expectedSavings = metrics.FullInitGas - metrics.CachedInitGas;
+        ((ulong)(metrics.GasAfterCall2 - metrics.GasAfterCall1)).Should().Be(expectedSavings);
+    }
+
+    [Test]
+    public void CallProgram_V60SameContractAcrossBlocks_BothCallsChargeFullInitGas()
+    {
+        RepeatCallGasMetrics metrics = RunCounterTwice(ArbosVersion.Sixty, clearRecentWasmsBetweenCalls: true);
+
+        metrics.GasAfterCall2.Should().Be(metrics.GasAfterCall1);
+    }
+
+    private static VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
+    {
+        ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
+        return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
+    }
+
+    private static (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header, ulong arbosVersion = ArbosVersion.Forty)
+    {
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(arbosVersion);
+        BlockExecutionContext blockContext = new(header, specProvider.GenesisSpec);
+        TxExecutionContext transactionContext = new(caller, repository, [], 0);
+
+        return (blockContext, transactionContext);
+    }
+
+    private static RepeatCallGasMetrics RunCounterTwice(ulong arbosVersion, bool clearRecentWasmsBetweenCalls)
+    {
+        const ulong activationBudget = (InitBudget + ActivationBudget + CallBudget) * 10;
+
+        using StackAccessTracker tracker = new();
+        IWasmStore store = TestWasmStore.Create();
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, activationBudget, arbosVersion);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
+
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(arbosVersion);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+
+        ProgramActivationResult activation = programs.ActivateProgram(
+            contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, debugMode: true, tracker);
+        activation.IsSuccess.Should().BeTrue();
+
+        StylusParams stylusParams = programs.GetParams();
+        StylusOperationResult<(ulong gas, ulong gasWhenCached)> initGasResult = programs.ProgramInitGas(activation.CodeHash, header.Timestamp, stylusParams);
+        initGasResult.IsSuccess.Should().BeTrue();
+
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header, arbosVersion);
+        byte[] callData = CounterContractCallData.GetNumberCalldata();
+
+        long gasAfterCall1 = InvokeCounter();
+
+        if (clearRecentWasmsBetweenCalls)
+            store.GetRecentWasms().Clear();
+
+        long gasAfterCall2 = InvokeCounter();
+
+        return new(gasAfterCall1, gasAfterCall2, initGasResult.Value.gas, initGasResult.Value.gasWhenCached);
+
+        long InvokeCounter()
+        {
+            using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+            TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
+
+            StylusOperationResult<byte[]> result = programs.CallProgram(vmHost,
+                tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            result.IsSuccess.Should().BeTrue();
+
+            return ArbitrumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
+        }
+    }
 
     private static Program GetProgram(ArbosStorage programStorage, in ValueHash256 codeHash, ulong timestamp)
     {
@@ -723,4 +777,20 @@ public class StylusProgramsTests
 
         return new Program(version, initCost, cachedCost, footprint, activatedAtHours, asmEstimateKb, ageSeconds, cached);
     }
+
+    private record Program(
+        ushort Version,
+        ushort InitCost,
+        ushort CachedCost,
+        ushort Footprint,
+        uint ActivatedAtHours,
+        uint AsmEstimateKb,
+        ulong AgeSeconds,
+        bool Cached);
+
+    private readonly record struct RepeatCallGasMetrics(
+        long GasAfterCall1,
+        long GasAfterCall2,
+        ulong FullInitGas,
+        ulong CachedInitGas);
 }
