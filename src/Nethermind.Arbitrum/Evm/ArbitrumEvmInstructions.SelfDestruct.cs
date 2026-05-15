@@ -119,15 +119,15 @@ internal static partial class ArbitrumEvmInstructions
 
         // Jump forward to be unpredicted by the branch predictor — mirrors base
         // EvmInstructions.InstructionSelfDestruct and sibling override InstructionCall.
-        Stop:
-            return EvmExceptionType.Stop;
-        Revert:
-            return EvmExceptionType.Revert;
-        OutOfGas:
-            return EvmExceptionType.OutOfGas;
-        StackUnderflow:
-            return EvmExceptionType.StackUnderflow;
-        StaticCallViolation:
-            return EvmExceptionType.StaticCallViolation;
+    Stop:
+        return EvmExceptionType.Stop;
+    Revert:
+        return EvmExceptionType.Revert;
+    OutOfGas:
+        return EvmExceptionType.OutOfGas;
+    StackUnderflow:
+        return EvmExceptionType.StackUnderflow;
+    StaticCallViolation:
+        return EvmExceptionType.StaticCallViolation;
     }
 }
