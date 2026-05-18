@@ -455,6 +455,7 @@ public sealed class ArbitrumExecutionEngine(
     {
         await stateReconstructor.WaitForPruningGateAsync();
         long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
+        Console.WriteLine($"--- RecordBlockCreation (index {parameters.Index} vs number {blockNumber}) ---");
         if (blockNumber == 0)
         {
             // Cannot generate witness for genesis block as the block itself does not contain any transaction
@@ -542,6 +543,8 @@ public sealed class ArbitrumExecutionEngine(
     public async Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
     {
         await stateReconstructor.WaitForPruningGateAsync();
+        Console.WriteLine($"--- PrepareForRecord [{parameters.Start}-{parameters.End}] ---");
+
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 
@@ -591,6 +594,8 @@ public sealed class ArbitrumExecutionEngine(
             return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
 
         long validBlockNumber = blockNumberResult.Data;
+
+        Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
 
         // Verify the canonical block at validBlockNumber is canonical
         Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;

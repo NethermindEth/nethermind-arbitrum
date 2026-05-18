@@ -207,11 +207,15 @@ namespace Nethermind.Arbitrum.Modules
                 return ResultWrapper<ReceiptForRpc?>.Success(null);
 
             ulong l1BlockNumber = 0;
+            TxGasInfo arbitrumGasInfo = gasInfo.Value;
             if (receipt.BlockHash is not null)
             {
                 BlockHeader? header = _blockFinder.FindHeader(receipt.BlockHash);
                 if (header is not null)
+                {
                     l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(header, _logger).L1BlockNumber;
+                    arbitrumGasInfo = GetArbitrumGasInfo(header);
+                }
             }
 
             byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(receipt.BlockNumber).GetAwaiter().GetResult();
@@ -221,7 +225,7 @@ namespace Nethermind.Arbitrum.Modules
                 txHash,
                 receipt,
                 blockTimestamp,
-                gasInfo.Value,
+                arbitrumGasInfo,
                 l1BlockNumber,
                 logIndexStart,
                 isTimeboosted);
@@ -237,7 +241,7 @@ namespace Nethermind.Arbitrum.Modules
 
             Block block = searchResult.Object!;
             TxReceipt[] receipts = _receiptFinder.Get(block);
-            IReleaseSpec spec = _specProvider.GetSpec(block.Header);
+            TxGasInfo gasInfo = GetArbitrumGasInfo(block.Header);
             ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger).L1BlockNumber;
             byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(block.Number).GetAwaiter().GetResult();
 
@@ -247,7 +251,7 @@ namespace Nethermind.Arbitrum.Modules
                         tx.Hash!,
                         receipt,
                         block.Timestamp,
-                        tx.GetGasInfo(spec, block.Header),
+                        gasInfo,
                         l1BlockNumber,
                         receipts.GetBlockLogFirstIndex(receipt.Index),
                         Data.BlockMetadata.IsTxTimeboosted(blockMetadata, receipt.Index)))
@@ -255,6 +259,9 @@ namespace Nethermind.Arbitrum.Modules
 
             return ResultWrapper<ReceiptForRpc[]?>.Success(result);
         }
+
+        // Matches Nitro's MarshalReceipt / DeriveFields behavior: always use block baseFee as effectiveGasPrice
+        private static TxGasInfo GetArbitrumGasInfo(BlockHeader header) => new(header.BaseFeePerGas);
 
         protected override ResultWrapper<BlockForRpc?> GetBlock(BlockParameter blockParameter, bool returnFullTransactionObjects)
         {
