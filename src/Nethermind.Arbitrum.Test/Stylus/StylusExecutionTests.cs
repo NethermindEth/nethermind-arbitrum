@@ -231,7 +231,7 @@ public class StylusExecutionTests
             ReadOnlySpan<byte> storedValue = chain.MainWorldState.Get(cell);
 
             Address storedSender = storedValue.Length >= 20
-                ? new Address(storedValue.Slice(storedValue.Length - 20, 20).ToArray())
+                ? new Address(storedValue.Slice(storedValue.Length - 20, 20))
                 : new Address(storedValue.PadLeft(20).ToArray());
 
             storedSender.Should().Be(proxy,
