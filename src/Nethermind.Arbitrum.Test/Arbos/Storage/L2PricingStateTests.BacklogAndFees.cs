@@ -266,7 +266,7 @@ public partial class L2PricingStateTests
 
         // StorageAccess has no weight, so fee should be zero -> falls back to baseFeeWei
         MultiGas gasUsed = default;
-        gasUsed.Increment(ResourceKind.StorageAccess, 100);
+        gasUsed.Increment(ResourceKind.StorageAccessRead, 100);
 
         UInt256 refund = l2Pricing.MultiDimensionalPriceForRefund(gasUsed);
 

@@ -143,7 +143,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         if (!EthereumGasPolicy.ConsumeSelfDestructGas(ref gas._ethereum))
             return false;
         gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
-        gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
+        gas._accumulated.Increment(ResourceKind.StorageAccessWrite, GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
         return true;
     }
 
@@ -197,10 +197,10 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Charges gas for accessing an account based on cold/warm state.
-    /// For <see cref="AccountAccessKind.Default"/>: cold splits into StorageAccess + Computation;
+    /// For <see cref="AccountAccessKind.Default"/>: cold splits into StorageAccessRead + Computation;
     /// warm charges WarmStateRead as Computation.
     /// For <see cref="AccountAccessKind.SelfDestructBeneficiary"/>: cold charges full ColdAccountAccess
-    /// to StorageAccess only; warm charges nothing.
+    /// to StorageAccessRead only; warm charges nothing.
     /// </summary>
     public static bool ConsumeAccountAccessGas(ref ArbitrumGasPolicy gas,
         IReleaseSpec spec,
@@ -222,13 +222,13 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             switch (kind)
             {
                 case AccountAccessKind.SelfDestructBeneficiary:
-                    // Full cost to StorageAccess (no Computation split)
-                    gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess);
+                    // Full cost to StorageAccessRead (no Computation split)
+                    gas._accumulated.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdAccountAccess);
                     break;
                 default:
-                    // Split into StorageAccess + Computation
+                    // Split into StorageAccessRead + Computation
                     long coldDelta = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
-                    gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
+                    gas._accumulated.Increment(ResourceKind.StorageAccessRead, (ulong)coldDelta);
                     gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
                     break;
             }
@@ -244,8 +244,8 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Charges gas for accessing a storage cell based on a cold / warm state (interface implementation).
-    /// For SLOAD: Cold access splits cost into StorageAccess + Computation.
-    /// For SSTORE: Cold access charges full cost to StorageAccess only.
+    /// For SLOAD: Cold access splits cost into StorageAccessRead + Computation.
+    /// For SSTORE: Cold slot load charges full cost to StorageAccessRead only.
     /// Warm access charges WarmStateRead as Computation (for SLOAD only).
     /// </summary>
     public static bool ConsumeStorageAccessGas(ref ArbitrumGasPolicy gas,
@@ -263,22 +263,22 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         if (accessTracker.WarmUp(in storageCell))
         {
             // Cold slot access handling differs by operation type:
-            // - SLOAD: split into StorageAccess + Computation
-            // - SSTORE: full cost to StorageAccess only
+            // - SLOAD: split into StorageAccessRead + Computation
+            // - SSTORE: full cold slot load cost to StorageAccessRead only
             if (!EthereumGasPolicy.UpdateGas(ref gas._ethereum, GasCostOf.ColdSLoad))
                 return false;
 
             if (storageAccessType == StorageAccessType.SLOAD)
             {
-                // SLOAD cold access: (ColdSLoad - WarmStateRead) to StorageAccess, WarmStateRead to Computation
+                // SLOAD cold access: (ColdSLoad - WarmStateRead) to StorageAccessRead, WarmStateRead to Computation
                 long coldDelta = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
-                gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)coldDelta);
+                gas._accumulated.Increment(ResourceKind.StorageAccessRead, (ulong)coldDelta);
                 gas._accumulated.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
             }
             else
             {
-                // SSTORE: full cold cost to StorageAccess (no split)
-                gas._accumulated.Increment(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
+                // SSTORE: full cold slot load cost to StorageAccessRead (loading slot before write)
+                gas._accumulated.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdSLoad);
             }
             return true;
         }
@@ -343,7 +343,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Charges gas for SSTORE write operation (after cold/warm access cost).
-    /// Tracks as StorageGrowth for slot creation, StorageAccess for modification.
+    /// Tracks as StorageGrowth for slot creation, StorageAccessWrite for modification.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool ConsumeStorageWrite<TEip8037, TSlotCreate>(ref ArbitrumGasPolicy gas, IReleaseSpec spec)
@@ -351,7 +351,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         where TSlotCreate : struct, IFlag
     {
         long cost = TSlotCreate.IsActive ? GasCostOf.SSet : spec.GasCosts.SStoreResetCost;
-        return UpdateGasWithResource(ref gas, cost, TSlotCreate.IsActive ? ResourceKind.StorageGrowth : ResourceKind.StorageAccess);
+        return UpdateGasWithResource(ref gas, cost, TSlotCreate.IsActive ? ResourceKind.StorageGrowth : ResourceKind.StorageAccessWrite);
     }
 
     /// <summary>
@@ -401,7 +401,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
     /// <summary>
     /// Consumes gas for data copy operations with multi-gas categorization.
-    /// EXTCODECOPY data cost -> StorageAccess (reading from state trie)
+    /// EXTCODECOPY data cost -> StorageAccessRead (reading from state trie)
     /// Other copy ops data cost -> Computation
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -412,8 +412,8 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         // Base cost always computation
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)baseCost);
 
-        // Word cost: StorageAccess for EXTCODECOPY, Computation for others
-        ResourceKind wordResource = isExternalCode ? ResourceKind.StorageAccess : ResourceKind.Computation;
+        // Word cost: StorageAccessRead for EXTCODECOPY, Computation for others
+        ResourceKind wordResource = isExternalCode ? ResourceKind.StorageAccessRead : ResourceKind.Computation;
         gas._accumulated.Increment(wordResource, (ulong)dataCost);
     }
 
@@ -499,13 +499,13 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
             gas._accumulated.Increment(ResourceKind.L2Calldata, (ulong)zeroCount * (ulong)GasCostOf.TxDataZero);
         }
 
-        // 4. StorageAccess: Access list costs (EIP-2930)
+        // 4. StorageAccessRead: Access list costs (EIP-2930) — pre-warms state for future reads
         if (tx.AccessList is not null)
         {
             (int addressesCount, int storageKeysCount) = tx.AccessList.Count;
             long accessListCost = addressesCount * GasCostOf.AccessAccountListEntry
                 + storageKeysCount * GasCostOf.AccessStorageListEntry;
-            gas._accumulated.Increment(ResourceKind.StorageAccess, (ulong)accessListCost);
+            gas._accumulated.Increment(ResourceKind.StorageAccessRead, (ulong)accessListCost);
         }
 
         // 5. StorageGrowth: Authorization list (EIP-7702)

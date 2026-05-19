@@ -142,8 +142,8 @@ public static class ArbRetryableTx
         );
 
         ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
-        // Burn as StorageAccess
-        context.Burn(ResourceKind.StorageAccess, (ulong)(GasCostOf.SLoad * writeBytes));
+        // Burn as StorageAccessRead (reading retryable ticket data)
+        context.Burn(ResourceKind.StorageAccessRead, (ulong)(GasCostOf.SLoad * writeBytes));
 
         Retryable? retryable = state.OpenRetryable(
             ticketId,
@@ -271,7 +271,7 @@ public static class ArbRetryableTx
             ThrowOldNotFoundError(context, ticketId);
 
         ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
-        context.Burn(ResourceKind.StorageAccess, updateCost);
+        context.Burn(ResourceKind.StorageAccessWrite, updateCost);
 
         ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime);
 

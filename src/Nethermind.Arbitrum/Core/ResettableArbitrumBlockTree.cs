@@ -22,7 +22,7 @@ namespace Nethermind.Arbitrum.Core;
 /// Events are forwarded: on reset, the decorator unsubscribes from the old inner
 /// and subscribes to the new one, so consumers see a seamless stream.
 /// </summary>
-public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettableBlockTree
+public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettableBlockTree, IBlockTreeHealer
 {
     private IBlockTree _inner;
     private readonly Func<ArbitrumBlockTree> _factory;
@@ -212,4 +212,5 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
     private void ForwardNewHeadBlock(object? sender, BlockEventArgs e) => NewHeadBlock?.Invoke(this, e);
     private void ForwardOnUpdateMainChain(object? sender, OnUpdateMainChainArgs e) => OnUpdateMainChain?.Invoke(this, e);
     private void ForwardOnForkChoiceUpdated(object? sender, IBlockTree.ForkChoiceUpdateEventArgs e) => OnForkChoiceUpdated?.Invoke(this, e);
+    public void HealCanonicalChain(Hash256 startHash, long maxBlockDepth) { }
 }

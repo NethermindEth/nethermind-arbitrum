@@ -216,7 +216,7 @@ public partial class L2PricingStateTests
         // All 6 resource kinds should have weight 1 (except Unknown and L1Calldata)
         mc0.GetResourceWeight(ResourceKind.Computation).Should().Be(1);
         mc0.GetResourceWeight(ResourceKind.HistoryGrowth).Should().Be(1);
-        mc0.GetResourceWeight(ResourceKind.StorageAccess).Should().Be(1);
+        mc0.GetResourceWeight(ResourceKind.StorageAccessRead).Should().Be(1);
         mc0.GetResourceWeight(ResourceKind.StorageGrowth).Should().Be(1);
         mc0.GetResourceWeight(ResourceKind.L2Calldata).Should().Be(1);
         mc0.GetResourceWeight(ResourceKind.WasmComputation).Should().Be(1);

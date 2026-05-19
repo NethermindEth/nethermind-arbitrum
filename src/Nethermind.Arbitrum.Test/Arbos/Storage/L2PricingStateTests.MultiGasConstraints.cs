@@ -35,7 +35,7 @@ public partial class L2PricingStateTests
         Dictionary<ResourceKind, ulong> weights1 = new()
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 },
+            { ResourceKind.StorageAccessRead, 2 },
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 5_000_000, weights1);
 
@@ -61,7 +61,7 @@ public partial class L2PricingStateTests
         constraint0.Backlog.Should().Be(5_000_000);
         constraint0.MaxWeight.Should().Be(2);
         constraint0.GetResourceWeight(ResourceKind.Computation).Should().Be(1);
-        constraint0.GetResourceWeight(ResourceKind.StorageAccess).Should().Be(2);
+        constraint0.GetResourceWeight(ResourceKind.StorageAccessRead).Should().Be(2);
 
         MultiGasConstraint constraint1 = l2Pricing.OpenMultiGasConstraintAt(1);
         constraint1.Target.Should().Be(2_000_000);
@@ -103,7 +103,7 @@ public partial class L2PricingStateTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 },
+            { ResourceKind.StorageAccessRead, 2 },
         };
         l2Pricing.AddMultiGasConstraint(1000, 10, 5000, weights);
 
@@ -114,7 +114,7 @@ public partial class L2PricingStateTests
         // For StorageAccess: (5000 * 2 * 10000) / (10 * 1000 * 2) = 100_000_000 / 20_000 = 5000
         exponents.Should().HaveCount(MultiGas.NumResourceKinds);
         exponents[(int)ResourceKind.Computation].Should().Be(2500);
-        exponents[(int)ResourceKind.StorageAccess].Should().Be(5000);
+        exponents[(int)ResourceKind.StorageAccessRead].Should().Be(5000);
         exponents[(int)ResourceKind.Unknown].Should().Be(0);
         exponents[(int)ResourceKind.HistoryGrowth].Should().Be(0);
     }
@@ -176,7 +176,7 @@ public partial class L2PricingStateTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 2 },
-            { ResourceKind.StorageAccess, 3 },
+            { ResourceKind.StorageAccessRead, 3 },
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights);
 
@@ -186,7 +186,7 @@ public partial class L2PricingStateTests
         // Create MultiGas with usage
         MultiGas usedGas = default;
         usedGas.Increment(ResourceKind.Computation, 100);
-        usedGas.Increment(ResourceKind.StorageAccess, 200);
+        usedGas.Increment(ResourceKind.StorageAccessRead, 200);
 
         // Grow backlog
         l2Pricing.GrowBacklog(0, usedGas);

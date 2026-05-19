@@ -51,7 +51,8 @@ public class MultiGasRlpTests
         MultiGas original = default;
         original.Increment(ResourceKind.Computation, 10);
         original.Increment(ResourceKind.HistoryGrowth, 11);
-        original.Increment(ResourceKind.StorageAccess, 12);
+        original.Increment(ResourceKind.StorageAccessRead, 12);
+        original.Increment(ResourceKind.StorageAccessWrite, 3);
         original.Increment(ResourceKind.StorageGrowth, 13);
         original.Increment(ResourceKind.L1Calldata, 14);
         original.Increment(ResourceKind.L2Calldata, 15);
@@ -81,7 +82,7 @@ public class MultiGasRlpTests
         MultiGas original = CreateMultiGasWithRefund(
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
             l1Calldata: 14,
             l2Calldata: 15,
@@ -98,7 +99,7 @@ public class MultiGasRlpTests
     {
         MultiGas original = CreateMultiGasWithRefund(
             computation: 100,
-            storageAccess: 200,
+            storageAccessRead: 200,
             refund: 50);
 
         RlpStream stream = new(original.GetRlpLength());
@@ -128,7 +129,7 @@ public class MultiGasRlpTests
     {
         MultiGas gas = default;
         gas.Increment(ResourceKind.Computation, 21000);
-        gas.Increment(ResourceKind.StorageAccess, 5000);
+        gas.Increment(ResourceKind.StorageAccessRead, 5000);
 
         int length = gas.GetRlpLength();
 
@@ -147,7 +148,8 @@ public class MultiGasRlpTests
         json.Unknown.Should().Be(0UL);
         json.Computation.Should().Be(0UL);
         json.HistoryGrowth.Should().Be(0UL);
-        json.StorageAccess.Should().Be(0UL);
+        json.StorageAccessRead.Should().Be(0UL);
+        json.StorageAccessWrite.Should().Be(0UL);
         json.StorageGrowth.Should().Be(0UL);
         json.L1Calldata.Should().Be(0UL);
         json.L2Calldata.Should().Be(0UL);
@@ -196,7 +198,8 @@ public class MultiGasRlpTests
         json.Computation.Should().Be(10UL);
         json.HistoryGrowth.Should().Be(11UL);
         json.StorageGrowth.Should().Be(13UL);
-        json.StorageAccess.Should().Be(0UL);
+        json.StorageAccessRead.Should().Be(0UL);
+        json.StorageAccessWrite.Should().Be(0UL);
         json.Total.Should().Be(35UL);
     }
 
@@ -206,7 +209,7 @@ public class MultiGasRlpTests
         MultiGas gas = CreateMultiGasWithRefund(
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
             l1Calldata: 14,
             l2Calldata: 15,
@@ -217,7 +220,8 @@ public class MultiGasRlpTests
 
         json.Computation.Should().Be(10UL);
         json.HistoryGrowth.Should().Be(11UL);
-        json.StorageAccess.Should().Be(12UL);
+        json.StorageAccessRead.Should().Be(12UL);
+        json.StorageAccessWrite.Should().Be(0UL);
         json.StorageGrowth.Should().Be(13UL);
         json.L1Calldata.Should().Be(14UL);
         json.L2Calldata.Should().Be(15UL);
@@ -255,18 +259,19 @@ public class MultiGasRlpTests
         ulong unknown = 0,
         ulong computation = 0,
         ulong historyGrowth = 0,
-        ulong storageAccess = 0,
+        ulong storageAccessRead = 0,
+        ulong storageAccessWrite = 0,
         ulong storageGrowth = 0,
         ulong l1Calldata = 0,
         ulong l2Calldata = 0,
         ulong wasmComputation = 0,
         ulong refund = 0)
     {
-        ulong total = unknown + computation + historyGrowth + storageAccess +
+        ulong total = unknown + computation + historyGrowth + storageAccessRead + storageAccessWrite +
                       storageGrowth + l1Calldata + l2Calldata + wasmComputation;
 
         int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
-        ulong[] gas = [unknown, computation, historyGrowth, storageAccess,
+        ulong[] gas = [unknown, computation, historyGrowth, storageAccessRead, storageAccessWrite,
                        storageGrowth, l1Calldata, l2Calldata, wasmComputation];
         foreach (ulong g in gas)
             contentLength += Rlp.LengthOf(g);

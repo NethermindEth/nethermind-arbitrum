@@ -366,7 +366,8 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
             {
                 { ResourceKind.Computation, 1 },
                 { ResourceKind.HistoryGrowth, 1 },
-                { ResourceKind.StorageAccess, 1 },
+                { ResourceKind.StorageAccessRead, 1 },
+                { ResourceKind.StorageAccessWrite, 1 },
                 { ResourceKind.StorageGrowth, 1 },
                 { ResourceKind.L2Calldata, 1 },
                 { ResourceKind.WasmComputation, 1 },

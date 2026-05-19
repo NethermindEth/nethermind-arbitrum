@@ -164,7 +164,7 @@ public class TransactionProcessorMultiGasTests
         const ulong gasUsed = 1_000_000;
         MultiGas usedMultiGas = default;
         usedMultiGas.Increment(ResourceKind.Computation, gasUsed / 2);
-        usedMultiGas.Increment(ResourceKind.StorageAccess, gasUsed / 2);
+        usedMultiGas.Increment(ResourceKind.StorageAccessRead, gasUsed / 2);
 
         // Calculate costs
         UInt256 singleGasCost = baseFee * gasUsed;
@@ -219,7 +219,7 @@ public class TransactionProcessorMultiGasTests
         const ulong gasUsed = 1_000_000;
         MultiGas usedMultiGas = default;
         usedMultiGas.Increment(ResourceKind.Computation, gasUsed / 2);
-        usedMultiGas.Increment(ResourceKind.StorageAccess, gasUsed / 2);
+        usedMultiGas.Increment(ResourceKind.StorageAccessRead, gasUsed / 2);
 
         // For retryables, gasFeeCap is used as the simple gas price
         UInt256 gasFeeCap = baseFee;

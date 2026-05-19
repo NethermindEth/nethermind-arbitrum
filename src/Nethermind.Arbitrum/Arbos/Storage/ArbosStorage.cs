@@ -50,7 +50,7 @@ public class ArbosStorage
 
     public ValueHash256 Get(ValueHash256 key)
     {
-        _burner.Burn(ResourceKind.StorageAccess, StorageReadCost);
+        _burner.Burn(ResourceKind.StorageAccessRead, StorageReadCost);
         ValueHash256 mappedAddress = MapAddress(key);
         _burner.TracingInfo?.RecordStorageGet(mappedAddress);
         return GetFreeInternal(mappedAddress);
@@ -87,7 +87,7 @@ public class ArbosStorage
     public void Set(ValueHash256 key, ValueHash256 value)
     {
         ulong cost = value == default ? StorageWriteZeroCost : StorageWriteCost;
-        _burner.Burn(ResourceKind.StorageAccess, cost);
+        _burner.Burn(ResourceKind.StorageAccessWrite, cost);
 
         ValueHash256 mappedAddress = MapAddress(key);
         _burner.TracingInfo?.RecordStorageSet(mappedAddress, value);
@@ -221,7 +221,7 @@ public class ArbosStorage
 
     public ValueHash256 GetCodeHash(Address address)
     {
-        _burner.Burn(ResourceKind.StorageAccess, StorageCodeHashCost);
+        _burner.Burn(ResourceKind.StorageAccessRead, StorageCodeHashCost);
         return _db.GetCodeHash(address);
     }
 

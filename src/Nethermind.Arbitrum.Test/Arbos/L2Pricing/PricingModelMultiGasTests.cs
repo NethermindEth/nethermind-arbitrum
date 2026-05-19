@@ -130,11 +130,11 @@ public class PricingModelMultiGasTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        // Constraint 1: target=100000, window=10, backlog=20000, weights={Computation:1, StorageAccess:2}
+        // Constraint 1: target=100000, window=10, backlog=20000, weights={Computation:1, StorageAccessRead:2}
         Dictionary<ResourceKind, ulong> weights1 = new()
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 },
+            { ResourceKind.StorageAccessRead, 2 },
         };
         l2Pricing.AddMultiGasConstraint(100000, 10, 20000, weights1);
 
@@ -148,11 +148,11 @@ public class PricingModelMultiGasTests
         long[] exponents = l2Pricing.CalcMultiGasConstraintsExponents();
 
         // Computation: (20000 * 1 * 10000) / (10 * 100000 * 2) = 100 bips
-        // StorageAccess: (20000 * 2 * 10000) / (10 * 100000 * 2) = 200 bips
+        // StorageAccessRead: (20000 * 2 * 10000) / (10 * 100000 * 2) = 200 bips
         // StorageGrowth: (15000 * 1 * 10000) / (5 * 50000 * 1) = 600 bips
         exponents.Should().HaveCount(MultiGas.NumResourceKinds);
         exponents[(int)ResourceKind.Computation].Should().Be(100);
-        exponents[(int)ResourceKind.StorageAccess].Should().Be(200);
+        exponents[(int)ResourceKind.StorageAccessRead].Should().Be(200);
         exponents[(int)ResourceKind.StorageGrowth].Should().Be(600);
         exponents[(int)ResourceKind.HistoryGrowth].Should().Be(0);
         exponents[(int)ResourceKind.L1Calldata].Should().Be(0);
@@ -178,19 +178,19 @@ public class PricingModelMultiGasTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 1 },
+            { ResourceKind.StorageAccessRead, 1 },
         };
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set base fees for resources and commit
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
-        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 200);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccessRead, 200);
         l2Pricing.CommitMultiGasFees();
 
         // Create MultiGas with usage
         MultiGas gasUsed = default;
         gasUsed.Increment(ResourceKind.Computation, 50); // 50 computation gas
-        gasUsed.Increment(ResourceKind.StorageAccess, 30); // 30 storage access gas
+        gasUsed.Increment(ResourceKind.StorageAccessRead, 30); // 30 storage access gas
 
         UInt256 refundPrice = l2Pricing.MultiDimensionalPriceForRefund(gasUsed);
 

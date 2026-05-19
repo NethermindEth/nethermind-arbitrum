@@ -37,7 +37,7 @@ public class ConstraintsPrecompileTests
         var weights = new Dictionary<ResourceKind, ulong>
         {
             { ResourceKind.Computation, 100 },
-            { ResourceKind.StorageAccess, 200 }
+            { ResourceKind.StorageAccessRead, 200 }
         };
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 5_000_000, weights);
 
@@ -48,7 +48,7 @@ public class ConstraintsPrecompileTests
         constraint.AdjustmentWindow.Should().Be(60);
         constraint.Backlog.Should().Be(5_000_000);
         constraint.GetResourceWeight(ResourceKind.Computation).Should().Be(100);
-        constraint.GetResourceWeight(ResourceKind.StorageAccess).Should().Be(200);
+        constraint.GetResourceWeight(ResourceKind.StorageAccessRead).Should().Be(200);
     }
 
     [Test]
@@ -102,14 +102,14 @@ public class ConstraintsPrecompileTests
         var weights = new Dictionary<ResourceKind, ulong>
         {
             { ResourceKind.Computation, 2 },
-            { ResourceKind.StorageAccess, 3 }
+            { ResourceKind.StorageAccessRead, 3 }
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights);
 
         // Create gas usage
         MultiGas gasUsed = default;
         gasUsed.Increment(ResourceKind.Computation, 100);
-        gasUsed.Increment(ResourceKind.StorageAccess, 200);
+        gasUsed.Increment(ResourceKind.StorageAccessRead, 200);
 
         l2Pricing.GrowBacklog(0, gasUsed);
 
@@ -167,17 +167,17 @@ public class ConstraintsPrecompileTests
         var weights = new Dictionary<ResourceKind, ulong>
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 1 }
+            { ResourceKind.StorageAccessRead, 1 }
         };
         l2Pricing.AddMultiGasConstraint(7_000_000, 60, 0, weights);
 
         // Set base fees for different resources and commit
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.Computation, 100);
-        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess, 500);
+        l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccessRead, 500);
         l2Pricing.CommitMultiGasFees();
 
         UInt256 computationFee = l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation);
-        UInt256 storageFee = l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccess);
+        UInt256 storageFee = l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccessRead);
 
         computationFee.Should().Be(new UInt256(100));
         storageFee.Should().Be(new UInt256(500));
@@ -231,7 +231,7 @@ public class ConstraintsPrecompileTests
         var weights1 = new Dictionary<ResourceKind, ulong>
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 }
+            { ResourceKind.StorageAccessRead, 2 }
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 100, weights1);
 
@@ -262,7 +262,7 @@ public class ConstraintsPrecompileTests
         results[0].Backlog.Should().Be(100);
         results[0].Weights.Should().HaveCount(2);
         results[0].Weights[ResourceKind.Computation].Should().Be(1);
-        results[0].Weights[ResourceKind.StorageAccess].Should().Be(2);
+        results[0].Weights[ResourceKind.StorageAccessRead].Should().Be(2);
 
         results[1].Target.Should().Be(2_000_000);
         results[1].Window.Should().Be(120);
@@ -328,7 +328,7 @@ public class ConstraintsPrecompileTests
         var weights = new Dictionary<ResourceKind, ulong>
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 }
+            { ResourceKind.StorageAccessRead, 2 }
         };
         l2Pricing.AddMultiGasConstraint(1000, 10, 5000, weights);
 
@@ -337,7 +337,7 @@ public class ConstraintsPrecompileTests
         // Computation: (5000 * 1 * 10000) / (10 * 1000 * 2) = 50_000_000 / 20_000 = 2500
         // StorageAccess: (5000 * 2 * 10000) / (10 * 1000 * 2) = 100_000_000 / 20_000 = 5000
         exponents[(int)ResourceKind.Computation].Should().Be(2500);
-        exponents[(int)ResourceKind.StorageAccess].Should().Be(5000);
+        exponents[(int)ResourceKind.StorageAccessRead].Should().Be(5000);
 
         // Resources not in the constraint should have 0 exponent
         exponents[(int)ResourceKind.Unknown].Should().Be(0);

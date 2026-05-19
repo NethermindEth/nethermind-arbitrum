@@ -32,7 +32,7 @@ public class MultiGasConstraintTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 100 },
-            { ResourceKind.StorageAccess, 200 }
+            { ResourceKind.StorageAccessRead, 200 }
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 5_000_000, weights);
 
@@ -43,7 +43,7 @@ public class MultiGasConstraintTests
         constraint.Backlog.Should().Be(5_000_000);
         constraint.MaxWeight.Should().Be(200); // Max of 100 and 200
         constraint.GetResourceWeight(ResourceKind.Computation).Should().Be(100);
-        constraint.GetResourceWeight(ResourceKind.StorageAccess).Should().Be(200);
+        constraint.GetResourceWeight(ResourceKind.StorageAccessRead).Should().Be(200);
         constraint.GetResourceWeight(ResourceKind.Unknown).Should().Be(0); // Not set
     }
 
@@ -61,21 +61,21 @@ public class MultiGasConstraintTests
 
         L2PricingState l2Pricing = context.ArbosState.L2PricingState;
 
-        // Weights: Computation=2, StorageAccess=3
+        // Weights: Computation=2, StorageAccessRead=3
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 2 },
-            { ResourceKind.StorageAccess, 3 }
+            { ResourceKind.StorageAccessRead, 3 }
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights);
 
         MultiGasConstraint constraint = l2Pricing.OpenMultiGasConstraintAt(0);
         constraint.Backlog.Should().Be(0);
 
-        // Create MultiGas with: Computation=100, StorageAccess=200
+        // Create MultiGas with: Computation=100, StorageAccessRead=200
         MultiGas gas = default;
         gas.Increment(ResourceKind.Computation, 100);
-        gas.Increment(ResourceKind.StorageAccess, 200);
+        gas.Increment(ResourceKind.StorageAccessRead, 200);
 
         constraint.GrowBacklog(gas);
 
@@ -141,7 +141,7 @@ public class MultiGasConstraintTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 }
+            { ResourceKind.StorageAccessRead, 2 }
         };
         l2Pricing.AddMultiGasConstraint(10, 5, 0, weights);
 
@@ -150,14 +150,14 @@ public class MultiGasConstraintTests
 
         MultiGas gas1 = default;
         gas1.Increment(ResourceKind.Computation, 10);
-        gas1.Increment(ResourceKind.StorageAccess, 10);
+        gas1.Increment(ResourceKind.StorageAccessRead, 10);
         constraint.GrowBacklog(gas1);
 
         constraint.Backlog.Should().Be(30, "initial backlog: 1*10 + 2*10 = 30");
 
         MultiGas gas2 = default;
         gas2.Increment(ResourceKind.Computation, 5);
-        gas2.Increment(ResourceKind.StorageAccess, 15);
+        gas2.Increment(ResourceKind.StorageAccessRead, 15);
         constraint.GrowBacklog(gas2);
 
         constraint.Backlog.Should().Be(65, "backlog should accumulate across calls");
@@ -184,7 +184,7 @@ public class MultiGasConstraintTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 1 },
-            { ResourceKind.StorageAccess, 2 }
+            { ResourceKind.StorageAccessRead, 2 }
         };
         l2Pricing.AddMultiGasConstraint(10, 5, 0, weights);
 
@@ -192,20 +192,20 @@ public class MultiGasConstraintTests
 
         MultiGas growGas = default;
         growGas.Increment(ResourceKind.Computation, 10);
-        growGas.Increment(ResourceKind.StorageAccess, 10);
+        growGas.Increment(ResourceKind.StorageAccessRead, 10);
         constraint.GrowBacklog(growGas);
         constraint.Backlog.Should().Be(30);
 
         MultiGas decayGas1 = default;
         decayGas1.Increment(ResourceKind.Computation, 3);
-        decayGas1.Increment(ResourceKind.StorageAccess, 4);
+        decayGas1.Increment(ResourceKind.StorageAccessRead, 4);
         constraint.ShrinkBacklog(decayGas1);
 
         constraint.Backlog.Should().Be(19, "30 - (1*3 + 2*4) = 19");
 
         MultiGas decayGas2 = default;
         decayGas2.Increment(ResourceKind.Computation, 50);
-        decayGas2.Increment(ResourceKind.StorageAccess, 50);
+        decayGas2.Increment(ResourceKind.StorageAccessRead, 50);
         constraint.ShrinkBacklog(decayGas2);
 
         constraint.Backlog.Should().Be(0, "backlog must clamp to zero on underflow");
@@ -275,7 +275,8 @@ public class MultiGasConstraintTests
         usedResources.Should().Contain(ResourceKind.StorageGrowth);
         usedResources.Should().Contain(ResourceKind.HistoryGrowth);
         usedResources.Should().NotContain(ResourceKind.Unknown);
-        usedResources.Should().NotContain(ResourceKind.StorageAccess);
+        usedResources.Should().NotContain(ResourceKind.StorageAccessRead);
+        usedResources.Should().NotContain(ResourceKind.StorageAccessWrite);
     }
 
     [Test]
@@ -295,7 +296,7 @@ public class MultiGasConstraintTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 100 },
-            { ResourceKind.StorageAccess, 200 }
+            { ResourceKind.StorageAccessRead, 200 }
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 0, weights);
 
@@ -305,7 +306,7 @@ public class MultiGasConstraintTests
 
         result.Should().HaveCount(2);
         result[ResourceKind.Computation].Should().Be(100);
-        result[ResourceKind.StorageAccess].Should().Be(200);
+        result[ResourceKind.StorageAccessRead].Should().Be(200);
     }
 
     [Test]
@@ -325,7 +326,7 @@ public class MultiGasConstraintTests
         Dictionary<ResourceKind, ulong> weights = new()
         {
             { ResourceKind.Computation, 100 },
-            { ResourceKind.StorageAccess, 200 }
+            { ResourceKind.StorageAccessRead, 200 }
         };
         l2Pricing.AddMultiGasConstraint(1_000_000, 60, 5_000_000, weights);
 
@@ -338,6 +339,6 @@ public class MultiGasConstraintTests
         constraint.Backlog.Should().Be(0);
         constraint.MaxWeight.Should().Be(0);
         constraint.GetResourceWeight(ResourceKind.Computation).Should().Be(0);
-        constraint.GetResourceWeight(ResourceKind.StorageAccess).Should().Be(0);
+        constraint.GetResourceWeight(ResourceKind.StorageAccessRead).Should().Be(0);
     }
 }

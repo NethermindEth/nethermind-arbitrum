@@ -55,13 +55,14 @@ public class MultiGasIntegrationTests
         ulong gasSpent = (ulong)tracer.GasSpent;
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
-        // SSTORE new slot (cold): StorageAccess = 2100, StorageGrowth = 20000
+        // SSTORE new slot (cold): StorageAccessRead = 2100 (cold slot read), StorageGrowth = 20000 (new slot)
         // ColdSloadCostEIP2929 = 2100, SstoreSetGasEIP2200 = 20000
-        gas.Get(ResourceKind.StorageAccess).Should().Be(2100, "SSTORE cold access = ColdSloadCostEIP2929");
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(2100, "SSTORE cold slot read = ColdSloadCostEIP2929");
+        gas.Get(ResourceKind.StorageAccessWrite).Should().Be(0, "New slot goes to StorageGrowth, not StorageAccessWrite");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(20000, "SSTORE new slot = SstoreSetGasEIP2200");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 
-        // Computation = Total - StorageAccess - StorageGrowth - HistoryGrowth (invariant)
+        // Computation = Total - StorageAccessRead - StorageGrowth - HistoryGrowth (invariant)
         ulong expectedComputation = gasSpent - 2100 - 20000 - 0;
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation = SingleGas - storage dimensions");
     }
@@ -104,14 +105,15 @@ public class MultiGasIntegrationTests
         ulong gasSpent = (ulong)tracer.GasSpent;
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
-        // SSTORE existing slot (cold): StorageAccess = 2100 + (5000 - 2100) = 5000, StorageGrowth = 0
-        // ColdSloadCostEIP2929 = 2100, SstoreResetGasEIP2200 = 5000
-        gas.Get(ResourceKind.StorageAccess).Should().Be(5000, "SSTORE cold + reset = ColdSloadCost + (ResetGas - ColdSloadCost)");
+        // SSTORE existing slot (cold): StorageAccessRead = 2100 (cold read), StorageAccessWrite = 2900 (reset write)
+        // ColdSloadCostEIP2929 = 2100, SstoreResetGasEIP2200 = 5000, write = 5000 - 2100 = 2900
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(2100, "SSTORE cold slot read = ColdSloadCostEIP2929");
+        gas.Get(ResourceKind.StorageAccessWrite).Should().Be(2900, "SSTORE reset write = SstoreResetGas - ColdSloadCost");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0, "SSTORE existing slot has no StorageGrowth");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 
-        // Computation = Total - StorageAccess - StorageGrowth - HistoryGrowth (invariant)
-        ulong expectedComputation = gasSpent - 5000 - 0 - 0;
+        // Computation = Total - StorageAccessRead - StorageAccessWrite - StorageGrowth - HistoryGrowth (invariant)
+        ulong expectedComputation = gasSpent - 2100 - 2900 - 0 - 0;
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation = SingleGas - storage dimensions");
     }
 
@@ -555,9 +557,10 @@ public class MultiGasIntegrationTests
         ulong expectedL2Calldata = 0)
     {
         ulong expectedComputation = gasSpent - expectedStorageAccess - expectedStorageGrowth - expectedHistoryGrowth - expectedL2Calldata;
+        ulong actualStorageAccess = gas.Get(ResourceKind.StorageAccessRead) + gas.Get(ResourceKind.StorageAccessWrite);
 
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation, "Computation mismatch");
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess, "StorageAccess mismatch");
+        actualStorageAccess.Should().Be(expectedStorageAccess, "StorageAccess (read+write) mismatch");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(expectedStorageGrowth, "StorageGrowth mismatch");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(expectedHistoryGrowth, "HistoryGrowth mismatch");
         gas.Get(ResourceKind.L2Calldata).Should().Be(expectedL2Calldata, "L2Calldata mismatch");

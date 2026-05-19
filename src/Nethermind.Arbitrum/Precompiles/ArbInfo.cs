@@ -19,9 +19,9 @@ public static class ArbInfo
 
     public static byte[] GetCode(ArbitrumPrecompileExecutionContext context, Address account)
     {
-        context.Burn(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
+        context.Burn(ResourceKind.StorageAccessRead, GasCostOf.ColdSLoad);
         byte[] code = context.WorldState.GetCode(account)!;
-        context.Burn(ResourceKind.StorageAccess, GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)code.Length));
+        context.Burn(ResourceKind.StorageAccessRead, GasCostOf.Memory * Math.Utils.Div32Ceiling((ulong)code.Length));
         return code;
     }
 }

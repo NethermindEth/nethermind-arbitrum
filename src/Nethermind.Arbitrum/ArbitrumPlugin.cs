@@ -320,7 +320,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             // IClearableCache services (auto-discovered by debug_reinitialize)
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
-            .AddSingleton<IClearableCache, MainPruningTrieStoreFactory>(factory => (IClearableCache)factory.PruningTrieStore)
+            //.AddSingleton<IClearableCache, MainPruningTrieStoreFactory>(factory => (IClearableCache)factory.PruningTrieStore)
             .AddSingleton<IClearableCache, CacheCodeInfoRepository.CacheClearService>()
             .AddSingleton<IClearableCache, IHeaderStore>(store => (IClearableCache)store)
             .AddSingleton<IClearableCache, IBlockStore>(store => (IClearableCache)store)
