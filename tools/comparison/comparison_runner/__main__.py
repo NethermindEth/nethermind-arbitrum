@@ -212,6 +212,8 @@ def main() -> int:
             startup_timeout_s=args.timeout,
             fail_fast=args.fail_fast,
             verbose=args.verbose,
+            build_tags=args.build_tags,
+            config_name=args.config_name,
         )
         runner = SequentialRunner(seq_config)
     else:
@@ -224,6 +226,8 @@ def main() -> int:
             root_dir=nethermind_root,
             log_dir=args.log_dir,
             startup_timeout_s=args.timeout,
+            build_tags=args.build_tags,
+            config_name=args.config_name,
         )
         runner = ParallelRunner(par_config)
 

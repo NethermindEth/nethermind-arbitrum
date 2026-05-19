@@ -16,6 +16,7 @@ from .config import (
     MEMORY_PER_WORKER_GB,
     SYSTEM_RESERVE_GB,
 )
+from .process_manager import DEFAULT_CONFIG_NAME
 
 
 def calculate_optimal_workers() -> int:
@@ -149,6 +150,19 @@ Environment Variables:
         "--fail-fast",
         action="store_true",
         help="Stop execution on first test failure",
+    )
+    exec_group.add_argument(
+        "--build-tags",
+        default="",
+        metavar="TAGS",
+        help="Go build tags to pass via -tags (e.g. 'challengetest')",
+    )
+    exec_group.add_argument(
+        "--config-name",
+        default=DEFAULT_CONFIG_NAME,
+        metavar="NAME",
+        help=f"Nethermind config name to use (default: {DEFAULT_CONFIG_NAME}). "
+        "Use 'arbitrum-system-test-staker-challenge' for staker challenge tests.",
     )
 
     # -------------------------------------------------------------------------

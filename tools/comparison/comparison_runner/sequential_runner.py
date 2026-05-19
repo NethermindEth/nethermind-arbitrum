@@ -24,7 +24,7 @@ from typing import Any
 from .config import DEBUG_PORT_OFFSET, DEFAULT_STARTUP_TIMEOUT_S
 from .exceptions import NethermindStartupError, RPCError
 from .models import TestResult, TestStatus
-from .process_manager import NethermindProcess
+from .process_manager import DEFAULT_CONFIG_NAME, NethermindProcess
 from .rpc_client import reinitialize_state
 from .test_executor import clean_test_cache, compile_test_binary, execute_test
 
@@ -45,6 +45,8 @@ class SequentialRunnerConfig:
     startup_timeout_s: int = DEFAULT_STARTUP_TIMEOUT_S
     fail_fast: bool = False
     verbose: bool = False
+    build_tags: str = ""
+    config_name: str = DEFAULT_CONFIG_NAME
 
 
 class SequentialRunner:
@@ -80,6 +82,7 @@ class SequentialRunner:
             port=config.port,
             data_dir=data_dir,
             host=config.host,
+            config_name=config.config_name,
         )
 
         # Interruption handling
@@ -105,7 +108,7 @@ class SequentialRunner:
         clean_test_cache(self.config.nitro_path)
 
         # Pre-compile Go test binary once (separates compilation from test timing)
-        self._test_binary = compile_test_binary(self.config.nitro_path)
+        self._test_binary = compile_test_binary(self.config.nitro_path, build_tags=self.config.build_tags)
 
         results: list[TestResult] = []
 
@@ -244,6 +247,7 @@ class SequentialRunner:
             worker_id=-1,  # Sequential mode
             interrupted=self.interrupted,
             test_binary=self._test_binary,
+            build_tags=self.config.build_tags,
         )
 
     def _cleanup(self) -> None:

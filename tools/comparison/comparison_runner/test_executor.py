@@ -67,7 +67,11 @@ def clean_test_cache(nitro_path: Path) -> bool:
     return True
 
 
-def compile_test_binary(nitro_path: Path, output_path: Path | None = None) -> Path | None:
+def compile_test_binary(
+    nitro_path: Path,
+    output_path: Path | None = None,
+    build_tags: str = "",
+) -> Path | None:
     """Pre-compile the Go test binary once at startup.
 
     This separates compilation time from test execution time, providing
@@ -77,6 +81,7 @@ def compile_test_binary(nitro_path: Path, output_path: Path | None = None) -> Pa
     Args:
         nitro_path: Path to Nitro repository
         output_path: Where to write the binary (default: nitro_path/system_tests.test)
+        build_tags: Go build tags to pass via -tags (e.g. "challengetest")
 
     Returns:
         Path to compiled binary, or None if compilation failed
@@ -98,15 +103,19 @@ def compile_test_binary(nitro_path: Path, output_path: Path | None = None) -> Pa
     if sys.platform == "darwin":
         env["CGO_LDFLAGS"] = "-Wl,-no_warn_duplicate_libraries"
 
+    cmd = [
+        "go",
+        "test",
+        "-c",  # Compile but don't run
+        "./system_tests",
+        "-o",
+        str(output_path),
+    ]
+    if build_tags:
+        cmd += ["-tags", build_tags]
+
     result = subprocess.run(
-        [
-            "go",
-            "test",
-            "-c",  # Compile but don't run
-            "./system_tests",
-            "-o",
-            str(output_path),
-        ],
+        cmd,
         cwd=str(nitro_path),
         capture_output=True,
         text=True,
@@ -145,6 +154,7 @@ def run_go_test(
     interrupted: Event | None = None,
     timeout: str = DEFAULT_TEST_TIMEOUT,
     test_binary: Path | None = None,
+    build_tags: str = "",
 ) -> GoTestResult:
     """Run a single Go test.
 
@@ -159,6 +169,7 @@ def run_go_test(
         interrupted: Optional event to check for interruption
         timeout: Go test timeout string (default "5m")
         test_binary: Pre-compiled test binary (if None, uses `go test`)
+        build_tags: Go build tags for fallback `go test` invocation (e.g. "challengetest")
 
     Returns:
         GoTestResult with exit code and any error message
@@ -199,6 +210,8 @@ def run_go_test(
             timeout,
             "-count=1",
         ]
+        if build_tags:
+            cmd += ["-tags", build_tags]
 
     # Setup test environment
     test_env = env.copy()
@@ -310,6 +323,7 @@ def execute_test(
     worker_id: int = -1,
     interrupted: Event | None = None,
     test_binary: Path | None = None,
+    build_tags: str = "",
 ) -> TestResult:
     """Execute a test and return a full TestResult.
 
@@ -325,6 +339,7 @@ def execute_test(
         worker_id: Worker ID (-1 for sequential mode)
         interrupted: Optional interrupt event
         test_binary: Pre-compiled test binary (faster execution)
+        build_tags: Go build tags (e.g. "challengetest")
 
     Returns:
         TestResult with status and metadata
@@ -356,6 +371,7 @@ def execute_test(
             log_path=log_path,
             interrupted=interrupted,
             test_binary=test_binary,
+            build_tags=build_tags,
         )
 
         duration = time.time() - start_time
