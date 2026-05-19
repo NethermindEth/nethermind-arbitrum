@@ -27,7 +27,7 @@
     <Content Include="Arbos/Stylus/Resources/*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Recordings/*">
+    <Content Include="Recordings/**/*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Autofac;
@@ -446,9 +445,14 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         );
     }
 
+    // Fixed epoch so block timestamps (and hence block hashes) are deterministic across runs —
+    // required by tests for blockHash assertions. Picked arbitrarily (November 2023)
+    private const ulong BaseUnixTimestampSeconds = 1_700_000_000UL;
+
     private MessageWithMetadata CreateMessageWithMetadata(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)
     {
-        L1IncomingMessageHeader header = new(kind, sender, _latestL1BlockNumber + 1, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+        ulong l1BlockNumber = _latestL1BlockNumber + 1;
+        L1IncomingMessageHeader header = new(kind, sender, l1BlockNumber, BaseUnixTimestampSeconds + l1BlockNumber,
             requestId, l1BaseFee);
 
         byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions(transactions, header);
@@ -665,9 +669,18 @@ public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Add
 public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
 {
     public TestL2Transactions(UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
-        : this(new(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, Sender, Transactions)
+        : this(DeriveRequestId(Transactions), L1BaseFee, Sender, Transactions)
     {
+    }
 
+    // Deterministic request id keyed on the transactions themselves so the resulting block hash
+    // is stable across test runs — required by ArbitrumWitnessGenerationTests' BlockHash assertions.
+    private static Hash256 DeriveRequestId(Transaction[] transactions)
+    {
+        byte[] buffer = new byte[Hash256.Size * transactions.Length];
+        for (int i = 0; i < transactions.Length; i++)
+            transactions[i].Hash!.Bytes.CopyTo(buffer.AsSpan(i * Hash256.Size));
+        return Keccak.Compute(buffer);
     }
 }
 
