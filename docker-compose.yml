@@ -1,7 +1,7 @@
 
 services:
   nethermind-arbitrum:
-    image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.1.0-alpha}
+    image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.2.0}
     container_name: nethermind-arbitrum
     restart: 'no'
     stop_grace_period: 5m
@@ -31,7 +31,7 @@ services:
       start_period: 30s
 
   nitro:
-    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.0-rc.2-746bda2}
+    image: ${NITRO_IMAGE:-offchainlabs/nitro-node:v3.10.1-d7f07be}
     container_name: nitro
     entrypoint: /usr/local/bin/nitro
     depends_on:
