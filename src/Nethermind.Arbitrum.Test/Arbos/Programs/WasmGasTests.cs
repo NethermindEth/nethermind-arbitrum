@@ -7,7 +7,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
+using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Specs.Forks;
 
@@ -73,21 +73,21 @@ public class WasmGasTests
     // WasmStateLoadCost tests
 
     [Test]
-    public void WasmStateLoadCost_ColdSlot_ReturnsStorageAccessAndComputation()
+    public void WasmStateLoadCost_ColdSlot_ReturnsStorageAccessReadAndComputation()
     {
         using WasmGasTestHelper helper = new();
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
 
         MultiGas gas = WasmGas.WasmStateLoadCost(helper.VmHost, cell);
 
-        // Cold: StorageAccess = ColdSLoad - WarmStateRead (2100 - 100 = 2000)
+        // Cold: StorageAccessRead = ColdSLoad - WarmStateRead (2100 - 100 = 2000)
         // Computation = WarmStateRead (100)
-        const ulong expectedStorageAccess = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
+        const ulong expectedStorageAccessRead = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
         const ulong expectedComputation = GasCostOf.WarmStateRead;
 
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccessRead);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
-        gas.SingleGas().Should().Be(expectedStorageAccess + expectedComputation);
+        gas.SingleGas().Should().Be(expectedStorageAccessRead + expectedComputation);
     }
 
     [Test]
@@ -110,7 +110,7 @@ public class WasmGasTests
     // WasmStateStoreCost tests
 
     [Test]
-    public void WasmStateStoreCost_ColdSlotNewValue_ReturnsStorageAccessAndGrowth()
+    public void WasmStateStoreCost_ColdSlotNewValue_ReturnsStorageAccessReadAndGrowth()
     {
         using WasmGasTestHelper helper = new();
         helper.CreateAccount(TestItem.AddressA);
@@ -121,12 +121,12 @@ public class WasmGasTests
         MultiGas gas = WasmGas.WasmStateStoreCost(helper.VmHost, cell, newValue);
 
         // Cold access + new slot creation:
-        // StorageAccess = ColdSLoad (2100)
+        // StorageAccessRead = ColdSLoad (2100)
         // StorageGrowth = SSet (20000)
-        const ulong expectedStorageAccess = GasCostOf.ColdSLoad;
+        const ulong expectedStorageAccessRead = GasCostOf.ColdSLoad;
         const ulong expectedStorageGrowth = GasCostOf.SSet;
 
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccessRead);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(expectedStorageGrowth);
     }
 
@@ -146,7 +146,7 @@ public class WasmGasTests
         MultiGas gas = WasmGas.WasmStateStoreCost(helper.VmHost, cell, newValue);
 
         // Warm + new slot creation:
-        // StorageAccess = 0 (warm)
+        // StorageAccessRead = 0 (warm)
         // StorageGrowth = SSet (20000)
         gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.SSet);
@@ -176,23 +176,52 @@ public class WasmGasTests
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
     }
 
+    [Test]
+    public void WasmStateStoreCost_WarmSlotResetValue_TagsAsStorageAccessWrite()
+    {
+        // Pre-existing non-zero original + different non-zero value on warm slot exercises the
+        // SReset branch — the only WASM site that emits StorageAccessWrite. Mirrors Nitro
+        // operations_acl_arbitrum.go:81. Requires committing the world state so GetOriginal
+        // returns the pre-write value.
+        using WasmGasTestHelper helper = new();
+        helper.CreateAccount(TestItem.AddressA);
+        StorageCell cell = new(TestItem.AddressA, UInt256.One);
+
+        byte[] originalValue = new byte[32];
+        originalValue[31] = 5;
+        helper.SetStorageValue(TestItem.AddressA, UInt256.One, originalValue);
+        helper.WorldState.Commit(Cancun.Instance);
+        helper.WarmUpSlot(TestItem.AddressA, UInt256.One);
+
+        byte[] newValue = new byte[32];
+        newValue[31] = 7;
+
+        MultiGas gas = WasmGas.WasmStateStoreCost(helper.VmHost, cell, newValue);
+
+        const ulong expectedStorageAccessWrite = GasCostOf.SReset - GasCostOf.ColdSLoad;
+        gas.Get(ResourceKind.StorageAccessWrite).Should().Be(expectedStorageAccessWrite);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
+        gas.Get(ResourceKind.Computation).Should().Be(0UL);
+    }
+
     // WasmAccountTouchCost tests
 
     [Test]
-    public void WasmAccountTouchCost_ColdAccountNoCode_ReturnsStorageAccessAndComputation()
+    public void WasmAccountTouchCost_ColdAccountNoCode_ReturnsStorageAccessReadAndComputation()
     {
         using WasmGasTestHelper helper = new();
 
         MultiGas gas = WasmGas.WasmAccountTouchCost(helper.VmHost, TestItem.AddressA, withCode: false);
 
-        // Cold account: StorageAccess = ColdAccountAccess - WarmStateRead (2600 - 100 = 2500)
+        // Cold account: StorageAccessRead = ColdAccountAccess - WarmStateRead (2600 - 100 = 2500)
         // Computation = WarmStateRead (100)
-        const ulong expectedStorageAccess = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
+        const ulong expectedStorageAccessRead = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
         const ulong expectedComputation = GasCostOf.WarmStateRead;
 
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccessRead);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
-        gas.SingleGas().Should().Be(expectedStorageAccess + expectedComputation);
+        gas.SingleGas().Should().Be(expectedStorageAccessRead + expectedComputation);
     }
 
     [Test]
@@ -239,7 +268,7 @@ public class WasmGasTests
         // Cold + code:
         // Code access: (MaxCodeSize / 24576) * ExtCodeEip150 = 700
         // Cold account: ColdAccountAccess - WarmStateRead = 2500
-        // Total StorageAccess = 700 + 2500 = 3200
+        // Total StorageAccessRead = 700 + 2500 = 3200
         long maxCodeSize = Cancun.Instance.MaxCodeSize;
         ulong codeAccessGas = (ulong)maxCodeSize / 24576 * GasCostOf.ExtCodeEip150;
         const ulong coldAccountGas = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
@@ -251,19 +280,19 @@ public class WasmGasTests
     // WasmCallCost tests
 
     [Test]
-    public void WasmCallCost_ColdContractNoValue_ReturnsStorageAccessAndComputation()
+    public void WasmCallCost_ColdContractNoValue_ReturnsStorageAccessReadAndComputation()
     {
         using WasmGasTestHelper helper = new();
 
         (MultiGas gas, bool outOfGas) = WasmGas.WasmCallCost(helper.VmHost, TestItem.AddressA, hasValue: false, gasLeft: 100_000);
 
-        // Cold contract: StorageAccess = ColdAccountAccess - WarmStateRead (2500)
+        // Cold contract: StorageAccessRead = ColdAccountAccess - WarmStateRead (2500)
         // Computation = WarmStateRead (100)
-        const ulong expectedStorageAccess = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
+        const ulong expectedStorageAccessRead = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
         const ulong expectedComputation = GasCostOf.WarmStateRead;
 
         outOfGas.Should().BeFalse();
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccessRead);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
     }
@@ -294,15 +323,15 @@ public class WasmGasTests
         (MultiGas gas, bool outOfGas) = WasmGas.WasmCallCost(helper.VmHost, TestItem.AddressA, hasValue: true, gasLeft: 100_000);
 
         // Cold + new account + value transfer:
-        // StorageAccess = ColdAccountAccess - WarmStateRead = 2500
+        // StorageAccessRead = ColdAccountAccess - WarmStateRead = 2500
         // StorageGrowth = NewAccount = 25000
         // Computation = WarmStateRead + CallValue = 100 + 9000 = 9100
-        const ulong expectedStorageAccess = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
+        const ulong expectedStorageAccessRead = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
         const ulong expectedStorageGrowth = GasCostOf.NewAccount;
         const ulong expectedComputation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
 
         outOfGas.Should().BeFalse();
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccessRead);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(expectedStorageGrowth);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
     }
@@ -319,7 +348,7 @@ public class WasmGasTests
         (MultiGas gas, bool outOfGas) = WasmGas.WasmCallCost(helper.VmHost, TestItem.AddressA, hasValue: true, gasLeft: 100_000);
 
         // Warm + existing account + value transfer:
-        // No StorageAccess (warm)
+        // No StorageAccessRead (warm)
         // No StorageGrowth (an account exists)
         // Computation = WarmStateRead + CallValue = 100 + 9000 = 9100
         const ulong expectedComputation = GasCostOf.WarmStateRead + GasCostOf.CallValue;

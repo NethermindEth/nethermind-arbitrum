@@ -174,14 +174,24 @@ public class StylusParams(
 
     public void UpgradeToStylusVersion(ushort newStylusVersion)
     {
-        if (newStylusVersion != 2)
-            throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only version 2 is supported.");
+        switch (newStylusVersion)
+        {
+            case 2:
+                if (StylusVersion != 1)
+                    throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 1 is required.");
+                StylusVersion = 2;
+                MinInitGas = V2MinInitGas;
+                break;
 
-        if (StylusVersion != 1)
-            throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 1 is required.");
+            case 3:
+                if (StylusVersion != 2)
+                    throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 2 is required.");
+                StylusVersion = 3;
+                break;
 
-        StylusVersion = newStylusVersion;
-        MinInitGas = V2MinInitGas;
+            default:
+                throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only versions 2 and 3 are supported.");
+        }
     }
 
     public void UpgradeToArbosVersion(ulong newArbosVersion)

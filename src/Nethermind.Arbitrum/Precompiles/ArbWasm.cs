@@ -115,8 +115,17 @@ public static class ArbWasm
     /// <exception cref="ArbitrumPrecompileException">Thrown when activation fails</exception>
     public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program)
     {
-        // charge a fixed cost up front to begin activation
-        context.Burn(ResourceKind.Computation, ActivationFixedCost);
+        // Configurable activation gas charge (v59+; default zero, read short-circuits below).
+        // Burned first so the kill-switch (ulong.MaxValue) aborts before any decompression
+        // or compile work. Burn is unconditional — matches Nitro ArbWasm.go:46-48.
+        MultiGas activationCharge = new();
+        activationCharge.Increment(ResourceKind.SingleDim, context.ArbosState.Programs.GetActivationGas());
+        context.Burn(in activationCharge);
+
+        // Fixed compile-cost approximation, tagged Computation for Nitro parity (ArbWasm.go:51).
+        MultiGas fixedCharge = new();
+        fixedCharge.Increment(ResourceKind.Computation, ActivationFixedCost);
+        context.Burn(in fixedCharge);
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
@@ -273,6 +282,13 @@ public static class ArbWasm
     /// <returns>The number of additional programs cached per block</returns>
     public static ushort BlockCacheSize(ArbitrumPrecompileExecutionContext context)
         => context.ArbosState.Programs.GetParams().BlockCacheSize;
+
+    /// <summary>
+    /// Gets the constant gas charge applied before each Stylus contract activation.
+    /// Defaults to zero. Available from ArbOS version 59.
+    /// </summary>
+    public static ulong ActivationGas(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetActivationGas();
 
     /// <summary>
     /// Gets the stylus version that program with codeHash was most recently compiled with

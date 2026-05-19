@@ -67,7 +67,7 @@ public class TransactionProcessorMultiGasTests
     }
 
     [Test]
-    public void Execute_SufficientGas_ChargesPosterGasAsL1Calldata()
+    public void Execute_SufficientGas_ChargesPosterGasAsSingleDim()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {

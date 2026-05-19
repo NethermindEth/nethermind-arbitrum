@@ -133,7 +133,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     /// </summary>
     public static bool ConsumeSelfDestructGas(ref ArbitrumGasPolicy gas)
     {
-        // Note from Nitro:
+        // Note from Nitro (go-ethereum/core/vm/gas.go:66-71):
         // SELFDESTRUCT is a special case because it charges for storage access, but it isn't
         // dependent on any input data. We charge a small computational cost for warm access like
         // other multidimensional gas opcodes, and the rest is storage access to delete the

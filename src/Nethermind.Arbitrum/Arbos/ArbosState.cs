@@ -215,7 +215,7 @@ public class ArbosState
                         // No state changes needed
                         break;
 
-                    // Versions 52-59 are reserved for Orbit chains
+                    // Versions 52-58 are reserved for Orbit chains
                     case 52:
                     case 53:
                     case 54:
@@ -223,7 +223,12 @@ public class ArbosState
                     case 56:
                     case 57:
                     case 58:
-                    case 59:
+                        break;
+
+                    case 59: // StylusActivationGas
+                        StylusParams stylusParamsV59 = Programs.GetParams();
+                        stylusParamsV59.UpgradeToStylusVersion(3);
+                        stylusParamsV59.Save();
                         break;
 
                     case 60: // StylusContractLimit + TransactionFiltering + MultiGasConstraints

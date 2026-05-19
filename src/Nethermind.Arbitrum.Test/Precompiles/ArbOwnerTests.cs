@@ -224,6 +224,7 @@ public class ArbOwnerTests
         PrecompileTestAbiHelpers.GetMethodId("setWasmBlockCacheSize(uint16)").Should().Be(Solgen.ArbOwner.Methods.SetWasmBlockCacheSize);
         PrecompileTestAbiHelpers.GetMethodId("addWasmCacheManager(address)").Should().Be(Solgen.ArbOwner.Methods.AddWasmCacheManager);
         PrecompileTestAbiHelpers.GetMethodId("removeWasmCacheManager(address)").Should().Be(Solgen.ArbOwner.Methods.RemoveWasmCacheManager);
+        PrecompileTestAbiHelpers.GetMethodId("setWasmActivationGas(uint64)").Should().Be(Solgen.ArbOwner.Methods.SetWasmActivationGas);
     }
 
     [Test]
@@ -1015,6 +1016,63 @@ public class ArbOwnerTests
 
         ArbOwner.SetCalldataPriceIncrease(context, false);
         context.ArbosState.Features.IsCalldataPriceIncreaseEnabled().Should().BeFalse();
+    }
+
+    [Test]
+    public void SetWasmActivationGas_AtStylusActivationGasVersion_UpdatesValue()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.StylusActivationGas);
+
+        ArbOwner.SetWasmActivationGas(context, 5_000_000);
+
+        context.ArbosState.Programs.GetActivationGas().Should().Be(5_000_000);
+    }
+
+    [Test]
+    public void SetWasmActivationGas_MaxUlong_RoundTrips()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.StylusActivationGas);
+
+        ArbOwner.SetWasmActivationGas(context, ulong.MaxValue);
+
+        context.ArbosState.Programs.GetActivationGas().Should().Be(ulong.MaxValue);
+    }
+
+    [Test]
+    public void SetWasmActivationGas_ResetToZero_ClearsValue()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.StylusActivationGas);
+
+        ArbOwner.SetWasmActivationGas(context, 5_000_000);
+        ArbOwner.SetWasmActivationGas(context, 0);
+
+        context.ArbosState.Programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void SetWasmActivationGas_BelowStylusActivationGasVersion_DispatchRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.StylusActivationGas - 1);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetWasmActivationGas, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void SetWasmActivationGas_AtStylusActivationGasVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.StylusActivationGas);
+        context = context.WithExecutingAccount(ArbOwnerParser.Address);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetWasmActivationGas, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 
     [Test]

@@ -12,6 +12,7 @@ namespace Nethermind.Arbitrum.Evm;
 
 /// <summary>
 /// Represents a dimension for multidimensional gas tracking.
+/// Layout mirrors Nitro <c>multigas.ResourceKind</c> (/v3.10.0/go-ethereum/arbitrum/multigas/resources.go).
 /// </summary>
 public enum ResourceKind : byte
 {
@@ -98,6 +99,18 @@ public struct MultiGas
         if ((uint)index >= NumResourceKinds)
             ThrowArgumentOutOfRange(kind);
         return _gas[index];
+    }
+
+    /// <summary>
+    /// Returns the combined storage-access cost — sum of <see cref="ResourceKind.StorageAccessRead"/>
+    /// and <see cref="ResourceKind.StorageAccessWrite"/>. The tracers preserve the pre-split
+    /// <c>StateAccess</c> aggregate by calling this on the per-step delta.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly ulong StorageAccessTotal()
+    {
+        ReadOnlySpan<ulong> gas = _gas;
+        return gas[(int)ResourceKind.StorageAccessRead].SaturateAdd(gas[(int)ResourceKind.StorageAccessWrite]);
     }
 
     /// <summary>
@@ -189,7 +202,7 @@ public struct MultiGas
     }
 
     /// <summary>
-    /// Encodes MultiGas as: [ total, refund, gas[0], gas[1], ..., gas[7] ]
+    /// Encodes MultiGas as: [ total, refund, gas[0], gas[1], ..., gas[NumResourceKinds-1] ]
     /// </summary>
     public readonly void Encode(RlpStream stream)
     {
@@ -237,7 +250,7 @@ public struct MultiGas
 
     private readonly int GetRlpContentLength()
     {
-        // total + refund + 8 gas values
+        // total + refund + NumResourceKinds gas values
         int length = Rlp.LengthOf(_total);
         length += Rlp.LengthOf(Refund);
         for (int i = 0; i < NumResourceKinds; i++)
@@ -248,6 +261,7 @@ public struct MultiGas
 
 /// <summary>
 /// JSON-serializable representation of MultiGas for RPC responses.
+/// Field names mirror Nitro <c>multiGasJSON</c> (/v3.10.0/go-ethereum/arbitrum/multigas/resources.go).
 /// </summary>
 public readonly struct MultiGasForJson(in MultiGas mg)
 {

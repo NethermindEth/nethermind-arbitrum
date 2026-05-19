@@ -113,6 +113,42 @@ public class MultiGasRlpTests
     }
 
     [Test]
+    public void Decode_LegacyEightKindEncoding_DecodesIntoNineKindStructWithZeroExtraSlot()
+    {
+        // Encode using the legacy 8-kind layout (no StorageAccessWrite slot)
+        // and confirm decoder accepts it. Legacy ordering was:
+        //   gas[0]=Unknown, [1]=Computation, [2]=HistoryGrowth, [3]=StorageAccess,
+        //   [4]=StorageGrowth, [5]=L1Calldata, [6]=L2Calldata, [7]=WasmComputation.
+        ulong[] legacyGas = [0, 100, 0, 200, 0, 50, 0, 0];
+        ulong total = 350;
+        ulong refund = 0;
+
+        int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
+        foreach (ulong g in legacyGas)
+            contentLength += Rlp.LengthOf(g);
+
+        RlpStream stream = new(Rlp.LengthOfSequence(contentLength));
+        stream.StartSequence(contentLength);
+        stream.Encode(total);
+        stream.Encode(refund);
+        foreach (ulong g in legacyGas)
+            stream.Encode(g);
+
+        byte[] encoded = stream.Data.ToArray()!;
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        MultiGas decoded = MultiGas.Decode(ref ctx);
+
+        decoded.Total.Should().Be(350UL);
+        decoded.Get(ResourceKind.Computation).Should().Be(100UL);
+        // Legacy StorageAccess (slot 3) decodes into the new StorageAccessRead slot (also 3).
+        decoded.Get(ResourceKind.StorageAccessRead).Should().Be(200UL);
+        // Slot 5 was L1Calldata legacy; now StorageGrowth — caller assumes responsibility for re-tagging.
+        decoded.Get(ResourceKind.StorageGrowth).Should().Be(50UL);
+        // No 9th slot was encoded, so WasmComputation stays at zero.
+        decoded.Get(ResourceKind.WasmComputation).Should().Be(0UL);
+    }
+
+    [Test]
     public void GetRlpLength_DefaultGas_ReturnsCorrectLength()
     {
         MultiGas gas = default;

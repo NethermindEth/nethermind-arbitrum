@@ -31,6 +31,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private static readonly byte[] ModuleHashesKey = [2];
     private static readonly byte[] DataPricerKey = [3];
     private static readonly byte[] CacheManagersKey = [4];
+    private static readonly byte[] ActivationGasKey = [5];
 
     // Also hardcoded in Nitro
     private static readonly TimeSpan CraneliftActivationTimeout = TimeSpan.FromSeconds(15);
@@ -39,6 +40,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     public ArbosStorage ModuleHashesStorage { get; } = storage.OpenSubStorage(ModuleHashesKey);
     public DataPricer DataPricerStorage { get; } = new(storage.OpenSubStorage(DataPricerKey));
     public AddressSet CacheManagersStorage { get; } = new(storage.OpenSubStorage(CacheManagersKey));
+    public ArbosStorageBackedULong ActivationGasStorage { get; } = new(storage.OpenSubStorage(ActivationGasKey), 0);
 
     public ulong ArbosVersion { get; set; } = arbosVersion;
 
@@ -53,6 +55,18 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     {
         ArbosStorage paramsStorage = storage.OpenSubStorage(ParamsKey);
         return StylusParams.CreateFromStorage(paramsStorage, ArbosVersion);
+    }
+
+    // Mirrors Nitro /v3.10.0/arbos/programs/programs.go:89-95. The version gate lives here, not at the precompile,
+    // so internal callers on pre-v59 chains always observe zero without touching storage.
+    public ulong GetActivationGas()
+    {
+        return ArbosVersion < Arbos.ArbosVersion.StylusActivationGas ? 0 : ActivationGasStorage.Get();
+    }
+
+    public void SetActivationGas(ulong gas)
+    {
+        ActivationGasStorage.Set(gas);
     }
 
     public ProgramActivationResult ActivateProgram(Address address, IReleaseSpec spec, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode, StackAccessTracker accessTracker)
@@ -974,8 +988,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
 
     // Mirrors Nitro arbos/programs/programs.go:500-518 (fragmentReadGasCost). Resource-kind
-    // tagging matches Nitro's multigas split: cold-access cost → StorageAccess; warm-access
-    // cost → Computation; copy cost (CopyGas per 32-byte word) → StorageAccess. SingleGas()
+    // tagging matches Nitro's multigas split: cold-access cost → StorageAccessRead; warm-access
+    // cost → Computation; copy cost (CopyGas per 32-byte word) → StorageAccessRead. SingleGas()
     // equals the pre-refactor ulong total, so the IBurner default DIM collapse preserves
     // the existing on-chain gas burn while the typed metadata reaches the call site.
     //
@@ -989,12 +1003,12 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
 
         MultiGas cost = new();
         if (warm)
-            cost.Increment(ResourceKind.Computation, (ulong)GasCostOf.WarmStateRead);
+            cost.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         else
-            cost.Increment(ResourceKind.StorageAccessRead, (ulong)GasCostOf.ColdAccountAccess);
+            cost.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdAccountAccess);
 
         ulong words = ((ulong)codeSize + 31) / 32;
-        cost.Increment(ResourceKind.StorageAccessRead, words * (ulong)GasCostOf.Memory);
+        cost.Increment(ResourceKind.StorageAccessRead, words * GasCostOf.Memory);
         return cost;
     }
 

@@ -83,6 +83,70 @@ public class StylusProgramsTests
     }
 
     [Test]
+    public void GetActivationGas_FreshStorageAtStylusActivationGas_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void GetActivationGas_BelowStylusActivationGasAfterSet_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas - 1);
+
+        programs.SetActivationGas(5_000_000);
+
+        programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void SetActivationGas_AtStylusActivationGas_RoundTripsValue()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.SetActivationGas(5_000_000);
+
+        programs.GetActivationGas().Should().Be(5_000_000);
+    }
+
+    [Test]
+    public void SetActivationGas_AtStylusActivationGasWithMaxUlong_RoundTrips()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.SetActivationGas(ulong.MaxValue);
+
+        programs.GetActivationGas().Should().Be(ulong.MaxValue);
+    }
+
+    [Test]
+    public void SetActivationGas_AtStylusActivationGasAfterReset_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.SetActivationGas(5_000_000);
+        programs.SetActivationGas(0);
+
+        programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void Initialize_EmptyState_LeavesActivationGasSlotUnwritten()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+        StylusPrograms.Initialize(DefaultArbosVersion, storage);
+
+        // Same write-record count as Initialize_EmptyState_InitializesState — Initialize must not touch slot [5].
+        state.SetRecords.Should().HaveCount(7);
+    }
+
+    [Test]
     public void ActivateProgram_NonExistentAccount_DoesNotReturnSelfDestructError()
     {
         using StackAccessTracker tracker = new();

@@ -196,4 +196,58 @@ public class StylusParamsTests
         upgraded.MaxFragmentCount.Should().Be(InitialMaxFragmentCount);
         upgraded.MaxWasmSize.Should().Be(ArbOS60MaxWasmSize);
     }
+
+    [Test]
+    public void UpgradeToStylusVersion_FromVersion2_BumpsTo3()
+    {
+        using IDisposable scope = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
+
+        StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
+        stylusParams.UpgradeToStylusVersion(2);
+
+        stylusParams.UpgradeToStylusVersion(3);
+
+        stylusParams.StylusVersion.Should().Be(3);
+    }
+
+    [Test]
+    public void UpgradeToStylusVersion_FromVersion1To3_Throws()
+    {
+        using IDisposable scope = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
+
+        StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
+        stylusParams.StylusVersion.Should().Be(1);
+
+        Action act = () => stylusParams.UpgradeToStylusVersion(3);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Test]
+    public void UpgradeToStylusVersion_FromVersion1_BumpsTo2()
+    {
+        using IDisposable scope = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
+
+        StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
+        stylusParams.UpgradeToStylusVersion(2);
+
+        stylusParams.StylusVersion.Should().Be(2);
+    }
+
+    [Test]
+    public void UpgradeToStylusVersion_UnsupportedVersion_Throws()
+    {
+        using IDisposable scope = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
+
+        StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
+        stylusParams.UpgradeToStylusVersion(2);
+
+        Action act = () => stylusParams.UpgradeToStylusVersion(4);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

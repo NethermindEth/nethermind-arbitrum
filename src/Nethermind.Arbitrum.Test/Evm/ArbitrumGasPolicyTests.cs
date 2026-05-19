@@ -20,7 +20,7 @@ namespace Nethermind.Arbitrum.Test.Evm;
 public class ArbitrumGasPolicyTests
 {
     [Test]
-    public void ConsumeSelfDestructGas_Called_SplitsComputationAndStorageAccess()
+    public void ConsumeSelfDestructGas_Called_SplitsComputationAndStorageAccessWrite()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
@@ -233,7 +233,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeAccountAccessGas_ColdAccount_TracksStorageAccess()
+    public void ConsumeAccountAccessGas_ColdAccount_TracksStorageAccessRead()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
@@ -264,7 +264,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeStorageAccessGas_ColdSload_TracksStorageAccess()
+    public void ConsumeStorageAccessGas_ColdSload_TracksStorageAccessRead()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
@@ -316,7 +316,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeStorageAccessGas_ColdSstore_TracksStorageAccess()
+    public void ConsumeStorageAccessGas_ColdSstore_TracksStorageAccessRead()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
@@ -430,7 +430,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void CalculateIntrinsicGas_WithAccessList_TracksAsStorageAccess()
+    public void CalculateIntrinsicGas_WithAccessList_TracksAsStorageAccessRead()
     {
         AccessList accessList = new AccessList.Builder()
             .AddAddress(TestItem.AddressA)
@@ -827,7 +827,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeDataCopyGas_ExternalCode_CategorizesWordCostAsStorageAccess()
+    public void ConsumeDataCopyGas_ExternalCode_CategorizesWordCostAsStorageAccessRead()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 

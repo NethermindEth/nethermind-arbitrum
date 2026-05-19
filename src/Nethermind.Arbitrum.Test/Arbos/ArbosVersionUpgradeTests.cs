@@ -101,4 +101,60 @@ public class ArbosVersionUpgradeTests
         perTxGasLimitAfter.Should().Be(L2PricingState.InitialPerTxGasLimit, "PerTxGasLimit should be set to 32M after v50 upgrade");
         perTxGasLimitAfter.Should().Be(32_000_000);
     }
+
+    [Test]
+    public void UpgradeArbosVersion_From51To59_BumpsStylusVersionToThree()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FiftyOne)
+            .WithReleaseSpec();
+
+        context.ArbosState.Programs.GetParams().StylusVersion.Should().Be(2, "harness inits chain through v32, which runs the v31 Stylus fix");
+
+        context.ArbosState.UpgradeArbosVersion(ArbosVersion.FiftyNine, false, worldState, London.Instance);
+
+        context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.FiftyNine);
+        StylusParams upgraded = context.ArbosState.Programs.GetParams();
+        upgraded.StylusVersion.Should().Be(3);
+    }
+
+    [Test]
+    public void UpgradeArbosVersion_From50To60_PassesThroughV59AndProducesStylusVersion3()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Fifty)
+            .WithReleaseSpec();
+
+        context.ArbosState.Programs.GetParams().StylusVersion.Should().Be(2, "harness inits chain through v32, which runs the v31 Stylus fix");
+
+        context.ArbosState.UpgradeArbosVersion(ArbosVersion.Sixty, false, worldState, London.Instance);
+
+        context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.Sixty);
+        StylusParams upgraded = context.ArbosState.Programs.GetParams();
+        upgraded.StylusVersion.Should().Be(3, "v59 hook ran during the traversal and bumped Stylus runtime to 3");
+    }
+
+    [Test]
+    public void ArbosVersion_FiftyNine_Equals59()
+    {
+        ArbosVersion.FiftyNine.Should().Be(59);
+    }
+
+    [Test]
+    public void ArbosVersion_StylusActivationGasAlias_EqualsFiftyNine()
+    {
+        ArbosVersion.StylusActivationGas.Should().Be(ArbosVersion.FiftyNine);
+    }
 }

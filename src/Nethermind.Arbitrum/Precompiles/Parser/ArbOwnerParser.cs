@@ -74,6 +74,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetGasBacklogId = Solgen.ArbOwner.Methods.SetGasBacklog;
     private const uint SetGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetGasPricingConstraints;
     private const uint SetMultiGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints;
+    private const uint SetWasmActivationGasId = Solgen.ArbOwner.Methods.SetWasmActivationGas;
 
 
     static ArbOwnerParser()
@@ -130,7 +131,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { SetParentGasFloorPerTokenId, SetParentGasFloorPerToken },
             { SetGasBacklogId, SetGasBacklog },
             { SetGasPricingConstraintsId, SetGasPricingConstraints },
-            { SetMultiGasPricingConstraintsId, SetMultiGasPricingConstraints }
+            { SetMultiGasPricingConstraintsId, SetMultiGasPricingConstraints },
+            { SetWasmActivationGasId, SetWasmActivationGas }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -169,6 +171,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[SetParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasBacklogId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[SetWasmActivationGasId].ArbOSVersion = ArbosVersion.StylusActivationGas;
         PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Sixty;
         PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
     }
@@ -740,6 +743,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         byte maxFragments = (byte)decoded[0];
         ArbOwner.SetMaxStylusContractFragments(context, maxFragments);
+        return [];
+    }
+
+    private static byte[] SetWasmActivationGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetWasmActivationGasId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong gas = (ulong)decoded[0];
+        ArbOwner.SetWasmActivationGas(context, gas);
         return [];
     }
 
