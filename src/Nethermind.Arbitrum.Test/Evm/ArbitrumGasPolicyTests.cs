@@ -10,6 +10,7 @@ using Nethermind.Core.Eip2930;
 using Nethermind.Core.Specs;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Int256;
 using Nethermind.Specs.Forks;
 
@@ -68,7 +69,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
         // Inheritor account access (warm, chargeForWarm=false as in VM)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA, AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
@@ -97,7 +98,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
         // Inheritor is self (already warm)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress, AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();

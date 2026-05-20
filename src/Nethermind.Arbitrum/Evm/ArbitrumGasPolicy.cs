@@ -191,7 +191,12 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
         if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
             return UpdateGasWithResource(ref gas, GasCostOf.ColdAccountAccess, ResourceKind.StorageAccess);
-        return UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation);
+
+        return kind switch
+        {
+            AccountAccessKind.SelfDestructBeneficiary => true, // no warm charge
+            _ => UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation)
+        };
     }
 
     /// <summary>
