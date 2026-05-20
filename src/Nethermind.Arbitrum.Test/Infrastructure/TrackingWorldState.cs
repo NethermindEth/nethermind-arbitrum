@@ -58,14 +58,14 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
 
     public IWorldStateScopeProvider ScopeProvider => worldState.ScopeProvider;
 
-    public UInt256 GetBalance(Address address)
+    public ref readonly UInt256 GetBalance(Address address)
     {
-        return worldState.GetBalance(address);
+        return ref worldState.GetBalance(address);
     }
 
-    public ValueHash256 GetCodeHash(Address address)
+    public ref readonly ValueHash256 GetCodeHash(Address address)
     {
-        return worldState.GetCodeHash(address);
+        return ref worldState.GetCodeHash(address);
     }
 
     public bool HasStateForBlock(BlockHeader? baseBlock)
