@@ -42,7 +42,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
         // Inheritor account access (cold)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA, false);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
@@ -68,7 +68,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
         // Inheritor account access (warm, chargeForWarm=false as in VM)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA, false);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
@@ -97,7 +97,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
         // Inheritor is self (already warm)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress, false);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();

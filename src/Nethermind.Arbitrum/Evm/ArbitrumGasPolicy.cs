@@ -164,15 +164,14 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         ref readonly StackAccessTracker accessTracker,
         bool isTracingAccess,
         Address address,
-        Address? delegated,
-        bool chargeForWarm = true)
+        Address? delegated)
     {
         if (!spec.UseHotAndColdStorage)
             return true;
 
-        return ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, address, chargeForWarm)
+        return ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, address)
                && (delegated is null
-                   || ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, delegated, chargeForWarm));
+                   || ConsumeAccountAccessGas(ref gas, spec, in accessTracker, isTracingAccess, delegated));
     }
 
     /// <summary>
@@ -183,7 +182,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
         ref readonly StackAccessTracker accessTracker,
         bool isTracingAccess,
         Address address,
-        bool chargeForWarm = true)
+        AccountAccessKind kind = AccountAccessKind.Default)
     {
         if (!spec.UseHotAndColdStorage)
             return true;
@@ -192,7 +191,7 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
 
         if (!spec.IsPrecompile(address) && accessTracker.WarmUp(address))
             return UpdateGasWithResource(ref gas, GasCostOf.ColdAccountAccess, ResourceKind.StorageAccess);
-        return !chargeForWarm || UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation);
+        return UpdateGasWithResource(ref gas, GasCostOf.WarmStateRead, ResourceKind.Computation);
     }
 
     /// <summary>
