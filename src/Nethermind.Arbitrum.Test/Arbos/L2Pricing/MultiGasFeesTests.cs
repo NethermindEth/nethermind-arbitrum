@@ -113,12 +113,12 @@ public class MultiGasFeesTests
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.HistoryGrowth, 200);
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageAccessRead, 300);
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.StorageGrowth, 400);
-        // L1Calldata always returns baseFeeWei as fallback
+        // SingleDim always returns baseFeeWei as fallback
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.L2Calldata, 600);
         l2Pricing.SetNextBlockMultiGasBaseFee(ResourceKind.WasmComputation, 700);
         l2Pricing.CommitMultiGasFees();
 
-        // Each resource has its own independent fee (except L1Calldata and Unknown which use fallbacks)
+        // Each resource has its own independent fee (except SingleDim and Unknown which use fallbacks)
         l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.Computation).Should().Be(new UInt256(100));
         l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.HistoryGrowth).Should().Be(new UInt256(200));
         l2Pricing.GetNextBlockMultiGasBaseFee(ResourceKind.StorageAccessRead).Should().Be(new UInt256(300));

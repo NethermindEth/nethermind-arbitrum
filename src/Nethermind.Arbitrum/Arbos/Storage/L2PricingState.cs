@@ -551,7 +551,7 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
             ResourceKind kind = (ResourceKind)i;
             UInt256 baseFee = MultiGasFees.GetCurrentBlockFee(kind);
 
-            if (kind == ResourceKind.L1Calldata || baseFee.IsZero)
+            if (kind == ResourceKind.SingleDim || baseFee.IsZero)
                 baseFee = baseFeeWei;
 
             fees[i] = baseFee;

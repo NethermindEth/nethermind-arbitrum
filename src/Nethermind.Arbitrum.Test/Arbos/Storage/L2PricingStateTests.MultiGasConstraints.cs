@@ -48,7 +48,7 @@ public partial class L2PricingStateTests
         Dictionary<ResourceKind, ulong> weights3 = new()
         {
             { ResourceKind.StorageGrowth, 1 },
-            { ResourceKind.L1Calldata, 4 },
+            { ResourceKind.SingleDim, 4 },
         };
         l2Pricing.AddMultiGasConstraint(500_000, 30, 1_000_000, weights3);
 
@@ -76,7 +76,7 @@ public partial class L2PricingStateTests
         constraint2.Backlog.Should().Be(1_000_000);
         constraint2.MaxWeight.Should().Be(4);
         constraint2.GetResourceWeight(ResourceKind.StorageGrowth).Should().Be(1);
-        constraint2.GetResourceWeight(ResourceKind.L1Calldata).Should().Be(4);
+        constraint2.GetResourceWeight(ResourceKind.SingleDim).Should().Be(4);
 
         // Clear multi-gas constraints
         l2Pricing.ClearMultiGasConstraints();

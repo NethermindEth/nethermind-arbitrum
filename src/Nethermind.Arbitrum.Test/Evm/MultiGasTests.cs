@@ -29,7 +29,7 @@ public class MultiGasTests
         gas.Increment(ResourceKind.HistoryGrowth, 11);
         gas.Increment(ResourceKind.StorageAccessRead, 12);
         gas.Increment(ResourceKind.StorageGrowth, 13);
-        gas.Increment(ResourceKind.L1Calldata, 14);
+        gas.Increment(ResourceKind.SingleDim, 14);
         gas.Increment(ResourceKind.L2Calldata, 15);
         gas.Increment(ResourceKind.WasmComputation, 16);
 
@@ -38,7 +38,7 @@ public class MultiGasTests
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(11UL);
         gas.Get(ResourceKind.StorageAccessRead).Should().Be(12UL);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(13UL);
-        gas.Get(ResourceKind.L1Calldata).Should().Be(14UL);
+        gas.Get(ResourceKind.SingleDim).Should().Be(14UL);
         gas.Get(ResourceKind.L2Calldata).Should().Be(15UL);
         gas.Get(ResourceKind.WasmComputation).Should().Be(16UL);
     }
@@ -190,7 +190,7 @@ public class MultiGasTests
         gas.Increment(ResourceKind.HistoryGrowth, 15);
         gas.Increment(ResourceKind.StorageAccessRead, 5);
         gas.Increment(ResourceKind.StorageGrowth, 6);
-        gas.Increment(ResourceKind.L1Calldata, 7);
+        gas.Increment(ResourceKind.SingleDim, 7);
         gas.Increment(ResourceKind.L2Calldata, 8);
         gas.Increment(ResourceKind.WasmComputation, 9);
 
@@ -264,7 +264,7 @@ public class MultiGasTests
         result.Get(ResourceKind.HistoryGrowth).Should().Be(20UL);
         result.Get(ResourceKind.StorageAccessRead).Should().Be(50UL);
         result.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
-        result.Get(ResourceKind.L1Calldata).Should().Be(0UL);
+        result.Get(ResourceKind.SingleDim).Should().Be(0UL);
         result.Get(ResourceKind.L2Calldata).Should().Be(0UL);
         result.Get(ResourceKind.WasmComputation).Should().Be(0UL);
         result.SingleGas().Should().Be(90UL);
@@ -364,7 +364,7 @@ public class MultiGasTests
         Action checkStorageAccessRead = () => MultiGas.CheckResourceKind(ResourceKind.StorageAccessRead);
         Action checkStorageAccessWrite = () => MultiGas.CheckResourceKind(ResourceKind.StorageAccessWrite);
         Action checkStorageGrowth = () => MultiGas.CheckResourceKind(ResourceKind.StorageGrowth);
-        Action checkL1Calldata = () => MultiGas.CheckResourceKind(ResourceKind.L1Calldata);
+        Action checkSingleDim = () => MultiGas.CheckResourceKind(ResourceKind.SingleDim);
         Action checkL2Calldata = () => MultiGas.CheckResourceKind(ResourceKind.L2Calldata);
         Action checkWasmComputation = () => MultiGas.CheckResourceKind(ResourceKind.WasmComputation);
 
@@ -374,7 +374,7 @@ public class MultiGasTests
         checkStorageAccessRead.Should().NotThrow();
         checkStorageAccessWrite.Should().NotThrow();
         checkStorageGrowth.Should().NotThrow();
-        checkL1Calldata.Should().NotThrow();
+        checkSingleDim.Should().NotThrow();
         checkL2Calldata.Should().NotThrow();
         checkWasmComputation.Should().NotThrow();
     }

@@ -1138,11 +1138,11 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            // Preserve intrinsic gas MultiGas breakdown and add poster gas to L1Calldata.
+            // Preserve intrinsic gas MultiGas breakdown and add poster gas to single dimension gas.
             // This ensures intrinsic gas (computation, L2 calldata, etc.) plus L1 costs are tracked.
             MultiGas accumulated = intrinsicGas.GetAccumulated();
             if (gasNeededToStartEVM > 0)
-                accumulated.Increment(ResourceKind.L1Calldata, gasNeededToStartEVM);
+                accumulated.Increment(ResourceKind.SingleDim, gasNeededToStartEVM);
             gasAvailable = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasLeft, in accumulated);
             return TransactionResult.Ok;
         }
@@ -1519,10 +1519,10 @@ namespace Nethermind.Arbitrum.Execution
                         $"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
 
-            // Poster gas was added to multiGas in GasChargingHook as L1Calldata.
+            // Poster gas was added to multiGas in GasChargingHook as SingleDim.
             // Remove it before growing backlog since L1 costs shouldn't affect L2 pricing backlog.
             MultiGas posterGasToRemove = default;
-            posterGasToRemove.Increment(ResourceKind.L1Calldata, txContext.PosterGas);
+            posterGasToRemove.Increment(ResourceKind.SingleDim, txContext.PosterGas);
             MultiGas usedMultiGas = txContext.AccumulatedMultiGas.SaturatingSub(posterGasToRemove);
 
             _arbosState!.L2PricingState.GrowBacklog(computeGas, usedMultiGas);

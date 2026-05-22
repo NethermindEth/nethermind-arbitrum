@@ -142,8 +142,7 @@ public static class ArbRetryableTx
         );
 
         ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
-        // Burn as StorageAccessRead (reading retryable ticket data)
-        context.Burn(ResourceKind.StorageAccessRead, (ulong)(GasCostOf.SLoad * writeBytes));
+        context.Burn(ResourceKind.StorageAccessWrite, GasCostOf.SLoad * writeBytes);
 
         Retryable? retryable = state.OpenRetryable(
             ticketId,
@@ -202,7 +201,7 @@ public static class ArbRetryableTx
         // To prepare for the enqueued retry event, we burn gas here, adding it back to the pool right before retrying.
         // The gas payer for this tx will get a credit for the wei they paid for this gas when retrying.
         // We burn as much gas as we can (computation gas), leaving only enough to pay for copying out the return data.
-        const ResourceKind donationResource = ResourceKind.Computation;
+        const ResourceKind donationResource = ResourceKind.SingleDim;
         context.Burn(donationResource, gasToDonate);
 
         // Starting from ArbosVersion.MultiGasConstraintsVersion, charge a fixed amount of gas for the ShrinkBacklog

@@ -221,7 +221,7 @@ public partial class L2PricingStateTests
         mc0.GetResourceWeight(ResourceKind.L2Calldata).Should().Be(1);
         mc0.GetResourceWeight(ResourceKind.WasmComputation).Should().Be(1);
         mc0.GetResourceWeight(ResourceKind.Unknown).Should().Be(0);
-        mc0.GetResourceWeight(ResourceKind.L1Calldata).Should().Be(0);
+        mc0.GetResourceWeight(ResourceKind.SingleDim).Should().Be(0);
 
         // Second constraint
         MultiGasConstraint mc1 = l2Pricing.OpenMultiGasConstraintAt(1);

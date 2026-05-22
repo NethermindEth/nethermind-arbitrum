@@ -202,7 +202,7 @@ public partial class L2PricingStateTests
     }
 
     [Test]
-    public void MultiDimensionalPriceForRefund_WhenL1Calldata_UsesBaseFeeWei()
+    public void MultiDimensionalPriceForRefund_WhenSingleDim_UsesBaseFeeWei()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
         using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
@@ -227,13 +227,13 @@ public partial class L2PricingStateTests
 
         UInt256 baseFeeWei = l2Pricing.BaseFeeWeiStorage.Get();
 
-        // L1Calldata should always use baseFeeWei, not per-resource fee
+        // SingleDim should always use baseFeeWei, not per-resource fee
         MultiGas gasUsed = default;
-        gasUsed.Increment(ResourceKind.L1Calldata, 100);
+        gasUsed.Increment(ResourceKind.SingleDim, 100);
 
         UInt256 refund = l2Pricing.MultiDimensionalPriceForRefund(gasUsed);
 
-        // L1Calldata uses baseFeeWei regardless of per-resource fee
+        // SingleDim uses baseFeeWei regardless of per-resource fee
         refund.Should().Be(baseFeeWei * 100);
     }
 

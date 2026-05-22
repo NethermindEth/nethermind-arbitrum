@@ -21,7 +21,7 @@ public enum ResourceKind : byte
     StorageAccessRead = 3,
     StorageAccessWrite = 4,
     StorageGrowth = 5,
-    L1Calldata = 6,
+    SingleDim = 6,
     L2Calldata = 7,
     WasmComputation = 8,
 }
@@ -269,8 +269,8 @@ public readonly struct MultiGasForJson(in MultiGas mg)
     [JsonPropertyName("storageGrowth")]
     public ulong StorageGrowth { get; } = mg.Get(ResourceKind.StorageGrowth);
 
-    [JsonPropertyName("l1Calldata")]
-    public ulong L1Calldata { get; } = mg.Get(ResourceKind.L1Calldata);
+    [JsonPropertyName("singleDim")]
+    public ulong SingleDim { get; } = mg.Get(ResourceKind.SingleDim);
 
     [JsonPropertyName("l2Calldata")]
     public ulong L2Calldata { get; } = mg.Get(ResourceKind.L2Calldata);

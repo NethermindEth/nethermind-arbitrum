@@ -157,7 +157,7 @@ public class ArbitrumReceiptForRpcTests
         json.StorageAccessRead.Should().Be(0);
         json.StorageAccessWrite.Should().Be(0);
         json.StorageGrowth.Should().Be(0);
-        json.L1Calldata.Should().Be(0);
+        json.SingleDim.Should().Be(0);
         json.L2Calldata.Should().Be(0);
         json.WasmComputation.Should().Be(0);
     }
@@ -183,7 +183,7 @@ public class ArbitrumReceiptForRpcTests
             historyGrowth: 11,
             storageAccessRead: 12,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -196,7 +196,7 @@ public class ArbitrumReceiptForRpcTests
         json.StorageAccessRead.Should().Be(12);
         json.StorageAccessWrite.Should().Be(0);
         json.StorageGrowth.Should().Be(13);
-        json.L1Calldata.Should().Be(14);
+        json.SingleDim.Should().Be(14);
         json.L2Calldata.Should().Be(15);
         json.WasmComputation.Should().Be(16);
         json.Refund.Should().Be(7);
@@ -230,7 +230,7 @@ public class ArbitrumReceiptForRpcTests
             historyGrowth: 11,
             storageAccessRead: 12,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -243,7 +243,7 @@ public class ArbitrumReceiptForRpcTests
         serialized.Should().Contain("\"historyGrowth\":11");
         serialized.Should().Contain("\"storageAccessRead\":12");
         serialized.Should().Contain("\"storageGrowth\":13");
-        serialized.Should().Contain("\"l1Calldata\":14");
+        serialized.Should().Contain("\"singleDim\":14");
         serialized.Should().Contain("\"l2Calldata\":15");
         serialized.Should().Contain("\"wasmComputation\":16");
         serialized.Should().Contain("\"refund\":7");
@@ -374,17 +374,17 @@ public class ArbitrumReceiptForRpcTests
         ulong storageAccessRead = 0,
         ulong storageAccessWrite = 0,
         ulong storageGrowth = 0,
-        ulong l1Calldata = 0,
+        ulong singleDim = 0,
         ulong l2Calldata = 0,
         ulong wasmComputation = 0,
         ulong refund = 0)
     {
         ulong total = unknown + computation + historyGrowth + storageAccessRead + storageAccessWrite +
-                      storageGrowth + l1Calldata + l2Calldata + wasmComputation;
+                      storageGrowth + singleDim + l2Calldata + wasmComputation;
 
         int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
         ulong[] gas = [unknown, computation, historyGrowth, storageAccessRead, storageAccessWrite,
-                       storageGrowth, l1Calldata, l2Calldata, wasmComputation];
+                       storageGrowth, singleDim, l2Calldata, wasmComputation];
         foreach (ulong g in gas)
             contentLength += Rlp.LengthOf(g);
 

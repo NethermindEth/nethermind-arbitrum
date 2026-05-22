@@ -155,7 +155,7 @@ public class PricingModelMultiGasTests
         exponents[(int)ResourceKind.StorageAccessRead].Should().Be(200);
         exponents[(int)ResourceKind.StorageGrowth].Should().Be(600);
         exponents[(int)ResourceKind.HistoryGrowth].Should().Be(0);
-        exponents[(int)ResourceKind.L1Calldata].Should().Be(0);
+        exponents[(int)ResourceKind.SingleDim].Should().Be(0);
         exponents[(int)ResourceKind.L2Calldata].Should().Be(0);
         exponents[(int)ResourceKind.WasmComputation].Should().Be(0);
     }

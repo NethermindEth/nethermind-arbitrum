@@ -116,7 +116,7 @@ public class TransactionProcessorMultiGasTests
         ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
         MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
 
-        gas.Get(ResourceKind.L1Calldata).Should().BeGreaterThan(0UL, "expected L1Calldata > 0");
+        gas.Get(ResourceKind.SingleDim).Should().BeGreaterThan(0UL, "expected SingleDim > 0");
     }
 
     /// <summary>
