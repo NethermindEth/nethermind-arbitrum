@@ -132,7 +132,7 @@ public class ArbitrumReceiptStorageDecoderTests
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
 
         Rlp.ValueDecoderContext context = new(rlp.Bytes);
-        ArbitrumTxReceipt decoded = decoder.Decode(ref context);
+        ArbitrumTxReceipt decoded = (ArbitrumTxReceipt)decoder.Decode(ref context);
 
         AssertReceiptFieldsEqual(receipt, decoded);
         decoded.GasUsedForL1.Should().Be(300);
@@ -154,7 +154,7 @@ public class ArbitrumReceiptStorageDecoderTests
         ArbitrumReceiptStorageDecoder decoder = new();
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
         Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
-        ArbitrumTxReceipt decoded = decoder.Decode(ref ctx);
+        ArbitrumTxReceipt decoded = (ArbitrumTxReceipt)decoder.Decode(ref ctx);
 
         decoded.StatusCode.Should().Be(1);
         decoded.PostTransactionState.Should().BeNull();
@@ -176,7 +176,7 @@ public class ArbitrumReceiptStorageDecoderTests
         ArbitrumReceiptStorageDecoder decoder = new();
         Rlp rlp = decoder.Encode(receipt);
         Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
-        ArbitrumTxReceipt decoded = decoder.Decode(ref ctx);
+        ArbitrumTxReceipt decoded = (ArbitrumTxReceipt)decoder.Decode(ref ctx);
 
         decoded.PostTransactionState.Should().Be(TestItem.KeccakH);
         decoded.GasUsedForL1.Should().Be(100);
@@ -223,7 +223,7 @@ public class ArbitrumReceiptStorageDecoderTests
         receipt.MultiGasUsed = multiGas;
 
         ArbitrumReceiptStorageDecoder decoder = new();
-        IRlpValueDecoder<TxReceipt> txReceiptDecoder = decoder;
+        IRlpDecoder<TxReceipt> txReceiptDecoder = decoder;
 
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
         Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
@@ -251,7 +251,7 @@ public class ArbitrumReceiptStorageDecoderTests
         ArbitrumReceiptStorageDecoder decoder = new();
         Rlp rlp = decoder.Encode(receipt, RlpBehaviors.Eip658Receipts);
         Rlp.ValueDecoderContext ctx = new(rlp.Bytes);
-        return decoder.Decode(ref ctx);
+        return (ArbitrumTxReceipt)decoder.Decode(ref ctx);
     }
 
     private static void AssertReceiptFieldsEqual(ArbitrumTxReceipt expected, ArbitrumTxReceipt actual)

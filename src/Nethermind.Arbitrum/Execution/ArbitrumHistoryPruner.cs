@@ -28,6 +28,7 @@ public sealed class ArbitrumHistoryPruner(IHistoryPruner inner, IBlocksConfig bl
     private readonly bool _buildBlocksOnMainState = blocksConfig.BuildBlocksOnMainState;
 
     public long? CutoffBlockNumber => inner.CutoffBlockNumber;
+    public long? BalCutoffBlockNumber => inner.BalCutoffBlockNumber;
     public BlockHeader? OldestBlockHeader => inner.OldestBlockHeader;
 
     public event EventHandler<OnNewOldestBlockArgs>? NewOldestBlock
