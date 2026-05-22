@@ -158,6 +158,39 @@ public partial class L2PricingStateTests
     }
 
     [Test]
+    public void CalcMultiGasConstraintsExponents_SingleDimWeight_IsNotIncludedInExponent()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        L2PricingState l2Pricing = context.ArbosState.L2PricingState;
+
+        // Add a constraint where SingleDim has a non-zero weight alongside Computation.
+        // backlog=5000, target=1000, window=10
+        // Computation weight=1, SingleDim weight=3, maxWeight=3
+        // For Computation: (5000 * 1 * 10000) / (10 * 1000 * 3) = 50_000_000 / 30_000 ≈ 1666
+        // SingleDim must be skipped and remain 0.
+        Dictionary<ResourceKind, ulong> weights = new()
+        {
+            { ResourceKind.Computation, 1 },
+            { ResourceKind.SingleDim, 3 },
+        };
+        l2Pricing.AddMultiGasConstraint(1000, 10, 5000, weights);
+
+        long[] exponents = l2Pricing.CalcMultiGasConstraintsExponents();
+
+        exponents[(int)ResourceKind.SingleDim].Should().Be(0, "SingleDim must not contribute to the base fee exponent");
+        exponents[(int)ResourceKind.Computation].Should().Be(1666, "Computation in the same constraint must still be computed normally");
+    }
+
+    [Test]
     public void GrowBacklog_MultiGasConstraints_UpdatesWeightedBacklog()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();

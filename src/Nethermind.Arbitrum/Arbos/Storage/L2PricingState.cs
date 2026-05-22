@@ -91,13 +91,11 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
     /// </summary>
     public GasModel GetGasModelToUse()
     {
-        if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion)
-            if (MultiGasConstraintsLength() > 0)
-                return GasModel.MultiGasConstraints;
+        if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion && MultiGasConstraintsLength() > 0)
+            return GasModel.MultiGasConstraints;
 
-        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
-            if (ConstraintsLength() > 0)
-                return GasModel.SingleGasConstraints;
+        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0)
+            return GasModel.SingleGasConstraints;
 
         return GasModel.Legacy;
     }
@@ -289,6 +287,12 @@ public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersi
 
             for (int kindIndex = 0; kindIndex < MultiGas.NumResourceKinds; kindIndex++)
             {
+                if ((ResourceKind)kindIndex == ResourceKind.SingleDim)
+                {
+                    // The single-dimensional gas dimension shouldn't be used to compute the base fee.
+                    continue;
+                }
+
                 ulong weight = constraint.GetResourceWeight((ResourceKind)kindIndex);
                 if (weight == 0)
                     continue;

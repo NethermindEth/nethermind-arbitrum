@@ -6,8 +6,13 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
+using Nethermind.Crypto;
+using Nethermind.Serialization.Rlp;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
@@ -292,5 +297,74 @@ public class TransactionProcessorMultiGasTests
         // When all gas is computation at same base fee, costs should be equal
         multiDimensionalCost.Should().Be(singleGasCost,
             "when all gas is computation at base fee, no refund should occur");
+    }
+
+    [Test]
+    public void Execute_SubmitRetryableTransaction_BurnsCorrectMultiGas()
+    {
+        // ArbitrumSubmitRetryableTransaction skips EVM execution. Its gas must be attributed
+        // to ResourceKind.SingleDim so that the retryable
+        // submission cost doesn't feed back into the multi-gas backlog as a resource-specific signal.
+        UInt256 l1BaseFee = 39;
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = l1BaseFee,
+                FillWithTestDataOnStart = false
+            });
+        });
+
+        Hash256 ticketId = new(new UInt256(42).ToBigEndian());
+        UInt256 gasFeeCap = 1_000_000_000;
+        ulong gasLimit = 21_000;
+        UInt256 deposit = 10_021_000_000_054_600;
+
+        ArbitrumSubmitRetryableTransaction tx = new()
+        {
+            ChainId = chain.ChainSpec.ChainId,
+            RequestId = ticketId,
+            SenderAddress = TestItem.AddressA,
+            L1BaseFee = l1BaseFee,
+            DepositValue = deposit,
+            DecodedMaxFeePerGas = gasFeeCap,
+            GasFeeCap = gasFeeCap,
+            GasLimit = (long)gasLimit,
+            Gas = gasLimit,
+            RetryTo = TestItem.AddressB,
+            RetryValue = 10_000_000_000_000_000,
+            Beneficiary = TestItem.AddressC,
+            MaxSubmissionFee = 54_600,
+            FeeRefundAddr = TestItem.AddressD,
+            RetryData = ReadOnlyMemory<byte>.Empty,
+            Data = Array.Empty<byte>(),
+            Nonce = 0,
+            Mint = deposit,
+            Type = (TxType)ArbitrumTxType.ArbitrumSubmitRetryable,
+            To = ArbitrumConstants.ArbRetryableTxAddress,
+            SourceHash = ticketId
+        };
+        tx.Hash = tx.CalculateHash();
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), Logging.LimboLogs.Instance.GetLogger("arbosState"));
+
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero,
+            0, GasCostOf.Transaction, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
+
+        TransactionResult result = chain.TxProcessor.Execute(tx,
+            new BlockExecutionContext(header, chain.SpecProvider.GenesisSpec),
+            new TestAllTracerWithOutput());
+        result.Should().Be(TransactionResult.Ok);
+
+        MultiGas accumulated = ((ArbitrumTransactionProcessor)chain.TxProcessor).TxExecContext.AccumulatedMultiGas;
+
+        accumulated.Get(ResourceKind.SingleDim).Should().BeGreaterThan(0, "submit retryable gas must be attributed to SingleDim");
+        accumulated.Total.Should().Be(accumulated.Get(ResourceKind.SingleDim), "SingleDim resource type should be the only gas for submit retryable transactions");
     }
 }

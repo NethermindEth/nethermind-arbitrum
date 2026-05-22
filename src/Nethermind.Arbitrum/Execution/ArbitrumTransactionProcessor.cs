@@ -106,10 +106,10 @@ namespace Nethermind.Arbitrum.Execution
                 if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
                     gasUsed = arbTx.OverrideSpentGas.Value;
 
-                // ArbitrumSubmitRetryable uses L2CalldataGas, others use ComputationGas
+                // ArbitrumSubmitRetryable uses Single, others use ComputationGas
                 var multiGas = new MultiGas();
                 ResourceKind resourceKind = tx is ArbitrumSubmitRetryableTransaction
-                    ? ResourceKind.L2Calldata
+                    ? ResourceKind.SingleDim
                     : ResourceKind.Computation;
                 multiGas.Increment(resourceKind, (ulong)gasUsed);
                 TxExecContext.AccumulatedMultiGas = multiGas;

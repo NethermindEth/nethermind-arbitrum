@@ -477,10 +477,8 @@ public static class ArbOwner
     {
         context.ArbosState.L2PricingState.ClearMultiGasConstraints();
 
-        foreach (object constraintObj in constraintsArray!)
+        foreach (object[] constraint in constraintsArray!)
         {
-            object[] constraint = (object[])constraintObj!;
-
             // Parse the constraint tuple: (resources[], adjustmentWindowSecs, targetPerSec, backlog)
             object[] resourcesArray = (object[])constraint[0]!;
             uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
@@ -493,9 +491,8 @@ public static class ArbOwner
 
             // Parse weighted resources: (resource: uint8, weight: uint64)[]
             Dictionary<ResourceKind, ulong> weights = new();
-            foreach (object resourceObj in resourcesArray)
+            foreach (object[] resource in resourcesArray)
             {
-                object[] resource = (object[])resourceObj;
                 byte resourceKind = Convert.ToByte(resource[0]);
                 ulong weight = Convert.ToUInt64(resource[1]);
                 weights[(ResourceKind)resourceKind] = weight;
@@ -520,11 +517,9 @@ public static class ArbOwner
     {
         context.ArbosState.L2PricingState.ClearMultiGasConstraints();
 
-        foreach (object constraintObj in constraintsArray!)
+        // Use ITuple interface to access ValueTuple elements
+        foreach (System.Runtime.CompilerServices.ITuple constraint in constraintsArray!)
         {
-            // Use ITuple interface to access ValueTuple elements
-            var constraint = (System.Runtime.CompilerServices.ITuple)constraintObj!;
-
             // constraint[0] = resources array (ValueTuple<byte, ulong>[])
             // constraint[1] = adjustmentWindowSecs (uint)
             // constraint[2] = targetPerSec (ulong)
@@ -540,9 +535,8 @@ public static class ArbOwner
 
             // Parse weighted resources: ValueTuple<byte, ulong>[]
             Dictionary<ResourceKind, ulong> weights = new();
-            foreach (object resourceObj in resourcesArray)
+            foreach (System.Runtime.CompilerServices.ITuple resource in resourcesArray)
             {
-                var resource = (System.Runtime.CompilerServices.ITuple)resourceObj;
                 byte resourceKind = Convert.ToByte(resource[0]);
                 ulong weight = Convert.ToUInt64(resource[1]);
                 weights[(ResourceKind)resourceKind] = weight;
