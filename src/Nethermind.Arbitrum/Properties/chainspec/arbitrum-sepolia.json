@@ -61,7 +61,8 @@
     "eip2537TransitionTimestamp": "0x67C7FD60",
     "eip2935TransitionTimestamp": "0x67C7FD60",
     "eip2935RingBufferSize": "0x5FFD0",
-    "eip7702TransitionTimestamp": "0x67C7FD60"
+    "eip7702TransitionTimestamp": "0x67C7FD60",
+    "minBalRetentionEpochs": "0x0"
   },
   "genesis": {
     "seal": {
