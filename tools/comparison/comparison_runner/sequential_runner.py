@@ -45,6 +45,7 @@ class SequentialRunnerConfig:
     startup_timeout_s: int = DEFAULT_STARTUP_TIMEOUT_S
     fail_fast: bool = False
     verbose: bool = False
+    max_retries: int = 0
 
 
 class SequentialRunner:
@@ -173,6 +174,7 @@ class SequentialRunner:
             List of TestResult
         """
         results: list[TestResult] = []
+        max_attempts = self.config.max_retries + 1
 
         for i, test_name in enumerate(tests):
             if self.interrupted.is_set():
@@ -186,13 +188,13 @@ class SequentialRunner:
                 )
                 continue
 
-            result = self._run_single_test(test_name)
+            result = self._run_with_retries(test_name, max_attempts)
             results.append(result)
 
             # Log progress
             self._log_result(result, i + 1, len(tests))
 
-            # Fail-fast check
+            # Fail-fast check (only on final outcome, not individual attempts)
             if self.config.fail_fast and result.status == TestStatus.FAILED:
                 self.logger.info("Stopping due to fail-fast")
                 # Mark remaining as skipped
@@ -207,6 +209,43 @@ class SequentialRunner:
                 break
 
         return results
+
+    def _run_with_retries(self, test_name: str, max_attempts: int) -> TestResult:
+        """Run a test with retries on failure.
+
+        Returns the final TestResult with attempt tracking.
+        Duration accumulates across all attempts.
+        """
+        total_duration = 0.0
+        result = TestResult(name=test_name, status=TestStatus.FAILED)
+
+        for attempt in range(1, max_attempts + 1):
+            if self.interrupted.is_set():
+                result.attempt = attempt
+                result.max_attempts = max_attempts
+                return result
+
+            result = self._run_single_test(test_name)
+            total_duration += result.duration_s
+            result.attempt = attempt
+            result.max_attempts = max_attempts
+            result.duration_s = total_duration
+
+            if result.status == TestStatus.PASSED:
+                if attempt > 1:
+                    self.logger.info(
+                        f"  \u21b3 {test_name}: PASSED on attempt {attempt}/{max_attempts} (flaky)"
+                    )
+                return result
+
+            if attempt < max_attempts:
+                self.logger.warning(
+                    f"  \u21b3 {test_name}: FAILED attempt {attempt}/{max_attempts}, retrying..."
+                )
+            else:
+                self.logger.error(f"  \u21b3 {test_name}: FAILED all {max_attempts} attempts")
+
+        return result
 
     def _run_single_test(self, test_name: str) -> TestResult:
         """Run a single test with state reinitialization.

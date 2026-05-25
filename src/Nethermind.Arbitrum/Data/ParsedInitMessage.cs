@@ -21,7 +21,7 @@ namespace Nethermind.Arbitrum.Data
 
         public byte[]? SerializedChainConfig = serializedChainConfig;
 
-        public string? IsCompatibleWith(ChainSpec localChainSpec)
+        public string? IsCompatibleWith(ChainSpec localChainSpec, bool skipVersionCheck = false)
         {
             // Chain ID must match exactly
             if (ChainId != localChainSpec.ChainId)
@@ -46,10 +46,13 @@ namespace Nethermind.Arbitrum.Data
                 return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.EnableArbOS}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
             }
 
-            if (localArbitrumParams.InitialArbOSVersion.HasValue &&
-                l1ArbitrumParams.InitialArbOSVersion != localArbitrumParams.InitialArbOSVersion.Value)
+            if (!skipVersionCheck)
             {
-                return $"Initial ArbOS version mismatch: L1 init message has version {l1ArbitrumParams.InitialArbOSVersion}, but local chainspec expects {localArbitrumParams.InitialArbOSVersion.Value}";
+                if (localArbitrumParams.InitialArbOSVersion.HasValue &&
+                    l1ArbitrumParams.InitialArbOSVersion != localArbitrumParams.InitialArbOSVersion.Value)
+                {
+                    return $"Initial ArbOS version mismatch: L1 init message has version {l1ArbitrumParams.InitialArbOSVersion}, but local chainspec expects {localArbitrumParams.InitialArbOSVersion.Value}";
+                }
             }
 
             if (localArbitrumParams.InitialChainOwner != null &&
@@ -92,7 +95,8 @@ namespace Nethermind.Arbitrum.Data
                 };
             }
 
-            // Create canonical parameters from L1 data with specHelper fallbacks
+            // Create canonical parameters from L1 init message (source of truth for comparison mode)
+            // The init message contains the test's actual ArbOS version via WithArbOSVersion()
             var canonicalParams = new ArbitrumChainSpecEngineParameters
             {
                 Enabled = l1Params.EnableArbOS,

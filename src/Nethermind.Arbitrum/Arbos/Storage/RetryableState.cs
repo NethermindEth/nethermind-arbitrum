@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Evm;
@@ -96,7 +97,7 @@ public class RetryableState(ArbosStorage retryables)
         retryable.TimeoutWindowsLeft.Increment();
 
         // Pay in advance for the work needed to reap the duplicate from the timeout queue
-        retryables.Burner.Burn(Retryable.RetryableReapPrice);
+        retryables.Burner.Burn(ResourceKind.Computation, Retryable.RetryableReapPrice);
 
         return timeout + Retryable.RetryableLifetimeSeconds;
     }

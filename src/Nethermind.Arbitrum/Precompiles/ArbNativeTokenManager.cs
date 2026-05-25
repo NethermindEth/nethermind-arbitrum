@@ -3,6 +3,7 @@
 
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
@@ -36,7 +37,7 @@ public static class ArbNativeTokenManager
             context.BurnOut(); // Burns all gas and throws OutOfGasException
 
         // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
-        context.Burn(MintBurnOperation);
+        context.Burn(ResourceKind.StorageAccessWrite, MintBurnOperation);
 
         Address caller = context.Caller;
         ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
@@ -55,7 +56,7 @@ public static class ArbNativeTokenManager
             context.BurnOut(); // Burns all gas and throws OutOfGasException
 
         // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
-        context.Burn(MintBurnOperation);
+        context.Burn(ResourceKind.StorageAccessWrite, MintBurnOperation);
 
         Address caller = context.Caller;
         UInt256 balance = context.WorldState.GetBalance(caller);

@@ -78,7 +78,7 @@ public class ArbitrumReceiptStorageDecoderTests
         MultiGas multiGas = CreateMultiGasWithRefund(
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
             l1Calldata: 14,
             l2Calldata: 15,
@@ -124,7 +124,7 @@ public class ArbitrumReceiptStorageDecoderTests
         receipt.GasUsedForL1 = 300;
         MultiGas multiGas = CreateMultiGasWithRefund(
             computation: 100,
-            storageAccess: 200,
+            storageAccessRead: 200,
             refund: 50);
         receipt.MultiGasUsed = multiGas;
 
@@ -170,7 +170,7 @@ public class ArbitrumReceiptStorageDecoderTests
         receipt.PostTransactionState = TestItem.KeccakH;
         receipt.GasUsedForL1 = 100;
         MultiGas multiGas = default;
-        multiGas.Increment(ResourceKind.StorageAccess, 500);
+        multiGas.Increment(ResourceKind.StorageAccessRead, 500);
         receipt.MultiGasUsed = multiGas;
 
         ArbitrumReceiptStorageDecoder decoder = new();
@@ -280,18 +280,19 @@ public class ArbitrumReceiptStorageDecoderTests
         ulong unknown = 0,
         ulong computation = 0,
         ulong historyGrowth = 0,
-        ulong storageAccess = 0,
+        ulong storageAccessRead = 0,
+        ulong storageAccessWrite = 0,
         ulong storageGrowth = 0,
         ulong l1Calldata = 0,
         ulong l2Calldata = 0,
         ulong wasmComputation = 0,
         ulong refund = 0)
     {
-        ulong total = unknown + computation + historyGrowth + storageAccess +
+        ulong total = unknown + computation + historyGrowth + storageAccessRead + storageAccessWrite +
                       storageGrowth + l1Calldata + l2Calldata + wasmComputation;
 
         int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
-        ulong[] gas = [unknown, computation, historyGrowth, storageAccess,
+        ulong[] gas = [unknown, computation, historyGrowth, storageAccessRead, storageAccessWrite,
                        storageGrowth, l1Calldata, l2Calldata, wasmComputation];
         foreach (ulong g in gas)
             contentLength += Rlp.LengthOf(g);

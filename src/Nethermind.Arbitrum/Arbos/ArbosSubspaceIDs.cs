@@ -16,4 +16,5 @@ public static class ArbosSubspaceIDs
     public static readonly byte[] ProgramsSubspace = [8];
     public static readonly byte[] FeaturesSubspace = [9];
     public static readonly byte[] NativeTokenOwnerSubspace = [10];
+    public static readonly byte[] TransactionFiltererSubspace = [11];
 }

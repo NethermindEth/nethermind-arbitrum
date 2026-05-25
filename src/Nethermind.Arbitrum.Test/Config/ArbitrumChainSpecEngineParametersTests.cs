@@ -97,7 +97,7 @@ public class ArbitrumChainSpecEngineParametersTests
             MaxInitCodeSize = 49152
         };
 
-        ArbitrumSpecHelper specHelper = new(parameters);
+        ArbitrumSpecHelper specHelper = new(parameters, new DisabledArbOsVersionOverride());
 
         ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
         {
@@ -110,7 +110,7 @@ public class ArbitrumChainSpecEngineParametersTests
             DataAvailabilityCommittee = true,
             MaxCodeSize = 24576,
             MaxInitCodeSize = 49152
-        });
+        }, new DisabledArbOsVersionOverride());
 
         specHelper.Should().BeEquivalentTo(expected);
     }
@@ -120,7 +120,7 @@ public class ArbitrumChainSpecEngineParametersTests
     {
         ArbitrumChainSpecEngineParameters parameters = new();
 
-        ArbitrumSpecHelper specHelper = new(parameters);
+        ArbitrumSpecHelper specHelper = new(parameters, new DisabledArbOsVersionOverride());
 
         ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
         {
@@ -133,7 +133,7 @@ public class ArbitrumChainSpecEngineParametersTests
             DataAvailabilityCommittee = false,
             MaxCodeSize = null,
             MaxInitCodeSize = null
-        });
+        }, new DisabledArbOsVersionOverride());
 
         specHelper.Should().BeEquivalentTo(expected);
     }

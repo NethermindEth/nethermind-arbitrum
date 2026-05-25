@@ -22,13 +22,18 @@ namespace Nethermind.Arbitrum.Genesis;
 public class ArbitrumGenesisStateInitializer(
     ChainSpec chainSpec,
     IArbitrumSpecHelper specHelper,
+    IArbitrumConfig arbitrumConfig,
     ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumGenesisStateInitializer>();
 
     public void ValidateInitMessage(ParsedInitMessage initMessage)
     {
-        string? compatibilityError = initMessage.IsCompatibleWith(chainSpec);
+        // In test mode (EnableTestReset), skip ArbOS version validation.
+        // The init message is the source of truth — each test brings its own version.
+        // All other checks (chain ID, EnableArbOS, chain owner, etc.) still apply.
+        string? compatibilityError = initMessage.IsCompatibleWith(
+            chainSpec, skipVersionCheck: arbitrumConfig.EnableTestReset);
         if (compatibilityError != null)
             throw new InvalidOperationException(
                 $"Incompatible init message: {compatibilityError}. " +
@@ -40,8 +45,13 @@ public class ArbitrumGenesisStateInitializer(
         IWorldState worldState,
         ISpecProvider specProvider)
     {
-        worldState.CreateAccountIfNotExists(ArbosAddresses.ArbosSystemAccount, UInt256.Zero, UInt256.One);
-        _logger.Info($"Preallocated ArbOS system account: {ArbosAddresses.ArbosSystemAccount}");
+        // NOTE: Do NOT pre-create ArbosSystemAccount here. Pre-creating
+        // with CreateAccountIfNotExists causes state divergence because when ArbosStorage
+        // later calls SetNonce(1), the nonce is already 1 and no state change occurs.
+
+        // Get canonical parameters to determine final ArbOS version
+        ArbitrumChainSpecEngineParameters canonicalParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
+        ulong finalArbosVersion = canonicalParams.InitialArbOSVersion ?? specHelper.InitialArbOSVersion;
 
         InitializeArbosState(initMessage, worldState, specProvider);
         Preallocate(worldState, specProvider);
@@ -51,6 +61,24 @@ public class ArbitrumGenesisStateInitializer(
 
         Block genesis = chainSpec.Genesis;
         genesis.Header.StateRoot = worldState.StateRoot;
+
+        // In test mode the init message may carry a different ArbOS version than the chainspec,
+        // so recompute MixHash. In production the chainspec value is canonical — don't touch it.
+        if (arbitrumConfig.EnableTestReset)
+        {
+            ArbitrumBlockHeaderInfo genesisHeaderInfo = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 0,
+                L1BlockNumber = 0,
+                ArbOSFormatVersion = finalArbosVersion
+            };
+            ArbitrumBlockHeaderInfo.UpdateHeader(genesis.Header, genesisHeaderInfo);
+
+            if (_logger.IsInfo)
+                _logger.Info($"Genesis block MixHash updated with ArbOS version {finalArbosVersion}");
+        }
+
         genesis.Header.Hash = genesis.Header.CalculateHash();
 
         return genesis;
@@ -89,6 +117,15 @@ public class ArbitrumGenesisStateInitializer(
                 worldState.InsertCode(address, Arbos.Precompiles.InvalidCodeHash, Arbos.Precompiles.InvalidCode, specProvider.GenesisSpec, true);
             }
         }
+        // TODO: Parse ArbOSInit from chain config (NativeTokenSupplyManagementEnabled, TransactionFilteringEnabled)
+        // and conditionally set to 1 when enabled. See arbosstate.go:240-256.
+        // Currently hardcoded to 0 — correct for Arbitrum One/Nova/Sepolia but wrong for custom Orbit chains
+        // that enable these features at genesis.
+        ArbosStorageBackedULong nativeTokenEnabledTimeStorage = new(rootStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
+        nativeTokenEnabledTimeStorage.Set(0);
+
+        ArbosStorageBackedULong transactionFilteringEnabledTimeStorage = new(rootStorage, ArbosStateOffsets.TransactionFilteringEnabledTimeOffset);
+        transactionFilteringEnabledTimeStorage.Set(0);
 
         versionStorage.Set(ArbosVersion.One);
         if (_logger.IsDebug)
@@ -96,6 +133,7 @@ public class ArbitrumGenesisStateInitializer(
 
         ArbosStorageBackedULong upgradeVersionStorage = new(rootStorage, ArbosStateOffsets.UpgradeVersionOffset);
         upgradeVersionStorage.Set(0);
+
         ArbosStorageBackedULong upgradeTimestampStorage = new(rootStorage, ArbosStateOffsets.UpgradeTimestampOffset);
         upgradeTimestampStorage.Set(0);
 
@@ -151,6 +189,10 @@ public class ArbitrumGenesisStateInitializer(
         chainOwners.Add(canonicalChainOwner);
         ArbosStorage nativeTokenOwnerStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace);
         AddressSet.Initialize(nativeTokenOwnerStorage);
+
+        // Initialize transactionFilterers AddressSet
+        ArbosStorage transactionFiltererStorage = rootStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace);
+        AddressSet.Initialize(transactionFiltererStorage);
 
         ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner, _logger);
 

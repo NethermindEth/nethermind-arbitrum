@@ -184,9 +184,12 @@ def run_go_test(
             f"-test.parallel={GO_TEST_PARALLEL}",
             f"-test.timeout={timeout}",
             "-test.count=1",
+            "--",  # Delimiter for custom test flags
+            "-test_loglevel=-4",  # Debug level for comparison logs
         ]
     else:
         # Fall back to go test (includes compilation time)
+        # Note: -args passes remaining arguments to the test binary
         cmd = [
             "go",
             "test",
@@ -198,6 +201,9 @@ def run_go_test(
             "-timeout",
             timeout,
             "-count=1",
+            "-args",
+            "--",  # Delimiter for custom test flags
+            "-test_loglevel=-4",  # Debug level for comparison logs
         ]
 
     # Setup test environment

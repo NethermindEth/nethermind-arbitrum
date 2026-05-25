@@ -12,6 +12,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
+using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Arbitrum.Execution.Stateless;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
@@ -22,6 +23,8 @@ using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Blocks;
+using Nethermind.Blockchain.Headers;
 using Nethermind.Config;
 using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
@@ -42,6 +45,7 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.HealthChecks;
 using Nethermind.Init;
 using Nethermind.Init.Modules;
+using Nethermind.State.Repositories;
 using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
@@ -49,13 +53,13 @@ using Nethermind.JsonRpc.Modules.Eth;
 using Nethermind.JsonRpc.Modules.Eth.FeeHistory;
 using Nethermind.JsonRpc.Modules.Eth.GasPrice;
 using Nethermind.Logging;
+using Nethermind.Serialization.Json;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.Blockchain.FullPruning;
 using Nethermind.Trie.Pruning;
-using Nethermind.Blockchain.Blocks;
 using Nethermind.Core.Crypto;
 using Nethermind.History;
 
@@ -79,10 +83,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         _api = (ArbitrumNethermindApi)api;
         _jsonRpcConfig = api.Config<IJsonRpcConfig>();
 
+        // Register polymorphic JSON converter for receipts to ensure ArbitrumReceiptForRpc
+        // properties (GasUsedForL1, MultiGasUsed) are serialized correctly
+        EthereumJsonSerializer.AddConverter(new ReceiptForRpcPolymorphicConverter());
+
         // Load Arbitrum-specific configuration from chainspec
         ArbitrumChainSpecEngineParameters chainSpecParams = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        _specHelper = new ArbitrumSpecHelper(chainSpecParams);
+        _specHelper = new ArbitrumSpecHelper(chainSpecParams, new DisabledArbOsVersionOverride());
 
         // Register Arbitrum-specific tracers
         GethLikeNativeTracerFactory.RegisterTracer(
@@ -148,15 +156,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             _jsonRpcConfig.EthModuleConcurrentInstances ?? Environment.ProcessorCount,
             _jsonRpcConfig.Timeout);
 
-        // Register Arbitrum debug module for MemDb mode (system testing)
-        IInitConfig initConfig = _api.Config<IInitConfig>();
-        if (initConfig.DiagnosticMode == DiagnosticMode.MemDb)
+        // Register Arbitrum debug module for system/comparison testing
+        if (arbitrumConfig.EnableTestReset)
         {
             IDbProvider dbProvider = _api.Context.Resolve<IDbProvider>();
 
-            if (_api.BlockTree is not IResettableBlockTree resettableBlockTree)
+            if (_api.BlockTree is not IArbitrumResettableBlockTree resettableBlockTree)
                 throw new InvalidOperationException(
-                    $"BlockTree must implement IResettableBlockTree for MemDb debug mode. " +
+                    $"BlockTree must implement IArbitrumResettableBlockTree for MemDb debug mode. " +
                     $"Actual type: {_api.BlockTree?.GetType().Name ?? "null"}. " +
                     $"Ensure ArbitrumBlockTree is registered in DI.");
 
@@ -166,12 +173,14 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             // Resolve optional caches not managed by IClearableCache
             IBlockhashCache? blockhashCache = _api.Context.ResolveOptional<IBlockhashCache>();
             PreBlockCaches? preBlockCaches = _api.Context.ResolveOptional<PreBlockCaches>();
+            IArbOSVersionOverride arbosVersionOverride = _api.Context.Resolve<IArbOSVersionOverride>();
 
             IArbitrumDebugRpcModule debugModule = new ArbitrumDebugRpcModule(
                 dbProvider,
                 resettableBlockTree,
                 cacheAwareServices,
                 _api.LogManager,
+                arbosVersionOverride,
                 _api.Context.ResolveOptional<IHistoryPruner>(),
                 blockhashCache,
                 preBlockCaches);
@@ -213,6 +222,9 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
 
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
+        // Register Arbitrum-specific RLP decoders (receipts with MultiGas support)
+        Rlp.RegisterDecoders(typeof(ArbitrumReceiptStorageDecoder).Assembly, true);
+
         TxDecoder.Instance.RegisterDecoder(new ArbitrumInternalTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumSubmitRetryableTxDecoder());
         TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
@@ -249,6 +261,7 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         builder
             .AddSingleton<NethermindApi, ArbitrumNethermindApi>()
             .AddSingleton(chainSpecParams)
+            .AddSingleton<IArbOSVersionOverride, ArbOSVersionOverride>()
             .AddSingleton<IArbitrumSpecHelper, ArbitrumSpecHelper>()
             .AddSingleton<ArbitrumClHealthTracker>()
             .Bind<IClHealthTracker, ArbitrumClHealthTracker>()
@@ -274,8 +287,6 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddSingleton<IWasmDb, WasmDb>()
             .AddSingleton<IStylusTargetConfig, StylusTargetConfig>()
             .AddScoped<IWasmStore, IWasmDb, IStylusTargetConfig>((db, config) => new WasmStore(db, config, cacheTag: 1))
-
-            .AddSingleton<IBlockTree, ArbitrumBlockTree>()
 
             .AddSingleton<ArbitrumBlockTreeInitializer>()
 
@@ -306,9 +317,14 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
             .AddScoped<ISpecProvider, ArbitrumChainSpecBasedSpecProvider>()
             .AddDecorator<ISpecProvider, ArbitrumDynamicSpecProvider>()
             .AddSingleton<CachedL1PriceData>()
-            // IClearableCache wrapper services for static caches (auto-discovered by debug_reinitialize)
+            // IClearableCache services (auto-discovered by debug_reinitialize)
             .AddSingleton<IClearableCache, L1BlockHashCacheService>()
             .AddSingleton<IClearableCache, CalldataUnitsCacheService>()
+            //.AddSingleton<IClearableCache, MainPruningTrieStoreFactory>(factory => (IClearableCache)factory.PruningTrieStore)
+            .AddSingleton<IClearableCache, CacheCodeInfoRepository.CacheClearService>()
+            .AddSingleton<IClearableCache, IHeaderStore>(store => (IClearableCache)store)
+            .AddSingleton<IClearableCache, IBlockStore>(store => (IClearableCache)store)
+            .AddSingleton<IClearableCache, IChainLevelInfoRepository>(repo => (IClearableCache)repo)
             .AddSingleton<ArbitrumBlockFactory>()
             .AddSingleton<IArbitrumExecutionEngine, ArbitrumExecutionEngine>()
             .AddDecorator<IHistoryPruner, ArbitrumHistoryPruner>()
@@ -342,6 +358,22 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         builder
             .AddModule(new ArbitrumValidatorModule(arbitrumConfig))
             .AddModule(new ArbitrumSequencerModule(arbitrumConfig));
+
+        if (arbitrumConfig.EnableTestReset)
+        {
+            // Test/comparison mode: wrap in resettable decorator for debug_reinitialize.
+            // Must be transient (not singleton) so Func<ArbitrumBlockTree> creates fresh instances on reset.
+            builder.RegisterType<ArbitrumBlockTree>().AsSelf();
+            builder.Register(c => new ResettableArbitrumBlockTree(c.Resolve<Func<ArbitrumBlockTree>>()))
+                .As<IBlockTree>()
+                .As<IArbitrumResettableBlockTree>()
+                .SingleInstance();
+        }
+        else
+        {
+            // Production mode: use ArbitrumBlockTree directly
+            builder.AddSingleton<IBlockTree, ArbitrumBlockTree>();
+        }
 
         if (blocksConfig.BuildBlocksOnMainState)
             builder.AddSingleton<IBlockProducerEnvFactory, ArbitrumGlobalWorldStateBlockProducerEnvFactory>();
@@ -380,10 +412,12 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
     private class ArbitrumBlockValidationModule : Module, IBlockValidationModule
     {
         protected override void Load(ContainerBuilder builder) => builder
-            .AddScoped((ctx) =>
+            .AddScoped<IBlockProcessor.IBlockTransactionsExecutor>((ctx) =>
             {
-                return new BlockProcessor.BlockValidationTransactionsExecutor(new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
+                return new ArbitrumBlockValidationTransactionsExecutor(
+                    new BuildUpTransactionProcessorAdapter(ctx.Resolve<ITransactionProcessor>()),
                     ctx.Resolve<IWorldState>(),
+                    ctx.Resolve<ILogManager>(),
                     ctx.ResolveOptional<BlockProcessor.BlockValidationTransactionsExecutor.ITransactionProcessedEventHandler>());
             });
     }

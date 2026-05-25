@@ -117,7 +117,7 @@ public class ArbitrumConsensusClientTests
     private static ArbitrumConsensusClient CreateClient(ulong genesisBlockNum = 0, string consensusUrl = "http://localhost:1/")
     {
         ArbitrumConfig config = new() { ConsensusNodeRpcUrl = consensusUrl };
-        ArbitrumSpecHelper specHelper = new(new ArbitrumChainSpecEngineParameters { GenesisBlockNum = genesisBlockNum });
+        ArbitrumSpecHelper specHelper = new(new ArbitrumChainSpecEngineParameters { GenesisBlockNum = genesisBlockNum }, new DisabledArbOsVersionOverride());
         return new ArbitrumConsensusClient(config, specHelper, new EthereumJsonSerializer(), LimboLogs.Instance);
     }
 }

@@ -29,7 +29,7 @@ public class ArbitrumGasPolicyTests
         MultiGas accumulated = gas.GetAccumulated();
 
         accumulated.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        accumulated.Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
+        accumulated.Get(ResourceKind.StorageAccessWrite).Should().Be(GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
     }
 
     [Test]
@@ -41,24 +41,24 @@ public class ArbitrumGasPolicyTests
 
         // Base SELFDESTRUCT cost
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
-        // Inheritor account access (cold)
+        // Inheritor account access (cold, SelfDestructBeneficiary → full cost to StorageAccess)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA,
+            AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
-        // SELFDESTRUCT computation: WarmStateRead
-        // SELFDESTRUCT storage access: (SelfDestructEip150 - WarmStateRead)
-        // Cold inheritor: ColdAccountAccess to StorageAccess
+        // SELFDESTRUCT computation: WarmStateRead (from ConsumeSelfDestructGas only)
+        // SELFDESTRUCT write: SelfDestructEip150 - WarmStateRead; cold beneficiary read: ColdAccountAccess
         accumulated.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        accumulated.Get(ResourceKind.StorageAccess).Should().Be(
-            GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead + GasCostOf.ColdAccountAccess);
+        accumulated.Get(ResourceKind.StorageAccessWrite).Should().Be(GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
+        accumulated.Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdAccountAccess);
     }
 
     [Test]
     public void SelfDestruct_WarmInheritor_NoAdditionalCharge()
     {
-        // SELFDESTRUCT with warm inheritor: base cost only (chargeForWarm=false in VM)
+        // SELFDESTRUCT with warm inheritor: base cost only (SelfDestructBeneficiary skips warm charge)
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
@@ -67,16 +67,17 @@ public class ArbitrumGasPolicyTests
 
         // Base SELFDESTRUCT cost
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
-        // Inheritor account access (warm, chargeForWarm=false as in VM)
+        // Inheritor account access (warm, SelfDestructBeneficiary → no warm charge)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA, AccountAccessKind.SelfDestructBeneficiary);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA,
+            AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
         // SELFDESTRUCT computation: WarmStateRead only (warm inheritor not charged per EIP-2929 SELFDESTRUCT)
-        // SELFDESTRUCT storage access: (SelfDestructEip150 - WarmStateRead)
+        // SELFDESTRUCT write: (SelfDestructEip150 - WarmStateRead)
         accumulated.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        accumulated.Get(ResourceKind.StorageAccess).Should().Be(
+        accumulated.Get(ResourceKind.StorageAccessWrite).Should().Be(
             GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
     }
 
@@ -85,7 +86,7 @@ public class ArbitrumGasPolicyTests
     {
         // SELFDESTRUCT where inheritor == executing account (self-destruct to self)
         // The executing account is always warm (tx.to pre-warming per EIP-2929)
-        // With chargeForWarm=false, no additional account access charge
+        // SelfDestructBeneficiary skips warm charge
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
         using StackAccessTracker accessTracker = new();
 
@@ -96,15 +97,16 @@ public class ArbitrumGasPolicyTests
 
         // Base SELFDESTRUCT cost
         ArbitrumGasPolicy.ConsumeSelfDestructGas(ref gas);
-        // Inheritor is self (already warm)
+        // Inheritor is self (already warm, SelfDestructBeneficiary → no warm charge)
         bool result = ArbitrumGasPolicy.ConsumeAccountAccessGas(
-            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress, AccountAccessKind.SelfDestructBeneficiary);
+            ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, selfAddress,
+            AccountAccessKind.SelfDestructBeneficiary);
 
         result.Should().BeTrue();
         MultiGas accumulated = gas.GetAccumulated();
         // SELFDESTRUCT-to-self charges base cost only (no cold access, no warm charge)
         accumulated.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        accumulated.Get(ResourceKind.StorageAccess).Should().Be(
+        accumulated.Get(ResourceKind.StorageAccessWrite).Should().Be(
             GasCostOf.SelfDestructEip150 - GasCostOf.WarmStateRead);
     }
 
@@ -176,7 +178,7 @@ public class ArbitrumGasPolicyTests
     }
 
     [Test]
-    public void ConsumeStorageWrite_SlotUpdate_TracksStorageAccess()
+    public void ConsumeStorageWrite_SlotUpdate_TracksStorageAccessWrite()
     {
         ArbitrumGasPolicy gas = ArbitrumGasPolicy.FromLong(100_000);
 
@@ -184,7 +186,7 @@ public class ArbitrumGasPolicyTests
 
         long expectedCost = Cancun.Instance.GasCosts.SStoreResetCost;
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - expectedCost);
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be((ulong)expectedCost);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessWrite).Should().Be((ulong)expectedCost);
     }
 
     [Test]
@@ -240,8 +242,8 @@ public class ArbitrumGasPolicyTests
             ref gas, Cancun.Instance, in accessTracker, isTracingAccess: false, TestItem.AddressA);
 
         result.Should().BeTrue();
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.ColdAccountAccess);
-        gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(0);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
+        gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
     }
 
     [Test]
@@ -258,7 +260,7 @@ public class ArbitrumGasPolicyTests
 
         result.Should().BeTrue();
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(0);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(0);
     }
 
     [Test]
@@ -272,8 +274,8 @@ public class ArbitrumGasPolicyTests
             ref gas, in accessTracker, isTracingAccess: false, in storageCell, StorageAccessType.SLOAD, Cancun.Instance);
 
         result.Should().BeTrue();
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.ColdSLoad);
-        gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(0);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdSLoad - GasCostOf.WarmStateRead);
+        gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
     }
 
     [Test]
@@ -291,7 +293,7 @@ public class ArbitrumGasPolicyTests
 
         result.Should().BeTrue();
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(0);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(0);
     }
 
     [Test]
@@ -310,7 +312,7 @@ public class ArbitrumGasPolicyTests
         result.Should().BeTrue();
         // SSTORE on warm cell doesn't charge warm read cost
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(0);
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(0);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(0);
     }
 
     [Test]
@@ -325,7 +327,7 @@ public class ArbitrumGasPolicyTests
 
         result.Should().BeTrue();
         // Cold SSTORE charges ColdSLoad to StorageAccess (EIP-2929)
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.ColdSLoad);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdSLoad);
         gas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(0);
     }
 
@@ -341,7 +343,7 @@ public class ArbitrumGasPolicyTests
 
         result.Should().BeTrue();
         // Both addresses are cold, so 2 * ColdAccountAccess
-        gas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(2 * GasCostOf.ColdAccountAccess);
+        gas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(2 * (GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead));
     }
 
     [Test]
@@ -368,7 +370,7 @@ public class ArbitrumGasPolicyTests
 
         intrinsicGas.GetAccumulated().Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction);
         intrinsicGas.GetAccumulated().Get(ResourceKind.L2Calldata).Should().Be(0);
-        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(0);
+        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(0);
         intrinsicGas.GetAccumulated().Get(ResourceKind.StorageGrowth).Should().Be(0);
     }
 
@@ -447,7 +449,7 @@ public class ArbitrumGasPolicyTests
 
         // 2 addresses * 2400 + 2 storage keys * 1900 = 4800 + 3800 = 8600
         const long expectedStorageAccess = 2 * GasCostOf.AccessAccountListEntry + 2 * GasCostOf.AccessStorageListEntry;
-        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+        intrinsicGas.GetAccumulated().Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
     }
 
     [Test]
@@ -838,7 +840,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 116);
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Get(ResourceKind.Computation).Should().Be(20UL);
-        accumulated.Get(ResourceKind.StorageAccess).Should().Be(96UL);
+        accumulated.Get(ResourceKind.StorageAccessRead).Should().Be(96UL);
     }
 
     [Test]
@@ -855,7 +857,7 @@ public class ArbitrumGasPolicyTests
         ArbitrumGasPolicy.GetRemainingGas(in gas).Should().Be(100_000 - 99);
         MultiGas accumulated = gas.GetAccumulated();
         accumulated.Get(ResourceKind.Computation).Should().Be(99UL);
-        accumulated.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        accumulated.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
     }
 
     [Test]

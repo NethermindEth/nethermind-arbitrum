@@ -30,7 +30,7 @@ public class TxGasDimensionLoggerTracerTests
 
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 15);
-        gasAfter.Increment(ResourceKind.StorageAccess, 100);
+        gasAfter.Increment(ResourceKind.StorageAccessRead, 100);
 
         tracer.BeginGasDimensionCapture(pc: 5, Instruction.ADD, depth: 1, gasBefore);
         tracer.EndGasDimensionCapture(gasAfter);
@@ -67,7 +67,7 @@ public class TxGasDimensionLoggerTracerTests
         gas2Before.Increment(ResourceKind.Computation, 3);
         MultiGas gas2After = default;
         gas2After.Increment(ResourceKind.Computation, 6);
-        gas2After.Increment(ResourceKind.StorageAccess, 100);
+        gas2After.Increment(ResourceKind.StorageAccessRead, 100);
 
         tracer.BeginGasDimensionCapture(pc: 0, Instruction.PUSH1, depth: 1, gas1Before);
         tracer.EndGasDimensionCapture(gas1After);
@@ -221,7 +221,7 @@ public class TxGasDimensionLoggerTracerTests
         MultiGas gasBefore = default;
         MultiGas gasAfter = default;
         gasAfter.Increment(ResourceKind.Computation, 10);
-        gasAfter.Increment(ResourceKind.StorageAccess, 20);
+        gasAfter.Increment(ResourceKind.StorageAccessRead, 20);
         gasAfter.Increment(ResourceKind.StorageGrowth, 30);
         gasAfter.Increment(ResourceKind.HistoryGrowth, 40);
 

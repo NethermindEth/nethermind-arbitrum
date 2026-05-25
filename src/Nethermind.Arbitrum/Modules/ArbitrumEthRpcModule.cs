@@ -202,16 +202,20 @@ namespace Nethermind.Arbitrum.Modules
 
         public override ResultWrapper<ReceiptForRpc?> eth_getTransactionReceipt(Hash256 txHash)
         {
-            (TxReceipt? receipt, ulong blockTimestamp, TxGasInfo? gasInfo, int logIndexStart) = _blockchainBridge.GetTxReceiptInfo(txHash);
-            if (receipt is null || gasInfo is null)
+            (TxReceipt? receipt, ulong blockTimestamp, _, int logIndexStart) = _blockchainBridge.GetTxReceiptInfo(txHash);
+            if (receipt is null)
                 return ResultWrapper<ReceiptForRpc?>.Success(null);
 
             ulong l1BlockNumber = 0;
+            TxGasInfo gasInfo = default;
             if (receipt.BlockHash is not null)
             {
                 BlockHeader? header = _blockFinder.FindHeader(receipt.BlockHash);
                 if (header is not null)
+                {
                     l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(header, _logger).L1BlockNumber;
+                    gasInfo = new TxGasInfo(header.BaseFeePerGas);
+                }
             }
 
             byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(receipt.BlockNumber).GetAwaiter().GetResult();
@@ -221,7 +225,7 @@ namespace Nethermind.Arbitrum.Modules
                 txHash,
                 receipt,
                 blockTimestamp,
-                gasInfo.Value,
+                gasInfo,
                 l1BlockNumber,
                 logIndexStart,
                 isTimeboosted);
@@ -237,17 +241,17 @@ namespace Nethermind.Arbitrum.Modules
 
             Block block = searchResult.Object!;
             TxReceipt[] receipts = _receiptFinder.Get(block);
-            IReleaseSpec spec = _specProvider.GetSpec(block.Header);
             ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger).L1BlockNumber;
             byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(block.Number).GetAwaiter().GetResult();
 
+            TxGasInfo gasInfo = new(block.Header.BaseFeePerGas);
             ReceiptForRpc[] result = receipts
                 .Zip(block.Transactions, (receipt, tx) =>
                     (ReceiptForRpc)new ArbitrumReceiptForRpc(
                         tx.Hash!,
                         receipt,
                         block.Timestamp,
-                        tx.GetGasInfo(spec, block.Header),
+                        gasInfo,
                         l1BlockNumber,
                         receipts.GetBlockLogFirstIndex(receipt.Index),
                         Data.BlockMetadata.IsTxTimeboosted(blockMetadata, receipt.Index)))
