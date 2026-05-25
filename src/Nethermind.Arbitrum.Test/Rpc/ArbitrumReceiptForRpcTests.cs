@@ -75,7 +75,7 @@ public class ArbitrumReceiptForRpcTests
         ArbitrumTxReceipt receipt = CreateBasicReceipt();
         receipt.GasUsedForL1 = 500;
         MultiGas multiGas = default;
-        multiGas.Increment(ResourceKind.StorageAccess, 1000);
+        multiGas.Increment(ResourceKind.StorageAccessRead, 1000);
         receipt.MultiGasUsed = multiGas;
         TxReceipt baseReceipt = receipt;
 
@@ -90,7 +90,7 @@ public class ArbitrumReceiptForRpcTests
 
         receiptForRpc.GasUsedForL1.Should().Be(500);
         receiptForRpc.MultiGasUsed.Should().NotBeNull();
-        receiptForRpc.MultiGasUsed!.Value.StorageAccess.Should().Be(1000);
+        receiptForRpc.MultiGasUsed!.Value.StorageAccessRead.Should().Be(1000);
         receiptForRpc.L1BlockNumber.Should().Be(1234567890);
     }
 
@@ -154,9 +154,10 @@ public class ArbitrumReceiptForRpcTests
         json.Unknown.Should().Be(0);
         json.Computation.Should().Be(0);
         json.HistoryGrowth.Should().Be(0);
-        json.StorageAccess.Should().Be(0);
+        json.StorageAccessRead.Should().Be(0);
+        json.StorageAccessWrite.Should().Be(0);
         json.StorageGrowth.Should().Be(0);
-        json.L1Calldata.Should().Be(0);
+        json.SingleDim.Should().Be(0);
         json.L2Calldata.Should().Be(0);
         json.WasmComputation.Should().Be(0);
     }
@@ -180,9 +181,9 @@ public class ArbitrumReceiptForRpcTests
             unknown: 1,
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -192,9 +193,10 @@ public class ArbitrumReceiptForRpcTests
         json.Unknown.Should().Be(1);
         json.Computation.Should().Be(10);
         json.HistoryGrowth.Should().Be(11);
-        json.StorageAccess.Should().Be(12);
+        json.StorageAccessRead.Should().Be(12);
+        json.StorageAccessWrite.Should().Be(0);
         json.StorageGrowth.Should().Be(13);
-        json.L1Calldata.Should().Be(14);
+        json.SingleDim.Should().Be(14);
         json.L2Calldata.Should().Be(15);
         json.WasmComputation.Should().Be(16);
         json.Refund.Should().Be(7);
@@ -206,14 +208,14 @@ public class ArbitrumReceiptForRpcTests
     {
         MultiGas gas = CreateMultiGasWithRefund(
             computation: 100,
-            storageAccess: 200,
+            storageAccessRead: 200,
             refund: 50);
 
         MultiGasForJson json = gas.ToJson();
         string serialized = JsonSerializer.Serialize(json);
 
         serialized.Should().Contain("\"computation\":100");
-        serialized.Should().Contain("\"storageAccess\":200");
+        serialized.Should().Contain("\"storageAccessRead\":200");
         serialized.Should().Contain("\"refund\":50");
         // Total is sum of dimensions (100 + 200 = 300), refund is separate
         serialized.Should().Contain("\"total\":300");
@@ -226,9 +228,9 @@ public class ArbitrumReceiptForRpcTests
             unknown: 1,
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -239,9 +241,9 @@ public class ArbitrumReceiptForRpcTests
         serialized.Should().Contain("\"unknown\":1");
         serialized.Should().Contain("\"computation\":10");
         serialized.Should().Contain("\"historyGrowth\":11");
-        serialized.Should().Contain("\"storageAccess\":12");
+        serialized.Should().Contain("\"storageAccessRead\":12");
         serialized.Should().Contain("\"storageGrowth\":13");
-        serialized.Should().Contain("\"l1Calldata\":14");
+        serialized.Should().Contain("\"singleDim\":14");
         serialized.Should().Contain("\"l2Calldata\":15");
         serialized.Should().Contain("\"wasmComputation\":16");
         serialized.Should().Contain("\"refund\":7");
@@ -369,19 +371,20 @@ public class ArbitrumReceiptForRpcTests
         ulong unknown = 0,
         ulong computation = 0,
         ulong historyGrowth = 0,
-        ulong storageAccess = 0,
+        ulong storageAccessRead = 0,
+        ulong storageAccessWrite = 0,
         ulong storageGrowth = 0,
-        ulong l1Calldata = 0,
+        ulong singleDim = 0,
         ulong l2Calldata = 0,
         ulong wasmComputation = 0,
         ulong refund = 0)
     {
-        ulong total = unknown + computation + historyGrowth + storageAccess +
-                      storageGrowth + l1Calldata + l2Calldata + wasmComputation;
+        ulong total = unknown + computation + historyGrowth + storageAccessRead + storageAccessWrite +
+                      storageGrowth + singleDim + l2Calldata + wasmComputation;
 
         int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
-        ulong[] gas = [unknown, computation, historyGrowth, storageAccess,
-                       storageGrowth, l1Calldata, l2Calldata, wasmComputation];
+        ulong[] gas = [unknown, computation, historyGrowth, storageAccessRead, storageAccessWrite,
+                       storageGrowth, singleDim, l2Calldata, wasmComputation];
         foreach (ulong g in gas)
             contentLength += Rlp.LengthOf(g);
 

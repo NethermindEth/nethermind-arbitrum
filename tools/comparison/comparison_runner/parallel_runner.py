@@ -42,6 +42,7 @@ class ParallelRunnerConfig:
     root_dir: Path | None = None
     log_dir: Path | None = None
     startup_timeout_s: int = DEFAULT_STARTUP_TIMEOUT_S
+    max_retries: int = 0
 
 
 class ParallelRunner:
@@ -191,6 +192,8 @@ class ParallelRunner:
         port = instance.nethermind_port
         self.logger.info(f"Worker {worker_id}: Started on port {port}")
 
+        max_attempts = self.config.max_retries + 1
+
         while not self.interrupted.is_set():
             # Get the next test
             test_name = work_queue.get()
@@ -199,7 +202,7 @@ class ParallelRunner:
 
             try:
                 self.logger.debug(f"Worker {worker_id}: Running {test_name}")
-                result = self._run_single_test(worker_id, port, test_name)
+                result = self._run_with_retries(worker_id, port, test_name, max_attempts)
                 self._record_result(result)
                 # Check health and restart if needed - if worker is dead, stop this worker
                 if not self._handle_health_check(worker_id):
@@ -209,6 +212,64 @@ class ParallelRunner:
                 work_queue.mark_done()
 
         self.logger.info(f"Worker {worker_id}: Finished")
+
+    def _run_with_retries(
+        self,
+        worker_id: int,
+        port: int,
+        test_name: str,
+        max_attempts: int,
+    ) -> TestResult:
+        """Run a test with retries on failure.
+
+        Returns the final TestResult with attempt tracking.
+        Duration accumulates across all attempts.
+        Checks interruption and worker health between attempts.
+        """
+        total_duration = 0.0
+        result = TestResult(name=test_name, status=TestStatus.FAILED, worker_id=worker_id)
+
+        for attempt in range(1, max_attempts + 1):
+            if self.interrupted.is_set():
+                result.attempt = attempt
+                result.max_attempts = max_attempts
+                return result
+
+            result = self._run_single_test(worker_id, port, test_name)
+            total_duration += result.duration_s
+            result.attempt = attempt
+            result.max_attempts = max_attempts
+            result.duration_s = total_duration
+
+            if result.status == TestStatus.PASSED:
+                if attempt > 1:
+                    self.logger.info(
+                        f"  \u21b3 [W{worker_id}] {test_name}: PASSED on attempt "
+                        f"{attempt}/{max_attempts} (flaky)"
+                    )
+                return result
+
+            if attempt < max_attempts:
+                self.logger.warning(
+                    f"  \u21b3 [W{worker_id}] {test_name}: FAILED attempt "
+                    f"{attempt}/{max_attempts}, retrying..."
+                )
+                # Check worker health before retrying — restart if needed
+                if not self._handle_health_check(worker_id):
+                    self.logger.error(
+                        f"  \u21b3 [W{worker_id}] {test_name}: Worker unhealthy, cannot retry"
+                    )
+                    return result
+                # Update port in case worker was restarted on a new port
+                if self._pool is not None:
+                    instance = self._pool.get_or_create(worker_id)
+                    port = instance.nethermind_port
+            else:
+                self.logger.error(
+                    f"  \u21b3 [W{worker_id}] {test_name}: FAILED all {max_attempts} attempts"
+                )
+
+        return result
 
     def _run_single_test(
         self,

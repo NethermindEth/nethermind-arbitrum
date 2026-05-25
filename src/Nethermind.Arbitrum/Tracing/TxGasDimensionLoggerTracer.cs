@@ -75,7 +75,7 @@ public sealed class TxGasDimensionLoggerTracer : GasDimensionTracerBase
             Depth = depth,
             OneDimensionalGasCost = (ulong)gasCost,
             Computation = delta.Get(ResourceKind.Computation),
-            StateAccess = delta.Get(ResourceKind.StorageAccess),
+            StateAccess = delta.Get(ResourceKind.StorageAccessRead) + delta.Get(ResourceKind.StorageAccessWrite),
             StateGrowth = delta.Get(ResourceKind.StorageGrowth),
             HistoryGrowth = delta.Get(ResourceKind.HistoryGrowth)
         };

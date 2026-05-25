@@ -14,4 +14,6 @@ public static class ArbosStateOffsets
     public const ulong InfraFeeAccountOffset = 6;
     public const ulong BrotliCompressionLevelOffset = 7;
     public const ulong NativeTokenEnabledTimeOffset = 8;
+    public const ulong TransactionFilteringEnabledTimeOffset = 9;
+    public const ulong FilteredFundsRecipientOffset = 10;
 }

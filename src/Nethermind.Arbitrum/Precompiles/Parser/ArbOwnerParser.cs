@@ -72,6 +72,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetParentGasFloorPerTokenId = Solgen.ArbOwner.Methods.SetParentGasFloorPerToken;
     private const uint SetGasBacklogId = Solgen.ArbOwner.Methods.SetGasBacklog;
     private const uint SetGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetGasPricingConstraints;
+    private const uint SetMultiGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints;
+
 
     static ArbOwnerParser()
     {
@@ -125,8 +127,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { SetCalldataPriceIncreaseId, SetCalldataPriceIncrease },
             { SetParentGasFloorPerTokenId, SetParentGasFloorPerToken },
             { SetGasBacklogId, SetGasBacklog },
-            { SetGasPricingConstraintsId, SetGasPricingConstraints }
-
+            { SetGasPricingConstraintsId, SetGasPricingConstraints },
+            { SetMultiGasPricingConstraintsId, SetMultiGasPricingConstraints }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -165,6 +167,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[SetParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasBacklogId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -812,6 +815,25 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         ulong[][] constraintsRaw = (ulong[][])decoded[0];
         ArbOwner.SetGasPricingConstraints(context, constraintsRaw);
+        return [];
+    }
+
+    // SetMultiGasPricingConstraints configures the multi-dimensional gas pricing model
+    // with weighted resource constraints (ArbOS v60+)
+    private static byte[] SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        AbiSignature sig = PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            sig,
+            inputData.ToArray()
+        );
+
+        // decoded[0] is ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
+        // We need to iterate and extract the values from the ValueTuples
+        Array constraintsArray = (Array)decoded[0];
+        ArbOwner.SetMultiGasPricingConstraintsFromTuples(context, constraintsArray);
         return [];
     }
 }

@@ -9,6 +9,7 @@ public class ArbosAddresses
 {
     public static readonly Address ArbosAddress = new("0x00000000000000000000000000000000000a4b05");
     public static readonly Address ArbosSystemAccount = new("0xA4B05FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+    public static readonly Address FilteredTransactionsStateAddress = new("0xA4B0500000000000000000000000000000000001");
 
     public static readonly Address ArbSysAddress = new("0x0000000000000000000000000000000000000064");
     public static readonly Address ArbInfoAddress = new("0x0000000000000000000000000000000000000065");
@@ -25,6 +26,7 @@ public class ArbosAddresses
     public static readonly Address ArbWasmAddress = new("0x0000000000000000000000000000000000000071");
     public static readonly Address ArbWasmCacheAddress = new("0x0000000000000000000000000000000000000072");
     public static readonly Address ArbNativeTokenManagerAddress = new("0x0000000000000000000000000000000000000073");
+    public static readonly Address ArbFilteredTransactionsManagerAddress = new("0x0000000000000000000000000000000000000074");
     public static readonly Address ArbDebugAddress = new("0x00000000000000000000000000000000000000ff");
 
     // Virtual contacts

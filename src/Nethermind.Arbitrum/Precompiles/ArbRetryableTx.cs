@@ -4,6 +4,7 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -141,7 +142,7 @@ public static class ArbRetryableTx
         );
 
         ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
-        context.Burn(GasCostOf.SLoad * writeBytes);
+        context.Burn(ResourceKind.StorageAccessWrite, GasCostOf.SLoad * writeBytes);
 
         Retryable? retryable = state.OpenRetryable(
             ticketId,
@@ -182,7 +183,7 @@ public static class ArbRetryableTx
 
         if (context.GasLeft < futureGasCosts)
             // This will throw
-            context.Burn(futureGasCosts);
+            context.Burn(ResourceKind.Computation, futureGasCosts);
 
         ulong gasToDonate = context.GasLeft - futureGasCosts;
         if (gasToDonate < GasCostOf.Transaction)
@@ -199,14 +200,44 @@ public static class ArbRetryableTx
 
         // To prepare for the enqueued retry event, we burn gas here, adding it back to the pool right before retrying.
         // The gas payer for this tx will get a credit for the wei they paid for this gas when retrying.
-        // We burn as much gas as we can, leaving only enough to pay for copying out the return data.
-        context.Burn(gasToDonate);
+        // We burn as much gas as we can (computation gas), leaving only enough to pay for copying out the return data.
+        const ResourceKind donationResource = ResourceKind.SingleDim;
+        context.Burn(donationResource, gasToDonate);
 
-        // Add the gasToDonate back to the gas pool: the retryable attempt will then consume it.
-        // This ensures that the gas pool has enough gas to run the retryable attempt.
-        context.ArbosState.L2PricingState.AddToGasPool(long.CreateSaturating(gasToDonate));
+        // Starting from ArbosVersion.MultiGasConstraintsVersion, charge a fixed amount of gas for the ShrinkBacklog
+        // call because multi-gas constraints may have multiple backlogs and it would be too expensive to the user.
+        // Since these backlogs are manipulated by the system in every transaction, they are already fresh in cache and
+        // we don't need to penalize the user.
+        // MultiConstraintStaticBacklogUpdateCost = StorageReadCost + StorageWriteCost = 800 + 20000 = 20800
+        const ulong MultiConstraintStaticBacklogUpdateCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
+        bool chargeFixedAmount = context.ArbosState.CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion;
 
-        return retryTxHash;
+        if (chargeFixedAmount)
+        {
+            // Manually charge the fixed amount.
+            context.Burn(ResourceKind.Computation, MultiConstraintStaticBacklogUpdateCost);
+
+            // Disable metering from now on, turning it back at the end of the function.
+            context.Free = true;
+        }
+
+        try
+        {
+            // Shrink the computation backlog because the transaction didn't use these resources.
+            // Later, the retryable attempt will use this gas and increase the resource-backlogs it actually uses.
+            // This ensures we don't increase the L2 base fee unnecessarily.
+            MultiGas donatedMultiGas = default;
+            donatedMultiGas.Increment(donationResource, gasToDonate);
+
+            context.ArbosState.L2PricingState.ShrinkBacklog(gasToDonate, donatedMultiGas);
+
+            return retryTxHash;
+        }
+        finally
+        {
+            if (chargeFixedAmount)
+                context.Free = false;
+        }
     }
 
     // GetLifetime gets the default lifetime period a retryable has at creation
@@ -239,7 +270,7 @@ public static class ArbRetryableTx
             ThrowOldNotFoundError(context, ticketId);
 
         ulong updateCost = Math.Utils.Div32Ceiling(byteCount) * GasCostOf.SSet / 100;
-        context.Burn(updateCost);
+        context.Burn(ResourceKind.StorageAccessWrite, updateCost);
 
         ulong newTimeout = retryableState.KeepAlive(ticketId, currentTime);
 

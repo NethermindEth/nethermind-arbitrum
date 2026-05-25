@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
@@ -20,11 +21,18 @@ using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
+using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 public class ArbRetryableTxTests
 {
+    [OneTimeSetUp]
+    public void Setup()
+    {
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+    }
+
     [Test]
     public void EmitTicketCreatedEvent_WithValidContext_EmitsCorrectLogEntry()
     {
@@ -246,7 +254,7 @@ public class ArbRetryableTxTests
             CurrentRetryable = Hash256.Zero
         };
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         // Redeem the retryable
@@ -324,7 +332,7 @@ public class ArbRetryableTxTests
             CurrentRetryable = Hash256.Zero
         };
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         // Redeem the retryable
@@ -339,6 +347,83 @@ public class ArbRetryableTxTests
         // Redeem execution used up all gas, give some gas for asserting
         newContext.ResetGasLeft();
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
+    }
+
+    [TestCase(0ul)]
+    [TestCase(65ul)]
+    public void ArbRetryable_RedeemCorrectly_BurnsCorrectMultiGas(ulong calldataSize)
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketIdHash = Hash256FromUlong(123);
+        byte[] calldata = new byte[calldataSize];
+        ulong timeout = genesis.Header.Timestamp + 1;
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        // Use backlog = gasToDonate + 1 so the shrink leaves backlog at 1 (non-zero write),
+        // keeping the gasPoolUpdateCost estimate exact and gasLeft == GasCostOf.Memory.
+        ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize);
+
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied) { CurrentRetryable = Hash256.Zero };
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+        context.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
+        context.ResetGasLeft();
+
+        ulong[] burnedBefore = Enumerable.Range(0, MultiGas.NumResourceKinds)
+            .Select(i => context.BurnedMultiGas.Get((ResourceKind)i))
+            .ToArray();
+
+        ArbRetryableTx.Redeem(context, ticketIdHash);
+
+        context.GasLeft.Should().Be(gasLeft).And.Be((ulong)GasCostOf.Memory);
+
+        ulong[] delta = Enumerable.Range(0, MultiGas.NumResourceKinds)
+            .Select(i => context.BurnedMultiGas.Get((ResourceKind)i) - burnedBefore[i])
+            .ToArray();
+
+        // --- expected values per resource kind ---
+
+        // StorageAccessWrite: retryable size fee (GasCostOf.SLoad per word, charged as Write per Nitro spec)
+        //                     + IncrementNumTries (non-zero write)
+        //                     + ShrinkBacklog.Set(1) (non-zero write, backlog = gasToDonate + 1 → 1)
+        ulong byteCount = 6 * EvmPooledMemory.WordSize + (1 + Math.Utils.Div32Ceiling(calldataSize)) * EvmPooledMemory.WordSize;
+        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
+        ulong sizeFee = (ulong)GasCostOf.SLoad * writeBytes;
+        ulong expectedWrite = sizeFee + 2 * ArbosStorage.StorageWriteCost;
+
+        // StorageAccessRead: RetryableSizeBytes (open + calldata size) + OpenRetryable + IncrementNumTries (read)
+        //                    + From + To + CallValue + Calldata.Get (size + ⌊len/32⌋ chunks + 1 last chunk)
+        //                    + ShrinkBacklog.Get
+        ulong expectedRead = (10 + calldataSize / 32) * ArbosStorage.StorageReadCost;
+
+        // HistoryGrowth: the single RedeemScheduled event
+        ulong expectedHistoryGrowth = ArbRetryableTx.RedeemScheduledEventGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
+
+        // SingleDim: all donated gas
+        ulong expectedSingleDim = gasToDonate;
+
+        delta[(int)ResourceKind.StorageAccessWrite].Should().Be(expectedWrite);
+        delta[(int)ResourceKind.StorageAccessRead].Should().Be(expectedRead);
+        delta[(int)ResourceKind.HistoryGrowth].Should().Be(expectedHistoryGrowth);
+        delta[(int)ResourceKind.SingleDim].Should().Be(expectedSingleDim);
+        delta[(int)ResourceKind.Computation].Should().Be(0);
+        delta[(int)ResourceKind.Unknown].Should().Be(0);
+        delta[(int)ResourceKind.StorageGrowth].Should().Be(0);
+        delta[(int)ResourceKind.L2Calldata].Should().Be(0);
+        delta[(int)ResourceKind.WasmComputation].Should().Be(0);
+
+        // Sanity: all resource kinds must account for every gas unit consumed.
+        delta.Aggregate(0ul, (sum, x) => sum + x).Should().Be(gasSupplied - gasLeft);
     }
 
     [Test]
@@ -407,7 +492,7 @@ public class ArbRetryableTxTests
         };
         newContext.WithArbosVersion(ArbosVersion.FiftyOne).WithBlockExecutionContext(genesis.Header);
         GasConstraint constraint = newContext.ArbosState.L2PricingState.OpenConstraintAt(0);
-        constraint.SetBacklog(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        constraint.SetBacklog(gasToDonate + 1);
         newContext.ResetGasLeft();
 
         Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);

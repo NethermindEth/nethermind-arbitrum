@@ -137,6 +137,9 @@ cat > "$CONFIG_FILE" << EOF
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "EnableTestReset": true
   }
 }
 EOF

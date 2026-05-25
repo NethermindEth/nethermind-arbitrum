@@ -35,6 +35,9 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Whether validation is enabled", DefaultValue = "false")]
     bool ValidationEnabled { get; set; }
 
+    [ConfigItem(Description = "Enable ResettableArbitrumBlockTree and debug_reinitialize for system/comparison testing", DefaultValue = "false", HiddenFromDocs = true)]
+    bool EnableTestReset { get; set; }
+
     [ConfigItem(Description = "Whether to enable sequencer mode", DefaultValue = "false")]
     bool SequencerEnabled { get; set; }
 

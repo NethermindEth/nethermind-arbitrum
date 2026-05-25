@@ -77,13 +77,31 @@ class TestFormatSummaryBox:
 
     def test_contains_header(self) -> None:
         """Output should contain the header text."""
-        stats = SummaryStats(total=10, passed=8, failed=2, skipped=0, errored=0, duration=5.0)
+        stats = SummaryStats(
+            total=10,
+            passed=8,
+            failed=2,
+            skipped=0,
+            errored=0,
+            flaky=0,
+            retries_enabled=False,
+            duration=5.0,
+        )
         output = format_summary_box(stats)
         assert "COMPARISON TEST RESULTS" in output
 
     def test_contains_counts(self) -> None:
         """Output should contain test counts."""
-        stats = SummaryStats(total=10, passed=8, failed=2, skipped=0, errored=0, duration=5.0)
+        stats = SummaryStats(
+            total=10,
+            passed=8,
+            failed=2,
+            skipped=0,
+            errored=0,
+            flaky=0,
+            retries_enabled=False,
+            duration=5.0,
+        )
         output = format_summary_box(stats)
         assert "10" in output  # total
         assert "8" in output  # passed
@@ -91,13 +109,31 @@ class TestFormatSummaryBox:
 
     def test_all_passed_status(self) -> None:
         """Should show ALL TESTS PASSED when no failures."""
-        stats = SummaryStats(total=10, passed=10, failed=0, skipped=0, errored=0, duration=5.0)
+        stats = SummaryStats(
+            total=10,
+            passed=10,
+            failed=0,
+            skipped=0,
+            errored=0,
+            flaky=0,
+            retries_enabled=False,
+            duration=5.0,
+        )
         output = format_summary_box(stats)
         assert "ALL TESTS PASSED" in output
 
     def test_some_failed_status(self) -> None:
         """Should show SOME TESTS FAILED when mixed results."""
-        stats = SummaryStats(total=10, passed=8, failed=2, skipped=0, errored=0, duration=5.0)
+        stats = SummaryStats(
+            total=10,
+            passed=8,
+            failed=2,
+            skipped=0,
+            errored=0,
+            flaky=0,
+            retries_enabled=False,
+            duration=5.0,
+        )
         output = format_summary_box(stats)
         assert "SOME TESTS FAILED" in output
 
