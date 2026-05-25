@@ -22,5 +22,10 @@ public enum StylusOperationResultType : byte
     ProgramUpToDate,
     ProgramKeepaliveTooSoon,
     ProgramInsufficientValue,
+    FragmentedActivationDirect,
+    FragmentCountZero,
+    FragmentCountExceedsLimit,
+    DecompressedLengthExceedsMax,
+    DecompressedLengthMismatch,
     UnknownError
 }

@@ -94,10 +94,10 @@ public class ArbOwnerTests
             PrecompileTestAbiHelpers.GetMethodId("setTransactionFilteringFrom(uint64)"),
             PrecompileTestAbiHelpers.GetMethodId("setCollectTips(bool)"),
             PrecompileTestAbiHelpers.GetMethodId("setMaxStylusContractFragments(uint8)"),
-            // `(())` mirrors the test parser: AbiTypeConverter collapses any JSON tuple[] to an empty AbiTuple, dropping components and the array suffix.
+            // `(()[])` mirrors the test parser: AbiTypeConverter returns ()[] for JSON tuple[].
             // (canonical signature is setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])).
             // See Abi_SetMultiGasPricingConstraints_ContainsExpectedFunctionSignatures for the additional verification
-            PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())"),
+            PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(()[])"),
             PrecompileTestAbiHelpers.GetMethodId("setWasmActivationGas(uint64)"),
         });
     }
@@ -123,7 +123,7 @@ public class ArbOwnerTests
         AbiSignature signature = new("setMultiGasPricingConstraints", new AbiArray(resourceConstraint));
 
         uint canonicalMethodId = BinaryPrimitives.ReadUInt32BigEndian(signature.Address);
-        uint placeholderMethodId = PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())");
+        uint placeholderMethodId = PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(()[])");
 
         // Sanity-check the canonical signature string that Nethermind's ABI primitives produce.
         signature.ToString().Should().Be("setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])");
@@ -131,7 +131,7 @@ public class ArbOwnerTests
         // The Nethermind-ABI-derived selector must equal the package's authoritative constant.
         canonicalMethodId.Should().Be(Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints);
 
-        // The "(())" placeholder is self-consistent with PrecompileTestAbiHelpers.GetAllFunctionDescriptions
+        // The "(()[])" placeholder is self-consistent with PrecompileTestAbiHelpers.GetAllFunctionDescriptions
         placeholderMethodId.Should().NotBe(canonicalMethodId);
     }
 
@@ -856,6 +856,55 @@ public class ArbOwnerTests
         ArbOwner.SetWasmMaxSize(context, 256 * 1024);
 
         context.ArbosState.Programs.GetParams().MaxWasmSize.Should().Be(256u * 1024);
+    }
+
+    [Test]
+    public void SetMaxStylusContractFragments_AtSixty_UpdatesMaxFragmentCountParam()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetMaxStylusContractFragments(context, 7);
+
+        context.ArbosState.Programs.GetParams().MaxFragmentCount.Should().Be(7);
+    }
+
+    [TestCase((byte)0)]
+    [TestCase((byte)1)]
+    [TestCase(byte.MaxValue)]
+    public void SetMaxStylusContractFragments_BoundaryValueAtSixty_RoundTrips(byte value)
+    {
+        // Nitro accepts the full uint8 range; activation enforces len(fragments) in [1, MaxFragmentCount] elsewhere.
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetMaxStylusContractFragments(context, value);
+
+        context.ArbosState.Programs.GetParams().MaxFragmentCount.Should().Be(value);
+    }
+
+    [Test]
+    public void SetMaxStylusContractFragments_BelowSixtyArbOSVersion_IsRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.Sixty - 1);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetMaxStylusContractFragments, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void SetMaxStylusContractFragments_AtSixtyArbOSVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context = context.WithExecutingAccount(ArbOwnerParser.Address);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetMaxStylusContractFragments, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
     }
 
     [Test]

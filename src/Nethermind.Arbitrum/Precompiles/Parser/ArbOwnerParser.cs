@@ -60,6 +60,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetWasmPageGasId = Solgen.ArbOwner.Methods.SetWasmPageGas;
     private const uint SetWasmPageLimitId = Solgen.ArbOwner.Methods.SetWasmPageLimit;
     private const uint SetWasmMaxSizeId = Solgen.ArbOwner.Methods.SetWasmMaxSize;
+    private const uint SetMaxStylusContractFragmentsId = Solgen.ArbOwner.Methods.SetMaxStylusContractFragments;
     private const uint SetWasmMinInitGasId = Solgen.ArbOwner.Methods.SetWasmMinInitGas;
     private const uint SetWasmInitCostScalarId = Solgen.ArbOwner.Methods.SetWasmInitCostScalar;
     private const uint SetWasmExpiryDaysId = Solgen.ArbOwner.Methods.SetWasmExpiryDays;
@@ -72,6 +73,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetParentGasFloorPerTokenId = Solgen.ArbOwner.Methods.SetParentGasFloorPerToken;
     private const uint SetGasBacklogId = Solgen.ArbOwner.Methods.SetGasBacklog;
     private const uint SetGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetGasPricingConstraints;
+    private const uint SetMultiGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints;
+
 
     static ArbOwnerParser()
     {
@@ -119,14 +122,15 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { SetWasmKeepaliveDaysId, SetWasmKeepaliveDays },
             { SetWasmBlockCacheSizeId, SetWasmBlockCacheSize },
             { SetWasmMaxSizeId, SetWasmMaxSize },
+            { SetMaxStylusContractFragmentsId, SetMaxStylusContractFragments },
             { AddWasmCacheManagerId, AddWasmCacheManager },
             { RemoveWasmCacheManagerId, RemoveWasmCacheManager },
             { SetChainConfigId, SetChainConfig },
             { SetCalldataPriceIncreaseId, SetCalldataPriceIncrease },
             { SetParentGasFloorPerTokenId, SetParentGasFloorPerToken },
             { SetGasBacklogId, SetGasBacklog },
-            { SetGasPricingConstraintsId, SetGasPricingConstraints }
-
+            { SetGasPricingConstraintsId, SetGasPricingConstraints },
+            { SetMultiGasPricingConstraintsId, SetMultiGasPricingConstraints }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -165,6 +169,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[SetParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasBacklogId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Sixty;
+        PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -724,6 +730,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         return [];
     }
 
+    private static byte[] SetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        byte maxFragments = (byte)decoded[0];
+        ArbOwner.SetMaxStylusContractFragments(context, maxFragments);
+        return [];
+    }
+
     private static byte[] AddWasmCacheManager(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
@@ -812,6 +831,25 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         ulong[][] constraintsRaw = (ulong[][])decoded[0];
         ArbOwner.SetGasPricingConstraints(context, constraintsRaw);
+        return [];
+    }
+
+    // SetMultiGasPricingConstraints configures the multi-dimensional gas pricing model
+    // with weighted resource constraints (ArbOS v60+)
+    private static byte[] SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        AbiSignature sig = PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].AbiFunctionDescription.GetCallInfo().Signature;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            sig,
+            inputData.ToArray()
+        );
+
+        // decoded[0] is ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
+        // We need to iterate and extract the values from the ValueTuples
+        Array constraintsArray = (Array)decoded[0];
+        ArbOwner.SetMultiGasPricingConstraintsFromTuples(context, constraintsArray);
         return [];
     }
 }

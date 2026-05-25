@@ -71,6 +71,9 @@ DEFAULT_TIMEOUT_S: Final[int] = 300
 DEFAULT_STARTUP_TIMEOUT_S: Final[int] = 60
 """Default Nethermind startup timeout in seconds."""
 
+DEFAULT_MAX_RETRIES: Final[int] = 3
+"""Default number of retries for failed tests. 0 = no retries."""
+
 
 PRECOMPUTED_ADDRESSES: Final[dict[str, str]] = {
     "Owner": "0x26E554a8acF9003b83495c7f45F06edCB803d4e3",

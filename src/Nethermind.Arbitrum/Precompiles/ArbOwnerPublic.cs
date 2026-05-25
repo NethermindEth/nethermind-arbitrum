@@ -128,6 +128,14 @@ public static class ArbOwnerPublic
         return context.ArbosState.NativeTokenEnabledTime.Get();
     }
 
+    /// <summary>
+    /// GetMaxStylusContractFragments gets the maximum number of fragments a Stylus root contract may list
+    /// </summary>
+    public static byte GetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context)
+    {
+        return context.ArbosState.Programs.GetParams().MaxFragmentCount;
+    }
+
     private static void EmitChainOwnerRectifiedEvent(ArbitrumPrecompileExecutionContext context, Address rectifiedOwner)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ChainOwnerRectifiedEvent, Address, rectifiedOwner);

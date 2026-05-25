@@ -102,6 +102,8 @@ public static class PrecompileTestAbiHelpers
 
         List<AbiItem> abiItems = JsonSerializer.Deserialize<List<AbiItem>>(abiJson, Options) ?? [];
 
+        var mgpc = abiItems.Where(item => item.Type == "function" && item.Name == "setMultiGasPricingConstraints").SingleOrDefault();
+
         return abiItems
             .Where(item => item.Type == "function")
             .Select(item => new ArbitrumFunctionDescription(

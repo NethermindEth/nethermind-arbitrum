@@ -27,18 +27,18 @@ public class MultiGasTests
 
         gas.Increment(ResourceKind.Computation, 10);
         gas.Increment(ResourceKind.HistoryGrowth, 11);
-        gas.Increment(ResourceKind.StorageAccess, 12);
+        gas.Increment(ResourceKind.StorageAccessRead, 12);
         gas.Increment(ResourceKind.StorageGrowth, 13);
-        gas.Increment(ResourceKind.L1Calldata, 14);
+        gas.Increment(ResourceKind.SingleDim, 14);
         gas.Increment(ResourceKind.L2Calldata, 15);
         gas.Increment(ResourceKind.WasmComputation, 16);
 
         gas.Total.Should().Be(91UL);
         gas.Get(ResourceKind.Computation).Should().Be(10UL);
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(11UL);
-        gas.Get(ResourceKind.StorageAccess).Should().Be(12UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(12UL);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(13UL);
-        gas.Get(ResourceKind.L1Calldata).Should().Be(14UL);
+        gas.Get(ResourceKind.SingleDim).Should().Be(14UL);
         gas.Get(ResourceKind.L2Calldata).Should().Be(15UL);
         gas.Get(ResourceKind.WasmComputation).Should().Be(16UL);
     }
@@ -93,7 +93,7 @@ public class MultiGasTests
 
         gas.Get(ResourceKind.Computation).Should().Be(10UL);
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(20UL);
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Total.Should().Be(30UL);
     }
 
@@ -188,9 +188,9 @@ public class MultiGasTests
 
         gas.Increment(ResourceKind.Computation, 21);
         gas.Increment(ResourceKind.HistoryGrowth, 15);
-        gas.Increment(ResourceKind.StorageAccess, 5);
+        gas.Increment(ResourceKind.StorageAccessRead, 5);
         gas.Increment(ResourceKind.StorageGrowth, 6);
-        gas.Increment(ResourceKind.L1Calldata, 7);
+        gas.Increment(ResourceKind.SingleDim, 7);
         gas.Increment(ResourceKind.L2Calldata, 8);
         gas.Increment(ResourceKind.WasmComputation, 9);
 
@@ -214,7 +214,7 @@ public class MultiGasTests
 
         // Add another MultiGas with 8 (total should be 20)
         MultiGas other = default;
-        other.Increment(ResourceKind.StorageAccess, 8);
+        other.Increment(ResourceKind.StorageAccessRead, 8);
         gas.Add(other);
         gas.Total.Should().Be(20UL);
 
@@ -251,7 +251,7 @@ public class MultiGasTests
         MultiGas gas = default;
         gas.Increment(ResourceKind.Computation, 30);
         gas.Increment(ResourceKind.HistoryGrowth, 40);
-        gas.Increment(ResourceKind.StorageAccess, 50);
+        gas.Increment(ResourceKind.StorageAccessRead, 50);
 
         MultiGas toSubtract = default;
         toSubtract.Increment(ResourceKind.Computation, 10);
@@ -262,9 +262,9 @@ public class MultiGasTests
         underflow.Should().BeFalse();
         result.Get(ResourceKind.Computation).Should().Be(20UL);
         result.Get(ResourceKind.HistoryGrowth).Should().Be(20UL);
-        result.Get(ResourceKind.StorageAccess).Should().Be(50UL);
+        result.Get(ResourceKind.StorageAccessRead).Should().Be(50UL);
         result.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
-        result.Get(ResourceKind.L1Calldata).Should().Be(0UL);
+        result.Get(ResourceKind.SingleDim).Should().Be(0UL);
         result.Get(ResourceKind.L2Calldata).Should().Be(0UL);
         result.Get(ResourceKind.WasmComputation).Should().Be(0UL);
         result.SingleGas().Should().Be(90UL);
@@ -292,7 +292,7 @@ public class MultiGasTests
         MultiGas gas = default;
         gas.Increment(ResourceKind.Computation, 30);
         gas.Increment(ResourceKind.HistoryGrowth, 40);
-        gas.Increment(ResourceKind.StorageAccess, 50);
+        gas.Increment(ResourceKind.StorageAccessRead, 50);
 
         MultiGas toSubtract = default;
         toSubtract.Increment(ResourceKind.Computation, 10);
@@ -302,7 +302,7 @@ public class MultiGasTests
 
         result.Get(ResourceKind.Computation).Should().Be(20UL);
         result.Get(ResourceKind.HistoryGrowth).Should().Be(20UL);
-        result.Get(ResourceKind.StorageAccess).Should().Be(50UL);
+        result.Get(ResourceKind.StorageAccessRead).Should().Be(50UL);
         result.Total.Should().Be(90UL);
     }
 
@@ -352,5 +352,51 @@ public class MultiGasTests
         gas = gas.WithRefund(100);
 
         gas.IsZero().Should().BeFalse();
+    }
+
+    [Test]
+    public void CheckResourceKind_ValidKind_DoesNotThrow()
+    {
+        // All valid resource kinds should not throw
+        Action checkUnknown = () => MultiGas.CheckResourceKind(ResourceKind.Unknown);
+        Action checkComputation = () => MultiGas.CheckResourceKind(ResourceKind.Computation);
+        Action checkHistoryGrowth = () => MultiGas.CheckResourceKind(ResourceKind.HistoryGrowth);
+        Action checkStorageAccessRead = () => MultiGas.CheckResourceKind(ResourceKind.StorageAccessRead);
+        Action checkStorageAccessWrite = () => MultiGas.CheckResourceKind(ResourceKind.StorageAccessWrite);
+        Action checkStorageGrowth = () => MultiGas.CheckResourceKind(ResourceKind.StorageGrowth);
+        Action checkSingleDim = () => MultiGas.CheckResourceKind(ResourceKind.SingleDim);
+        Action checkL2Calldata = () => MultiGas.CheckResourceKind(ResourceKind.L2Calldata);
+        Action checkWasmComputation = () => MultiGas.CheckResourceKind(ResourceKind.WasmComputation);
+
+        checkUnknown.Should().NotThrow();
+        checkComputation.Should().NotThrow();
+        checkHistoryGrowth.Should().NotThrow();
+        checkStorageAccessRead.Should().NotThrow();
+        checkStorageAccessWrite.Should().NotThrow();
+        checkStorageGrowth.Should().NotThrow();
+        checkSingleDim.Should().NotThrow();
+        checkL2Calldata.Should().NotThrow();
+        checkWasmComputation.Should().NotThrow();
+    }
+
+    [Test]
+    public void CheckResourceKind_InvalidKind_ThrowsException()
+    {
+        // Out of range kind should throw
+        Action checkOutOfRange = () => MultiGas.CheckResourceKind((ResourceKind)99);
+        Action checkNegative = () => MultiGas.CheckResourceKind((ResourceKind)255);
+
+        checkOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
+        checkNegative.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public void Increment_InvalidResourceKind_ThrowsException()
+    {
+        MultiGas gas = default;
+
+        Action incrementOutOfRange = () => gas.Increment((ResourceKind)99, 100);
+
+        incrementOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
     }
 }

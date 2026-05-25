@@ -100,6 +100,20 @@ namespace Nethermind.Arbitrum.Execution
             // If not doing any actual EVM
             if (!preProcessResult.ContinueProcessing)
             {
+                // For internal transactions that skip EVM, set AccumulatedMultiGas
+                // based on the gas that will be reported (from SpentGas or OverrideSpentGas)
+                long gasUsed = tx.SpentGas;
+                if (tx is ArbitrumTransaction { OverrideSpentGas: not null } arbTx)
+                    gasUsed = arbTx.OverrideSpentGas.Value;
+
+                // ArbitrumSubmitRetryable uses Single, others use ComputationGas
+                var multiGas = new MultiGas();
+                ResourceKind resourceKind = tx is ArbitrumSubmitRetryableTransaction
+                    ? ResourceKind.SingleDim
+                    : ResourceKind.Computation;
+                multiGas.Increment(resourceKind, (ulong)gasUsed);
+                TxExecContext.AccumulatedMultiGas = multiGas;
+
                 return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, snapshot,
                     isPreProcessing: true, preProcessResult.Logs);
             }
@@ -239,7 +253,13 @@ namespace Nethermind.Arbitrum.Execution
             // Capture accumulated MultiGas with refund applied.
             // Use GetTotalAccumulated() to get net gas (accumulated - retained)
             ArbitrumGasPolicy gasWithRefund = unspentGas;
+
             ArbitrumGasPolicy.ApplyRefund(ref gasWithRefund, (ulong)System.Math.Max(0, refund));
+
+            // Get accumulated MultiGas from the policy (includes VM's burner gas via AddToAccumulated)
+            // Note: Transaction processor's _arbosState burner gas is NOT added here because
+            // those operations (L1 pricing updates, etc.) happen before EVM and are not counted
+            // in MultiGasUsed for receipts.
             TxExecContext.AccumulatedMultiGas = gasWithRefund.GetTotalAccumulated();
 
             long operationGas = spentGas;
@@ -1118,11 +1138,11 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            // Preserve intrinsic gas MultiGas breakdown and add poster gas to L1Calldata.
+            // Preserve intrinsic gas MultiGas breakdown and add poster gas to single dimension gas.
             // This ensures intrinsic gas (computation, L2 calldata, etc.) plus L1 costs are tracked.
             MultiGas accumulated = intrinsicGas.GetAccumulated();
             if (gasNeededToStartEVM > 0)
-                accumulated.Increment(ResourceKind.L1Calldata, gasNeededToStartEVM);
+                accumulated.Increment(ResourceKind.SingleDim, gasNeededToStartEVM);
             gasAvailable = ArbitrumGasPolicy.FromLongWithAccumulated((long)gasLeft, in accumulated);
             return TransactionResult.Ok;
         }
@@ -1175,7 +1195,7 @@ namespace Nethermind.Arbitrum.Execution
                 return;
             }
 
-            HandleNormalTransactionEndTxHook(gasUsed);
+            HandleNormalTransactionEndTxHook(tx, gasUsed);
         }
 
         private void HandleRetryTransactionEndTxHook(
@@ -1198,9 +1218,17 @@ namespace Nethermind.Arbitrum.Execution
 
             HandleGasRefunds(retryTx, effectiveBaseFee, gasLeft, ref maxRefund, networkFeeAccount);
 
+            // Multi-dimensional refund for retryable tx.
+            // Must come BEFORE lifecycle (delete/escrow).
+            // Uses RefundFromAccount (maxRefund cap, RefundTo/From split) instead of direct TransferBalance.
+            HandleRetryableMultiGasRefund(retryTx, effectiveBaseFee, gasUsed, ref maxRefund, networkFeeAccount);
+
             HandleRetryableLifecycle(retryTx);
 
-            _arbosState!.L2PricingState.AddToGasPool(-gasUsed.ToLongSafe());
+            // Update gas pool using multi-gas aware GrowBacklog.
+            // For retry transactions, use AccumulatedMultiGas directly - no poster gas subtraction
+            // (unlike normal transactions which subtract posterGas)
+            _arbosState!.L2PricingState.GrowBacklog(gasUsed, TxExecContext.AccumulatedMultiGas);
         }
 
         private UInt256 ValidateAndGetEffectiveBaseFee(ArbitrumRetryTransaction retryTx)
@@ -1302,7 +1330,7 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        private void HandleNormalTransactionEndTxHook(ulong gasUsed)
+        private void HandleNormalTransactionEndTxHook(Transaction tx, ulong gasUsed)
         {
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
@@ -1333,6 +1361,11 @@ namespace Nethermind.Arbitrum.Execution
                 MintBalance(networkFeeAccount, computeCost, _arbosState!, WorldState, _currentSpec!, _tracingInfo, BalanceChangeReason.BalanceIncreaseNetworkFee);
             }
 
+            // Handle multi-dimensional gas refund (ArbOS version 60+)
+            // If multi-gas pricing is enabled, refund the difference between flat-rate cost and
+            // per-resource cost from networkFeeAccount back to the sender
+            HandleMultiGasRefund(tx, totalCost);
+
             // Handle poster fee distribution and L1 fee tracking
             // Poster fees compensate batch posters for L1 calldata costs
             HandlePosterFeeAndL1Tracking(TxExecContext);
@@ -1343,6 +1376,68 @@ namespace Nethermind.Arbitrum.Execution
             if (!baseFee.IsZero)
             {
                 UpdateGasPool(gasUsed, TxExecContext);
+            }
+        }
+
+        private void HandleMultiGasRefund(Transaction tx, UInt256 totalCost)
+        {
+            // Multi-gas refund only applies when multi-gas constraints are enabled
+            if (_arbosState!.CurrentArbosVersion < ArbosVersion.MultiGasConstraintsVersion)
+                return;
+
+            GasModel gasModel = _arbosState.L2PricingState.GetGasModelToUse();
+            if (gasModel != GasModel.MultiGasConstraints)
+                return;
+
+            // Calculate the actual cost based on per-resource base fees
+            UInt256 multiDimensionalCost = _arbosState.L2PricingState.MultiDimensionalPriceForRefund(
+                TxExecContext.AccumulatedMultiGas);
+
+            // If flat-rate cost exceeds multi-dimensional cost, refund the difference
+            if (totalCost > multiDimensionalCost)
+            {
+                UInt256 refundAmount = totalCost - multiDimensionalCost;
+                Address networkFeeAccount = _arbosState.NetworkFeeAccount.Get();
+
+                TransferBalance(networkFeeAccount, tx.SenderAddress!, refundAmount, _arbosState, WorldState,
+                    _currentSpec!, _tracingInfo, BalanceChangeReason.BalanceChangeMultiGasRefund);
+            }
+        }
+
+        /// <summary>
+        /// Handle multi-gas refund for retryable transactions.
+        /// Unlike normal TX refund, retryable TX refunds route through RefundFromAccount which
+        /// respects the maxRefund cap and splits between RefundTo and From addresses.
+        /// Also skips refund during retryable estimation (effectiveBaseFee != blockBaseFee).
+        /// </summary>
+        private void HandleRetryableMultiGasRefund(
+            ArbitrumRetryTransaction retryTx,
+            UInt256 effectiveBaseFee,
+            ulong gasUsed,
+            ref UInt256 maxRefund,
+            Address networkFeeAccount)
+        {
+            if (_arbosState!.CurrentArbosVersion < ArbosVersion.MultiGasConstraintsVersion)
+                return;
+
+            GasModel gasModel = _arbosState.L2PricingState.GetGasModelToUse();
+            if (gasModel != GasModel.MultiGasConstraints)
+                return;
+
+            // Don't refund during retryable estimation
+            UInt256 blockBaseFee = _currentHeader!.BaseFeePerGas;
+            if (effectiveBaseFee != blockBaseFee)
+                return;
+
+            UInt256 singleGasCost = effectiveBaseFee * gasUsed;
+            UInt256 multiDimensionalCost = _arbosState.L2PricingState.MultiDimensionalPriceForRefund(
+                TxExecContext.AccumulatedMultiGas);
+
+            if (singleGasCost > multiDimensionalCost)
+            {
+                UInt256 refundAmount = singleGasCost - multiDimensionalCost;
+                RefundFromAccount(networkFeeAccount, refundAmount, ref maxRefund, retryTx,
+                    _currentSpec!, BalanceChangeReason.BalanceChangeMultiGasRefund);
             }
         }
 
@@ -1424,9 +1519,13 @@ namespace Nethermind.Arbitrum.Execution
                         $"Total gas used < poster gas component: gasUsed={gasUsed}, posterGas={txContext.PosterGas}");
             }
 
-            // Update gas pool for computational speed limit enforcement
-            // This prevents compute from exceeding per-block gas limits
-            _arbosState!.L2PricingState.AddToGasPool(-computeGas.ToLongSafe());
+            // Poster gas was added to multiGas in GasChargingHook as SingleDim.
+            // Remove it before growing backlog since L1 costs shouldn't affect L2 pricing backlog.
+            MultiGas posterGasToRemove = default;
+            posterGasToRemove.Increment(ResourceKind.SingleDim, txContext.PosterGas);
+            MultiGas usedMultiGas = txContext.AccumulatedMultiGas.SaturatingSub(posterGasToRemove);
+
+            _arbosState!.L2PricingState.GrowBacklog(computeGas, usedMultiGas);
         }
     }
 }

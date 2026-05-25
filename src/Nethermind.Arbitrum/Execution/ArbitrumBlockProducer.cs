@@ -67,6 +67,13 @@ namespace Nethermind.Arbitrum.Execution
 
             Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
 
+            // Rotate next-block fees to current-block fees to compute baseFee for the header.
+            // This runs in a temporary BeginScope that gets discarded — the real persistent
+            // commit happens in the production/validation transaction executors.
+            arbosState.L2PricingState.CommitMultiGasFees();
+
+            UInt256 baseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
             BlockHeader header = new(
                 parent.Hash!,
                 Keccak.OfAnEmptySequenceRlp,
@@ -79,7 +86,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 MixHash = parent.MixHash,
                 TotalDifficulty = parent.TotalDifficulty + 1,
-                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
+                BaseFeePerGas = baseFee,
                 Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
             };
 

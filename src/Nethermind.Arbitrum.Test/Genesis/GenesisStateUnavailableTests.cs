@@ -45,7 +45,7 @@ public class GenesisStateUnavailableTests
         IWorldState worldState = Substitute.For<IWorldState>();
 
         // Create real state initializer - it won't be called when GenesisStateUnavailable=true
-        ArbitrumGenesisStateInitializer stateInitializer = new(chainSpec, specHelper, LimboLogs.Instance);
+        ArbitrumGenesisStateInitializer stateInitializer = new(chainSpec, specHelper, new ArbitrumConfig(), LimboLogs.Instance);
 
         ArbitrumGenesisBuilder builder = new(
             chainSpec,

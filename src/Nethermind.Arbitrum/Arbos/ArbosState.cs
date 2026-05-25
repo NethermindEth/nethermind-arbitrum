@@ -8,6 +8,7 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Genesis;
 using Nethermind.Evm.State;
 
 namespace Nethermind.Arbitrum.Arbos;
@@ -31,6 +32,7 @@ public class ArbosState
         AddressTable = new AddressTable(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.AddressTableSubspace));
         ChainOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ChainOwnerSubspace));
         NativeTokenOwners = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.NativeTokenOwnerSubspace));
+        TransactionFilterers = new AddressSet(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
         SendMerkleAccumulator = new MerkleAccumulator(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.SendMerkleSubspace));
         Programs = new StylusPrograms(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.ProgramsSubspace), CurrentArbosVersion);
         Features = new Features(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.FeaturesSubspace));
@@ -40,6 +42,8 @@ public class ArbosState
         GenesisBlockNum = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.GenesisBlockNumOffset);
         InfraFeeAccount = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.InfraFeeAccountOffset);
         NativeTokenEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.NativeTokenEnabledTimeOffset);
+        TransactionFilteringEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.TransactionFilteringEnabledTimeOffset);
+        FilteredFundsRecipient = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.FilteredFundsRecipientOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
     }
 
@@ -63,6 +67,9 @@ public class ArbosState
     public ArbosStorageBackedULong GenesisBlockNum { get; }
     public ArbosStorageBackedAddress InfraFeeAccount { get; }
     public ArbosStorageBackedULong NativeTokenEnabledTime { get; }
+    public AddressSet TransactionFilterers { get; }
+    public ArbosStorageBackedULong TransactionFilteringEnabledTime { get; }
+    public ArbosStorageBackedAddress FilteredFundsRecipient { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
@@ -208,6 +215,27 @@ public class ArbosState
                         // No state changes needed
                         break;
 
+                    // Versions 52-59 are reserved for Orbit chains
+                    case 52:
+                    case 53:
+                    case 54:
+                    case 55:
+                    case 56:
+                    case 57:
+                    case 58:
+                    case 59:
+                        break;
+
+                    case 60: // StylusContractLimit + TransactionFiltering + MultiGasConstraints
+                        StylusParams stylusParamsV60 = Programs.GetParams();
+                        stylusParamsV60.UpgradeToArbosVersion(nextArbosVersion);
+                        stylusParamsV60.Save();
+                        // Initialize TransactionFilterers storage
+                        AddressSet.Initialize(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
+                        // filteredFundsRecipient defaults to zero address (falls back to networkFeeAccount)
+                        // No explicit initialization needed - uninitialized storage reads as zero
+                        break;
+
                     default:
                         throw new NotSupportedException($"Chain is upgrading to unsupported ArbOS version {nextArbosVersion}.");
                 }
@@ -272,6 +300,10 @@ public class ArbosState
         {
             throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
         }
+
+        // Create FilteredTransactionsState storage if version >= TransactionFiltering (60)
+        if (arbosVersion >= ArbosVersion.TransactionFiltering)
+            _ = new FilteredTransactionsState(worldState, burner);
 
         return new ArbosState(backingStorage, arbosVersion, logger);
     }

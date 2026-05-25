@@ -3,12 +3,12 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -29,11 +29,14 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    private static readonly JournalSet<Address> EmptyDestroyList = new(Address.EqualityComparer);
-
     public bool ReadOnly { get; set; }
 
     public bool IsCallStatic { get; init; }
+
+    /// <summary>
+    /// When true, gas burning operations are skipped (unmetered gas accounting).
+    /// </summary>
+    public bool Free { get; set; }
 
     public TracingInfo? TracingInfo { get; protected set; } = TracingInfo;
 
@@ -74,19 +77,61 @@ public record ArbitrumPrecompileExecutionContext(
     public bool IsMethodCalledPure { get; set; }
 
     public ulong Burned => GasSupplied - GasLeft;
+    public MultiGas BurnedMultiGas => _burnedMultiGas;
 
     public IArbitrumSpecHelper? SpecHelper { get; init; }
 
-    public JournalSet<Address> DestroyList { get; init; } = EmptyDestroyList;
+    // Set by ArbitrumVirtualMachine.RunPrecompile from the live VmState. Null when the context is
+    // constructed outside an EVM call frame; the activation flow assumes non-null and forwards to
+    // StylusPrograms.ActivateProgram, which derives destroyList from AccessTracker.DestroyList.
+    public StackAccessTracker? AccessTracker { get; init; }
 
     private ulong _gasLeft = GasSupplied;
+    private MultiGas _burnedMultiGas;
 
-    public void Burn(ulong amount)
+    public void Burn(ResourceKind kind, ulong amount)
     {
+        if (Free)
+            return;
+
         if (GasLeft < amount)
             BurnOut();
         else
+        {
             GasLeft -= amount;
+            _burnedMultiGas.Increment(kind, amount);
+        }
+    }
+
+    public void Burn(in MultiGas amount)
+    {
+        if (Free)
+            return;
+
+        if (GasLeft < amount.Total)
+            BurnOut();
+
+        _burnedMultiGas.Add(in amount);
+        GasLeft -= amount.Total;
+    }
+
+    /// <summary>
+    /// Burns gas without throwing on out-of-gas. If gas runs out, burns all remaining gas.
+    /// </summary>
+    /// <returns>True if all gas was burned (out-of-gas condition), false otherwise</returns>
+    public bool BurnAllowingOutOfGas(ResourceKind kind, ulong amount)
+    {
+        if (GasLeft < amount)
+        {
+            // Burn all remaining gas without throwing
+            _burnedMultiGas.Increment(kind, GasLeft);
+            GasLeft = 0;
+            return true;
+        }
+
+        GasLeft -= amount;
+        _burnedMultiGas.Increment(kind, amount);
+        return false;
     }
 
     public void BurnOut()

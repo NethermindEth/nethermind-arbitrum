@@ -18,9 +18,9 @@
 
   <ItemGroup>
     <PackageReference Include="Nethermind.Arbitrum.Precompiles" Version="2.0.1" />
-    <PackageReference Include="Nethermind.Arbitrum.Stylus" Version="3.10.0-rc6" />
+    <PackageReference Include="Nethermind.Arbitrum.Stylus" Version="5.0.0" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Api\Nethermind.Api.csproj" />
-    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj"/>
+    <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Core\Nethermind.Core.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.HealthChecks\Nethermind.HealthChecks.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.History\Nethermind.History.csproj" />
     <ProjectReference Include="..\Nethermind\src\Nethermind\Nethermind.Init\Nethermind.Init.csproj" />
@@ -44,9 +44,7 @@
   </ItemGroup>
 
   <Target Name="GetRunnerOutputPath" AfterTargets="AfterBuild">
-    <MSBuild Projects="$(RunnerProjectRelativePath)"
-             Targets="GetTargetPath"
-             Properties="Configuration=$(Configuration)">
+    <MSBuild Projects="$(RunnerProjectRelativePath)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
       <Output TaskParameter="TargetOutputs" ItemName="RunnerAssembly" />
     </MSBuild>
 
@@ -74,8 +72,7 @@
     <Copy SourceFiles="@(FilesToCopyToPluginsDir)" DestinationFolder="$(RunnerPluginDir)" />
     <Copy SourceFiles="@(FilesToCopyToConfigsDir)" DestinationFolder="$(RunnerConfigsDir)" />
     <Copy SourceFiles="@(FilesToCopyToChainspecDir)" DestinationFolder="$(RunnerChainspecDir)" />
-    <Copy SourceFiles="@(FilesToCopyToNativeLibrariesDir)"
-          DestinationFiles="@(FilesToCopyToNativeLibrariesDir->'$(RunnerNativeLibrariesDir)/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(FilesToCopyToNativeLibrariesDir)" DestinationFiles="@(FilesToCopyToNativeLibrariesDir->'$(RunnerNativeLibrariesDir)/%(RecursiveDir)%(Filename)%(Extension)')" />
 
     <Message Text="Copied @(FilesToCopyToPluginsDir-&gt;Count()) files to $(RunnerPluginDir)" Importance="high" />
     <Message Text="Copied @(FilesToCopyToConfigsDir-&gt;Count()) files to $(RunnerConfigsDir)" Importance="high" />

@@ -4,6 +4,8 @@
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Evm;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
@@ -114,7 +116,7 @@ public static class ArbWasm
     public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program)
     {
         // charge a fixed cost up front to begin activation
-        context.Burn(ActivationFixedCost);
+        context.Burn(ResourceKind.Computation, ActivationFixedCost);
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
@@ -122,8 +124,10 @@ public static class ArbWasm
 
         //TODO: add support for TxRunMode
         // issue: https://github.com/NethermindEth/nethermind-arbitrum/issues/108
-        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.WorldState, context.WasmStore,
-            context.BlockExecutionContext.Header.Timestamp, runMode, debugMode, context.DestroyList);
+        // AccessTracker is non-null on the live precompile path (set by ArbitrumVirtualMachine.RunPrecompile
+        // from VmState). ActivateProgram derives destroyList from accessTracker.DestroyList internally.
+        ProgramActivationResult result = context.ArbosState.Programs.ActivateProgram(program, context.ReleaseSpec, context.WorldState, context.WasmStore,
+            context.BlockExecutionContext.Header.Timestamp, runMode, debugMode, context.AccessTracker!.Value);
 
         if (result.TakeAllGas)
             context.GasLeft = 0; // Burnout without throwing

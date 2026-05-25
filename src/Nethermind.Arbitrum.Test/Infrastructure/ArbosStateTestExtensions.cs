@@ -3,7 +3,9 @@
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core.Crypto;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -27,5 +29,22 @@ public static class ArbosStateTestExtensions
     public static void SetL1BlockNumber(this Blockhashes blockHashes, ulong blockNumber)
     {
         blockHashes.RecordNewL1Block(blockNumber, ValueKeccak.Zero, ArbosVersion.Forty);
+    }
+
+    /// <summary>
+    /// Test-only: Gets the next-block base fee for the specified resource kind.
+    /// Note: This returns the fee that will be used in the NEXT block, not the current block.
+    /// </summary>
+    public static UInt256 GetNextBlockMultiGasBaseFee(this L2PricingState state, ResourceKind kind)
+    {
+        return state.MultiGasFees.GetNextBlockFee(kind);
+    }
+
+    /// <summary>
+    /// Test-only: Sets the next-block base fee for the specified resource kind.
+    /// </summary>
+    public static void SetNextBlockMultiGasBaseFee(this L2PricingState state, ResourceKind kind, UInt256 value)
+    {
+        state.MultiGasFees.SetNextBlockFee(kind, value);
     }
 }

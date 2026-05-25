@@ -145,4 +145,47 @@ public partial class ArbosStorageTests
         byte[] actual = backedStorage.Get();
         actual.Should().BeEquivalentTo(value);
     }
+
+    [Test]
+    public void ClearStorageBackedByUInt_Always_ClearsToZero()
+    {
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedUInt backedStorage = new(storage, 10);
+
+        backedStorage.Set(12345);
+        backedStorage.Get().Should().Be(12345);
+
+        backedStorage.Clear();
+
+        backedStorage.Get().Should().Be(0);
+    }
+
+    [Test]
+    public void ClearStorageBackedByULong_Always_ClearsToZero()
+    {
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedULong backedStorage = new(storage, 10);
+
+        backedStorage.Set(9876543210);
+        backedStorage.Get().Should().Be(9876543210);
+
+        backedStorage.Clear();
+
+        backedStorage.Get().Should().Be(0);
+    }
+
+    [Test]
+    public void ClearStorageBackedByUInt256_Always_ClearsToZero()
+    {
+        using var disposable = TestArbosStorage.Create(out _, out ArbosStorage storage, TestAccount);
+        ArbosStorageBackedUInt256 backedStorage = new(storage, 10);
+
+        UInt256 value = UInt256.Parse("123456789012345678901234567890");
+        backedStorage.Set(value);
+        backedStorage.Get().Should().Be(value);
+
+        backedStorage.Clear();
+
+        backedStorage.Get().Should().Be(UInt256.Zero);
+    }
 }

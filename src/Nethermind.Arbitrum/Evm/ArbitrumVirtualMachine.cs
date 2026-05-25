@@ -72,14 +72,10 @@ public sealed unsafe class ArbitrumVirtualMachine(
         wasmStore.ResetPages();
 
         _systemBurner = new SystemBurner();
-        FreeArbosState = ArbosState.OpenArbosState(worldState, _systemBurner, Logger);
+        // Use ZeroGasBurner for FreeArbosState - gas usage doesn't flow to receipt's MultiGasUsed
+        FreeArbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), Logger);
 
-        TransactionSubstate result = base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
-
-        // Capture accumulated MultiGas for receipt
-        ArbitrumTxExecutionContext.AccumulatedMultiGas = vmState.Gas.GetAccumulated();
-
-        return result;
+        return base.ExecuteTransaction<TTracingInst>(vmState, worldState, txTracer);
     }
 
     public void RecordUserWasm(ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap)
@@ -406,7 +402,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
+        // Mirrors Nitro's go-ethereum/core/vm/interpreter.go:170-174: route to the Stylus runtime
+        // for any deployable Stylus prefix (classic at v30+, plus root at v60+).
+        if (StylusCode.IsStylusDeployableProgramPrefix(VmState.Env.CodeInfo.CodeSpan, CurrentArbosVersion))
             return RunWasmCode(ref gas);
 
         // Set the tracer on the gas struct for gas dimension capture.
@@ -424,6 +422,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
+        opcodes[(int)Instruction.SELFDESTRUCT] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+        {
+            (true, true) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OnFlag, OnFlag>,
+            (true, false) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OnFlag, OffFlag>,
+            (false, true) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OffFlag, OnFlag>,
+            (false, false) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OffFlag, OffFlag>,
+        };
         // Opcode overrides specific for witness generation
         if (enableWitnessGeneration)
         {
@@ -542,14 +547,21 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
             SpecHelper = specHelper,
-            DestroyList = state.AccessTracker.DestroyList,
+            AccessTracker = state.AccessTracker,
         };
 
-        return precompile.IsDebug
+        CallResult result = precompile.IsDebug
             ? DebugPrecompileCall(state, context, precompile)
             : precompile.IsOwner
                 ? OwnerPrecompileCall(state, context, precompile)
                 : NonOwnerPrecompileCall(state, context, precompile);
+
+        // Add precompile's MultiGas to child's gas policy so it flows through Refund correctly.
+        // Skip for owner precompiles - they don't charge multigas.
+        if (!precompile.IsOwner)
+            ArbitrumGasPolicy.AddToAccumulated(ref state.Gas, context.BurnedMultiGas);
+
+        return result;
     }
 
     private CallResult DebugPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
@@ -569,47 +581,76 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private CallResult OwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
     {
-        ulong before = _systemBurner.Burned;
-        bool isSenderAChainOwner = FreeArbosState.ChainOwners.IsMember(context.Caller);
-        // We also simulate burning opening arbos (1 storage read) but we reuse the existing one for performances
-        ulong gasUsed = _systemBurner.Burned + ArbosStorage.StorageReadCost - before;
+        // Save BurnedMultiGas before owner check - owner precompiles don't charge multigas.
+        // For non-owner callers, the ownership-check multigas delta is propagated to the gas
+        // policy accumulator, matching OwnerPrecompile.Call which returns burner.gasUsed
+        // (non-zero) for non-owner paths but multigas.ZeroGas() for owner paths.
+        MultiGas savedMultiGas = _systemBurner.BurnedMultiGas;
 
-        if (gasUsed > context.GasLeft)
+        try
         {
-            ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
-            return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
+            ulong before = _systemBurner.Burned;
+            bool isSenderAChainOwner = FreeArbosState.ChainOwners.IsMember(context.Caller);
+            // We also simulate burning opening arbos (1 storage read) but we reuse the existing one for performances
+            ulong gasUsed = _systemBurner.Burned + ArbosStorage.StorageReadCost - before;
+
+            if (gasUsed > context.GasLeft)
             {
-                SubstateError = "Out of gas checking chain owner status"
-            };
-        }
+                AddOwnerCheckMultiGasDelta(ref state.Gas, savedMultiGas);
+                ConsumeAllGas(state); // Does not matter as call fails (not a revert), no refund anyway
+                return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.OutOfGas)
+                {
+                    SubstateError = "Out of gas checking chain owner status"
+                };
+            }
 
-        if (!isSenderAChainOwner)
-        {
-            context.Burn(gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
+            if (!isSenderAChainOwner)
+            {
+                context.Burn(ResourceKind.Computation, gasUsed); // non-owner has to pay for opening arbos + the IsMember operation
+                AddOwnerCheckMultiGasDelta(ref state.Gas, savedMultiGas);
 
+                if (Logger.IsTrace)
+                    Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
+
+                ReturnSomeGas(state, context.GasLeft); // Does not matter as call fails (not a revert), no refund anyway
+                return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
+                {
+                    SubstateError = $"Caller {context.Caller} is not a chain owner"
+                };
+            }
+
+            CallResult result = NonOwnerPrecompileCall(state, context, precompile);
+
+            ReturnSomeGas(state, context.GasSupplied);
             if (Logger.IsTrace)
-                Logger.Trace($"Unauthorized caller {context.Caller} attempted to access owner-only precompile {precompile.GetType().Name}");
+                Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {ArbitrumGasPolicy.GetRemainingGas(state.Gas)}");
 
-            ReturnSomeGas(state, context.GasLeft); // Does not matter as call fails (not a revert), no refund anyway
-            return new(output: default, precompileSuccess: false, shouldRevert: false, exceptionType: EvmExceptionType.PrecompileFailure)
-            {
-                SubstateError = $"Caller {context.Caller} is not a chain owner"
-            };
-        }
+            if (!result.PrecompileSuccess!.Value)
+                return result;
 
-        CallResult result = NonOwnerPrecompileCall(state, context, precompile);
+            bool willEmit = !context.IsCallStatic || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven;
+            if (willEmit)
+                OwnerLogic.EmitOwnerSuccessEvent(state, context, precompile);
 
-        ReturnSomeGas(state, context.GasSupplied);
-        if (Logger.IsTrace)
-            Logger.Trace($"Resetting gas left to gas supplied as in owner precompile, gas left: {ArbitrumGasPolicy.GetRemainingGas(state.Gas)}");
-
-        if (!result.PrecompileSuccess!.Value)
             return result;
+        }
+        finally
+        {
+            // Always restore - owner precompiles don't charge multigas, and for non-owner
+            // paths the delta was already propagated to the gas policy accumulator above.
+            _systemBurner.RestoreBurnedMultiGas(in savedMultiGas);
+        }
+    }
 
-        if (!context.IsCallStatic || context.ArbosState.CurrentArbosVersion < ArbosVersion.Eleven)
-            OwnerLogic.EmitOwnerSuccessEvent(state, context, precompile);
-
-        return result;
+    /// <summary>
+    /// Propagates the system burner's multigas delta (from the ownership check) into the
+    /// gas policy accumulator. Called for non-owner and OOG paths where the caller must
+    /// pay the multigas cost of OpenArbosState + IsMember.
+    /// </summary>
+    private void AddOwnerCheckMultiGasDelta(ref ArbitrumGasPolicy gas, in MultiGas savedMultiGas)
+    {
+        MultiGas delta = _systemBurner.BurnedMultiGas.SaturatingSub(savedMultiGas);
+        ArbitrumGasPolicy.AddToAccumulated(ref gas, delta);
     }
 
     private CallResult NonOwnerPrecompileCall(VmState<ArbitrumGasPolicy> state, ArbitrumPrecompileExecutionContext context, IArbitrumPrecompile precompile)
@@ -664,7 +705,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
                 SubstateError = "Insufficient gas for calldata"
             };
         }
-        context.Burn(dataGasCost);
+        context.Burn(ResourceKind.L2Calldata, dataGasCost);
 
         // Impure methods may need the ArbOS state, so open & update the call context now
         if (!context.IsMethodCalledPure)
@@ -710,7 +751,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
         if (outputGasCost > context.GasLeft)
             return new(ShouldRevert: true, GasLeft: 0L, RanOutOfGas: true);
 
-        context.Burn(outputGasCost);
+        // Precompile output data gas is charged as Computation
+        context.Burn(ResourceKind.Computation, outputGasCost);
         return new(ShouldRevert: !success, GasLeft: context.GasLeft, RanOutOfGas: false);
     }
 
@@ -1032,12 +1074,16 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     private static void ConsumeAllGas(VmState<ArbitrumGasPolicy> state)
     {
-        state.Gas = ArbitrumGasPolicy.FromLong(0);
+        // Preserve accumulated MultiGas AND _allocatedByParent for correct Refund() behavior.
+        state.Gas = ArbitrumGasPolicy.FromLongPreservingAllocated(0, state.Gas);
     }
 
     private static void ReturnSomeGas(VmState<ArbitrumGasPolicy> state, ulong gasToReturn)
     {
-        state.Gas = ArbitrumGasPolicy.FromLong((long)gasToReturn);
+        // Preserve accumulated MultiGas AND _allocatedByParent for correct Refund() behavior.
+        // The _allocatedByParent must remain the original allocation so that when Refund() is called,
+        // it correctly tracks how much gas was allocated to this child call (used for _retained calculation).
+        state.Gas = ArbitrumGasPolicy.FromLongPreservingAllocated((long)gasToReturn, state.Gas);
     }
 
     private readonly record struct PrecompileOutcome(
