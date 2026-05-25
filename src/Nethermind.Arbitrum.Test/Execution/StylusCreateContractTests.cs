@@ -36,7 +36,7 @@ public class StylusCreateContractTests
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.Logs.Should().NotBeEmpty("CREATE1 should emit log with created address");
 
-        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
@@ -61,7 +61,7 @@ public class StylusCreateContractTests
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.Logs.Should().NotBeEmpty("CREATE2 should emit log with created address");
 
-        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
@@ -85,7 +85,7 @@ public class StylusCreateContractTests
         TxReceipt txReceipt = context.Chain.LatestReceipts()[1];
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
 
-        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
@@ -110,7 +110,7 @@ public class StylusCreateContractTests
         TxReceipt txReceipt = context.Chain.LatestReceipts()[1];
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
 
-        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress = new(txReceipt.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
@@ -136,7 +136,7 @@ public class StylusCreateContractTests
         receipt1.StatusCode.Should().Be(StatusCode.Success);
         receipt1.Logs.Should().NotBeEmpty();
 
-        Address createdAddress1 = new(receipt1.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress1 = new(receipt1.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress1)!;
@@ -155,7 +155,7 @@ public class StylusCreateContractTests
         receipt2.StatusCode.Should().Be(StatusCode.Success);
         receipt2.Logs.Should().NotBeEmpty();
 
-        Address createdAddress = new(receipt2.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress = new(receipt2.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode = context.Chain.MainWorldState.GetCode(createdAddress)!;
@@ -197,7 +197,7 @@ public class StylusCreateContractTests
         receipt1.StatusCode.Should().Be(StatusCode.Success);
         long create1Gas = receipt1.GasUsed;
 
-        Address createdAddress1 = new(receipt1.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress1 = new(receipt1.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode1 = context.Chain.MainWorldState.GetCode(createdAddress1)!;
@@ -215,7 +215,7 @@ public class StylusCreateContractTests
         receipt2.StatusCode.Should().Be(StatusCode.Success);
         long create2Gas = receipt2.GasUsed;
 
-        Address createdAddress2 = new(receipt2.Logs![0].Topics[0].Bytes.Slice(12, 20).ToArray());
+        Address createdAddress2 = new(receipt2.Logs![0].Topics[0].Bytes.Slice(12, 20));
         using (context.Chain.MainWorldState.BeginScope(context.Chain.BlockTree.Head?.Header))
         {
             byte[] deployedCode2 = context.Chain.MainWorldState.GetCode(createdAddress2)!;

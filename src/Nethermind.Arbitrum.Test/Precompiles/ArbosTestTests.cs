@@ -70,10 +70,10 @@ public sealed class ArbosTestTests
         using IDisposable worldStateDisposer = _worldState.BeginScope(_genesisBlockHeader);
         UInt256 gasAmount = ulong.MaxValue;
 
-        Action action = () => ArbosTest.BurnArbGas(_context, gasAmount);
+        // BurnAllowingOutOfGas intentionally does not throw — it silently consumes all remaining gas
+        ArbosTest.BurnArbGas(_context, gasAmount);
 
-        action.Should().Throw<ArbitrumPrecompileException>()
-            .Where(e => e.OutOfGas);
+        _context.GasLeft.Should().Be(0);
     }
 
     [Test]

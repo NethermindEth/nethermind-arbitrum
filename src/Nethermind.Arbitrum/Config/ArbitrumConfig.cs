@@ -17,6 +17,7 @@ public class ArbitrumConfig : IArbitrumConfig
     public int ValidatorMaxStateRootsInMem { get; set; } = 1000;
     public int ValidatorReconstructedStateMemDBMaxSizeMb { get; set; } = 1024;
     public bool ValidationEnabled { get; set; } = false;
+    public bool EnableTestReset { get; set; } = false;
     public bool SequencerEnabled { get; set; } = false;
     public int SequencerNonceCacheSize { get; set; } = 1024;
     public int SequencerMaxTxQueueSize { get; set; } = 1024;

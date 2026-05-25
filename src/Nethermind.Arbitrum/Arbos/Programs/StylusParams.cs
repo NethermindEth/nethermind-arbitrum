@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Core;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
@@ -103,7 +104,7 @@ public class StylusParams(
         int baseSerializationSize = 7 * sizeof(short) + 3 + sizeof(uint) + 4 * sizeof(byte);
 
         bool includeMaxWasmSize = ArbosVersion >= MaxWasmSizeArbosVersion;
-        bool includeMaxFragmentCount = ArbosVersion >= StylusContractLimitArbosVersion;
+        bool includeMaxFragmentCount = ArbosVersion >= ArbosVersion.StylusContractLimit;
         int totalSerializationSize = baseSerializationSize
             + (includeMaxWasmSize ? sizeof(uint) : 0)
             + (includeMaxFragmentCount ? sizeof(byte) : 0);
@@ -206,7 +207,7 @@ public class StylusParams(
             MaxWasmSize = InitialMaxWasmSize;
         }
 
-        if (newArbosVersion == StylusContractLimitArbosVersion)
+        if (newArbosVersion == ArbosVersion.StylusContractLimit)
         {
             if (ArbosVersion >= newArbosVersion)
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
@@ -257,7 +258,7 @@ public class StylusParams(
     public static StylusParams CreateFromStorage(ArbosStorage storage, ulong arbosVersion)
     {
         // Assume reads are warm due to the frequency of access
-        storage.Burner.Burn(GasCostOf.CallPrecompileEip2929);
+        storage.Burner.Burn(ResourceKind.Computation, GasCostOf.CallPrecompileEip2929);
 
         ulong currentSlot = 0;
         ReadOnlySpan<byte> buffer = [];
@@ -282,7 +283,7 @@ public class StylusParams(
             arbosVersion >= MaxWasmSizeArbosVersion
                 ? BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4))
                 : InitialMaxWasmSize,
-            arbosVersion >= StylusContractLimitArbosVersion
+            arbosVersion >= ArbosVersion.StylusContractLimit
                 ? ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0]
                 : (byte)0);
 

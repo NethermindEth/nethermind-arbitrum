@@ -15,11 +15,11 @@
     <PackageReference Include="NUnit" Version="4.5.1" />
     <PackageReference Include="NUnit3TestAdapter" Version="6.1.0" />
     <PackageReference Include="NUnit.Analyzers" Version="4.10.0" />
-    <PackageReference Include="coverlet.collector" Version="10.0.0">
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="coverlet.msbuild" Version="10.0.0" />
+    <PackageReference Include="coverlet.msbuild" Version="10.0.1" />
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
@@ -27,7 +27,7 @@
     <Content Include="Arbos/Stylus/Resources/*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Recordings/*">
+    <Content Include="Recordings/**/*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

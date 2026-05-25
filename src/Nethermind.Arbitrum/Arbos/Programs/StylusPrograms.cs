@@ -362,7 +362,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         emitEvent();
 
         // pay to cache the program, or to re-cache in case of upcoming revert
-        ProgramsStorage.Burner.Burn(program.InitCost);
+        ProgramsStorage.Burner.Burn(ResourceKind.WasmComputation, program.InitCost);
 
         ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
         if (cache)

@@ -94,10 +94,10 @@ public class ArbOwnerTests
             PrecompileTestAbiHelpers.GetMethodId("setTransactionFilteringFrom(uint64)"),
             PrecompileTestAbiHelpers.GetMethodId("setCollectTips(bool)"),
             PrecompileTestAbiHelpers.GetMethodId("setMaxStylusContractFragments(uint8)"),
-            // `(())` mirrors the test parser: AbiTypeConverter collapses any JSON tuple[] to an empty AbiTuple, dropping components and the array suffix.
+            // `(()[])` mirrors the test parser: AbiTypeConverter returns ()[] for JSON tuple[].
             // (canonical signature is setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])).
             // See Abi_SetMultiGasPricingConstraints_ContainsExpectedFunctionSignatures for the additional verification
-            PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())"),
+            PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(()[])"),
             PrecompileTestAbiHelpers.GetMethodId("setWasmActivationGas(uint64)"),
         });
     }
@@ -123,7 +123,7 @@ public class ArbOwnerTests
         AbiSignature signature = new("setMultiGasPricingConstraints", new AbiArray(resourceConstraint));
 
         uint canonicalMethodId = BinaryPrimitives.ReadUInt32BigEndian(signature.Address);
-        uint placeholderMethodId = PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(())");
+        uint placeholderMethodId = PrecompileTestAbiHelpers.GetMethodId("setMultiGasPricingConstraints(()[])");
 
         // Sanity-check the canonical signature string that Nethermind's ABI primitives produce.
         signature.ToString().Should().Be("setMultiGasPricingConstraints(((uint8,uint64)[],uint32,uint64,uint64)[])");
@@ -131,7 +131,7 @@ public class ArbOwnerTests
         // The Nethermind-ABI-derived selector must equal the package's authoritative constant.
         canonicalMethodId.Should().Be(Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints);
 
-        // The "(())" placeholder is self-consistent with PrecompileTestAbiHelpers.GetAllFunctionDescriptions
+        // The "(()[])" placeholder is self-consistent with PrecompileTestAbiHelpers.GetAllFunctionDescriptions
         placeholderMethodId.Should().NotBe(canonicalMethodId);
     }
 

@@ -63,7 +63,7 @@ public class TxGasDimensionByOpcodeTracerTests
         MultiGas gasComputation = default;
         gasComputation.Increment(ResourceKind.Computation, 3);
         MultiGas gasStorage = default;
-        gasStorage.Increment(ResourceKind.StorageAccess, 100);
+        gasStorage.Increment(ResourceKind.StorageAccessRead, 100);
 
         tracer.BeginGasDimensionCapture(pc: 0, Instruction.ADD, depth: 1, gasEmpty);
         tracer.EndGasDimensionCapture(gasComputation);

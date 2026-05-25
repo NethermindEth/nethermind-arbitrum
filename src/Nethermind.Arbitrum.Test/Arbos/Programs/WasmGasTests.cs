@@ -85,7 +85,7 @@ public class WasmGasTests
         const ulong expectedStorageAccess = GasCostOf.ColdSLoad - GasCostOf.WarmStateRead;
         const ulong expectedComputation = GasCostOf.WarmStateRead;
 
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
         gas.SingleGas().Should().Be(expectedStorageAccess + expectedComputation);
     }
@@ -102,7 +102,7 @@ public class WasmGasTests
         MultiGas gas = WasmGas.WasmStateLoadCost(helper.VmHost, cell);
 
         // Warm: Computation only (100)
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
         gas.SingleGas().Should().Be(GasCostOf.WarmStateRead);
     }
@@ -126,7 +126,7 @@ public class WasmGasTests
         const ulong expectedStorageAccess = GasCostOf.ColdSLoad;
         const ulong expectedStorageGrowth = GasCostOf.SSet;
 
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(expectedStorageGrowth);
     }
 
@@ -148,7 +148,7 @@ public class WasmGasTests
         // Warm + new slot creation:
         // StorageAccess = 0 (warm)
         // StorageGrowth = SSet (20000)
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(GasCostOf.SSet);
     }
 
@@ -172,7 +172,7 @@ public class WasmGasTests
 
         // Same value on warm slot: Computation = WarmStateRead (100)
         gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
     }
 
@@ -190,7 +190,7 @@ public class WasmGasTests
         const ulong expectedStorageAccess = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
         const ulong expectedComputation = GasCostOf.WarmStateRead;
 
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
         gas.SingleGas().Should().Be(expectedStorageAccess + expectedComputation);
     }
@@ -206,7 +206,7 @@ public class WasmGasTests
         MultiGas gas = WasmGas.WasmAccountTouchCost(helper.VmHost, TestItem.AddressA, withCode: false);
 
         // Warm account: Computation only (100)
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
     }
 
@@ -225,7 +225,7 @@ public class WasmGasTests
         long maxCodeSize = Cancun.Instance.MaxCodeSize;
         ulong expectedCodeAccessGas = (ulong)maxCodeSize / 24576 * GasCostOf.ExtCodeEip150;
 
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedCodeAccessGas);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedCodeAccessGas);
         gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
     }
 
@@ -244,7 +244,7 @@ public class WasmGasTests
         ulong codeAccessGas = (ulong)maxCodeSize / 24576 * GasCostOf.ExtCodeEip150;
         const ulong coldAccountGas = GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead;
 
-        gas.Get(ResourceKind.StorageAccess).Should().Be(codeAccessGas + coldAccountGas);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(codeAccessGas + coldAccountGas);
         gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
     }
 
@@ -263,7 +263,7 @@ public class WasmGasTests
         const ulong expectedComputation = GasCostOf.WarmStateRead;
 
         outOfGas.Should().BeFalse();
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
     }
@@ -280,7 +280,7 @@ public class WasmGasTests
 
         // Warm: Computation only (100)
         outOfGas.Should().BeFalse();
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
     }
@@ -302,7 +302,7 @@ public class WasmGasTests
         const ulong expectedComputation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
 
         outOfGas.Should().BeFalse();
-        gas.Get(ResourceKind.StorageAccess).Should().Be(expectedStorageAccess);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(expectedStorageAccess);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(expectedStorageGrowth);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
     }
@@ -325,7 +325,7 @@ public class WasmGasTests
         const ulong expectedComputation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
 
         outOfGas.Should().BeFalse();
-        gas.Get(ResourceKind.StorageAccess).Should().Be(0UL);
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0UL);
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0UL);
         gas.Get(ResourceKind.Computation).Should().Be(expectedComputation);
     }

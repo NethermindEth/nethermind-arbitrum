@@ -107,16 +107,16 @@ public static class EvmDataCallData
         UInt256 addressBalance = new(response.Slice(offset, Hash256Size), isBigEndian: true);
         offset += Hash256Size;
 
-        Address contractAddress = new(response.Slice(offset + 12, AddressSize).ToArray());
+        Address contractAddress = new(response.Slice(offset + 12, AddressSize));
         offset += Hash256Size;
 
-        Address sender = new(response.Slice(offset + 12, AddressSize).ToArray());
+        Address sender = new(response.Slice(offset + 12, AddressSize));
         offset += Hash256Size;
 
-        Address origin = new(response.Slice(offset + 12, AddressSize).ToArray());
+        Address origin = new(response.Slice(offset + 12, AddressSize));
         offset += Hash256Size;
 
-        Address coinbase = new(response.Slice(offset + 12, AddressSize).ToArray());
+        Address coinbase = new(response.Slice(offset + 12, AddressSize));
         offset += Hash256Size;
 
         Hash256 contractCodeHash = new(response.Slice(offset, Hash256Size));

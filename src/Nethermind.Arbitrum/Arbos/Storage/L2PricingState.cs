@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Runtime.CompilerServices;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Core;
 using Nethermind.Int256;
@@ -10,7 +11,22 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Arbos.Storage;
 
-public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
+/// <summary>
+/// Identifies which pricing model is active for L2 gas fee calculation.
+/// </summary>
+public enum GasModel
+{
+    Unknown,
+    Legacy,
+    SingleGasConstraints,
+    MultiGasConstraints,
+}
+
+/// <summary>
+/// Manages L2 gas pricing state including base fee calculation, backlog tracking,
+/// and constraint-based pricing models (legacy, single-gas, multi-gas).
+/// </summary>
+public sealed class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
 {
     private const ulong SpeedLimitPerSecondOffset = 0;
     private const ulong PerBlockGasLimitOffset = 1;
@@ -22,22 +38,28 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     private const ulong PerTxGasLimitOffset = 7;
 
     private static readonly byte[] ConstraintsKey = [0];
+    private static readonly byte[] MultiGasConstraintsKey = [1];
+    private static readonly byte[] MultiGasFeesKey = [2];
 
-    public const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
-    public const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
+    private const ulong InitialSpeedLimitPerSecondV0 = 1_000_000;
+    private const ulong InitialPerBlockGasLimitV0 = 20 * 1_000_000;
+    private static readonly ulong InitialMinimumBaseFeeWei = (ulong)(Unit.GWei / 10);
+    private const ulong InitialPricingInertia = 102;
+    private const ulong InitialBacklogTolerance = 10;
 
     public const ulong InitialSpeedLimitPerSecondV6 = 7_000_000;
     public const ulong InitialPerBlockGasLimitV6 = 32 * 1_000_000;
-
     public const long BipsMultiplier = 10_000;
+    // MaxPricingExponentBips caps the basefee growth: exp(8.5) ~= x5,000 min base fee.
+    public const long MaxPricingExponentBips = 85_000;
 
-    // params.GWei / 10 = 10^9 / 10 = 10^8 = 100_000_000
-    public static readonly ulong InitialMinimumBaseFeeWei = (ulong)(Unit.GWei / 10);
-    public static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
-    public const ulong InitialPricingInertia = 102;
-    public const ulong InitialBacklogTolerance = 10;
-    public const ulong InitialPerTxGasLimit = 32_000_000; // ArbOS 50
+    public const ulong InitialPerTxGasLimit = 32_000_000;
     public const int GasConstraintsMaxNum = 20;
+
+    private static readonly ulong InitialBaseFeeWei = InitialMinimumBaseFeeWei;
+    private readonly SubStorageVector _constraints = new(storage.OpenSubStorage(ConstraintsKey));
+    private readonly SubStorageVector _multiGasConstraints = new(storage.OpenSubStorage(MultiGasConstraintsKey));
+    internal readonly MultiGasFees MultiGasFees = new(storage.OpenSubStorage(MultiGasFeesKey));
 
     public ulong CurrentArbosVersion { get; internal set; } = currentArbosVersion;
 
@@ -50,8 +72,9 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     public ArbosStorageBackedULong BacklogToleranceStorage { get; } = new(storage, BacklogToleranceOffset);
     public ArbosStorageBackedULong PerTxGasLimitStorage { get; } = new(storage, PerTxGasLimitOffset);
 
-    private readonly SubStorageVector _constraints = new(storage.OpenSubStorage(ConstraintsKey));
-
+    /// <summary>
+    /// Writes default pricing parameters to the given storage (called during ArbOS genesis).
+    /// </summary>
     public static void Initialize(ArbosStorage storage)
     {
         storage.Set(SpeedLimitPerSecondOffset, InitialSpeedLimitPerSecondV0);
@@ -63,94 +86,121 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         storage.Set(MinBaseFeeWeiOffset, InitialMinimumBaseFeeWei);
     }
 
-    public void SetSpeedLimitPerSecond(ulong limit)
-    {
-        SpeedLimitPerSecondStorage.Set(limit);
-    }
-
-    public void SetMaxPerBlockGasLimit(ulong limit)
-    {
-        PerBlockGasLimitStorage.Set(limit);
-    }
-
     /// <summary>
-    /// Returns true if multi-constraint pricing should be used.
-    /// Multi-constraint pricing is used when ArbOS version >= 50 and at least one constraint is configured.
+    /// Determines the active pricing model based on ArbOS version and configured constraints.
     /// </summary>
-    public bool ShouldUseGasConstraints()
-        => CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0;
+    public GasModel GetGasModelToUse()
+    {
+        if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion && MultiGasConstraintsLength() > 0)
+            return GasModel.MultiGasConstraints;
+
+        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing && ConstraintsLength() > 0)
+            return GasModel.SingleGasConstraints;
+
+        return GasModel.Legacy;
+    }
 
     /// <summary>
-    /// Adds gas to the gas pool. Negative gas increases the backlog, positive gas decreases it.
-    /// Routes to either legacy or multi-constraint implementation based on ArbOS version and constraint configuration.
+    /// Recalculates the base fee by shrinking backlogs and recomputing exponents
+    /// for the active pricing model.
+    /// </summary>
+    /// <param name="timePassed">Seconds elapsed since the previous block.</param>
+    public void UpdatePricingModel(ulong timePassed)
+    {
+        GasModel model = GetGasModelToUse();
+        switch (model)
+        {
+            case GasModel.MultiGasConstraints:
+                UpdatePricingModelMultiGasConstraints(timePassed);
+                break;
+            case GasModel.SingleGasConstraints:
+                UpdatePricingModelMultiConstraints(timePassed);
+                break;
+            case GasModel.Legacy:
+                UpdatePricingModelLegacy(timePassed);
+                break;
+            case GasModel.Unknown:
+            default:
+                throw new InvalidOperationException($"Unexpected gas model: {model}");
+        }
+    }
+
+    /// <summary>
+    /// Adjusts the gas backlog by <paramref name="gas"/> units (positive shrinks, negative grows).
     /// </summary>
     public void AddToGasPool(long gas)
     {
-        if (ShouldUseGasConstraints())
-            AddToGasPoolMultiConstraints(gas);
-        else
-            AddToGasPoolLegacy(gas);
+        GasModel model = GetGasModelToUse();
+        switch (model)
+        {
+            case GasModel.MultiGasConstraints:
+            case GasModel.SingleGasConstraints:
+                AddToGasPoolMultiConstraints(gas);
+                break;
+            case GasModel.Unknown:
+            case GasModel.Legacy:
+            default:
+                AddToGasPoolLegacy(gas);
+                break;
+        }
     }
 
     /// <summary>
-    /// Updates the pricing model based on time passed.
-    /// Routes to either legacy or multi-constraint implementation based on ArbOS version and constraint configuration.
+    /// Returns the ArbOS storage gas cost charged for updating the gas pool.
     /// </summary>
-    public void UpdatePricingModel(ulong timePassed)
+    public ulong GasPoolUpdateCost()
     {
-        if (ShouldUseGasConstraints())
-            UpdatePricingModelMultiConstraints(timePassed);
-        else
-            UpdatePricingModelLegacy(timePassed);
-    }
+        // Charge a static price for any pricer starting from ArbOS 60
+        if (CurrentArbosVersion >= ArbosVersion.MultiGasConstraintsVersion)
+            return ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
 
-    public void SetBaseFeeWei(UInt256 baseFee)
-    {
-        BaseFeeWeiStorage.Set(baseFee);
-    }
+        ulong result = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
 
-    public void SetMinBaseFeeWei(UInt256 priceInWei)
-    {
-        // This modifies the "minimum basefee" parameter, but doesn't modify the current basefee.
-        // If this increases the minimum basefee, then the basefee might be below the minimum for a little while.
-        // If so, the basefee will increase by up to a factor of two per block, until it reaches the minimum.
-        MinBaseFeeWeiStorage.Set(priceInWei);
-    }
+        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
+            result += ArbosStorage.StorageReadCost;
 
-    public void SetPricingInertia(ulong inertia)
-    {
-        PricingInertiaStorage.Set(inertia);
-    }
+        if (CurrentArbosVersion >= ArbosVersion.FiftyOne)
+        {
+            ulong constraintsLen = ConstraintsLength();
+            if (constraintsLen > 0)
+            {
+                result += ArbosStorage.StorageReadCost;
+                result += (constraintsLen - 1) * (ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost);
+            }
+        }
 
-    public void SetBacklogTolerance(ulong backlogTolerance)
-    {
-        BacklogToleranceStorage.Set(backlogTolerance);
-    }
-
-    public void SetMaxPerTxGasLimit(ulong limit)
-    {
-        PerTxGasLimitStorage.Set(limit);
+        return result;
     }
 
     /// <summary>
-    /// Returns the number of gas constraints in storage.
+    /// Increases the backlog by the gas used in a transaction.
     /// </summary>
-    public ulong ConstraintsLength()
-    {
-        return _constraints.Length();
-    }
+    public void GrowBacklog(ulong usedGas, MultiGas usedMultiGas)
+        => UpdateBacklogByModel(BacklogOperation.Grow, usedGas, usedMultiGas);
 
     /// <summary>
-    /// Opens the gas constraint at the given index.
-    /// NOTE: This method does not verify bounds.
+    /// Decreases the backlog by the gas used in a transaction (saturates at zero).
     /// </summary>
-    public GasConstraint OpenConstraintAt(ulong index)
-    {
-        return new GasConstraint(_constraints.At(index));
-    }
+    public void ShrinkBacklog(ulong usedGas, MultiGas usedMultiGas)
+        => UpdateBacklogByModel(BacklogOperation.Shrink, usedGas, usedMultiGas);
 
     /// <summary>
-    /// Adds a new gas constraint with the specified target, adjustment window, and backlog.
+    /// Directly sets the legacy gas backlog value.
+    /// </summary>
+    public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
+
+    /// <summary>
+    /// Returns the number of single-gas constraints currently configured.
+    /// </summary>
+    public ulong ConstraintsLength() => _constraints.Length();
+
+    /// <summary>
+    /// Opens the single-gas constraint at the given index.
+    /// </summary>
+    public GasConstraint OpenConstraintAt(ulong index) => new(_constraints.At(index));
+
+    /// <summary>
+    /// Appends a new single-gas constraint with the specified parameters.
     /// </summary>
     public void AddConstraint(ulong target, ulong adjustmentWindow, ulong backlog)
     {
@@ -162,7 +212,7 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     }
 
     /// <summary>
-    /// Clears all gas constraints from storage.
+    /// Removes all single-gas constraints and zeroes their storage.
     /// </summary>
     public void ClearConstraints()
     {
@@ -176,9 +226,283 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
     }
 
     /// <summary>
-    /// Sets the gas backlog directly (used by a single-constraint pricing model only).
+    /// Returns the number of multi-gas constraints currently configured (ArbOS 60+).
     /// </summary>
-    public void SetGasBacklog(ulong backlog) => GasBacklogStorage.Set(backlog);
+    public ulong MultiGasConstraintsLength() => _multiGasConstraints.Length();
+
+    /// <summary>
+    /// Opens the multi-gas constraint at the given index.
+    /// </summary>
+    public MultiGasConstraint OpenMultiGasConstraintAt(ulong index) => new(_multiGasConstraints.At(index));
+
+    /// <summary>
+    /// Appends a new multi-gas constraint with per-resource weights.
+    /// </summary>
+    public void AddMultiGasConstraint(ulong target, uint adjustmentWindow, ulong backlog, Dictionary<ResourceKind, ulong> weights)
+    {
+        ArbosStorage subStorage = _multiGasConstraints.Push();
+        MultiGasConstraint constraint = new(subStorage);
+        constraint.SetTarget(target);
+        constraint.SetAdjustmentWindow(adjustmentWindow);
+        constraint.SetBacklog(backlog);
+        constraint.SetResourceWeights(weights);
+    }
+
+    /// <summary>
+    /// Removes all multi-gas constraints and zeroes their storage.
+    /// </summary>
+    public void ClearMultiGasConstraints()
+    {
+        ulong length = MultiGasConstraintsLength();
+        for (ulong i = 0; i < length; i++)
+        {
+            ArbosStorage subStorage = _multiGasConstraints.Pop();
+            MultiGasConstraint constraint = new(subStorage);
+            constraint.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Computes the pricing exponent (in basis points) per resource kind across all multi-gas constraints.
+    /// Each constraint contributes <c>backlog * weight * BIPS / (target * window * maxWeight)</c>.
+    /// </summary>
+    public long[] CalcMultiGasConstraintsExponents()
+    {
+        long[] exponentPerKind = new long[MultiGas.NumResourceKinds];
+        ulong constraintsLength = MultiGasConstraintsLength();
+
+        for (ulong i = 0; i < constraintsLength; i++)
+        {
+            MultiGasConstraint constraint = OpenMultiGasConstraintAt(i);
+            ulong target = constraint.Target;
+            ulong backlog = constraint.Backlog;
+
+            if (backlog == 0)
+                continue;
+
+            uint adjustmentWindow = constraint.AdjustmentWindow;
+            ulong maxWeight = constraint.MaxWeight;
+
+            ulong divisor = ((ulong)adjustmentWindow).SaturateMul(target).SaturateMul(maxWeight);
+
+            for (int kindIndex = 0; kindIndex < MultiGas.NumResourceKinds; kindIndex++)
+            {
+                if ((ResourceKind)kindIndex == ResourceKind.SingleDim)
+                {
+                    // The single-dimensional gas dimension shouldn't be used to compute the base fee.
+                    continue;
+                }
+
+                ulong weight = constraint.GetResourceWeight((ResourceKind)kindIndex);
+                if (weight == 0)
+                    continue;
+
+                long dividend = backlog.SaturateMul(weight).SaturateMul(Utils.BipsMultiplier).ToLongSafe();
+                if (divisor == 0)
+                    throw new InvalidOperationException($"Invalid multi-gas constraint at index {i}: divisor is zero (target={target}, window={adjustmentWindow}, maxWeight={maxWeight})");
+                long exp = dividend / divisor.ToLongSafe();
+                exponentPerKind[kindIndex] = Utils.SaturatingSignedAdd(exponentPerKind[kindIndex], exp);
+            }
+        }
+
+        return exponentPerKind;
+    }
+
+    /// <summary>
+    /// Calculates the total wei cost of <paramref name="gasUsed"/> using per-resource base fees
+    /// (used for retryable ticket refund computation).
+    /// </summary>
+    public UInt256 MultiDimensionalPriceForRefund(MultiGas gasUsed)
+    {
+        Span<UInt256> fees = stackalloc UInt256[MultiGas.NumResourceKinds];
+        GetMultiGasBaseFeePerResource(fees);
+        UInt256 total = UInt256.Zero;
+
+        for (int i = 0; i < MultiGas.NumResourceKinds; i++)
+        {
+            ResourceKind kind = (ResourceKind)i;
+            ulong amount = gasUsed.Get(kind);
+            if (amount == 0)
+                continue;
+
+            UInt256 part = fees[i] * amount;
+            total += part;
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Promotes next-block per-resource fees to current-block fees (end-of-block commit).
+    /// </summary>
+    public void CommitMultiGasFees()
+    {
+        GasModel model = GetGasModelToUse();
+        if (model != GasModel.MultiGasConstraints)
+            return;
+        MultiGasFees.CommitNextToCurrent();
+    }
+
+    public void SetSpeedLimitPerSecond(ulong limit) => SpeedLimitPerSecondStorage.Set(limit);
+
+    public void SetMaxPerBlockGasLimit(ulong limit) => PerBlockGasLimitStorage.Set(limit);
+
+    public void SetBaseFeeWei(UInt256 baseFee) => BaseFeeWeiStorage.Set(baseFee);
+
+    public void SetMinBaseFeeWei(UInt256 priceInWei) => MinBaseFeeWeiStorage.Set(priceInWei);
+
+    public void SetPricingInertia(ulong inertia) => PricingInertiaStorage.Set(inertia);
+
+    public void SetBacklogTolerance(ulong backlogTolerance) => BacklogToleranceStorage.Set(backlogTolerance);
+
+    public void SetMaxPerTxGasLimit(ulong limit) => PerTxGasLimitStorage.Set(limit);
+
+    internal void SetMultiGasConstraintsFromSingleGasConstraints()
+    {
+        ClearMultiGasConstraints();
+
+        ulong length = ConstraintsLength();
+        for (ulong i = 0; i < length; i++)
+        {
+            GasConstraint c = OpenConstraintAt(i);
+
+            Dictionary<ResourceKind, ulong> weights = new()
+            {
+                { ResourceKind.Computation, 1 },
+                { ResourceKind.HistoryGrowth, 1 },
+                { ResourceKind.StorageAccessRead, 1 },
+                { ResourceKind.StorageAccessWrite, 1 },
+                { ResourceKind.StorageGrowth, 1 },
+                { ResourceKind.L2Calldata, 1 },
+                { ResourceKind.WasmComputation, 1 },
+            };
+
+            uint adjustmentWindow = c.AdjustmentWindow > uint.MaxValue ? uint.MaxValue : (uint)c.AdjustmentWindow;
+            AddMultiGasConstraint(c.Target, adjustmentWindow, c.Backlog, weights);
+        }
+    }
+
+    internal void UpdatePricingModelMultiConstraints(ulong timePassed)
+    {
+        long totalExponentBips = 0;
+        ulong constraintsLength = ConstraintsLength();
+
+        for (ulong i = 0; i < constraintsLength; i++)
+        {
+            GasConstraint constraint = OpenConstraintAt(i);
+            ulong target = constraint.Target;
+            ulong backlog = constraint.Backlog;
+
+            long gas = timePassed.SaturateMul(target).ToLongSafe();
+            backlog = ApplyGasDelta(backlog, gas);
+            constraint.SetBacklog(backlog);
+
+            if (backlog == 0)
+                continue;
+            ulong inertia = constraint.AdjustmentWindow;
+            ulong divisor = inertia.SaturateMul(target);
+            if (divisor == 0)
+                throw new InvalidOperationException($"Invalid gas constraint at index {i}: divisor is zero (target={target}, inertia={inertia})");
+            long exponent = backlog.SaturateMul(Utils.BipsMultiplier).ToLongSafe() / divisor.ToLongSafe();
+            totalExponentBips = Utils.SaturatingSignedAdd(totalExponentBips, exponent);
+        }
+
+        UInt256 minBaseFee = MinBaseFeeWeiStorage.Get();
+        UInt256 baseFee = totalExponentBips > 0
+            ? minBaseFee * (ulong)Utils.ApproxExpBasisPoints(totalExponentBips, 4) / Utils.BipsMultiplier
+            : minBaseFee;
+
+        BaseFeeWeiStorage.Set(baseFee);
+    }
+
+    internal void UpdatePricingModelMultiGasConstraints(ulong timePassed)
+    {
+        ulong constraintsLength = MultiGasConstraintsLength();
+
+        for (ulong i = 0; i < constraintsLength; i++)
+        {
+            MultiGasConstraint constraint = OpenMultiGasConstraintAt(i);
+            ulong target = constraint.Target;
+            ulong backlog = constraint.Backlog;
+
+            long gas = timePassed.SaturateMul(target).ToLongSafe();
+            ulong newBacklog = ApplyGasDelta(backlog, gas);
+            constraint.SetBacklog(newBacklog);
+        }
+
+        long[] exponentPerKind = CalcMultiGasConstraintsExponents();
+
+        UInt256 minBaseFee = MinBaseFeeWeiStorage.Get();
+        UInt256 maxBaseFee = minBaseFee;
+
+        for (int kind = 0; kind < MultiGas.NumResourceKinds; kind++)
+        {
+            UInt256 baseFeeKind = CalcBaseFeeFromExponent(exponentPerKind[kind], minBaseFee);
+            MultiGasFees.SetNextBlockFee((ResourceKind)kind, baseFeeKind);
+
+            if (baseFeeKind > maxBaseFee)
+                maxBaseFee = baseFeeKind;
+        }
+
+        BaseFeeWeiStorage.Set(maxBaseFee);
+    }
+
+    private void UpdateBacklogByModel(BacklogOperation op, ulong usedGas, MultiGas usedMultiGas)
+    {
+        GasModel model = GetGasModelToUse();
+        switch (model)
+        {
+            case GasModel.Legacy:
+                UpdateLegacyBacklog(op, usedGas);
+                break;
+            case GasModel.SingleGasConstraints:
+                UpdateSingleGasConstraintsBacklogs(op, usedGas);
+                break;
+            case GasModel.MultiGasConstraints:
+                UpdateMultiGasConstraintsBacklogs(op, usedMultiGas);
+                break;
+            case GasModel.Unknown:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void UpdateLegacyBacklog(BacklogOperation op, ulong usedGas)
+    {
+        ulong backlog = GasBacklogStorage.Get();
+        ulong newBacklog = op == BacklogOperation.Grow
+            ? backlog.SaturateAdd(usedGas)
+            : backlog.SaturateSub(usedGas);
+        GasBacklogStorage.Set(newBacklog);
+    }
+
+    private void UpdateSingleGasConstraintsBacklogs(BacklogOperation op, ulong usedGas)
+    {
+        ulong constraintsLength = ConstraintsLength();
+        for (ulong i = 0; i < constraintsLength; i++)
+        {
+            GasConstraint constraint = OpenConstraintAt(i);
+            ulong backlog = constraint.Backlog;
+            ulong newBacklog = op == BacklogOperation.Grow
+                ? backlog.SaturateAdd(usedGas)
+                : backlog.SaturateSub(usedGas);
+            constraint.SetBacklog(newBacklog);
+        }
+    }
+
+    private void UpdateMultiGasConstraintsBacklogs(BacklogOperation op, MultiGas usedMultiGas)
+    {
+        ulong constraintsLength = MultiGasConstraintsLength();
+        for (ulong i = 0; i < constraintsLength; i++)
+        {
+            MultiGasConstraint constraint = OpenMultiGasConstraintAt(i);
+            if (op == BacklogOperation.Grow)
+                constraint.GrowBacklog(usedMultiGas);
+            else
+                constraint.ShrinkBacklog(usedMultiGas);
+        }
+    }
 
     private void AddToGasPoolLegacy(long gas)
     {
@@ -199,27 +523,6 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         }
     }
 
-    public ulong GasPoolUpdateCost()
-    {
-        ulong result = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-
-        if (CurrentArbosVersion >= ArbosVersion.MultiConstraintPricing)
-            result += ArbosStorage.StorageReadCost;
-
-        if (CurrentArbosVersion >= ArbosVersion.FiftyOne)
-        {
-            ulong constraintsLen = ConstraintsLength();
-            if (constraintsLen > 0)
-            {
-                result += ArbosStorage.StorageReadCost;
-                result += (constraintsLen - 1) * (ArbosStorage.StorageReadCost +
-                                                  ArbosStorage.StorageWriteCost);
-            }
-        }
-
-        return result;
-    }
-
     private void UpdatePricingModelLegacy(ulong timePassed)
     {
         ulong speedLimit = SpeedLimitPerSecondStorage.Get();
@@ -237,41 +540,33 @@ public class L2PricingState(ArbosStorage storage, ulong currentArbosVersion)
         {
             ulong excess = backlog - tolerance * speedLimit;
             long exponentBips = excess.SaturateMul(Utils.BipsMultiplier).ToLongSafe() / inertia.SaturateMul(speedLimit).ToLongSafe();
-            baseFee = minBaseFee * (ulong)Utils.ApproxExpBasisPoints(exponentBips, 4) / (ulong)BipsMultiplier;
+            baseFee = minBaseFee * (ulong)Utils.ApproxExpBasisPoints(exponentBips, 4) / Utils.BipsMultiplier;
         }
 
         BaseFeeWeiStorage.Set(baseFee);
     }
 
-    private void UpdatePricingModelMultiConstraints(ulong timePassed)
+    private void GetMultiGasBaseFeePerResource(Span<UInt256> fees)
     {
-        long totalExponentBips = 0;
-        ulong constraintsLength = ConstraintsLength();
+        UInt256 baseFeeWei = BaseFeeWeiStorage.Get();
 
-        for (ulong i = 0; i < constraintsLength; i++)
+        for (int i = 0; i < MultiGas.NumResourceKinds; i++)
         {
-            GasConstraint constraint = OpenConstraintAt(i);
-            ulong target = constraint.Target;
-            ulong backlog = constraint.Backlog;
+            ResourceKind kind = (ResourceKind)i;
+            UInt256 baseFee = MultiGasFees.GetCurrentBlockFee(kind);
 
-            long gas = timePassed.SaturateMul(target).ToLongSafe();
-            backlog = ApplyGasDelta(backlog, gas);
-            constraint.SetBacklog(backlog);
+            if (kind == ResourceKind.SingleDim || baseFee.IsZero)
+                baseFee = baseFeeWei;
 
-            if (backlog == 0)
-                continue;
-            ulong inertia = constraint.AdjustmentWindow;
-            ulong divisor = inertia.SaturateMul(target);
-            long exponent = backlog.SaturateMul(Utils.BipsMultiplier).ToLongSafe() / divisor.ToLongSafe();
-            totalExponentBips = Utils.SaturatingSignedAdd(totalExponentBips, exponent);
+            fees[i] = baseFee;
         }
+    }
 
-        UInt256 minBaseFee = MinBaseFeeWeiStorage.Get();
-        UInt256 baseFee = totalExponentBips > 0
-            ? minBaseFee * (ulong)Utils.ApproxExpBasisPoints(totalExponentBips, 4) / (ulong)BipsMultiplier
-            : minBaseFee;
-
-        BaseFeeWeiStorage.Set(baseFee);
+    private static UInt256 CalcBaseFeeFromExponent(long exponent, UInt256 minBaseFee)
+    {
+        if (exponent > 0)
+            return minBaseFee * (ulong)Utils.ApproxExpBasisPoints(exponent, 4) / Utils.BipsMultiplier;
+        return minBaseFee;
     }
 
     private static ulong ApplyGasDelta(ulong backlog, long gas)

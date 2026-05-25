@@ -83,7 +83,7 @@ public sealed class TxGasDimensionByOpcodeTracer(Transaction? transaction, Block
         // Aggregate the gas dimensions
         breakdown.OneDimensionalGasCost += (ulong)gasCost;
         breakdown.Computation += delta.Get(ResourceKind.Computation);
-        breakdown.StateAccess += delta.Get(ResourceKind.StorageAccess);
+        breakdown.StateAccess += delta.Get(ResourceKind.StorageAccessRead) + delta.Get(ResourceKind.StorageAccessWrite);
         breakdown.StateGrowth += delta.Get(ResourceKind.StorageGrowth);
         breakdown.HistoryGrowth += delta.Get(ResourceKind.HistoryGrowth);
     }

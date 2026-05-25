@@ -228,7 +228,7 @@ public sealed class WasmDb : IWasmDb
     }
 
     public void SetRebuildingStartBlockHash(Hash256 blockHash) =>
-        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
+        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes);
 
     /// <summary>
     /// Selects cache shard based on hash's last nibble for even distribution.
