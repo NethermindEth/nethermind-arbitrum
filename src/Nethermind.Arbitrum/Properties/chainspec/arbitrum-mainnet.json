@@ -61,7 +61,8 @@
     "rip7212TransitionTimestamp": "0x66F3C9DA",
     "eip2935TransitionTimestamp": "0x684D4B90",
     "eip2935RingBufferSize": "0x5FFD0",
-    "eip7702TransitionTimestamp": "0x684D4B90"
+    "eip7702TransitionTimestamp": "0x684D4B90",
+    "minBalRetentionEpochs": "0x0"
   },
   "genesis": {
     "seal": {
