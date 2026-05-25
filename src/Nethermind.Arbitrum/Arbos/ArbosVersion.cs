@@ -45,6 +45,7 @@ public static class ArbosVersion
     public const ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
     public const ulong StylusChargingFixes = ThirtyTwo; // Version 32+ includes charging fixes for Stylus
     public const ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
+    public const ulong MaxWasmSize = Forty; // Version 40+ adds MaxWasmSize for Stylus contract size limits
     public const ulong NativeTokenManagement = FortyOne; // Version 41+ adds native token management precompile methods
     public const ulong Dia = Fifty; // Version 50+ (Dia) caps Stylus stack depth and adds per-tx gas limit
     public const ulong MultiConstraintPricing = Fifty; // Version 50+ introduces multi-constraint gas pricing

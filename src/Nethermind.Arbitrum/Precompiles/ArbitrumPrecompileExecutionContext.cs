@@ -103,6 +103,18 @@ public record ArbitrumPrecompileExecutionContext(
         }
     }
 
+    public void Burn(in MultiGas amount)
+    {
+        if (Free)
+            return;
+
+        if (GasLeft < amount.Total)
+            BurnOut();
+
+        _burnedMultiGas.Add(in amount);
+        GasLeft -= amount.Total;
+    }
+
     /// <summary>
     /// Burns gas without throwing on out-of-gas. If gas runs out, burns all remaining gas.
     /// </summary>

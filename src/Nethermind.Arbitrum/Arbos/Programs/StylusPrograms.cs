@@ -991,10 +991,10 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (warm)
             cost.Increment(ResourceKind.Computation, (ulong)GasCostOf.WarmStateRead);
         else
-            cost.Increment(ResourceKind.StorageAccess, (ulong)GasCostOf.ColdAccountAccess);
+            cost.Increment(ResourceKind.StorageAccessRead, (ulong)GasCostOf.ColdAccountAccess);
 
         ulong words = ((ulong)codeSize + 31) / 32;
-        cost.Increment(ResourceKind.StorageAccess, words * (ulong)GasCostOf.Memory);
+        cost.Increment(ResourceKind.StorageAccessRead, words * (ulong)GasCostOf.Memory);
         return cost;
     }
 

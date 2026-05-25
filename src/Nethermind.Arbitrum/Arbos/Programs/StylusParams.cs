@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
+using ArbosVersions = Nethermind.Arbitrum.Arbos.ArbosVersion;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -58,8 +59,6 @@ public class StylusParams(
 
     private const byte V2MinInitGas = 69; // charge 69 * 128 = 8832 gas (minCachedGas will also be charged in v2).
 
-    private const ulong MaxWasmSizeArbosVersion = 40;
-    private const ulong StylusContractLimitArbosVersion = 60;
     private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
 
     public ulong ArbosVersion { get; private set; } = arbosVersion;
@@ -103,8 +102,8 @@ public class StylusParams(
         // MaxFragmentCount (byte)  : 1 byte  (v60+)
         int baseSerializationSize = 7 * sizeof(short) + 3 + sizeof(uint) + 4 * sizeof(byte);
 
-        bool includeMaxWasmSize = ArbosVersion >= MaxWasmSizeArbosVersion;
-        bool includeMaxFragmentCount = ArbosVersion >= ArbosVersion.StylusContractLimit;
+        bool includeMaxWasmSize = ArbosVersion >= ArbosVersions.MaxWasmSize;
+        bool includeMaxFragmentCount = ArbosVersion >= ArbosVersions.StylusContractLimit;
         int totalSerializationSize = baseSerializationSize
             + (includeMaxWasmSize ? sizeof(uint) : 0)
             + (includeMaxFragmentCount ? sizeof(byte) : 0);
@@ -196,7 +195,7 @@ public class StylusParams(
                 MaxStackDepth = ArbOS50MaxStackDepth;
         }
 
-        if (newArbosVersion == MaxWasmSizeArbosVersion)
+        if (newArbosVersion == ArbosVersions.MaxWasmSize)
         {
             if (ArbosVersion >= newArbosVersion)
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
@@ -207,7 +206,7 @@ public class StylusParams(
             MaxWasmSize = InitialMaxWasmSize;
         }
 
-        if (newArbosVersion == ArbosVersion.StylusContractLimit)
+        if (newArbosVersion == ArbosVersions.StylusContractLimit)
         {
             if (ArbosVersion >= newArbosVersion)
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
@@ -223,12 +222,12 @@ public class StylusParams(
     {
         uint maxWasmSize = arbosVersion switch
         {
-            >= StylusContractLimitArbosVersion => ArbOS60MaxWasmSize,
-            >= MaxWasmSizeArbosVersion => InitialMaxWasmSize,
+            >= ArbosVersions.StylusContractLimit => ArbOS60MaxWasmSize,
+            >= ArbosVersions.MaxWasmSize => InitialMaxWasmSize,
             _ => 0u,
         };
 
-        byte maxFragmentCount = arbosVersion >= StylusContractLimitArbosVersion
+        byte maxFragmentCount = arbosVersion >= ArbosVersions.StylusContractLimit
             ? InitialMaxFragmentCount
             : (byte)0;
 
@@ -280,10 +279,10 @@ public class StylusParams(
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            arbosVersion >= MaxWasmSizeArbosVersion
+            arbosVersion >= ArbosVersions.MaxWasmSize
                 ? BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4))
                 : InitialMaxWasmSize,
-            arbosVersion >= ArbosVersion.StylusContractLimit
+            arbosVersion >= ArbosVersions.StylusContractLimit
                 ? ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0]
                 : (byte)0);
 

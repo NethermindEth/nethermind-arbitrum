@@ -61,6 +61,15 @@ public static class TestArbosStorage
             _burnedMultiGas.Increment(kind, amount);
         }
 
+        public void Burn(in MultiGas amount)
+        {
+            checked
+            {
+                _availableGas -= amount.Total;
+            }
+            _burnedMultiGas.Add(in amount);
+        }
+
         public void BurnOut()
         {
             _availableGas = 0;

@@ -271,7 +271,7 @@ public class StylusProgramsFragmentTests
     {
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: false, codeSize: 0);
 
-        cost.Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.ColdAccountAccess);
+        cost.Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdAccountAccess);
         cost.Get(ResourceKind.Computation).Should().Be(0);
         cost.SingleGas().Should().Be(GasCostOf.ColdAccountAccess);
     }
@@ -282,7 +282,7 @@ public class StylusProgramsFragmentTests
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: true, codeSize: 0);
 
         cost.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        cost.Get(ResourceKind.StorageAccess).Should().Be(0);
+        cost.Get(ResourceKind.StorageAccessRead).Should().Be(0);
         cost.SingleGas().Should().Be(GasCostOf.WarmStateRead);
     }
 
@@ -296,7 +296,7 @@ public class StylusProgramsFragmentTests
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: false, codeSize);
 
         // Cold-access cost + copy cost both live in StorageAccess; Computation stays at zero.
-        cost.Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
+        cost.Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
         cost.Get(ResourceKind.Computation).Should().Be(0);
         cost.SingleGas().Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
     }
@@ -311,7 +311,7 @@ public class StylusProgramsFragmentTests
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: true, codeSize);
 
         cost.Get(ResourceKind.Computation).Should().Be(GasCostOf.WarmStateRead);
-        cost.Get(ResourceKind.StorageAccess).Should().Be(expectedCopy);
+        cost.Get(ResourceKind.StorageAccessRead).Should().Be(expectedCopy);
         cost.SingleGas().Should().Be(GasCostOf.WarmStateRead + expectedCopy);
     }
 
@@ -322,7 +322,7 @@ public class StylusProgramsFragmentTests
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: false, codeSize: 33);
 
         ulong expectedCopy = 2 * (ulong)GasCostOf.Memory;
-        cost.Get(ResourceKind.StorageAccess).Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
+        cost.Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
     }
 
     [Test]
@@ -330,7 +330,7 @@ public class StylusProgramsFragmentTests
     {
         IBurner burner = new TestArbosStorage.TestBurner(availableGas: 1000);
         MultiGas cost = new();
-        cost.Increment(ResourceKind.StorageAccess, 600);
+        cost.Increment(ResourceKind.StorageAccessRead, 600);
         cost.Increment(ResourceKind.Computation, 100);
 
         burner.Burn(in cost);

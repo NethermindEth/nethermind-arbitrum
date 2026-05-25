@@ -6,6 +6,7 @@ using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Core;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
+using Nethermind.Evm.GasPolicy;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using EvmMetrics = Nethermind.Evm.Metrics;
@@ -64,7 +65,7 @@ internal static partial class ArbitrumEvmInstructions
         // Cold-access delta + access-list warmup. Matches Nitro's gasSelfdestructEIP3529 cold
         // branch at operations_acl.go:260-266.
         if (!ArbitrumGasPolicy.ConsumeAccountAccessGas(ref gas, spec, in vmState.AccessTracker,
-                vm.TxTracer.IsTracingAccess, inheritor, chargeForWarm: false))
+                vm.TxTracer.IsTracingAccess, inheritor, kind: AccountAccessKind.SelfDestructBeneficiary))
             goto OutOfGas;
 
         // New-account creation gas (CreateBySelfdestructGas = 25000). Matches Nitro's
