@@ -36,7 +36,7 @@ public class ArbitrumBlockValidationTransactionsExecutor(
     {
         // Commit multi-gas fees at block start (rotates next-block fees to current-block fees).
         // This must happen here because PrepareBlock uses a temporary state scope that gets discarded.
-        ArbosState arbosState = ArbosState.OpenArbosState(_stateProvider, new SystemBurner(), _logger);
+        ArbosState arbosState = ArbosState.OpenArbosState(_stateProvider, new ZeroGasBurner(), _logger);
         arbosState.L2PricingState.CommitMultiGasFees();
 
         return _inner.ProcessTransactions(block, processingOptions, receiptsTracer, token);
