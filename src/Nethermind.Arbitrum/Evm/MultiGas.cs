@@ -18,11 +18,12 @@ public enum ResourceKind : byte
     Unknown = 0,
     Computation = 1,
     HistoryGrowth = 2,
-    StorageAccess = 3,
-    StorageGrowth = 4,
-    L1Calldata = 5,
-    L2Calldata = 6,
-    WasmComputation = 7,
+    StorageAccessRead = 3,
+    StorageAccessWrite = 4,
+    StorageGrowth = 5,
+    SingleDim = 6,
+    L2Calldata = 7,
+    WasmComputation = 8,
 }
 
 /// <summary>
@@ -42,7 +43,7 @@ public struct GasBuffer
 [StructLayout(LayoutKind.Sequential)]
 public struct MultiGas
 {
-    internal const int NumResourceKinds = 8;
+    internal const int NumResourceKinds = 9;
 
     private GasBuffer _gas;
     private ulong _total;
@@ -75,7 +76,7 @@ public struct MultiGas
     }
 
     /// <summary>
-    /// Returns total minus refund. Matches Nitro's SingleGas() method.
+    /// Returns total minus refund.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly ulong SingleGas() => _total.SaturateSub(_refund);
@@ -165,9 +166,27 @@ public struct MultiGas
         => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
 
     /// <summary>
+    /// Throws ArgumentOutOfRangeException if the resource kind is invalid.
+    /// </summary>
+    public static void CheckResourceKind(ResourceKind kind)
+    {
+        if ((uint)kind >= NumResourceKinds)
+            ThrowArgumentOutOfRange(kind);
+    }
+
+    /// <summary>
     /// Converts MultiGas to a JSON-friendly object for RPC responses.
     /// </summary>
     public readonly MultiGasForJson ToJson() => new(in this);
+
+    /// <summary>
+    /// Returns a debug string representation of MultiGas.
+    /// </summary>
+    public override readonly string ToString()
+    {
+        ReadOnlySpan<ulong> gas = _gas;
+        return $"[total={_total} refund={_refund} gas=[{gas[0]},{gas[1]},{gas[2]},{gas[3]},{gas[4]},{gas[5]},{gas[6]},{gas[7]},{gas[8]}]]";
+    }
 
     /// <summary>
     /// Encodes MultiGas as: [ total, refund, gas[0], gas[1], ..., gas[7] ]
@@ -241,14 +260,17 @@ public readonly struct MultiGasForJson(in MultiGas mg)
     [JsonPropertyName("historyGrowth")]
     public ulong HistoryGrowth { get; } = mg.Get(ResourceKind.HistoryGrowth);
 
-    [JsonPropertyName("storageAccess")]
-    public ulong StorageAccess { get; } = mg.Get(ResourceKind.StorageAccess);
+    [JsonPropertyName("storageAccessRead")]
+    public ulong StorageAccessRead { get; } = mg.Get(ResourceKind.StorageAccessRead);
+
+    [JsonPropertyName("storageAccessWrite")]
+    public ulong StorageAccessWrite { get; } = mg.Get(ResourceKind.StorageAccessWrite);
 
     [JsonPropertyName("storageGrowth")]
     public ulong StorageGrowth { get; } = mg.Get(ResourceKind.StorageGrowth);
 
-    [JsonPropertyName("l1Calldata")]
-    public ulong L1Calldata { get; } = mg.Get(ResourceKind.L1Calldata);
+    [JsonPropertyName("singleDim")]
+    public ulong SingleDim { get; } = mg.Get(ResourceKind.SingleDim);
 
     [JsonPropertyName("l2Calldata")]
     public ulong L2Calldata { get; } = mg.Get(ResourceKind.L2Calldata);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Core;
 using Nethermind.Blockchain;
 using Nethermind.Core.Caching;
@@ -18,17 +19,19 @@ namespace Nethermind.Arbitrum.Modules;
 /// </summary>
 public class ArbitrumDebugRpcModule(
     IDbProvider dbProvider,
-    IResettableBlockTree blockTree,
+    IArbitrumResettableBlockTree blockTree,
     IEnumerable<IClearableCache> cacheAwareServices,
     ILogManager logManager,
+    IArbOSVersionOverride arbosVersionOverride,
     IHistoryPruner? historyPruner = null,
     IBlockhashCache? blockhashCache = null,
     PreBlockCaches? preBlockCaches = null)
     : IArbitrumDebugRpcModule
 {
     private readonly IDbProvider _dbProvider = dbProvider ?? throw new ArgumentNullException(nameof(dbProvider));
-    private readonly IResettableBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
+    private readonly IArbitrumResettableBlockTree _blockTree = blockTree ?? throw new ArgumentNullException(nameof(blockTree));
     private readonly IEnumerable<IClearableCache> _cacheAwareServices = cacheAwareServices ?? throw new ArgumentNullException(nameof(cacheAwareServices));
+    private readonly IArbOSVersionOverride _arbosVersionOverride = arbosVersionOverride ?? throw new ArgumentNullException(nameof(arbosVersionOverride));
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumDebugRpcModule>();
 
     public Task<ResultWrapper<bool>> debug_reinitialize(
@@ -47,8 +50,12 @@ public class ArbitrumDebugRpcModule(
                     _logger.Warn("debug_reinitialize: accountsJson parameter provided but not yet implemented; accounts will NOT be pre-funded. This is expected for comparison mode.");
             }
 
-            if (arbosVersion != 0 && _logger.IsDebug)
-                _logger.Debug($"debug_reinitialize: arbosVersion={arbosVersion} ignored (chainspec determines version)");
+            if (arbosVersion > 0)
+            {
+                _arbosVersionOverride.SetOverride((ulong)arbosVersion);
+                if (_logger.IsInfo)
+                    _logger.Info($"debug_reinitialize: ArbOS version override set to {arbosVersion}");
+            }
 
             if (!string.IsNullOrWhiteSpace(maxCodeSize) && _logger.IsDebug)
                 _logger.Debug($"debug_reinitialize: maxCodeSize={maxCodeSize} ignored (chainspec determines limit)");
@@ -56,16 +63,17 @@ public class ArbitrumDebugRpcModule(
             // Clear all databases to reset the persistent state
             ClearAllDatabases();
 
-            // Reset BlockTree in-memory state (Genesis, Head, etc.)
-            // This is critical for comparison mode where databases are cleared but
-            // BlockTree.Genesis remains cached in memory from the previous test
+            // Clear all static and singleton caches BEFORE creating new BlockTree.
+            // The decorator creates a new ArbitrumBlockTree whose constructor reads from
+            // IHeaderStore/IBlockStore/IChainLevelInfoRepository — their in-memory caches
+            // must be clean before the constructor runs.
+            ClearAllCaches();
+
+            // Reset BlockTree by creating a fresh inner instance (decorator pattern).
+            // Must happen AFTER caches are cleared so the constructor sees clean stores.
             _blockTree.ResetForTesting();
             if (_logger.IsDebug)
                 _logger.Debug("BlockTree in-memory state reset");
-
-            // Clear all static and singleton caches to ensure complete test isolation
-            // These caches persist across test reinitialization and can cause flaky tests
-            ClearAllCaches();
             if (_logger.IsInfo)
                 _logger.Info("debug_reinitialize completed: databases and BlockTree cleared, ready for init message from CL");
 
@@ -100,8 +108,11 @@ public class ArbitrumDebugRpcModule(
 
         if (!ClearDatabase(_dbProvider.StateDb, "StateDb"))
             failures.Add("StateDb");
-        if (!ClearDatabase(_dbProvider.CodeDb, "CodeDb"))
-            failures.Add("CodeDb");
+        // CodeDb is intentionally NOT cleared. Code entries are content-addressed (keyed by
+        // Keccak-256 hash of bytecode) so they can never be stale. Clearing CodeDb breaks
+        // StateProvider._persistedCodeInsertFilter which tracks what code has been written —
+        // the filter survives reinitialize and causes InsertCode() to skip re-writing code,
+        // leading to "Code X is missing from the database" errors.
         if (!ClearDatabase(_dbProvider.BlocksDb, "BlocksDb"))
             failures.Add("BlocksDb");
         if (!ClearDatabase(_dbProvider.HeadersDb, "HeadersDb"))

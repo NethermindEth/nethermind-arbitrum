@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .config import (
     DEFAULT_BASE_PORT,
+    DEFAULT_MAX_RETRIES,
     DEFAULT_STARTUP_TIMEOUT_S,
     MAX_WORKERS,
     MEMORY_PER_WORKER_GB,
@@ -149,6 +150,13 @@ Environment Variables:
         "--fail-fast",
         action="store_true",
         help="Stop execution on first test failure",
+    )
+    exec_group.add_argument(
+        "--retries",
+        type=int,
+        default=DEFAULT_MAX_RETRIES,
+        metavar="N",
+        help=f"Retry failed tests up to N times (default: {DEFAULT_MAX_RETRIES}, 0 to disable)",
     )
 
     # -------------------------------------------------------------------------

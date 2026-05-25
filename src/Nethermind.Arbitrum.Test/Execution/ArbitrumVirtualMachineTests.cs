@@ -833,10 +833,12 @@ public class ArbitrumVirtualMachineTests
         // Call getAllChainOwners() on ArbOwner (owner-only precompile)
         byte[] callData = Keccak.Compute("getAllChainOwners()").Bytes[..4].ToArray();
 
-        // Set gas limit to run out of gas after opening arbos state when
-        // checking if sender is a chain owner before precompile execution
+        // Set the gas limit to run out of gas during owner check in OwnerPrecompileCall.
+        // The owner check adds ArbosStorage.StorageReadCost to gasUsed (simulating opening arbos state).
+        // FreeArbosState uses ZeroGasBurner so IsMember doesn't burn system gas.
+        // To trigger OOG during the owner check: context.GasLeft < ArbosStorage.StorageReadCost
         long intrinsicGas = GasCostOf.Transaction + 64;
-        long gasLimit = intrinsicGas + (long)ArbosStorage.StorageReadCost + 100;
+        long gasLimit = intrinsicGas + (long)ArbosStorage.StorageReadCost - 1;
 
         Transaction tx = Build.A.Transaction
             .WithTo(ArbosAddresses.ArbOwnerAddress)

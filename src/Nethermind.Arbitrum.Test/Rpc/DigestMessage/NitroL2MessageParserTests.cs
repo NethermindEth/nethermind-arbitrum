@@ -788,7 +788,7 @@ public class NitroL2MessageParserTests
             InitialArbOSVersion = 10,
             InitialChainOwner = Address.Zero,
             GenesisBlockNum = 100
-        });
+        }, new DisabledArbOsVersionOverride());
     }
 
     private static ParsedInitMessage ParseL1Initialize(ref ReadOnlySpan<byte> data)

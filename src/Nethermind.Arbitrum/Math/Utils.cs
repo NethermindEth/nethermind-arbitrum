@@ -36,6 +36,7 @@ namespace Nethermind.Arbitrum.Math
             return T.IsZero(remainder) ? quotient : quotient + T.One;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UInt256 SaturateMul(this UInt256 @this, UInt256 other)
         {
             bool overflows = UInt256.MultiplyOverflow(@this, other, out other);
@@ -44,6 +45,7 @@ namespace Nethermind.Arbitrum.Math
             return other;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T SaturateMul<T>(this T @this, T other)
             where T : IUnsignedNumber<T>, IMinMaxValue<T>, IComparisonOperators<T, T, bool>
         {
@@ -56,6 +58,7 @@ namespace Nethermind.Arbitrum.Math
             return @this * other;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T SaturateSub<T>(this T @this, T other)
             where T : INumber<T>, ISubtractionOperators<T, T, T>, IComparisonOperators<T, T, bool>
         {

@@ -7,6 +7,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
@@ -466,6 +467,91 @@ public static class ArbOwner
                 throw ArbitrumPrecompileException.CreateFailureException($"invalid constraint with target {gasTargetPerSecond} and adjustment window {adjustmentWindowSeconds}");
 
             context.ArbosState.L2PricingState.AddConstraint(gasTargetPerSecond, adjustmentWindowSeconds, startingBacklogValue);
+        }
+    }
+
+    // SetMultiGasPricingConstraints configures the multi-dimensional gas pricing model (ArbOS v60+)
+    // constraintsArray contains tuples: ((uint8,uint64)[],uint32,uint64,uint64)[]
+    // Each tuple is: (WeightedResource[], adjustmentWindowSecs, targetPerSec, backlog)
+    public static void SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, object[] constraintsArray)
+    {
+        context.ArbosState.L2PricingState.ClearMultiGasConstraints();
+
+        foreach (object[] constraint in constraintsArray!)
+        {
+            // Parse the constraint tuple: (resources[], adjustmentWindowSecs, targetPerSec, backlog)
+            object[] resourcesArray = (object[])constraint[0]!;
+            uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
+            ulong targetPerSec = Convert.ToUInt64(constraint[2]);
+            ulong backlog = Convert.ToUInt64(constraint[3]);
+
+            if (targetPerSec == 0 || adjustmentWindowSecs == 0)
+                throw ArbitrumPrecompileException.CreateFailureException(
+                    $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
+
+            // Parse weighted resources: (resource: uint8, weight: uint64)[]
+            Dictionary<ResourceKind, ulong> weights = new();
+            foreach (object[] resource in resourcesArray)
+            {
+                byte resourceKind = Convert.ToByte(resource[0]);
+                ulong weight = Convert.ToUInt64(resource[1]);
+                weights[(ResourceKind)resourceKind] = weight;
+            }
+
+            context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
+
+            // Validate exponents don't exceed maximum
+            long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
+            foreach (long exp in exponents)
+            {
+                if (exp > L2PricingState.MaxPricingExponentBips)
+                    throw ArbitrumPrecompileException.CreateFailureException(
+                        $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
+            }
+        }
+    }
+
+    // SetMultiGasPricingConstraintsFromTuples handles ValueTuple arrays from ABI decoder
+    // The ABI decoder returns ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
+    public static void SetMultiGasPricingConstraintsFromTuples(ArbitrumPrecompileExecutionContext context, Array constraintsArray)
+    {
+        context.ArbosState.L2PricingState.ClearMultiGasConstraints();
+
+        // Use ITuple interface to access ValueTuple elements
+        foreach (System.Runtime.CompilerServices.ITuple constraint in constraintsArray!)
+        {
+            // constraint[0] = resources array (ValueTuple<byte, ulong>[])
+            // constraint[1] = adjustmentWindowSecs (uint)
+            // constraint[2] = targetPerSec (ulong)
+            // constraint[3] = backlog (ulong)
+            Array resourcesArray = (Array)constraint[0]!;
+            uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
+            ulong targetPerSec = Convert.ToUInt64(constraint[2]);
+            ulong backlog = Convert.ToUInt64(constraint[3]);
+
+            if (targetPerSec == 0 || adjustmentWindowSecs == 0)
+                throw ArbitrumPrecompileException.CreateFailureException(
+                    $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
+
+            // Parse weighted resources: ValueTuple<byte, ulong>[]
+            Dictionary<ResourceKind, ulong> weights = new();
+            foreach (System.Runtime.CompilerServices.ITuple resource in resourcesArray)
+            {
+                byte resourceKind = Convert.ToByte(resource[0]);
+                ulong weight = Convert.ToUInt64(resource[1]);
+                weights[(ResourceKind)resourceKind] = weight;
+            }
+
+            context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
+
+            // Validate exponents don't exceed maximum
+            long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
+            foreach (long exp in exponents)
+            {
+                if (exp > L2PricingState.MaxPricingExponentBips)
+                    throw ArbitrumPrecompileException.CreateFailureException(
+                        $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
+            }
         }
     }
 }

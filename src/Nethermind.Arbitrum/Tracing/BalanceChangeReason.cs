@@ -81,5 +81,8 @@ public enum BalanceChangeReason : byte
 
     // Native token minting and burning
     BalanceIncreaseMintNativeToken,
-    BalanceDecreaseBurnNativeToken
+    BalanceDecreaseBurnNativeToken,
+
+    // Multi-gas pricing refund (ArbOS 60+)
+    BalanceChangeMultiGasRefund
 }

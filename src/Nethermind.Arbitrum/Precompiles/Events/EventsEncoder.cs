@@ -3,6 +3,7 @@
 
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -98,7 +99,8 @@ public static class EventsEncoder
             throw ArbitrumPrecompileException.CreateFailureException(EvmExceptionExtensions.GetEvmExceptionDescription(EvmExceptionType.StaticCallViolation)!);
 
         ulong emitCost = EventCost(eventLog);
-        context.Burn(emitCost);
+        // Precompile log gas is charged entirely as HistoryGrowth
+        context.Burn(ResourceKind.HistoryGrowth, emitCost);
 
         context.AddEventLog(eventLog);
     }

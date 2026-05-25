@@ -136,6 +136,10 @@ namespace Nethermind.Arbitrum.Execution
 
                 ArbosState arbosState = ArbosState.OpenArbosState(stateProvider, new SystemBurner(), logManager.GetClassLogger<ArbosState>());
 
+                // Rotate next-block fees to current-block fees before processing.
+                // PrepareBlock also calls this, but in a temporary scope that gets discarded.
+                arbosState.L2PricingState.CommitMultiGasFees();
+
                 ulong blockGasLeft = arbosState.L2PricingState.PerBlockGasLimitStorage.Get();
                 ulong updatedArbosVersion = arbosState.CurrentArbosVersion;
                 BigInteger expectedBalanceDelta = 0;
@@ -353,18 +357,16 @@ namespace Nethermind.Arbitrum.Execution
                     ArbOSFormatVersion = 0
                 };
 
-                if ((ulong)header.Number == chainSpecParams.GenesisBlockNum)
+                if ((ulong)header.Number != chainSpecParams.GenesisBlockNum)
                 {
-                    arbBlockHeaderInfo.ArbOSFormatVersion = (ulong)chainSpecParams.InitialArbOSVersion!;
-                }
-                else
-                {
-                    // Add outbox info to the header for client-side proving
+                    // Add outbox info to the header for client-side proving (non-genesis blocks only)
                     arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
                     arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
                     arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
-                    arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
                 }
+
+                // Always use the actual ArbOS version from state (after upgrades have been applied)
+                arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
                 ArbitrumBlockHeaderInfo.UpdateHeader(header, arbBlockHeaderInfo);
             }
 
