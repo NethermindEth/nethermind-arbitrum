@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
 using Nethermind.Logging;
+
+namespace Nethermind.Arbitrum.Stylus;
 
 public class WasmStoreRebuilder(
     IWasmDb wasmDb,
@@ -39,7 +40,7 @@ public class WasmStoreRebuilder(
             if (codeHash.CompareTo(position) < 0)
                 continue;
 
-            if (!StylusCode.IsStylusProgram(code))
+            if (!StylusCode.IsStylusDeployableProgramPrefix(code, programs.ArbosVersion))
                 continue;
 
             try

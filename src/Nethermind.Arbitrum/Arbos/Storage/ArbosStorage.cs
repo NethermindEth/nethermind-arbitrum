@@ -47,6 +47,7 @@ public class ArbosStorage
     }
 
     public IBurner Burner => _burner;
+    public IWorldState WorldState => _db;
 
     public ValueHash256 Get(ValueHash256 key)
     {

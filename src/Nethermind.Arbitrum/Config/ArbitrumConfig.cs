@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Diagnostics;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Config;
 

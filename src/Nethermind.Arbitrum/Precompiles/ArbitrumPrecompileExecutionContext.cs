@@ -9,7 +9,6 @@ using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
@@ -30,8 +29,6 @@ public record ArbitrumPrecompileExecutionContext(
     IReleaseSpec ReleaseSpec = null!
 ) : IBurner
 {
-    private static readonly JournalSet<Address> EmptyDestroyList = new(Address.EqualityComparer);
-
     public bool ReadOnly { get; set; }
 
     public bool IsCallStatic { get; init; }
@@ -84,7 +81,10 @@ public record ArbitrumPrecompileExecutionContext(
 
     public IArbitrumSpecHelper? SpecHelper { get; init; }
 
-    public JournalSet<Address> DestroyList { get; init; } = EmptyDestroyList;
+    // Set by ArbitrumVirtualMachine.RunPrecompile from the live VmState. Null when the context is
+    // constructed outside an EVM call frame; the activation flow assumes non-null and forwards to
+    // StylusPrograms.ActivateProgram, which derives destroyList from AccessTracker.DestroyList.
+    public StackAccessTracker? AccessTracker { get; init; }
 
     private ulong _gasLeft = GasSupplied;
     private MultiGas _burnedMultiGas;
@@ -101,6 +101,18 @@ public record ArbitrumPrecompileExecutionContext(
             GasLeft -= amount;
             _burnedMultiGas.Increment(kind, amount);
         }
+    }
+
+    public void Burn(in MultiGas amount)
+    {
+        if (Free)
+            return;
+
+        if (GasLeft < amount.Total)
+            BurnOut();
+
+        _burnedMultiGas.Add(in amount);
+        GasLeft -= amount.Total;
     }
 
     /// <summary>

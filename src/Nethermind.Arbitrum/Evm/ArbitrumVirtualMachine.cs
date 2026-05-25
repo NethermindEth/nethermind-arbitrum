@@ -402,7 +402,9 @@ public sealed unsafe class ArbitrumVirtualMachine(
 
     protected override CallResult RunByteCode<TTracingInst, TCancelable>(scoped ref EvmStack stack, scoped ref ArbitrumGasPolicy gas)
     {
-        if (StylusCode.IsStylusProgram(VmState.Env.CodeInfo.CodeSpan))
+        // Mirrors Nitro's go-ethereum/core/vm/interpreter.go:170-174: route to the Stylus runtime
+        // for any deployable Stylus prefix (classic at v30+, plus root at v60+).
+        if (StylusCode.IsStylusDeployableProgramPrefix(VmState.Env.CodeInfo.CodeSpan, CurrentArbosVersion))
             return RunWasmCode(ref gas);
 
         // Set the tracer on the gas struct for gas dimension capture.
@@ -420,6 +422,13 @@ public sealed unsafe class ArbitrumVirtualMachine(
         opcodes[(int)Instruction.GASPRICE] = &ArbitrumEvmInstructions.InstructionBlkUInt256<TTracingInst>;
         opcodes[(int)Instruction.NUMBER] = &ArbitrumEvmInstructions.InstructionBlkUInt64<TTracingInst>;
         opcodes[(int)Instruction.BLOCKHASH] = &ArbitrumEvmInstructions.InstructionBlockHash<TTracingInst>;
+        opcodes[(int)Instruction.SELFDESTRUCT] = (spec.IsEip8037Enabled, spec.IsEip7708Enabled) switch
+        {
+            (true, true) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OnFlag, OnFlag>,
+            (true, false) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OnFlag, OffFlag>,
+            (false, true) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OffFlag, OnFlag>,
+            (false, false) => &ArbitrumEvmInstructions.InstructionSelfDestruct<OffFlag, OffFlag>,
+        };
         // Opcode overrides specific for witness generation
         if (enableWitnessGeneration)
         {
@@ -538,7 +547,7 @@ public sealed unsafe class ArbitrumVirtualMachine(
             PosterFee = ArbitrumTxExecutionContext.PosterFee,
             ExecutingAccount = state.Env.ExecutingAccount,
             SpecHelper = specHelper,
-            DestroyList = state.AccessTracker.DestroyList,
+            AccessTracker = state.AccessTracker,
         };
 
         CallResult result = precompile.IsDebug

@@ -10,6 +10,7 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
+using ArbosVersions = Nethermind.Arbitrum.Arbos.ArbosVersion;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -31,7 +32,7 @@ public class StylusParams(
     ushort keepaliveDays,
     ushort blockCacheSize,
     uint maxWasmSize,
-    byte maxFragmentCount = 0)
+    byte maxFragmentCount)
 {
     public const uint MaxInkPrice = 0xFFFFFF; // 24 bits
 
@@ -40,6 +41,8 @@ public class StylusParams(
     public const ushort CostScalarPercent = 2; // 2% for each unit
 
     private const uint InitialMaxWasmSize = 128 * 1024; // max decompressed wasm size (programs are also bounded by compressed size)
+    private const uint ArbOS60MaxWasmSize = 256 * 1024; // doubled max decompressed wasm size at ArbOS 60
+    private const byte InitialMaxFragmentCount = 4; // default cap on the number of fragments a Stylus root contract may list
     private const uint InitialStackDepth = 4 * 65536; // 4 page stack.
     private const ushort InitialFreePages = 2; // 2 pages come free (per tx).
     private const ushort InitialPageGas = 1000; // linear cost per allocation.
@@ -56,12 +59,9 @@ public class StylusParams(
 
     private const byte V2MinInitGas = 69; // charge 69 * 128 = 8832 gas (minCachedGas will also be charged in v2).
 
-    private const ulong MaxWasmSizeArbosVersion = 40;
     private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
-    private const byte InitialMaxFragmentCount = 2; // Initial max fragment count for Stylus contract limit
 
-    private ulong _arbosVersion = arbosVersion;
-
+    public ulong ArbosVersion { get; private set; } = arbosVersion;
     public ushort StylusVersion { get; private set; } = stylusVersion;
     public uint InkPrice { get; private set; } = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits"); // 24 bits
     public uint MaxStackDepth { get; private set; } = maxStackDepth;
@@ -83,25 +83,27 @@ public class StylusParams(
     [SuppressMessage("ReSharper", "StackAllocInsideLoop")]
     public void Save()
     {
-        // Version (ushort)        : 2 bytes
-        // InkPrice (uint24)       : 3 bytes
-        // MaxStackDepth (uint)    : 4 bytes
-        // FreePages (ushort)      : 2 bytes
-        // PageGas (ushort)        : 2 bytes
-        // PageRamp                : not stored
-        // PageLimit (ushort)      : 2 bytes
-        // MinInitGas (byte)       : 1 byte
-        // MinCachedInitGas (byte) : 1 byte
-        // InitCostScalar (byte)   : 1 byte
-        // CachedCostScalar (byte) : 1 byte
-        // ExpiryDays (ushort)     : 2 bytes
-        // KeepaliveDays (ushort)  : 2 bytes
-        // BlockCacheSize (ushort) : 2 bytes
+        // Version (ushort)         : 2 bytes
+        // InkPrice (uint24)        : 3 bytes
+        // MaxStackDepth (uint)     : 4 bytes
+        // FreePages (ushort)       : 2 bytes
+        // PageGas (ushort)         : 2 bytes
+        // PageRamp                 : not stored
+        // PageLimit (ushort)       : 2 bytes
+        // MinInitGas (byte)        : 1 byte
+        // MinCachedInitGas (byte)  : 1 byte
+        // InitCostScalar (byte)    : 1 byte
+        // CachedCostScalar (byte)  : 1 byte
+        // ExpiryDays (ushort)      : 2 bytes
+        // KeepaliveDays (ushort)   : 2 bytes
+        // BlockCacheSize (ushort)  : 2 bytes
         // Base size = 25 bytes.
+        // MaxWasmSize (uint)       : 4 bytes (v40+)
+        // MaxFragmentCount (byte)  : 1 byte  (v60+)
         int baseSerializationSize = 7 * sizeof(short) + 3 + sizeof(uint) + 4 * sizeof(byte);
 
-        bool includeMaxWasmSize = _arbosVersion >= MaxWasmSizeArbosVersion;
-        bool includeMaxFragmentCount = _arbosVersion >= ArbosVersion.StylusContractLimit;
+        bool includeMaxWasmSize = ArbosVersion >= ArbosVersions.MaxWasmSize;
+        bool includeMaxFragmentCount = ArbosVersion >= ArbosVersions.StylusContractLimit;
         int totalSerializationSize = baseSerializationSize
             + (includeMaxWasmSize ? sizeof(uint) : 0)
             + (includeMaxFragmentCount ? sizeof(byte) : 0);
@@ -186,17 +188,17 @@ public class StylusParams(
     {
         if (newArbosVersion == 50)
         {
-            if (_arbosVersion >= 50)
-                throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {_arbosVersion} to {newArbosVersion}.");
+            if (ArbosVersion >= 50)
+                throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
 
             if (MaxStackDepth > ArbOS50MaxStackDepth)
                 MaxStackDepth = ArbOS50MaxStackDepth;
         }
 
-        if (newArbosVersion == MaxWasmSizeArbosVersion)
+        if (newArbosVersion == ArbosVersions.MaxWasmSize)
         {
-            if (_arbosVersion >= newArbosVersion)
-                throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {_arbosVersion} to {newArbosVersion}.");
+            if (ArbosVersion >= newArbosVersion)
+                throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
 
             if (StylusVersion != 2)
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade to {newArbosVersion} with Stylus version {StylusVersion}.");
@@ -204,14 +206,31 @@ public class StylusParams(
             MaxWasmSize = InitialMaxWasmSize;
         }
 
-        if (newArbosVersion == ArbosVersion.StylusContractLimit)
-            MaxFragmentCount = InitialMaxFragmentCount;
+        if (newArbosVersion == ArbosVersions.StylusContractLimit)
+        {
+            if (ArbosVersion >= newArbosVersion)
+                throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
 
-        _arbosVersion = newArbosVersion;
+            MaxWasmSize = ArbOS60MaxWasmSize;
+            MaxFragmentCount = InitialMaxFragmentCount;
+        }
+
+        ArbosVersion = newArbosVersion;
     }
 
     public static void InitializeWithDefaults(ArbosStorage storage, ulong arbosVersion)
     {
+        uint maxWasmSize = arbosVersion switch
+        {
+            >= ArbosVersions.StylusContractLimit => ArbOS60MaxWasmSize,
+            >= ArbosVersions.MaxWasmSize => InitialMaxWasmSize,
+            _ => 0u,
+        };
+
+        byte maxFragmentCount = arbosVersion >= ArbosVersions.StylusContractLimit
+            ? InitialMaxFragmentCount
+            : (byte)0;
+
         StylusParams parameters = new(
             arbosVersion,
             storage,
@@ -229,8 +248,8 @@ public class StylusParams(
             InitialExpiryDays,
             InitialKeepaliveDays,
             InitialRecentCacheSize,
-            arbosVersion >= MaxWasmSizeArbosVersion ? InitialMaxWasmSize : 0,
-            arbosVersion >= ArbosVersion.StylusContractLimit ? InitialMaxFragmentCount : (byte)0);
+            maxWasmSize,
+            maxFragmentCount);
 
         parameters.Save();
     }
@@ -260,10 +279,10 @@ public class StylusParams(
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
-            arbosVersion >= MaxWasmSizeArbosVersion
+            arbosVersion >= ArbosVersions.MaxWasmSize
                 ? BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4))
                 : InitialMaxWasmSize,
-            arbosVersion >= ArbosVersion.StylusContractLimit
+            arbosVersion >= ArbosVersions.StylusContractLimit
                 ? ReadFromStorage(storage, ref buffer, ref currentSlot, 1)[0]
                 : (byte)0);
 
@@ -337,7 +356,10 @@ public class StylusParams(
         MaxWasmSize = maxWasmSize;
     }
 
-    public void SetMaxFragmentCount(byte maxFragmentCount) => MaxFragmentCount = maxFragmentCount;
+    public void SetMaxFragmentCount(byte maxFragmentCount)
+    {
+        MaxFragmentCount = maxFragmentCount;
+    }
 
     private static ReadOnlySpan<byte> ReadFromStorage(ArbosStorage storage, ref ReadOnlySpan<byte> buffer, ref ulong currentSlot, int count)
     {

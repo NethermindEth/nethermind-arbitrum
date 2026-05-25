@@ -29,7 +29,6 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbOwnerParserTests
 {
-    private static readonly ILogManager Logger = LimboLogs.Instance;
     private const int WordSize = EvmPooledMemory.WordSize;
 
     private static readonly uint AddChainOwnerId = PrecompileTestAbiHelpers.GetMethodId("addChainOwner(address)");
@@ -79,6 +78,7 @@ public class ArbOwnerParserTests
     private static readonly uint SetCalldataPriceIncreaseId = PrecompileTestAbiHelpers.GetMethodId("setCalldataPriceIncrease(bool)");
     private static readonly uint SetMaxBlockGasLimitId = PrecompileTestAbiHelpers.GetMethodId("setMaxBlockGasLimit(uint64)");
     private static readonly uint SetParentGasFloorPerTokenId = PrecompileTestAbiHelpers.GetMethodId("setParentGasFloorPerToken(uint64)");
+    private static readonly uint SetMaxStylusContractFragmentsId = PrecompileTestAbiHelpers.GetMethodId("setMaxStylusContractFragments(uint8)");
 
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
@@ -223,7 +223,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesGetAllChainOwners_Always_ReturnsAllOwners()
     {
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -756,7 +756,7 @@ public class ArbOwnerParserTests
     [TestCase(50ul, false)] // At ArbOS 50: sets per-tx limit
     public void ParsesSetMaxTxGasLimit_ArbOS50Transition_SetsCorrectLimit(ulong arbosVersion, bool shouldSetBlockLimit)
     {
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -1652,7 +1652,7 @@ public class ArbOwnerParserTests
     [Test]
     public void ParsesSetWasmMaxSize_Always_SetsWasmMaxSize()
     {
-        Action<ContainerBuilder> preConfigurer = (ContainerBuilder cb) =>
+        Action<ContainerBuilder> preConfigurer = cb =>
         {
             cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
             {
@@ -1684,6 +1684,43 @@ public class ArbOwnerParserTests
 
         result.Should().BeEmpty();
         context.ArbosState.Programs.GetParams().MaxWasmSize.Should().Be(maxWasmSize.ToUInt32(null));
+    }
+
+    [Test]
+    public void ParsesSetMaxStylusContractFragments_AtSixty_SetsMaxFragmentCount()
+    {
+        Action<ContainerBuilder> preConfigurer = cb =>
+        {
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration()
+            {
+                SuggestGenesisOnStart = true,
+            });
+        };
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Genesis);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosState();
+
+        // Upgrade arbos version to 60 so MaxFragmentCount byte is part of slot 0 (see StylusParams.Save())
+        context.ArbosState.UpgradeArbosVersion(ArbosVersion.Sixty, false, worldState, chain.SpecProvider.GenesisSpec);
+
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(SetMaxStylusContractFragmentsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].AbiFunctionDescription;
+
+        byte maxFragments = 11;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            maxFragments
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+        context.ArbosState.Programs.GetParams().MaxFragmentCount.Should().Be(maxFragments);
     }
 
     [Test]

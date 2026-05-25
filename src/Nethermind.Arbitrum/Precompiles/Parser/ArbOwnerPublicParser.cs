@@ -32,6 +32,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
     private const uint GetNativeTokenManagementFromId = Solgen.ArbOwnerPublic.Methods.GetNativeTokenManagementFrom;
     private const uint GetScheduledUpgradeId = Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade;
     private const uint IsCalldataPriceIncreaseEnabledId = Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled;
+    private const uint GetMaxStylusContractFragmentsId = Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments;
 
     static ArbOwnerPublicParser()
     {
@@ -48,7 +49,8 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             { GetParentGasFloorPerTokenId, GetParentGasFloorPerToken },
             { GetNativeTokenManagementFromId, GetNativeTokenManagementFrom },
             { GetScheduledUpgradeId, GetScheduledUpgrade },
-            { IsCalldataPriceIncreaseEnabledId, IsCalldataPriceIncreaseEnabled }
+            { IsCalldataPriceIncreaseEnabledId, IsCalldataPriceIncreaseEnabled },
+            { GetMaxStylusContractFragmentsId, GetMaxStylusContractFragments }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -65,6 +67,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
         PrecompileFunctionDescription[GetAllNativeTokenOwnersId].ArbOSVersion = ArbosVersion.FortyOne;
         PrecompileFunctionDescription[GetParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[GetNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.Fifty;
+        PrecompileFunctionDescription[GetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] IsChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -220,6 +223,17 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             AbiEncodingStyle.None,
             PrecompileFunctionDescription[GetNativeTokenManagementFromId].AbiFunctionDescription.GetReturnInfo().Signature,
             timestamp
+        );
+    }
+
+    private static byte[] GetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        byte maxFragments = ArbOwnerPublic.GetMaxStylusContractFragments(context);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[GetMaxStylusContractFragmentsId].AbiFunctionDescription.GetReturnInfo().Signature,
+            maxFragments
         );
     }
 }

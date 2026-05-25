@@ -383,6 +383,14 @@ public static class ArbOwner
         stylusParams.Save();
     }
 
+    // SetMaxStylusContractFragments sets the maximum number of fragments a fragmented Stylus root contract may list
+    public static void SetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context, byte maxFragments)
+    {
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+        stylusParams.SetMaxFragmentCount(maxFragments);
+        stylusParams.Save();
+    }
+
     // Adds account as a wasm cache manager
     public static void AddWasmCacheManager(ArbitrumPrecompileExecutionContext context, Address manager)
     {

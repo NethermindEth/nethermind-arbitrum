@@ -8,8 +8,11 @@ namespace Nethermind.Arbitrum.Arbos;
 
 public interface IBurner
 {
-    public TracingInfo? TracingInfo { get; }
     void Burn(ResourceKind kind, ulong amount);
+    void Burn(in MultiGas amount);
+    void BurnOut();
+
+    public TracingInfo? TracingInfo { get; }
     ulong Burned { get; }
     MultiGas BurnedMultiGas { get; }
     bool ReadOnly { get; }
@@ -21,6 +24,10 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
     private MultiGas _burnedMultiGas;
 
     public TracingInfo? TracingInfo { get; } = tracingInfo;
+    public ulong Burned => _burnedMultiGas.Total;
+    public MultiGas BurnedMultiGas => _burnedMultiGas;
+    public bool ReadOnly { get; } = readOnly;
+    public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
 
     public void Burn(ResourceKind kind, ulong amount)
     {
@@ -30,21 +37,23 @@ public class SystemBurner(TracingInfo? tracingInfo = null, bool readOnly = false
         _burnedMultiGas.Increment(kind, amount);
     }
 
-    public ulong Burned => _burnedMultiGas.Total;
-    public MultiGas BurnedMultiGas => _burnedMultiGas;
-    public bool ReadOnly { get; } = readOnly;
-    public ref ulong GasLeft => throw new InvalidOperationException("SystemBurner does not track gas left."); // Strange, but consistent with Nitro.
+    public void Burn(in MultiGas amount)
+    {
+        if (ReadOnly)
+            throw new InvalidOperationException("Cannot burn gas with a read-only system burner.");
 
-    /// <summary>
-    /// Merge in another MultiGas (e.g., from precompile context) into this burner's tracked gas.
-    /// </summary>
-    public void AddBurnedMultiGas(in MultiGas toAdd) => _burnedMultiGas.Add(in toAdd);
+        _burnedMultiGas.Add(in amount);
+    }
+
+    public void BurnOut()
+        => throw new InvalidOperationException("SystemBurner does not track gas left and cannot burn out.");
 
     /// <summary>
     /// Restore BurnedMultiGas to a previously saved value.
     /// Used by owner precompiles which don't charge multigas.
     /// </summary>
-    public void RestoreBurnedMultiGas(in MultiGas saved) => _burnedMultiGas = saved;
+    public void RestoreBurnedMultiGas(in MultiGas saved)
+        => _burnedMultiGas = saved;
 }
 
 public class ZeroGasBurner : IBurner
@@ -57,9 +66,16 @@ public class ZeroGasBurner : IBurner
     {
     }
 
+    public void Burn(in MultiGas amount)
+    {
+    }
+
+    public void BurnOut()
+    {
+    }
+
     public ulong Burned => 0;
     public MultiGas BurnedMultiGas => default;
     public bool ReadOnly => true;
-
     public ref ulong GasLeft => ref _zeroGas;
 }

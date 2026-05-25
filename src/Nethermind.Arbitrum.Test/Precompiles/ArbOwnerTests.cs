@@ -859,6 +859,55 @@ public class ArbOwnerTests
     }
 
     [Test]
+    public void SetMaxStylusContractFragments_AtSixty_UpdatesMaxFragmentCountParam()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetMaxStylusContractFragments(context, 7);
+
+        context.ArbosState.Programs.GetParams().MaxFragmentCount.Should().Be(7);
+    }
+
+    [TestCase((byte)0)]
+    [TestCase((byte)1)]
+    [TestCase(byte.MaxValue)]
+    public void SetMaxStylusContractFragments_BoundaryValueAtSixty_RoundTrips(byte value)
+    {
+        // Nitro accepts the full uint8 range; activation enforces len(fragments) in [1, MaxFragmentCount] elsewhere.
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetMaxStylusContractFragments(context, value);
+
+        context.ArbosState.Programs.GetParams().MaxFragmentCount.Should().Be(value);
+    }
+
+    [Test]
+    public void SetMaxStylusContractFragments_BelowSixtyArbOSVersion_IsRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.Sixty - 1);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetMaxStylusContractFragments, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void SetMaxStylusContractFragments_AtSixtyArbOSVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context = context.WithExecutingAccount(ArbOwnerParser.Address);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetMaxStylusContractFragments, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
     public void SetWasmMinInitGas_Always_UpdatesMinInitAndCachedGas()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);

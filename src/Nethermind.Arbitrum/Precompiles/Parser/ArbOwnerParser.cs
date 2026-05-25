@@ -60,6 +60,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetWasmPageGasId = Solgen.ArbOwner.Methods.SetWasmPageGas;
     private const uint SetWasmPageLimitId = Solgen.ArbOwner.Methods.SetWasmPageLimit;
     private const uint SetWasmMaxSizeId = Solgen.ArbOwner.Methods.SetWasmMaxSize;
+    private const uint SetMaxStylusContractFragmentsId = Solgen.ArbOwner.Methods.SetMaxStylusContractFragments;
     private const uint SetWasmMinInitGasId = Solgen.ArbOwner.Methods.SetWasmMinInitGas;
     private const uint SetWasmInitCostScalarId = Solgen.ArbOwner.Methods.SetWasmInitCostScalar;
     private const uint SetWasmExpiryDaysId = Solgen.ArbOwner.Methods.SetWasmExpiryDays;
@@ -121,6 +122,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { SetWasmKeepaliveDaysId, SetWasmKeepaliveDays },
             { SetWasmBlockCacheSizeId, SetWasmBlockCacheSize },
             { SetWasmMaxSizeId, SetWasmMaxSize },
+            { SetMaxStylusContractFragmentsId, SetMaxStylusContractFragments },
             { AddWasmCacheManagerId, AddWasmCacheManager },
             { RemoveWasmCacheManagerId, RemoveWasmCacheManager },
             { SetChainConfigId, SetChainConfig },
@@ -168,6 +170,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[SetGasBacklogId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Sixty;
+        PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -724,6 +727,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         uint maxWasmSize = (uint)decoded[0];
         ArbOwner.SetWasmMaxSize(context, maxWasmSize);
+        return [];
+    }
+
+    private static byte[] SetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        byte maxFragments = (byte)decoded[0];
+        ArbOwner.SetMaxStylusContractFragments(context, maxFragments);
         return [];
     }
 
