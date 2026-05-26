@@ -5,6 +5,7 @@ using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
@@ -604,7 +605,8 @@ public sealed class ArbWasmTests
     {
         // ulong.MaxValue exceeds any plausible gas supply, so the configurable burn OOGs first.
         // The fixed charge is never attempted (kill-switch O(1) ordering invariant).
-        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, 100_000_000)
+        const ulong gasSupplied = 100_000_000;
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, gasSupplied)
         {
             AccessTracker = _accessTracker,
         }
@@ -612,12 +614,21 @@ public sealed class ArbWasmTests
             .WithArbosVersion(ArbosVersion.StylusActivationGas);
         context.ArbosState.Programs.SetActivationGas(ulong.MaxValue);
 
+        ulong gasAtStart = context.GasLeft;
+
         Action action = () => ActivateProgram(context, Address.Zero);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
         ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
         context.GasLeft.Should().Be(0);
+
+        // BurnOut credits the drained remainder to Computation (Nitro precompiles/context.go:68-71).
+        // The failed ulong.MaxValue SingleDim Burn never partial-credits its own kind, so SingleDim
+        // stays at zero; the Total invariant pins that every supplied unit is accounted for somewhere.
+        context.BurnedMultiGas.Total.Should().Be(gasSupplied);
+        context.BurnedMultiGas.Get(ResourceKind.Computation).Should().Be(gasAtStart - ArbosStorage.StorageReadCost);
+        context.BurnedMultiGas.Get(ResourceKind.SingleDim).Should().Be(0);
     }
 
     [Test]

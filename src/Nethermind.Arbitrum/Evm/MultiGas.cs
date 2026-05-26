@@ -216,8 +216,12 @@ public struct MultiGas
     }
 
     /// <summary>
-    /// Decodes MultiGas in a forward/backward-compatible way.
-    /// Extra per-dimension entries are skipped; missing ones are treated as zero.
+    /// Decodes MultiGas positionally: each encoded per-kind entry is written into the
+    /// gas slot at its own index, missing trailing entries default to zero, and any
+    /// entries beyond <see cref="NumResourceKinds"/> are skipped. Compatibility is
+    /// limited to *length* variation — the decoder does NOT semantically remap legacy
+    /// ResourceKind orderings. If the enum layout ever changes such that historical
+    /// payloads must keep their semantic tagging, callers are responsible for migration.
     /// </summary>
     public static MultiGas Decode(ref Rlp.ValueDecoderContext context)
     {
