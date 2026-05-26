@@ -183,7 +183,7 @@ public class MarkValidTests
 
         // Subscribe before triggering so we don't miss the PruningFinished event.
         IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
-        TaskCompletionSource<bool> pruningTcs = new();
+        TaskCompletionSource<bool> pruningTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
 
         IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
@@ -258,7 +258,7 @@ public class MarkValidTests
         reconStore.HasRoot(block3Header.StateRoot!).Should().BeTrue("block 3 must be on disk");
 
         IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
-        TaskCompletionSource<bool> pruningTcs = new();
+        TaskCompletionSource<bool> pruningTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
 
         IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
@@ -544,7 +544,7 @@ public class MarkValidTests
         ReadValidHeader(stateReconstructor)!.Number.Should().Be(2, "sanity: _validHeader at block 2 before reorg");
 
         IFullPruningDb fullPruningDb = (IFullPruningDb)chain.Container.Resolve<IDbProvider>().StateDb;
-        TaskCompletionSource<bool> pruningTcs = new();
+        TaskCompletionSource<bool> pruningTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         fullPruningDb.PruningFinished += (_, e) => pruningTcs.TrySetResult(e.Success);
 
         IPruningTrieStateAdminRpcModule adminModule = chain.Container.Resolve<IPruningTrieStateAdminRpcModule>();
