@@ -153,7 +153,7 @@ public class NitroL2MessageParserTests
             new(
                 ArbitrumL1MessageKind.L2Message,
                 new Address("0xA4b000000000000000000073657175656e636572"),
-                166,    
+                166,
                 1745999257,
                 null,
                 8),
