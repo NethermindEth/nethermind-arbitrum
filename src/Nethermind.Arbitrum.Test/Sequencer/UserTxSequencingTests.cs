@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Text.Json;
 using FluentAssertions;
+using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
-using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -17,6 +17,8 @@ using Nethermind.Core.Test.Builders;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
+using NSubstitute;
+using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Test.Sequencer;
 
@@ -41,7 +43,7 @@ public class UserTxSequencingTests
             [Rlp.Encode(tx).Bytes], 0, timestamp, 1);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
-            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger<UserTxSequencingTests>());
+            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, Substitute.For<IProcessExitSource>(), LimboLogs.Instance.GetClassLogger<UserTxSequencingTests>());
 
         parsed.Should().HaveCount(1);
         parsed[0].To.Should().Be(tx.To!);
@@ -79,7 +81,7 @@ public class UserTxSequencingTests
             [Rlp.Encode(tx1).Bytes, Rlp.Encode(tx2).Bytes], 0, timestamp, 1);
 
         IReadOnlyList<Transaction> parsed = NitroL2MessageParser.ParseTransactions(
-            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, LimboLogs.Instance.GetClassLogger<UserTxSequencingTests>());
+            assembled.Message, FullChainSimulationChainSpecProvider.ChainId, 20, Substitute.For<IProcessExitSource>(), LimboLogs.Instance.GetClassLogger<UserTxSequencingTests>());
 
         parsed.Should().HaveCount(2);
         parsed[0].To.Should().Be(tx1.To!);
