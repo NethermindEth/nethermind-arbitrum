@@ -14,3 +14,11 @@ public class ArbitrumGethLikeBlockTracer(GethTraceOptions options)
 
     protected override GethLikeTxTrace OnEnd(ArbitrumGethLikeTxTracer txTracer) => txTracer.BuildResult();
 }
+
+public class ArbitrumGethLikeNativeBlockTracer(GethTraceOptions options)
+    : BlockTracerBase<GethLikeTxTrace, ArbitrumNativeCallTracer>(options.TxHash)
+{
+    protected override ArbitrumNativeCallTracer OnStart(Transaction? tx) => new(tx, options);
+
+    protected override GethLikeTxTrace OnEnd(ArbitrumNativeCallTracer txTracer) => txTracer.BuildResult();
+}
