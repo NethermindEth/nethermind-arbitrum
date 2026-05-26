@@ -108,6 +108,9 @@ public sealed class ArbitrumBlockFactory(
         {
             long lastBlockNumToKeep = blockNumber;
 
+            if (_logger.IsInfo)
+                _logger.Info($"Reorg requested: lastBlockNumToKeep={lastBlockNumToKeep}, newMessages={newMessages.Length}");
+
             // 4. Validate target block exists
             BlockHeader? currentHead = blockTree.Head?.Header;
             if (currentHead is null || lastBlockNumToKeep > currentHead.Number)
