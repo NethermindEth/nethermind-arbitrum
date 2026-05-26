@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Data;
 using Nethermind.JsonRpc;
@@ -7,6 +7,8 @@ using Nethermind.JsonRpc.Modules;
 
 namespace Nethermind.Arbitrum.Modules
 {
+    // TODO: Remove this interface after migration to INitroExecutionRpcModule is complete.
+    // The new "nitroexecution" namespace should be used by Nitro consensus layer.
     [RpcModule("Arbitrum")]
     public interface IArbitrumRpcModule : IRpcModule
     {
@@ -19,7 +21,7 @@ namespace Nethermind.Arbitrum.Modules
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<MessageResult[]>> Reorg(ReorgParameters parameters);
 
-        Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(UInt64 messageIndex);
+        Task<ResultWrapper<MessageResult>> ResultAtMessageIndex(ulong messageIndex);
 
         Task<ResultWrapper<ulong>> HeadMessageIndex();
 
@@ -28,7 +30,7 @@ namespace Nethermind.Arbitrum.Modules
         Task<ResultWrapper<ulong>> BlockNumberToMessageIndex(ulong blockNumber);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
-        ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters);
+        Task<ResultWrapper<string>> SetFinalityData(SetFinalityDataParams parameters);
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         ResultWrapper<string> MarkFeedStart(ulong to);
@@ -44,5 +46,47 @@ namespace Nethermind.Arbitrum.Modules
 
         [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
         Task<ResultWrapper<ulong>> ArbOSVersionForMessageIndex(ulong messageIndex);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<string>> TriggerMaintenance();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<bool>> ShouldTriggerMaintenance();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<string>> EndSequencing(EndSequencingParams? parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<string>> AppendLastSequencedBlock();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<ulong> NextDelayedMessageNumber();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessage(MessageWithMetadata? message);
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<string> Pause();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<string> Activate();
+
+        [JsonRpcMethod(IsSharable = false, IsImplemented = true)]
+        ResultWrapper<string> ForwardTo(string url);
     }
 }

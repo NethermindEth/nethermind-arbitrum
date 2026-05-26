@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.IO;
 using FluentAssertions;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Core;
+using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
 using NUnit.Framework;
@@ -96,7 +97,7 @@ public class ArbitrumChainSpecEngineParametersTests
             MaxInitCodeSize = 49152
         };
 
-        ArbitrumSpecHelper specHelper = new(parameters);
+        ArbitrumSpecHelper specHelper = new(parameters, new DisabledArbOsVersionOverride());
 
         ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
         {
@@ -109,7 +110,7 @@ public class ArbitrumChainSpecEngineParametersTests
             DataAvailabilityCommittee = true,
             MaxCodeSize = 24576,
             MaxInitCodeSize = 49152
-        });
+        }, new DisabledArbOsVersionOverride());
 
         specHelper.Should().BeEquivalentTo(expected);
     }
@@ -119,7 +120,7 @@ public class ArbitrumChainSpecEngineParametersTests
     {
         ArbitrumChainSpecEngineParameters parameters = new();
 
-        ArbitrumSpecHelper specHelper = new(parameters);
+        ArbitrumSpecHelper specHelper = new(parameters, new DisabledArbOsVersionOverride());
 
         ArbitrumSpecHelper expected = new(new ArbitrumChainSpecEngineParameters
         {
@@ -128,18 +129,18 @@ public class ArbitrumChainSpecEngineParametersTests
             InitialChainOwner = new Address("0x5E1497dD1f08C87b2d8FE23e9AAB6c1De833D927"),
             GenesisBlockNum = 0,
             EnableArbOS = true,
-            AllowDebugPrecompiles = true,
+            AllowDebugPrecompiles = false,
             DataAvailabilityCommittee = false,
             MaxCodeSize = null,
             MaxInitCodeSize = null
-        });
+        }, new DisabledArbOsVersionOverride());
 
         specHelper.Should().BeEquivalentTo(expected);
     }
 
     private static ChainSpec LoadChainSpecFromJson(string json)
     {
-        ChainSpecLoader loader = new(new EthereumJsonSerializer());
+        ChainSpecLoader loader = new(new EthereumJsonSerializer(), LimboLogs.Instance);
 
         using MemoryStream stream = new(System.Text.Encoding.UTF8.GetBytes(json));
         return loader.Load(stream);

@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Abi;
@@ -66,7 +66,7 @@ public class StylusExecutionTests
                     .WithType(TxType.EIP1559)
                     .WithTo(contract)
                     .WithData(CounterIncrementCalldata)
-                    .WithMaxFeePerGas(10.GWei())
+                    .WithMaxFeePerGas(10.GWei)
                     .WithGasLimit(500000)
                     .WithValue(0)
                     .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -86,7 +86,7 @@ public class StylusExecutionTests
                 .WithType(TxType.EIP1559)
                 .WithTo(contract)
                 .WithData(CounterEmitCountCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(50000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -130,7 +130,7 @@ public class StylusExecutionTests
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -149,7 +149,7 @@ public class StylusExecutionTests
                 .WithType(TxType.EIP1559)
                 .WithTo(counterContract)
                 .WithData(CounterEmitCountCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -196,7 +196,7 @@ public class StylusExecutionTests
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterIncrementCalldata))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -231,7 +231,7 @@ public class StylusExecutionTests
             ReadOnlySpan<byte> storedValue = chain.MainWorldState.Get(cell);
 
             Address storedSender = storedValue.Length >= 20
-                ? new Address(storedValue.Slice(storedValue.Length - 20, 20).ToArray())
+                ? new Address(storedValue.Slice(storedValue.Length - 20, 20))
                 : new Address(storedValue.PadLeft(20).ToArray());
 
             storedSender.Should().Be(proxy,
@@ -259,7 +259,7 @@ public class StylusExecutionTests
             .WithType(TxType.EIP1559)
             .WithTo(counterContract)
             .WithData(CounterIncrementCalldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(50000)
             .WithValue(0)
             .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -279,7 +279,7 @@ public class StylusExecutionTests
             .WithType(TxType.EIP1559)
             .WithTo(callContract)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(50000)
             .WithValue(0)
             .WithNonce(chain.MainWorldState.GetNonce(sender))

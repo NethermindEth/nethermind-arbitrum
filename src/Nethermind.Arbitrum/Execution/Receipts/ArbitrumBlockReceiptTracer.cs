@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -16,7 +16,7 @@ public class ArbitrumBlockReceiptTracer(
     ArbitrumTxExecutionContext txExecContext,
     IArbitrumConfig arbitrumConfig) : BlockReceiptsTracer, IArbitrumTxTracer
 {
-    protected override TxReceipt BuildReceipt(Address recipient, long spentGas, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
+    protected override TxReceipt BuildReceipt(Address recipient, in GasConsumed gasConsumed, byte statusCode, LogEntry[] logEntries, Hash256? stateRoot)
     {
         Transaction transaction = CurrentTx!;
         ArbitrumTxReceipt txReceipt = new()
@@ -30,7 +30,7 @@ public class ArbitrumBlockReceiptTracer(
             BlockHash = Block.Hash,
             BlockNumber = Block.Number,
             Index = _currentIndex,
-            GasUsed = spentGas,
+            GasUsed = gasConsumed.SpentGas,
             Sender = transaction.SenderAddress,
             ContractAddress = transaction.IsContractCreation ? recipient : null,
             TxHash = transaction.Hash,

@@ -1,8 +1,11 @@
-using System.Security.Cryptography;
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Blockchain.Find;
@@ -11,11 +14,12 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
 using Nethermind.JsonRpc;
+using Nethermind.Logging;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
@@ -85,7 +89,7 @@ public class ArbOwnerPublicTests
         UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Calldata to call getAllChainOwners() on ArbOwnerPublic precompile
-        uint methodId = PrecompileHelper.GetMethodId("getAllChainOwners()");
+        uint methodId = PrecompileTestAbiHelpers.GetMethodId("getAllChainOwners()");
         AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
         AbiSignature signature = functionDescription.GetCallInfo().Signature;
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
@@ -94,14 +98,21 @@ public class ArbOwnerPublicTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .WithValue(0)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
+        EIP1559TransactionForRpc tx = new(transaction, new(transaction.ChainId ?? BlockchainIds.Mainnet))
+        {
+            MaxFeePerGas = 10.GWei,
+            MaxPriorityFeePerGas = 2.GWei,
+            GasPrice = null
+        };
+
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
         object[] precompileResponse = AbiEncoder.Instance.Decode(
@@ -418,7 +429,7 @@ public class ArbOwnerPublicTests
         UInt256 nonce = chain.WorldStateAccessor.GetNonce(sender);
 
         // Calldata to call getScheduledUpgrade() on ArbOwnerPublic precompile
-        uint methodId = PrecompileHelper.GetMethodId("getScheduledUpgrade()");
+        uint methodId = PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()");
         AbiFunctionDescription functionDescription = ArbOwnerPublicParser.PrecompileFunctionDescription[methodId].AbiFunctionDescription;
         AbiSignature signature = functionDescription.GetCallInfo().Signature;
         byte[] calldata = AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, signature);
@@ -427,14 +438,21 @@ public class ArbOwnerPublicTests
             .WithType(TxType.EIP1559)
             .WithTo(ArbosAddresses.ArbOwnerPublicAddress)
             .WithData(calldata)
-            .WithMaxFeePerGas(10.GWei())
+            .WithMaxFeePerGas(10.GWei)
             .WithGasLimit(GasCostOf.Transaction * 2)
             .WithNonce(nonce)
             .WithValue(0)
             .SignedAndResolved(FullChainSimulationAccounts.Owner)
             .TestObject;
 
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(TransactionForRpc.FromTransaction(transaction), BlockParameter.Latest);
+        EIP1559TransactionForRpc tx = new(transaction, new(transaction.ChainId ?? BlockchainIds.Mainnet))
+        {
+            MaxFeePerGas = 10.GWei,
+            MaxPriorityFeePerGas = 2.GWei,
+            GasPrice = null
+        };
+
+        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
         object[] precompileResponse = AbiEncoder.Instance.Decode(
@@ -558,5 +576,95 @@ public class ArbOwnerPublicTests
         ulong result = ArbOwnerPublic.GetNativeTokenManagementFrom(context);
 
         result.Should().Be(0);
+    }
+
+    [Test]
+    public void GetMaxStylusContractFragments_AfterSetterAtSixty_ReturnsValue()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetMaxStylusContractFragments(context, 13);
+
+        ArbOwnerPublic.GetMaxStylusContractFragments(context).Should().Be(13);
+    }
+
+    [Test]
+    public void GetMaxStylusContractFragments_BelowSixtyArbOSVersion_IsRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.Sixty - 1);
+
+        bool result = ArbOwnerPublicParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void GetMaxStylusContractFragments_AtSixtyArbOSVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context = context.WithExecutingAccount(ArbOwnerPublicParser.Address);
+
+        bool result = ArbOwnerPublicParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbOwnerPublic.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("isChainOwner(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllChainOwners()"),
+            PrecompileTestAbiHelpers.GetMethodId("rectifyChainOwner(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("isNativeTokenOwner(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllNativeTokenOwners()"),
+            PrecompileTestAbiHelpers.GetMethodId("getNetworkFeeAccount()"),
+            PrecompileTestAbiHelpers.GetMethodId("getInfraFeeAccount()"),
+            PrecompileTestAbiHelpers.GetMethodId("getBrotliCompressionLevel()"),
+            PrecompileTestAbiHelpers.GetMethodId("getParentGasFloorPerToken()"),
+            PrecompileTestAbiHelpers.GetMethodId("getNativeTokenManagementFrom()"),
+            PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()"),
+            PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()"),
+            PrecompileTestAbiHelpers.GetMethodId("getAllTransactionFilterers()"),
+            PrecompileTestAbiHelpers.GetMethodId("isTransactionFilterer(address)"),
+            PrecompileTestAbiHelpers.GetMethodId("getFilteredFundsRecipient()"),
+            PrecompileTestAbiHelpers.GetMethodId("getTransactionFilteringFrom()"),
+            PrecompileTestAbiHelpers.GetMethodId("getCollectTips()"),
+            PrecompileTestAbiHelpers.GetMethodId("getMaxStylusContractFragments()"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbOwnerPublic.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("ChainOwnerRectified");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("isChainOwner(address)").Should().Be(Solgen.ArbOwnerPublic.Methods.IsChainOwner);
+        PrecompileTestAbiHelpers.GetMethodId("getAllChainOwners()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetAllChainOwners);
+        PrecompileTestAbiHelpers.GetMethodId("rectifyChainOwner(address)").Should().Be(Solgen.ArbOwnerPublic.Methods.RectifyChainOwner);
+        PrecompileTestAbiHelpers.GetMethodId("isNativeTokenOwner(address)").Should().Be(Solgen.ArbOwnerPublic.Methods.IsNativeTokenOwner);
+        PrecompileTestAbiHelpers.GetMethodId("getAllNativeTokenOwners()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetAllNativeTokenOwners);
+        PrecompileTestAbiHelpers.GetMethodId("getNetworkFeeAccount()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetNetworkFeeAccount);
+        PrecompileTestAbiHelpers.GetMethodId("getInfraFeeAccount()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetInfraFeeAccount);
+        PrecompileTestAbiHelpers.GetMethodId("getBrotliCompressionLevel()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetBrotliCompressionLevel);
+        PrecompileTestAbiHelpers.GetMethodId("getParentGasFloorPerToken()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetParentGasFloorPerToken);
+        PrecompileTestAbiHelpers.GetMethodId("getNativeTokenManagementFrom()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetNativeTokenManagementFrom);
+        PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade);
+        PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()").Should().Be(Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled);
+        PrecompileTestAbiHelpers.GetMethodId("getMaxStylusContractFragments()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments);
     }
 }

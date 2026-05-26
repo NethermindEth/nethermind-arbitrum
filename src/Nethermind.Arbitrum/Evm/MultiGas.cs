@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -18,11 +18,12 @@ public enum ResourceKind : byte
     Unknown = 0,
     Computation = 1,
     HistoryGrowth = 2,
-    StorageAccess = 3,
-    StorageGrowth = 4,
-    L1Calldata = 5,
-    L2Calldata = 6,
-    WasmComputation = 7,
+    StorageAccessRead = 3,
+    StorageAccessWrite = 4,
+    StorageGrowth = 5,
+    SingleDim = 6,
+    L2Calldata = 7,
+    WasmComputation = 8,
 }
 
 /// <summary>
@@ -42,7 +43,7 @@ public struct GasBuffer
 [StructLayout(LayoutKind.Sequential)]
 public struct MultiGas
 {
-    internal const int NumResourceKinds = 8;
+    internal const int NumResourceKinds = 9;
 
     private GasBuffer _gas;
     private ulong _total;
@@ -68,16 +69,14 @@ public struct MultiGas
 
         ReadOnlySpan<ulong> gas = _gas;
         for (int i = 0; i < NumResourceKinds; i++)
-        {
             if (gas[i] != 0)
                 return false;
-        }
 
         return true;
     }
 
     /// <summary>
-    /// Returns total minus refund. Matches Nitro's SingleGas() method.
+    /// Returns total minus refund.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly ulong SingleGas() => _total.SaturateSub(_refund);
@@ -167,9 +166,27 @@ public struct MultiGas
         => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Invalid resource kind");
 
     /// <summary>
+    /// Throws ArgumentOutOfRangeException if the resource kind is invalid.
+    /// </summary>
+    public static void CheckResourceKind(ResourceKind kind)
+    {
+        if ((uint)kind >= NumResourceKinds)
+            ThrowArgumentOutOfRange(kind);
+    }
+
+    /// <summary>
     /// Converts MultiGas to a JSON-friendly object for RPC responses.
     /// </summary>
     public readonly MultiGasForJson ToJson() => new(in this);
+
+    /// <summary>
+    /// Returns a debug string representation of MultiGas.
+    /// </summary>
+    public override readonly string ToString()
+    {
+        ReadOnlySpan<ulong> gas = _gas;
+        return $"[total={_total} refund={_refund} gas=[{gas[0]},{gas[1]},{gas[2]},{gas[3]},{gas[4]},{gas[5]},{gas[6]},{gas[7]},{gas[8]}]]";
+    }
 
     /// <summary>
     /// Encodes MultiGas as: [ total, refund, gas[0], gas[1], ..., gas[7] ]
@@ -188,34 +205,6 @@ public struct MultiGas
     /// <summary>
     /// Decodes MultiGas in a forward/backward-compatible way.
     /// Extra per-dimension entries are skipped; missing ones are treated as zero.
-    /// </summary>
-    public static MultiGas Decode(RlpStream stream)
-    {
-        int lastCheck = stream.ReadSequenceLength() + stream.Position;
-
-        MultiGas result = default;
-
-        ulong total = stream.DecodeULong();
-        ulong refund = stream.DecodeULong();
-
-        Span<ulong> gasSpan = result._gas;
-        int i = 0;
-        while (stream.Position < lastCheck)
-        {
-            ulong val = stream.DecodeULong();
-            if (i < NumResourceKinds)
-                gasSpan[i] = val;
-            // Extra dimensions are skipped (forward compatibility)
-            i++;
-        }
-
-        result._total = total;
-        result._refund = refund;
-        return result;
-    }
-
-    /// <summary>
-    /// Decodes MultiGas from a ValueDecoderContext.
     /// </summary>
     public static MultiGas Decode(ref Rlp.ValueDecoderContext context)
     {
@@ -246,13 +235,6 @@ public struct MultiGas
     /// </summary>
     public readonly int GetRlpLength() => Rlp.LengthOfSequence(GetRlpContentLength());
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ulong SaturatingAdd64(ulong a, ulong b)
-    {
-        ulong sum = unchecked(a + b);
-        return sum < a ? ulong.MaxValue : sum;
-    }
-
     private readonly int GetRlpContentLength()
     {
         // total + refund + 8 gas values
@@ -278,14 +260,17 @@ public readonly struct MultiGasForJson(in MultiGas mg)
     [JsonPropertyName("historyGrowth")]
     public ulong HistoryGrowth { get; } = mg.Get(ResourceKind.HistoryGrowth);
 
-    [JsonPropertyName("storageAccess")]
-    public ulong StorageAccess { get; } = mg.Get(ResourceKind.StorageAccess);
+    [JsonPropertyName("storageAccessRead")]
+    public ulong StorageAccessRead { get; } = mg.Get(ResourceKind.StorageAccessRead);
+
+    [JsonPropertyName("storageAccessWrite")]
+    public ulong StorageAccessWrite { get; } = mg.Get(ResourceKind.StorageAccessWrite);
 
     [JsonPropertyName("storageGrowth")]
     public ulong StorageGrowth { get; } = mg.Get(ResourceKind.StorageGrowth);
 
-    [JsonPropertyName("l1Calldata")]
-    public ulong L1Calldata { get; } = mg.Get(ResourceKind.L1Calldata);
+    [JsonPropertyName("singleDim")]
+    public ulong SingleDim { get; } = mg.Get(ResourceKind.SingleDim);
 
     [JsonPropertyName("l2Calldata")]
     public ulong L2Calldata { get; } = mg.Get(ResourceKind.L2Calldata);

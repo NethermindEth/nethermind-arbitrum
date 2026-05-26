@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -38,20 +41,19 @@ public class ArbNullTxTracer : TxTracer, IArbitrumTxTracer
         ThrowInvalidOperationException();
     }
 
-    public override void MarkAsSuccess(Address recipient, GasConsumed gasSpent, byte[] output, LogEntry[] logs,
+    public override void MarkAsSuccess(Address recipient, in GasConsumed gasSpent, byte[] output, LogEntry[] logs,
         Hash256? stateRoot = null)
     {
         ThrowInvalidOperationException();
     }
 
-    public override void MarkAsFailed(Address recipient, GasConsumed gasSpent, byte[] output, string? error,
+    public override void MarkAsFailed(Address recipient, in GasConsumed gasSpent, byte[] output, string? error,
         Hash256? stateRoot = null)
     {
         ThrowInvalidOperationException();
     }
 
-    public override void StartOperation(int pc, Instruction opcode, long gas, in ExecutionEnvironment env,
-        int codeSection = 0, int functionDepth = 0)
+    public override void StartOperation(int pc, Instruction opcode, long gas, in ExecutionEnvironment env)
     {
         ThrowInvalidOperationException();
     }

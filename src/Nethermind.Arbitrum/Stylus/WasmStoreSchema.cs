@@ -1,7 +1,6 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Stylus;
@@ -10,8 +9,8 @@ public static class WasmStoreSchema
 {
     public const byte WasmSchemaVersion = 1;
 
-    // Based on https://github.com/wasmerio/wasmer/blob/6de934035a4b34c2878552320f058862faea4651/lib/types/src/serialize.rs#L16
-    public const byte WasmerSerializeVersion = 8;
+    // Based on https://github.com/OffchainLabs/nitro/blob/v3.10.0-rc.6/cmd/nitro/init/init.go#L64
+    public const byte WasmerSerializeVersion = 16;
 
     public static readonly ReadOnlyMemory<byte> WasmSchemaVersionKey = "WasmSchemaVersion"u8.ToArray();
     public static readonly ReadOnlyMemory<byte> WasmerSerializeVersionKey = "WasmerSerializeVersion"u8.ToArray();

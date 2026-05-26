@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -9,10 +9,12 @@ using Nethermind.Core.Crypto;
 using Nethermind.Evm;
 using Nethermind.Int256;
 using static Nethermind.Arbitrum.Evm.ArbitrumVirtualMachine;
+using Nethermind.Core.Specs;
+using Nethermind.Evm.GasPolicy;
 
 namespace Nethermind.Arbitrum.Evm;
 
-internal static class ArbitrumEvmInstructions
+internal static partial class ArbitrumEvmInstructions
 {
     /// <summary>
     /// Executes an environment introspection opcode that returns a UInt256 value.
@@ -108,7 +110,7 @@ internal static class ArbitrumEvmInstructions
         if (!stack.PopUInt256(out UInt256 a))
             return EvmExceptionType.StackUnderflow;
 
-        if (a.IsLargerThanULong())
+        if (!a.IsUint64)
         {
             stack.PushBytes<TTracingInst>(BytesZero32);
             return EvmExceptionType.None;
@@ -140,6 +142,45 @@ internal static class ArbitrumEvmInstructions
             vm.TxTracer.ReportBlockHash(blockHash);
 
         return EvmExceptionType.None;
+    }
+
+    /// <remarks>
+    /// Same as the base implementation but omits any optimization so that it always goes through
+    /// the world state to get and record the bytecode. Used for witness generation.
+    /// </remarks>
+    [SkipLocalsInit]
+    public static EvmExceptionType InstructionExtCodeSize<TGasPolicy, TTracingInst>(VirtualMachine<TGasPolicy> vm,
+        ref EvmStack stack,
+        ref TGasPolicy gas,
+        ref int programCounter)
+        where TGasPolicy : struct, IGasPolicy<TGasPolicy>
+        where TTracingInst : struct, IFlag
+    {
+        IReleaseSpec spec = vm.Spec;
+        // Deduct the gas cost for external code access.
+        TGasPolicy.Consume(ref gas, spec.GasCosts.ExtCodeCost);
+
+        // Pop the account address from the stack.
+        Address? address = stack.PopAddress();
+        if (address is null)
+            goto StackUnderflow;
+
+        // Charge gas for accessing the account's state.
+        if (!TGasPolicy.ConsumeAccountAccessGas(ref gas, spec, in vm.VmState.AccessTracker, vm.TxTracer.IsTracingAccess, address))
+            goto OutOfGas;
+
+        // No optimization applied: load the account's code from storage.
+        ReadOnlySpan<byte> accountCode = vm.CodeInfoRepository
+            .GetCachedCodeInfo(address, followDelegation: false, spec, out _)
+            .CodeSpan;
+        stack.PushUInt32<TTracingInst>((uint)accountCode.Length);
+
+        return EvmExceptionType.None;
+        // Jump forward to be unpredicted by the branch predictor.
+    OutOfGas:
+        return EvmExceptionType.OutOfGas;
+    StackUnderflow:
+        return EvmExceptionType.StackUnderflow;
     }
 
     /// <summary>

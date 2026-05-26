@@ -3,7 +3,7 @@
 set -e
 
 # Parse arguments
-ARBOS_VERSION=${1:-40}
+ARBOS_VERSION=${1:-51}
 ACCOUNTS_FILE=${2:-"src/Nethermind.Arbitrum/Properties/accounts/defaults.json"}
 CONFIG_NAME=${3:-"arbitrum-system-test"}
 MAX_CODE_SIZE=${4:-"0x6000"}
@@ -23,6 +23,17 @@ fi
 # Auto-calculate mixHash from ArbOS version
 VERSION_HEX=$(printf '%02X' $ARBOS_VERSION)
 MIX_HASH="0x0000000000000000000000000000000000000000000000${VERSION_HEX}0000000000000000"
+
+# Chain ID for system test (0x64aba = 412346)
+CHAIN_ID=412346
+
+# Generate serializedChainConfig JSON and Base64-encode it
+# This is the same format as DigestInitMessage expects
+CHAIN_CONFIG_JSON=$(cat << EOF
+{"chainId":${CHAIN_ID},"homesteadBlock":0,"daoForkSupport":true,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"istanbulBlock":0,"muirGlacierBlock":0,"berlinBlock":0,"londonBlock":0,"depositContractAddress":"0x0000000000000000000000000000000000000000","clique":{"period":0,"epoch":0},"arbitrum":{"EnableArbOS":true,"AllowDebugPrecompiles":true,"DataAvailabilityCommittee":false,"InitialArbOSVersion":${ARBOS_VERSION},"InitialChainOwner":"0x0000000000000000000000000000000000000000","GenesisBlockNum":0}}
+EOF
+)
+SERIALIZED_CHAIN_CONFIG=$(echo -n "$CHAIN_CONFIG_JSON" | base64 | tr -d '\n')
 
 # Check if accounts file exists
 if [ ! -f "$ACCOUNTS_FILE" ]; then
@@ -47,14 +58,17 @@ mkdir -p "${BUILD_DIR}/configs"
 echo "Generating configuration:"
 echo "  Config Name: $CONFIG_NAME"
 echo "  ArbOS Version: $ARBOS_VERSION"
+echo "  Chain ID: $CHAIN_ID"
 echo "  MixHash: $MIX_HASH (auto-calculated)"
 echo "  Max Code Size: $MAX_CODE_SIZE"
+echo "  SerializedChainConfig: ${SERIALIZED_CHAIN_CONFIG:0:50}... (Base64)"
 echo "  Accounts: $ACCOUNTS_FILE"
 echo "  Chainspec: $CHAINSPEC_FILE"
 echo "  Config: $CONFIG_FILE"
 
 # Create chainspec file
 sed "s|{{ARBOS_VERSION}}|$ARBOS_VERSION|g" "$TEMPLATE_FILE" | \
+sed "s|{{SERIALIZED_CHAIN_CONFIG}}|$SERIALIZED_CHAIN_CONFIG|g" | \
 sed "s|{{MIX_HASH}}|$MIX_HASH|g" | \
 sed "s|{{MAX_CODE_SIZE}}|$MAX_CODE_SIZE|g" | \
 sed "s|{{ACCOUNTS}}|{}|g" | \
@@ -66,8 +80,10 @@ cat > "$CONFIG_FILE" << EOF
   "\$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
   "Init": {
     "ChainSpecPath": "chainspec/${CONFIG_NAME}.json",
-    "BaseDbPath": "nethermind_db/arbitrum-system-test",
-    "LogFileName": "arbitrum-system-test.log"
+    "BaseDbPath": "nethermind_db/${CONFIG_NAME}",
+    "LogFileName": "${CONFIG_NAME}.log",
+    "DiagnosticMode": "MemDb",
+    "MemoryHint": 2000000000
   },
   "TxPool": {
     "BlobsSupport": "Disabled"
@@ -84,9 +100,9 @@ cat > "$CONFIG_FILE" << EOF
   "JsonRpc": {
     "Enabled": true,
     "Port": 20545,
-    "EnginePort": 20551,
     "UnsecureDevNoRpcAuthentication": true,
     "AdditionalRpcUrls": [
+      "http://localhost:20551|http;ws|net;eth;subscribe;web3;arbitrum;nitroexecution",
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
     "EnabledModules": [
@@ -109,7 +125,8 @@ cat > "$CONFIG_FILE" << EOF
       "TxPool",
       "Vault",
       "Web3",
-      "Arbitrum"
+      "Arbitrum",
+      "nitroexecution"
     ]
   },
   "Pruning": {
@@ -120,6 +137,9 @@ cat > "$CONFIG_FILE" << EOF
   },
   "Merge": {
     "Enabled": true
+  },
+  "Arbitrum": {
+    "EnableTestReset": true
   }
 }
 EOF

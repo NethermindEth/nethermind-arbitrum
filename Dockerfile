@@ -1,12 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 # SPDX-License-Identifier: LGPL-3.0-only
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.100-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.300-noble AS build
 
 ARG BUILD_CONFIG=Release
 ARG BUILD_TIMESTAMP
 ARG CI
 ARG COMMIT_HASH
+ARG TARGETARCH
 
 WORKDIR /src
 
@@ -29,13 +30,10 @@ RUN mkdir -p /app/plugins && \
     cp /arbitrum-plugin/Nethermind.Arbitrum.* /app/plugins/
 
 # Copy Stylus native libraries to maintain relative structure from plugin assembly
-# The /arbitrum-plugin directory only exists in build stage and won't be available at runtime.
-# Native libraries must be copied to /app/plugins/Arbos/Stylus/ so the StylusNative.Loader can
-# find them at runtime using DllImportSearchPath.AssemblyDirectory relative path resolution.
-RUN mkdir -p /app/plugins/Arbos/Stylus && \
-    cp -r /arbitrum-plugin/Arbos/Stylus/runtimes /app/plugins/Arbos/Stylus/ && \
+RUN cd /arbitrum-plugin && \
+    find runtimes -name "*stylus*" -exec cp --parents {} /app/ \; && \
     echo "Stylus libraries copied:" && \
-    find /app/plugins/Arbos/Stylus -name "*.so" -o -name "*.dylib" -o -name "*.dll" | sort
+    find /app/runtimes -name "*stylus*" | sort
 
 # Copy configuration files
 COPY src/Nethermind.Arbitrum/Properties/configs /app/configs
@@ -44,7 +42,7 @@ COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 # Create data directory
 RUN mkdir -p /app/data
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.0-noble
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.8-noble
 
 # Fix CVE-2025-68973 - Update gpgv package
 RUN apt-get update && \

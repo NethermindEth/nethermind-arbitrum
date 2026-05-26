@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
@@ -7,7 +7,6 @@ using Autofac.Features.AttributeFilters;
 using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Db;
 
 namespace Nethermind.Arbitrum.Stylus;
@@ -170,50 +169,45 @@ public sealed class WasmDb : IWasmDb
     /// </summary>
     public DeleteWasmResult DeleteWasmEntries(IReadOnlyList<ReadOnlyMemory<byte>> prefixes, int? expectedKeyLength = null)
     {
-        int deletedCount = 0;
+        // Snapshot iteration before any Remove. The wasm DB is configured with prefix_hash
+        // memtable + capped:8 prefix_extractor (see ArbitrumDbConfigFactory); a tailing iterator
+        // with concurrent Remove on this DB silently skips matching keys, leaving stale
+        // wrong-Wasmer-version entries that the runtime then loads and panics on. Mirrors
+        // cmd/nitro/init/init.go:deleteWasmEntries.
         int keyLengthMismatchCount = 0;
+        List<byte[]> toDelete = new();
 
-        foreach (byte[] key in _db.GetAllKeys())
+        foreach (byte[] key in _db.GetAllKeys(ordered: true))
         {
             if (key.Length == 0)
                 continue;
 
-            bool shouldDelete = false;
             foreach (ReadOnlyMemory<byte> prefix in prefixes)
             {
                 if (key.Length < prefix.Length)
                     continue;
 
-                if (key.AsSpan(0, prefix.Length).SequenceEqual(prefix.Span))
-                {
-                    if (expectedKeyLength.HasValue && key.Length != expectedKeyLength.Value)
-                    {
-                        keyLengthMismatchCount++;
-                        continue;
-                    }
+                if (!key.AsSpan(0, prefix.Length).SequenceEqual(prefix.Span))
+                    continue;
 
-                    shouldDelete = true;
-                    break;
-                }
-            }
-
-            if (shouldDelete)
-            {
-                _db.Remove(key);
-                deletedCount++;
+                if (expectedKeyLength.HasValue && key.Length != expectedKeyLength.Value)
+                    keyLengthMismatchCount++;
+                else
+                    toDelete.Add(key);
+                break;
             }
         }
+
+        foreach (byte[] key in toDelete)
+            _db.Remove(key);
 
         // Clear all cache shards after deletion to maintain consistency
         // Parallel clear pattern from TxPool.AccountCache
-        if (deletedCount > 0)
-        {
+        if (toDelete.Count > 0)
             Parallel.For(0, CacheShardCount, i => _activatedCodeCaches[i].Clear());
-        }
 
-        return new DeleteWasmResult(deletedCount, keyLengthMismatchCount);
+        return new DeleteWasmResult(toDelete.Count, keyLengthMismatchCount);
     }
-
     public byte[]? Get(ReadOnlySpan<byte> key) => _db[key.ToArray()];
 
     public void Set(ReadOnlySpan<byte> key, ReadOnlySpan<byte> value) => _db[key.ToArray()] = value.ToArray();
@@ -234,7 +228,7 @@ public sealed class WasmDb : IWasmDb
     }
 
     public void SetRebuildingStartBlockHash(Hash256 blockHash) =>
-        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes.ToArray());
+        Set(WasmStoreSchema.RebuildingStartBlockHashKey, blockHash.Bytes);
 
     /// <summary>
     /// Selects cache shard based on hash's last nibble for even distribution.
@@ -251,4 +245,17 @@ public sealed class WasmDb : IWasmDb
     /// Cache key optimized for minimal allocations and fast equality comparison.
     /// </summary>
     private readonly record struct ActivatedKey(string Target, ValueHash256 ModuleHash);
+
+    /// <summary>
+    /// Clears all in-memory caches across all shards.
+    /// Called during debug_reinitialize to ensure complete state isolation between tests.
+    /// Uses sequential clearing to avoid thread pool contention - ClockCache.Clear() is O(1) and fast enough.
+    /// </summary>
+    public void ClearCache()
+    {
+        for (int i = 0; i < CacheShardCount; i++)
+        {
+            _activatedCodeCaches[i].Clear();
+        }
+    }
 }

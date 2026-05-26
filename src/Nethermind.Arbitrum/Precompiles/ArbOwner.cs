@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
@@ -20,18 +24,9 @@ public static class ArbOwner
 {
     public static Address Address => ArbosAddresses.ArbOwnerAddress;
 
-    public static readonly string Abi =
-        "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes4\",\"name\":\"method\",\"type\":\"bytes4\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"OwnerActs\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"addChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"addNativeTokenOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"addWasmCacheManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllNativeTokenOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isNativeTokenOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"maxWeiToRelease\",\"type\":\"uint256\"}],\"name\":\"releaseL1PricerSurplusFunds\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRemove\",\"type\":\"address\"}],\"name\":\"removeChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRemove\",\"type\":\"address\"}],\"name\":\"removeNativeTokenOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"manager\",\"type\":\"address\"}],\"name\":\"removeWasmCacheManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"newVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"scheduleArbOSUpgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"cap\",\"type\":\"uint64\"}],\"name\":\"setAmortizedCostCapBips\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"level\",\"type\":\"uint64\"}],\"name\":\"setBrotliCompressionLevel\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bool\",\"name\":\"enable\",\"type\":\"bool\"}],\"name\":\"setCalldataPriceIncrease\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"chainConfig\",\"type\":\"string\"}],\"name\":\"setChainConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newInfraFeeAccount\",\"type\":\"address\"}],\"name\":\"setInfraFeeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"price\",\"type\":\"uint32\"}],\"name\":\"setInkPrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"inertia\",\"type\":\"uint64\"}],\"name\":\"setL1BaseFeeEstimateInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"pricePerUnit\",\"type\":\"uint256\"}],\"name\":\"setL1PricePerUnit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"equilibrationUnits\",\"type\":\"uint256\"}],\"name\":\"setL1PricingEquilibrationUnits\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"inertia\",\"type\":\"uint64\"}],\"name\":\"setL1PricingInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"weiPerUnit\",\"type\":\"uint64\"}],\"name\":\"setL1PricingRewardRate\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"setL1PricingRewardRecipient\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"priceInWei\",\"type\":\"uint256\"}],\"name\":\"setL2BaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"sec\",\"type\":\"uint64\"}],\"name\":\"setL2GasBacklogTolerance\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"sec\",\"type\":\"uint64\"}],\"name\":\"setL2GasPricingInertia\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"backlog\",\"type\":\"uint64\"}],\"name\":\"setGasBacklog\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64[3][]\",\"name\":\"constraints\",\"type\":\"uint64[3][]\"}],\"name\":\"setGasPricingConstraints\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setMaxBlockGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setMaxTxGasLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"priceInWei\",\"type\":\"uint256\"}],\"name\":\"setMinimumL2BaseFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"timestamp\",\"type\":\"uint64\"}],\"name\":\"setNativeTokenManagementFrom\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newNetworkFeeAccount\",\"type\":\"address\"}],\"name\":\"setNetworkFeeAccount\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"floorPerToken\",\"type\":\"uint64\"}],\"name\":\"setParentGasFloorPerToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int64\",\"name\":\"cost\",\"type\":\"int64\"}],\"name\":\"setPerBatchGasCharge\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"limit\",\"type\":\"uint64\"}],\"name\":\"setSpeedLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"count\",\"type\":\"uint16\"}],\"name\":\"setWasmBlockCacheSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"_days\",\"type\":\"uint16\"}],\"name\":\"setWasmExpiryDays\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"pages\",\"type\":\"uint16\"}],\"name\":\"setWasmFreePages\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint64\",\"name\":\"percent\",\"type\":\"uint64\"}],\"name\":\"setWasmInitCostScalar\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"_days\",\"type\":\"uint16\"}],\"name\":\"setWasmKeepaliveDays\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"size\",\"type\":\"uint32\"}],\"name\":\"setWasmMaxSize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"depth\",\"type\":\"uint32\"}],\"name\":\"setWasmMaxStackDepth\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint8\",\"name\":\"gas\",\"type\":\"uint8\"},{\"internalType\":\"uint16\",\"name\":\"cached\",\"type\":\"uint16\"}],\"name\":\"setWasmMinInitGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"gas\",\"type\":\"uint16\"}],\"name\":\"setWasmPageGas\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"limit\",\"type\":\"uint16\"}],\"name\":\"setWasmPageLimit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]";
-
     public const ulong NativeTokenEnableDelay = 7 * 24 * 60 * 60; // 1 week in seconds
 
-    public static readonly AbiEventDescription OwnerActsEvent;
-
-    static ArbOwner()
-    {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        OwnerActsEvent = allEvents["OwnerActs"];
-    }
+    public static readonly AbiEventDescription OwnerActsEvent = Solgen.ArbOwner.Events.OwnerActs.ToAbiEventDescription();
 
     // AddChainOwner adds a new owner to the chain
     public static void AddChainOwner(ArbitrumPrecompileExecutionContext context, Address newOwner)
@@ -162,13 +157,9 @@ public static class ArbOwner
         // Before ArbOS 50: SetMaxTxGasLimit controlled the block limit (backward compatibility)
         // After ArbOS 50: SetMaxTxGasLimit controls the per-transaction limit
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.Fifty)
-        {
             context.ArbosState.L2PricingState.SetMaxPerBlockGasLimit(limit);
-        }
         else
-        {
             context.ArbosState.L2PricingState.SetMaxPerTxGasLimit(limit);
-        }
     }
 
     public static void SetMaxBlockGasLimit(ArbitrumPrecompileExecutionContext context, ulong limit)
@@ -392,6 +383,14 @@ public static class ArbOwner
         stylusParams.Save();
     }
 
+    // SetMaxStylusContractFragments sets the maximum number of fragments a fragmented Stylus root contract may list
+    public static void SetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context, byte maxFragments)
+    {
+        StylusParams stylusParams = context.ArbosState.Programs.GetParams();
+        stylusParams.SetMaxFragmentCount(maxFragments);
+        stylusParams.Save();
+    }
+
     // Adds account as a wasm cache manager
     public static void AddWasmCacheManager(ArbitrumPrecompileExecutionContext context, Address manager)
     {
@@ -476,6 +475,91 @@ public static class ArbOwner
                 throw ArbitrumPrecompileException.CreateFailureException($"invalid constraint with target {gasTargetPerSecond} and adjustment window {adjustmentWindowSeconds}");
 
             context.ArbosState.L2PricingState.AddConstraint(gasTargetPerSecond, adjustmentWindowSeconds, startingBacklogValue);
+        }
+    }
+
+    // SetMultiGasPricingConstraints configures the multi-dimensional gas pricing model (ArbOS v60+)
+    // constraintsArray contains tuples: ((uint8,uint64)[],uint32,uint64,uint64)[]
+    // Each tuple is: (WeightedResource[], adjustmentWindowSecs, targetPerSec, backlog)
+    public static void SetMultiGasPricingConstraints(ArbitrumPrecompileExecutionContext context, object[] constraintsArray)
+    {
+        context.ArbosState.L2PricingState.ClearMultiGasConstraints();
+
+        foreach (object[] constraint in constraintsArray!)
+        {
+            // Parse the constraint tuple: (resources[], adjustmentWindowSecs, targetPerSec, backlog)
+            object[] resourcesArray = (object[])constraint[0]!;
+            uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
+            ulong targetPerSec = Convert.ToUInt64(constraint[2]);
+            ulong backlog = Convert.ToUInt64(constraint[3]);
+
+            if (targetPerSec == 0 || adjustmentWindowSecs == 0)
+                throw ArbitrumPrecompileException.CreateFailureException(
+                    $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
+
+            // Parse weighted resources: (resource: uint8, weight: uint64)[]
+            Dictionary<ResourceKind, ulong> weights = new();
+            foreach (object[] resource in resourcesArray)
+            {
+                byte resourceKind = Convert.ToByte(resource[0]);
+                ulong weight = Convert.ToUInt64(resource[1]);
+                weights[(ResourceKind)resourceKind] = weight;
+            }
+
+            context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
+
+            // Validate exponents don't exceed maximum
+            long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
+            foreach (long exp in exponents)
+            {
+                if (exp > L2PricingState.MaxPricingExponentBips)
+                    throw ArbitrumPrecompileException.CreateFailureException(
+                        $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
+            }
+        }
+    }
+
+    // SetMultiGasPricingConstraintsFromTuples handles ValueTuple arrays from ABI decoder
+    // The ABI decoder returns ValueTuple<ValueTuple<byte,ulong>[], uint, ulong, ulong>[]
+    public static void SetMultiGasPricingConstraintsFromTuples(ArbitrumPrecompileExecutionContext context, Array constraintsArray)
+    {
+        context.ArbosState.L2PricingState.ClearMultiGasConstraints();
+
+        // Use ITuple interface to access ValueTuple elements
+        foreach (System.Runtime.CompilerServices.ITuple constraint in constraintsArray!)
+        {
+            // constraint[0] = resources array (ValueTuple<byte, ulong>[])
+            // constraint[1] = adjustmentWindowSecs (uint)
+            // constraint[2] = targetPerSec (ulong)
+            // constraint[3] = backlog (ulong)
+            Array resourcesArray = (Array)constraint[0]!;
+            uint adjustmentWindowSecs = Convert.ToUInt32(constraint[1]);
+            ulong targetPerSec = Convert.ToUInt64(constraint[2]);
+            ulong backlog = Convert.ToUInt64(constraint[3]);
+
+            if (targetPerSec == 0 || adjustmentWindowSecs == 0)
+                throw ArbitrumPrecompileException.CreateFailureException(
+                    $"invalid constraint: target={targetPerSec} adjustmentWindow={adjustmentWindowSecs}");
+
+            // Parse weighted resources: ValueTuple<byte, ulong>[]
+            Dictionary<ResourceKind, ulong> weights = new();
+            foreach (System.Runtime.CompilerServices.ITuple resource in resourcesArray)
+            {
+                byte resourceKind = Convert.ToByte(resource[0]);
+                ulong weight = Convert.ToUInt64(resource[1]);
+                weights[(ResourceKind)resourceKind] = weight;
+            }
+
+            context.ArbosState.L2PricingState.AddMultiGasConstraint(targetPerSec, adjustmentWindowSecs, backlog, weights);
+
+            // Validate exponents don't exceed maximum
+            long[] exponents = context.ArbosState.L2PricingState.CalcMultiGasConstraintsExponents();
+            foreach (long exp in exponents)
+            {
+                if (exp > L2PricingState.MaxPricingExponentBips)
+                    throw ArbitrumPrecompileException.CreateFailureException(
+                        $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
+            }
         }
     }
 }

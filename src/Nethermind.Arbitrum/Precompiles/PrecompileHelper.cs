@@ -1,10 +1,11 @@
-using System.Buffers.Binary;
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Diagnostics.CodeAnalysis;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Logging;
 
@@ -12,13 +13,6 @@ namespace Nethermind.Arbitrum.Precompiles;
 
 public static class PrecompileHelper
 {
-    public static uint GetMethodId(string methodSignature)
-    {
-        Hash256 hash = Keccak.Compute(methodSignature);
-        ReadOnlySpan<byte> hashBytes = hash.Bytes;
-        return BinaryPrimitives.ReadUInt32BigEndian(hashBytes[..4]);
-    }
-
     public static bool TryCheckMethodVisibility(IArbitrumPrecompile precompile, ArbitrumPrecompileExecutionContext context, ILogger logger, ref ReadOnlySpan<byte> calldata, out bool shouldRevert, [NotNullWhen(true)] out PrecompileHandler? methodToExecute)
         => precompile switch
         {
@@ -31,12 +25,13 @@ public static class PrecompileHelper
             _ when precompile is ArbWasmParser _ => CheckMethodVisibility<ArbWasmParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbGasInfoParser _ => CheckMethodVisibility<ArbGasInfoParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbAggregatorParser _ => CheckMethodVisibility<ArbAggregatorParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
-            _ when precompile is ArbActsParser _ => CheckMethodVisibility<ArbActsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbosActsParser _ => CheckMethodVisibility<ArbosActsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbFunctionTableParser _ => CheckMethodVisibility<ArbFunctionTableParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
-            _ when precompile is ArbTestParser _ => CheckMethodVisibility<ArbTestParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbosTestParser _ => CheckMethodVisibility<ArbosTestParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbStatisticsParser _ => CheckMethodVisibility<ArbStatisticsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbDebugParser _ => CheckMethodVisibility<ArbDebugParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbWasmCacheParser _ => CheckMethodVisibility<ArbWasmCacheParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
+            _ when precompile is ArbBlsParser _ => CheckMethodVisibility<ArbBlsParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ when precompile is ArbNativeTokenManagerParser _ => CheckMethodVisibility<ArbNativeTokenManagerParser>(context, logger, ref calldata, out shouldRevert, out methodToExecute),
             _ => throw new ArgumentException($"CheckMethodVisibility is not registered for precompile: {precompile.GetType()}")
         };

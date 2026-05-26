@@ -1,9 +1,7 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System;
 using Nethermind.Arbitrum.Config;
-using Nethermind.Core;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 
@@ -23,7 +21,7 @@ namespace Nethermind.Arbitrum.Data
 
         public byte[]? SerializedChainConfig = serializedChainConfig;
 
-        public string? IsCompatibleWith(ChainSpec localChainSpec)
+        public string? IsCompatibleWith(ChainSpec localChainSpec, bool skipVersionCheck = false)
         {
             // Chain ID must match exactly
             if (ChainId != localChainSpec.ChainId)
@@ -43,15 +41,18 @@ namespace Nethermind.Arbitrum.Data
 
             // Key Arbitrum parameters must match
             if (localArbitrumParams.EnableArbOS.HasValue &&
-                l1ArbitrumParams.Enabled != localArbitrumParams.EnableArbOS.Value)
+                l1ArbitrumParams.EnableArbOS != localArbitrumParams.EnableArbOS.Value)
             {
-                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.Enabled}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
+                return $"ArbOS enablement mismatch: L1 init message has EnableArbOS={l1ArbitrumParams.EnableArbOS}, but local chainspec expects {localArbitrumParams.EnableArbOS.Value}";
             }
 
-            if (localArbitrumParams.InitialArbOSVersion.HasValue &&
-                l1ArbitrumParams.InitialArbOSVersion != localArbitrumParams.InitialArbOSVersion.Value)
+            if (!skipVersionCheck)
             {
-                return $"Initial ArbOS version mismatch: L1 init message has version {l1ArbitrumParams.InitialArbOSVersion}, but local chainspec expects {localArbitrumParams.InitialArbOSVersion.Value}";
+                if (localArbitrumParams.InitialArbOSVersion.HasValue &&
+                    l1ArbitrumParams.InitialArbOSVersion != localArbitrumParams.InitialArbOSVersion.Value)
+                {
+                    return $"Initial ArbOS version mismatch: L1 init message has version {l1ArbitrumParams.InitialArbOSVersion}, but local chainspec expects {localArbitrumParams.InitialArbOSVersion.Value}";
+                }
             }
 
             if (localArbitrumParams.InitialChainOwner != null &&
@@ -94,10 +95,11 @@ namespace Nethermind.Arbitrum.Data
                 };
             }
 
-            // Create canonical parameters from L1 data with specHelper fallbacks
+            // Create canonical parameters from L1 init message (source of truth for comparison mode)
+            // The init message contains the test's actual ArbOS version via WithArbOSVersion()
             var canonicalParams = new ArbitrumChainSpecEngineParameters
             {
-                Enabled = l1Params.Enabled,
+                Enabled = l1Params.EnableArbOS,
                 InitialArbOSVersion = l1Params.InitialArbOSVersion,
                 InitialChainOwner = l1Params.InitialChainOwner,
                 GenesisBlockNum = l1Params.GenesisBlockNum,

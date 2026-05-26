@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 namespace Nethermind.Arbitrum.Tracing;
 
 public enum BalanceChangeReason : byte
@@ -78,5 +81,8 @@ public enum BalanceChangeReason : byte
 
     // Native token minting and burning
     BalanceIncreaseMintNativeToken,
-    BalanceDecreaseBurnNativeToken
+    BalanceDecreaseBurnNativeToken,
+
+    // Multi-gas pricing refund (ArbOS 60+)
+    BalanceChangeMultiGasRefund
 }

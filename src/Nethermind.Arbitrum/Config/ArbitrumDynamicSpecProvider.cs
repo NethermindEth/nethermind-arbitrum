@@ -1,26 +1,43 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core.Specs;
+using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Config;
 
-public sealed class ArbitrumDynamicSpecProvider : SpecProviderDecorator
+public sealed class ArbitrumDynamicSpecProvider : ISpecProvider
 {
+    private readonly ISpecProvider _baseSpecProvider;
     private readonly IArbosVersionProvider _arbosVersionProvider;
 
     public ArbitrumDynamicSpecProvider(
         ISpecProvider baseSpecProvider,
         IArbosVersionProvider arbosVersionProvider)
-        : base(baseSpecProvider)
     {
-        _arbosVersionProvider = arbosVersionProvider;
+        _baseSpecProvider = baseSpecProvider ?? throw new ArgumentNullException(nameof(baseSpecProvider));
+        _arbosVersionProvider = arbosVersionProvider ?? throw new ArgumentNullException(nameof(arbosVersionProvider));
     }
 
-    public override IReleaseSpec GetSpec(ForkActivation activation)
+    public ForkActivation? MergeBlockNumber => _baseSpecProvider.MergeBlockNumber;
+    public ulong TimestampFork => _baseSpecProvider.TimestampFork;
+    public UInt256? TerminalTotalDifficulty => _baseSpecProvider.TerminalTotalDifficulty;
+    public IReleaseSpec GenesisSpec => _baseSpecProvider.GenesisSpec;
+    public long? DaoBlockNumber => _baseSpecProvider.DaoBlockNumber;
+    public ulong? BeaconChainGenesisTimestamp => _baseSpecProvider.BeaconChainGenesisTimestamp;
+    public ulong NetworkId => _baseSpecProvider.NetworkId;
+    public ulong ChainId => _baseSpecProvider.ChainId;
+    public ForkActivation[] TransitionActivations => _baseSpecProvider.TransitionActivations;
+    public bool GenesisStateUnavailable => _baseSpecProvider.GenesisStateUnavailable;
+    public string SealEngine => _baseSpecProvider.SealEngine;
+
+    public void UpdateMergeTransitionInfo(long? blockNumber, UInt256? terminalTotalDifficulty = null)
+        => _baseSpecProvider.UpdateMergeTransitionInfo(blockNumber, terminalTotalDifficulty);
+
+    public IReleaseSpec GetSpec(ForkActivation activation)
     {
-        IReleaseSpec spec = base.GetSpec(activation);
+        IReleaseSpec spec = _baseSpecProvider.GetSpec(activation);
 
         if (spec is not ArbitrumReleaseSpec mutableSpec)
             return spec;

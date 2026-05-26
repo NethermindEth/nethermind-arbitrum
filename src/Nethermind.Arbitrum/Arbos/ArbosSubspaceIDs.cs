@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 namespace Nethermind.Arbitrum.Arbos;
 
 public static class ArbosSubspaceIDs
@@ -13,4 +16,5 @@ public static class ArbosSubspaceIDs
     public static readonly byte[] ProgramsSubspace = [8];
     public static readonly byte[] FeaturesSubspace = [9];
     public static readonly byte[] NativeTokenOwnerSubspace = [10];
+    public static readonly byte[] TransactionFiltererSubspace = [11];
 }

@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Core;
@@ -13,8 +13,4 @@ namespace Nethermind.Arbitrum.Precompiles;
 public static class ArbBls
 {
     public static Address Address => ArbosAddresses.ArbBLSAddress;
-
-    // ABI definition for the disabled precompile
-    // Empty because no functions are implemented
-    public const string Abi = "[]";
 }

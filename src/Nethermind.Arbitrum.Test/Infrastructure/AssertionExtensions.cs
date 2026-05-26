@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using FluentAssertions;
 using FluentAssertions.Equivalency;
 using FluentAssertions.Primitives;
+using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
@@ -53,6 +57,12 @@ public static class AssertionExtensions
             .WhenTypeIs<string>();
     }
 
+    public static EquivalencyAssertionOptions<StartSequencingResult> ForStartSequencingResult(this EquivalencyAssertionOptions<StartSequencingResult> options)
+    {
+        return options
+            .Excluding(r => r.SequencedMsg!.MsgWithMeta.Message.L2Msg);
+    }
+
     public static ResultWrapperAssertions<T> Should<T>(this ResultWrapper<T> instance)
     {
         return new ResultWrapperAssertions<T>(instance);
@@ -73,6 +83,14 @@ public class ResultWrapperAssertions<T>(ResultWrapper<T> instance)
     public AndConstraint<ResultWrapperAssertions<T>> RequestSucceed(string because = "", params object[] becauseArgs)
     {
         Subject.Result.Should().Be(Result.Success, because, becauseArgs);
+        return new AndConstraint<ResultWrapperAssertions<T>>(this);
+    }
+
+    [CustomAssertion]
+    public AndConstraint<ResultWrapperAssertions<T>> RequestFail(string errorSubstring, string because = "", params object[] becauseArgs)
+    {
+        Subject.Result.ResultType.Should().Be(ResultType.Failure, because, becauseArgs);
+        Subject.Result.Error.Should().Contain(errorSubstring, because, becauseArgs);
         return new AndConstraint<ResultWrapperAssertions<T>>(this);
     }
 

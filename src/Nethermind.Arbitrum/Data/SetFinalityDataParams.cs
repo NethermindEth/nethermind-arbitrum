@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core.Crypto;
 
@@ -17,11 +17,15 @@ public sealed class SetFinalityDataParams
 
 /// <summary>
 /// RPC representation of finality data that matches the JSON-RPC interface.
+/// IMPORTANT: This MUST be a struct (not a class) for correct JSON-RPC null handling.
+/// When RpcFinalityData is a struct, Nullable&lt;RpcFinalityData&gt; is reliably detected
+/// as nullable by the JSON-RPC parameter binder. If changed to a class, explicit null
+/// values in JSON-RPC requests will cause TargetParameterCountException.
 /// </summary>
-public sealed class RpcFinalityData
+public readonly struct RpcFinalityData
 {
-    public required ulong MsgIdx { get; set; }
-    public required Hash256 BlockHash { get; set; }
+    public required ulong MsgIdx { get; init; }
+    public required Hash256 BlockHash { get; init; }
 
     /// <summary>
     /// Converts RPC finality data to internal ArbitrumFinalityData.

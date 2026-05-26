@@ -10,10 +10,10 @@
   },
   "Sync": {
     "NetworkingEnabled": false,
-    "FastSync": true,
-    "SnapSync": true,
+    "FastSync": false,
+    "SnapSync": false,
     "FastSyncCatchUpHeightDelta": "10000000000",
-    "PivotNumber": 260000000,
+    "PivotNumber": 0,
     "PivotHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
   },
   "Discovery": {
@@ -23,7 +23,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "UnsecureDevNoRpcAuthentication": true,
+    "EngineEnabledModules": [ "Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution" ],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -46,12 +46,19 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3",
-      "Arbitrum"
+      "Web3"
     ]
   },
   "Pruning": {
-    "PruningBoundary": 192
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 2000,
+    "MaxBufferedCommitCount": 5000
+  },
+  "History": {
+    "Pruning": "Rolling",
+    "PruningInterval": 384,
+    "PruningTimeoutSeconds": 60
   },
   "Blocks": {
     "SecondsPerSlot": 2,
@@ -63,5 +70,21 @@
   },
   "Merge": {
     "Enabled": true
+  },
+  "Snapshot": {
+    "Enabled": false,
+    "SnapshotDirectory": "snapshot/mainnet",
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/451380230-neth.tar.zst",
+    "SnapshotFileName": "snapshot.tar.zst",
+    "StripComponents": 3
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto"
+  },
+  "VerifyBlockHash": {
+    "Enabled": false,
+    "VerifyEveryNBlocks": 10000,
+    "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }

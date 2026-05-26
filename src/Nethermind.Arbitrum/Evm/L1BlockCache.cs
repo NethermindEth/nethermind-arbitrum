@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
@@ -18,7 +18,7 @@ public sealed class L1BlockCache : IL1BlockCache
     private ulong? _cachedL1BlockNumber;
 
     /// <summary>
-    /// Global LRU cache for L1 block hashes.
+    /// LRU cache for L1 block hashes.
     /// 256 capacities match the BLOCKHASH opcode window (last 256 blocks).
     /// Thread-safe and shared across all transactions.
     /// </summary>
@@ -47,5 +47,14 @@ public sealed class L1BlockCache : IL1BlockCache
     public void SetL1BlockHash(ulong l1BlockNumber, Hash256 hash)
     {
         CachedL1BlockHashes.Set(l1BlockNumber, hash);
+    }
+
+    /// <summary>
+    /// Clears the static L1 block hash cache.
+    /// Called during debug_reinitialize to ensure complete state isolation between tests.
+    /// </summary>
+    public static void ClearStaticCache()
+    {
+        CachedL1BlockHashes.Clear();
     }
 }

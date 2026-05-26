@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Abi;
@@ -45,7 +45,7 @@ public class StylusExecutionGasCostTests
                 .WithType(TxType.EIP1559)
                 .WithTo(counterContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCounterSignature))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -80,7 +80,7 @@ public class StylusExecutionGasCostTests
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, CounterGetCounterCalldata))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(65007)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))

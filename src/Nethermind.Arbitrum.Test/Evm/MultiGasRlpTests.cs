@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Evm;
@@ -51,9 +51,10 @@ public class MultiGasRlpTests
         MultiGas original = default;
         original.Increment(ResourceKind.Computation, 10);
         original.Increment(ResourceKind.HistoryGrowth, 11);
-        original.Increment(ResourceKind.StorageAccess, 12);
+        original.Increment(ResourceKind.StorageAccessRead, 12);
+        original.Increment(ResourceKind.StorageAccessWrite, 3);
         original.Increment(ResourceKind.StorageGrowth, 13);
-        original.Increment(ResourceKind.L1Calldata, 14);
+        original.Increment(ResourceKind.SingleDim, 14);
         original.Increment(ResourceKind.L2Calldata, 15);
         original.Increment(ResourceKind.WasmComputation, 16);
 
@@ -67,7 +68,7 @@ public class MultiGasRlpTests
     {
         MultiGas original = CreateMultiGasWithRefund(
             computation: 100,
-            l1Calldata: 50,
+            singleDim: 50,
             refund: 20);
 
         MultiGas decoded = RlpRoundTrip(original);
@@ -81,9 +82,9 @@ public class MultiGasRlpTests
         MultiGas original = CreateMultiGasWithRefund(
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -98,7 +99,7 @@ public class MultiGasRlpTests
     {
         MultiGas original = CreateMultiGasWithRefund(
             computation: 100,
-            storageAccess: 200,
+            storageAccessRead: 200,
             refund: 50);
 
         RlpStream stream = new(original.GetRlpLength());
@@ -128,7 +129,7 @@ public class MultiGasRlpTests
     {
         MultiGas gas = default;
         gas.Increment(ResourceKind.Computation, 21000);
-        gas.Increment(ResourceKind.StorageAccess, 5000);
+        gas.Increment(ResourceKind.StorageAccessRead, 5000);
 
         int length = gas.GetRlpLength();
 
@@ -147,9 +148,10 @@ public class MultiGasRlpTests
         json.Unknown.Should().Be(0UL);
         json.Computation.Should().Be(0UL);
         json.HistoryGrowth.Should().Be(0UL);
-        json.StorageAccess.Should().Be(0UL);
+        json.StorageAccessRead.Should().Be(0UL);
+        json.StorageAccessWrite.Should().Be(0UL);
         json.StorageGrowth.Should().Be(0UL);
-        json.L1Calldata.Should().Be(0UL);
+        json.SingleDim.Should().Be(0UL);
         json.L2Calldata.Should().Be(0UL);
         json.WasmComputation.Should().Be(0UL);
         json.Total.Should().Be(0UL);
@@ -172,11 +174,11 @@ public class MultiGasRlpTests
     [Test]
     public void ToJson_WithRefund_IncludesRefundField()
     {
-        MultiGas gas = CreateMultiGasWithRefund(l1Calldata: 50, refund: 20);
+        MultiGas gas = CreateMultiGasWithRefund(singleDim: 50, refund: 20);
 
         MultiGasForJson json = gas.ToJson();
 
-        json.L1Calldata.Should().Be(50UL);
+        json.SingleDim.Should().Be(50UL);
         json.Total.Should().Be(50UL);
         json.Refund.Should().Be(20UL);
     }
@@ -196,7 +198,8 @@ public class MultiGasRlpTests
         json.Computation.Should().Be(10UL);
         json.HistoryGrowth.Should().Be(11UL);
         json.StorageGrowth.Should().Be(13UL);
-        json.StorageAccess.Should().Be(0UL);
+        json.StorageAccessRead.Should().Be(0UL);
+        json.StorageAccessWrite.Should().Be(0UL);
         json.Total.Should().Be(35UL);
     }
 
@@ -206,9 +209,9 @@ public class MultiGasRlpTests
         MultiGas gas = CreateMultiGasWithRefund(
             computation: 10,
             historyGrowth: 11,
-            storageAccess: 12,
+            storageAccessRead: 12,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -217,9 +220,10 @@ public class MultiGasRlpTests
 
         json.Computation.Should().Be(10UL);
         json.HistoryGrowth.Should().Be(11UL);
-        json.StorageAccess.Should().Be(12UL);
+        json.StorageAccessRead.Should().Be(12UL);
+        json.StorageAccessWrite.Should().Be(0UL);
         json.StorageGrowth.Should().Be(13UL);
-        json.L1Calldata.Should().Be(14UL);
+        json.SingleDim.Should().Be(14UL);
         json.L2Calldata.Should().Be(15UL);
         json.WasmComputation.Should().Be(16UL);
         json.Total.Should().Be(91UL);
@@ -232,8 +236,8 @@ public class MultiGasRlpTests
         original.Encode(stream);
         byte[] encoded = stream.Data.ToArray()!;
 
-        RlpStream decodeStream = new(encoded);
-        return MultiGas.Decode(decodeStream);
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        return MultiGas.Decode(ref ctx);
     }
 
     private static void AssertMultiGasEqual(MultiGas expected, MultiGas actual)
@@ -255,19 +259,20 @@ public class MultiGasRlpTests
         ulong unknown = 0,
         ulong computation = 0,
         ulong historyGrowth = 0,
-        ulong storageAccess = 0,
+        ulong storageAccessRead = 0,
+        ulong storageAccessWrite = 0,
         ulong storageGrowth = 0,
-        ulong l1Calldata = 0,
+        ulong singleDim = 0,
         ulong l2Calldata = 0,
         ulong wasmComputation = 0,
         ulong refund = 0)
     {
-        ulong total = unknown + computation + historyGrowth + storageAccess +
-                      storageGrowth + l1Calldata + l2Calldata + wasmComputation;
+        ulong total = unknown + computation + historyGrowth + storageAccessRead + storageAccessWrite +
+                      storageGrowth + singleDim + l2Calldata + wasmComputation;
 
         int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
-        ulong[] gas = [unknown, computation, historyGrowth, storageAccess,
-                       storageGrowth, l1Calldata, l2Calldata, wasmComputation];
+        ulong[] gas = [unknown, computation, historyGrowth, storageAccessRead, storageAccessWrite,
+                       storageGrowth, singleDim, l2Calldata, wasmComputation];
         foreach (ulong g in gas)
             contentLength += Rlp.LengthOf(g);
 
@@ -279,6 +284,7 @@ public class MultiGasRlpTests
             stream.Encode(g);
 
         byte[] encoded = stream.Data.ToArray()!;
-        return MultiGas.Decode(new RlpStream(encoded));
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        return MultiGas.Decode(ref ctx);
     }
 }

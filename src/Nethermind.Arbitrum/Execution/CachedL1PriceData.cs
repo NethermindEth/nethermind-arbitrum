@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Execution.Receipts;
 using Nethermind.Core;
+using Nethermind.Core.Caching;
 using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Execution;
@@ -8,14 +12,14 @@ namespace Nethermind.Arbitrum.Execution;
 /// <summary>
 /// Tracks L1 price data posted by nitro
 /// </summary>
-public class CachedL1PriceData(ILogManager logManager)
+public class CachedL1PriceData(ILogManager logManager) : IClearableCache
 {
+    private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
+    private readonly Lock _lock = new();
+
     public ulong StartOfL1PriceDataCache { get; private set; }
     public ulong EndOfL1PriceDataCache { get; private set; }
     public List<L1PriceDataOfMsg> MsgToL1PriceData { get; private set; } = [];
-
-    private readonly ILogger _logger = logManager.GetClassLogger<CachedL1PriceData>();
-    private readonly Lock _lock = new();
 
     public void MarkFeedStart(ulong to)
     {
@@ -90,19 +94,19 @@ public class CachedL1PriceData(ILogManager logManager)
             {
                 if (msgIndex > EndOfL1PriceDataCache + 1)
                 {
-                    if (_logger.IsInfo)
-                        _logger.Info("Message position higher then current end of l1 price data cache, resetting cache to this message");
+                    if (_logger.IsDebug)
+                        _logger.Debug("Message position higher then current end of l1 price data cache, resetting cache to this message");
                     ResetCache();
                 }
                 else if (msgIndex < StartOfL1PriceDataCache)
                 {
-                    if (_logger.IsInfo)
-                        _logger.Info("Message position lower than start of l1 price data cache, ignoring");
+                    if (_logger.IsDebug)
+                        _logger.Debug("Message position lower than start of l1 price data cache, ignoring");
                 }
                 else
                 {
-                    if (_logger.IsInfo)
-                        _logger.Info("Message position already seen in l1 price data cache, ignoring");
+                    if (_logger.IsDebug)
+                        _logger.Debug("Message position already seen in l1 price data cache, ignoring");
                 }
             }
             else
@@ -125,4 +129,21 @@ public class CachedL1PriceData(ILogManager logManager)
         ulong L1GasCharged,
         ulong CummulativeL1GasCharged
     );
+
+    /// <summary>
+    /// Clears all cached L1 price data.
+    /// Called during debug_reinitialize to ensure complete state isolation between tests.
+    /// </summary>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            StartOfL1PriceDataCache = 0;
+            EndOfL1PriceDataCache = 0;
+            MsgToL1PriceData.Clear();
+        }
+    }
+
+    /// <inheritdoc />
+    public void ClearCache() => Clear();
 }

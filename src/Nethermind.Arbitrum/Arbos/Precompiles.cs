@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Collections.Frozen;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -41,6 +44,7 @@ public static class Precompiles
         [ArbosAddresses.ArbWasmAddress] = 30,
         [ArbosAddresses.ArbWasmCacheAddress] = 30,
         [ArbosAddresses.ArbNativeTokenManagerAddress] = 41,
+        [ArbosAddresses.ArbFilteredTransactionsManagerAddress] = ArbosVersion.TransactionFiltering,
         [ArbosAddresses.ArbDebugAddress] = 0,
     }.ToFrozenDictionary();
 }

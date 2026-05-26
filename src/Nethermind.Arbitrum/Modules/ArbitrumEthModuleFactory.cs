@@ -1,11 +1,16 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Rpc;
+using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Queues;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
+using Nethermind.Db.LogIndex;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.JsonRpc;
@@ -38,13 +43,22 @@ public class ArbitrumEthModuleFactory(
     IProtocolsManager protocolsManager,
     IForkInfo forkInfo,
     IBlocksConfig blocksConfig,
-    ArbitrumChainSpecEngineParameters chainSpecParams) : ModuleFactoryBase<IEthRpcModule>
+    ILogIndexConfig logIndexConfig,
+    ArbitrumChainSpecEngineParameters chainSpecParams,
+    IEthereumEcdsa ecdsa,
+    TransactionQueue transactionQueue,
+    SequencerState sequencerState,
+    IArbitrumConfig arbitrumConfig,
+    IBlockMetadataProvider blockMetadataProvider) : ModuleFactoryBase<IArbitrumEthRpcModule>
 {
-    public override IEthRpcModule Create()
+    private readonly HeadBlockSignal _headBlockSignal = new(blockTree);
+
+    public override IArbitrumEthRpcModule Create()
     {
         return new ArbitrumEthRpcModule(
             jsonRpcConfig,
             blockchainBridgeFactory.CreateBlockchainBridge(),
+            blockTree,
             blockTree,
             receiptStorage,
             stateReader,
@@ -58,7 +72,14 @@ public class ArbitrumEthModuleFactory(
             feeHistoryOracle,
             protocolsManager,
             forkInfo,
+            logIndexConfig,
             blocksConfig.SecondsPerSlot,
-            chainSpecParams);
+            _headBlockSignal,
+            chainSpecParams,
+            transactionQueue,
+            sequencerState,
+            ecdsa,
+            arbitrumConfig,
+            blockMetadataProvider);
     }
 }

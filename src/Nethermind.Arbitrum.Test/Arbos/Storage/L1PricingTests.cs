@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Globalization;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -55,7 +58,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             l1Pricing.SetAmortizedCostCapBips(testItem.AmortizationCapBips);
 
-            l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei(), arbosState,
+            l1Pricing.UpdateForBatchPosterSpending(1, 3, firstPosterAddress, testItem.FundsSpent, testItem.L1BasefeeGwei * 1.GWei, arbosState,
                 worldState, GetSpecProvider().GenesisSpec, null);
 
             //assert
@@ -123,7 +126,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
         [Test(Description = "Check returned result when not enough fees are available to transfer. Note - it's not possible to get the same error for version <= 10 as they don't use L1FeesAvailableStorage storage, but always check actual balance on the account")]
         [TestCase(1UL, true, null)]
         [TestCase(9UL, true, null)]
-        [TestCase(32UL, false, "insufficient sender balance")]
+        [TestCase(32UL, false, "insufficient sender balance for transfer")]
         public void UpdateForBatchPosterSpending_NotEnoughBalanceForL1Fees_ReturnsCorrectResult(ulong version, bool success, string? error)
         {
             using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState worldState, out ArbosStorage storage);
@@ -214,8 +217,8 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
             {
                 UnitReward = 0,
                 UnitsPerSecond = 78,
-                FundsCollectedPerSecond = (ulong)7800.GWei(),
-                FundsSpent = (ulong)3000.GWei(),
+                FundsCollectedPerSecond = (ulong)7800.GWei,
+                FundsSpent = (ulong)3000.GWei,
                 AmortizationCapBips = 100,
                 L1BasefeeGwei = 10
             };
@@ -248,7 +251,7 @@ namespace Nethermind.Arbitrum.Test.Arbos.Storage
 
             if (input.AmortizationCapBips != 0)
             {
-                UInt256 availableFundsCap = (input.UnitsPerSecond * input.L1BasefeeGwei * 1.GWei()) *
+                UInt256 availableFundsCap = (input.UnitsPerSecond * input.L1BasefeeGwei * 1.GWei) *
                                                (ulong)input.AmortizationCapBips.ToLongSafe() / Utils.BipsMultiplier;
 
                 if (availableFundsCap < availableFunds)

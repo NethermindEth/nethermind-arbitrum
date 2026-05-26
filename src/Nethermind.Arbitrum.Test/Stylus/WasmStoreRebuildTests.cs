@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Autofac;
 using FluentAssertions;
@@ -79,7 +79,7 @@ public class WasmStoreRebuildTests
                 .WithType(TxType.EIP1559)
                 .WithTo(contract)
                 .WithData(CounterIncrementCalldata)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(500000)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))

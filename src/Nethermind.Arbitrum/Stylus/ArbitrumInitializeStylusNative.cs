@@ -1,21 +1,37 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Runtime.InteropServices;
 using Nethermind.Api.Steps;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Stylus;
 
-public class ArbitrumInitializeStylusNative(IStylusTargetConfig api) : IStep
+public class ArbitrumInitializeStylusNative(IStylusTargetConfig config, ILogManager? logManager = null) : IStep
 {
+    private const string StylusLibraryName = "stylus";
+    private readonly ILogger _logger = (logManager ?? NullLogManager.Instance).GetClassLogger<ArbitrumInitializeStylusNative>();
+
     public Task Execute(CancellationToken cancellationToken)
     {
-        IStylusTargetConfig config = api;
+        VerifyStylusNativeLibrary();
+
+        if (cancellationToken.IsCancellationRequested)
+            return Task.CompletedTask;
 
         StylusNative.SetWasmLruCacheCapacity(Math.Utils.SaturateMul(config.NativeLruCacheCapacityMb, 1024 * 1024ul));
         PopulateStylusTargetCache(config);
 
         return Task.CompletedTask;
+    }
+
+    private void VerifyStylusNativeLibrary()
+    {
+        NativeLibrary.Load(StylusLibraryName, typeof(StylusNative).Assembly, DllImportSearchPath.AssemblyDirectory);
+
+        string platformDescriptor = StylusTargets.GetLocalDescriptor();
+        if (_logger.IsInfo)
+            _logger.Info($"Stylus native library verified for {platformDescriptor}");
     }
 
     private static void PopulateStylusTargetCache(IStylusTargetConfig config)

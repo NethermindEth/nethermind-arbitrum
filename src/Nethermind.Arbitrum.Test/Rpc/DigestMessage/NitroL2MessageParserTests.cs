@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
@@ -6,6 +9,7 @@ using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
@@ -24,7 +28,7 @@ public class NitroL2MessageParserTests
     private const int ChainId = 1;
 
     // The initial L1 pricing basefee starts at 50 GWei unless set in the init message
-    private static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei();
+    private static readonly UInt256 DefaultInitialL1BaseFee = 50.GWei;
 
     [Test]
     public static void ParseSubmitRetryable_WhenGivenValidMessage_ReturnsExpectedTransaction()
@@ -195,7 +199,7 @@ public class NitroL2MessageParserTests
 
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
 
-        byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
+        byte[] packedData = ArbosActsCodec.PackInput(ArbosActsMethod.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
             l1BaseFee);
 
         ArbitrumInternalTransaction expectedTransaction = new()
@@ -212,8 +216,7 @@ public class NitroL2MessageParserTests
         };
 
         transaction.Should().BeEquivalentTo(expectedTransaction, options =>
-            options.Using<ReadOnlyMemory<byte>>(ctx =>
-                    ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
+            options.Using<ReadOnlyMemory<byte>>(ctx => ctx.Subject.Span.SequenceEqual(ctx.Expectation.Span).Should().BeTrue())
                 .WhenTypeIs<ReadOnlyMemory<byte>>());
     }
 
@@ -310,6 +313,7 @@ public class NitroL2MessageParserTests
             HomesteadBlock = 0,
             DaoForkSupport = true,
             Eip150Block = 0,
+            Eip150Hash = "0x0000000000000000000000000000000000000000000000000000000000000000",
             Eip155Block = 0,
             Eip158Block = 0,
             ByzantiumBlock = 0,
@@ -327,7 +331,7 @@ public class NitroL2MessageParserTests
             },
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                Enabled = true,
+                EnableArbOS = true,
                 AllowDebugPrecompiles = true,
                 InitialArbOSVersion = 32,
                 InitialChainOwner = new("0x5e1497dd1f08c87b2d8fe23e9aab6c1de833d927"),
@@ -472,7 +476,7 @@ public class NitroL2MessageParserTests
             InitialArbOSVersion = 10,
             InitialChainOwner = Address.Zero,
             GenesisBlockNum = 100,
-            AllowDebugPrecompiles = true,
+            AllowDebugPrecompiles = false,
             DataAvailabilityCommittee = false,
             MaxCodeSize = null,
             MaxInitCodeSize = null,
@@ -528,7 +532,7 @@ public class NitroL2MessageParserTests
         gas += 2 * 20000;
         ulong legacyGas = gas;
 
-        byte[] packedData = AbiMetadata.PackInput(AbiMetadata.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, legacyGas, l1BaseFee);
+        byte[] packedData = ArbosActsCodec.PackInput(ArbosActsMethod.BatchPostingReport, batchTimestamp, batchPosterAddr, batchNum, legacyGas, l1BaseFee);
 
         transaction.Data.ToArray().Should().BeEquivalentTo(packedData);
     }
@@ -607,8 +611,8 @@ public class NitroL2MessageParserTests
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.BatchPostingReportV2,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.BatchPostingReportV2,
             batchTimestamp,
             batchPosterAddr,
             batchNum,
@@ -658,8 +662,8 @@ public class NitroL2MessageParserTests
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
 
-        byte[] packedData = AbiMetadata.PackInput(
-            AbiMetadata.BatchPostingReportV2,
+        byte[] packedData = ArbosActsCodec.PackInput(
+            ArbosActsMethod.BatchPostingReportV2,
             batchTimestamp,
             batchPosterAddr,
             batchNum,
@@ -714,7 +718,7 @@ public class NitroL2MessageParserTests
             ChainId = TestChainId,
             ArbitrumChainParams = new ArbitrumChainParams
             {
-                Enabled = true,
+                EnableArbOS = true,
                 AllowDebugPrecompiles = true,
                 InitialArbOSVersion = TestInitialArbOSVersion,
                 InitialChainOwner = new Address(TestChainOwnerAddress),
@@ -784,7 +788,7 @@ public class NitroL2MessageParserTests
             InitialArbOSVersion = 10,
             InitialChainOwner = Address.Zero,
             GenesisBlockNum = 100
-        });
+        }, new DisabledArbOsVersionOverride());
     }
 
     private static ParsedInitMessage ParseL1Initialize(ref ReadOnlySpan<byte> data)

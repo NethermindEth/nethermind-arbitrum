@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
@@ -16,16 +19,7 @@ public static class ArbOwnerPublic
 {
     public static Address Address => ArbosAddresses.ArbOwnerPublicAddress;
 
-    public static readonly string Abi =
-        "[{\"inputs\":[],\"name\":\"getAllChainOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllNativeTokenOwners\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getBrotliCompressionLevel\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getInfraFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNativeTokenManagementFrom\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNetworkFeeAccount\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getParentGasFloorPerToken\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getScheduledUpgrade\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"arbosVersion\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"scheduledForTimestamp\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"isCalldataPriceIncreaseEnabled\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isChainOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isNativeTokenOwner\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"ownerToRectify\",\"type\":\"address\"}],\"name\":\"rectifyChainOwner\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"rectifiedOwner\",\"type\":\"address\"}],\"name\":\"ChainOwnerRectified\",\"type\":\"event\"}]";
-
-    public static readonly AbiEventDescription ChainOwnerRectifiedEvent;
-
-    static ArbOwnerPublic()
-    {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi)!;
-        ChainOwnerRectifiedEvent = allEvents["ChainOwnerRectified"];
-    }
+    public static readonly AbiEventDescription ChainOwnerRectifiedEvent = Solgen.ArbOwnerPublic.Events.ChainOwnerRectified.ToAbiEventDescription();
 
     /// <summary>
     /// IsChainOwner checks if the user is a chain owner
@@ -132,6 +126,14 @@ public static class ArbOwnerPublic
     public static ulong GetNativeTokenManagementFrom(ArbitrumPrecompileExecutionContext context)
     {
         return context.ArbosState.NativeTokenEnabledTime.Get();
+    }
+
+    /// <summary>
+    /// GetMaxStylusContractFragments gets the maximum number of fragments a Stylus root contract may list
+    /// </summary>
+    public static byte GetMaxStylusContractFragments(ArbitrumPrecompileExecutionContext context)
+    {
+        return context.ArbosState.Programs.GetParams().MaxFragmentCount;
     }
 
     private static void EmitChainOwnerRectifiedEvent(ArbitrumPrecompileExecutionContext context, Address rectifiedOwner)

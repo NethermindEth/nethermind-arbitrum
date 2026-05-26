@@ -1,4 +1,6 @@
-using Nethermind.Arbitrum.Config;
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Data;
 using Nethermind.Blockchain;
 using Nethermind.Config;
@@ -8,17 +10,15 @@ using Nethermind.Core.Events;
 using Nethermind.Core.Specs;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
-using Nethermind.Specs.ChainSpecStyle;
 
 namespace Nethermind.Arbitrum.Genesis;
 
 public class ArbitrumBlockTreeInitializer(
-    ChainSpec chainSpec,
     ISpecProvider specProvider,
-    IArbitrumSpecHelper specHelper,
     IMainProcessingContext mainProcessingContext,
     IBlockTree blockTree,
     IBlocksConfig blocksConfig,
+    ArbitrumGenesisStateInitializer stateInitializer,
     ILogManager logManager)
 {
     private readonly Lock _lock = new();
@@ -36,12 +36,10 @@ public class ArbitrumBlockTreeInitializer(
             IWorldState worldState = mainProcessingContext.WorldState;
             using IDisposable worldStateCloser = worldState.BeginScope(IWorldState.PreGenesis);
 
-            ArbitrumGenesisLoader genesisLoader = new(
-                chainSpec,
-                specProvider,
-                specHelper,
+            ArbitrumGenesisLoader genesisLoader = new(specProvider,
                 worldState,
                 initMessage,
+                stateInitializer,
                 logManager);
 
             Block genesisBlock = genesisLoader.Load();

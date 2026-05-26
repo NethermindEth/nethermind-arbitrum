@@ -8,6 +8,9 @@
   "TxPool": {
     "BlobsSupport": "Disabled"
   },
+  "Sync": {
+    "NetworkingEnabled": false
+  },
   "Discovery": {
     "DiscoveryVersion": "V5"
   },
@@ -15,7 +18,7 @@
     "Enabled": true,
     "Port": 20545,
     "EnginePort": 20551,
-    "UnsecureDevNoRpcAuthentication": true,
+    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Arbitrum", "nitroexecution"],
     "AdditionalRpcUrls": [
       "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
     ],
@@ -38,15 +41,11 @@
       "Trace",
       "TxPool",
       "Vault",
-      "Web3",
-      "Arbitrum"
+      "Web3"
     ]
   },
   "Pruning": {
-    "Mode": "None",
-    "MaxUnpersistedBlockCount": 2500,
-    "MinUnpersistedBlockCount": 72,
-    "MaxBufferedCommitCount": 2500
+    "Mode": "None"
   },
   "Blocks": {
     "PreWarmStateOnBlockProcessing": false,
@@ -61,5 +60,13 @@
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
     "RebuildLocalWasm": "auto"
+  },
+  "Snapshot": {
+    "Enabled": true,
+    "SnapshotDirectory": "snapshot/mainnet-archive",
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
+  },
+  "VerifyBlockHash": {
+    "ArbNodeRpcUrl": "https://arb1.arbitrum.io/rpc"
   }
 }

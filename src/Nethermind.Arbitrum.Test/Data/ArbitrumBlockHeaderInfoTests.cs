@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
@@ -26,7 +26,7 @@ namespace Nethermind.Arbitrum.Test.Data
         [OneTimeSetUp]
         public void Setup()
         {
-            _logger = LimboLogs.Instance.GetClassLogger();
+            _logger = LimboLogs.Instance.GetClassLogger<ArbitrumBlockHeaderInfoTests>();
             (_validHeader, _expectedSendRoot) = CreateValidBlockHeader();
         }
 

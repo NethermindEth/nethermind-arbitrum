@@ -1,12 +1,15 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
-using Nethermind.Evm;
 using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Precompiles;
@@ -19,20 +22,10 @@ public static class ArbNativeTokenManager
 {
     public static Address Address => ArbosAddresses.ArbNativeTokenManagerAddress;
 
-    public const string Abi =
-        "[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"burnNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"mintNativeToken\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"NativeTokenMinted\",\"type\":\"event\"}]";
-
-    private static readonly AbiEventDescription NativeTokenMintedEvent;
-    private static readonly AbiEventDescription NativeTokenBurnedEvent;
+    private static readonly AbiEventDescription NativeTokenMintedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenMinted.ToAbiEventDescription();
+    private static readonly AbiEventDescription NativeTokenBurnedEvent = Solgen.ArbNativeTokenManager.Events.NativeTokenBurned.ToAbiEventDescription();
 
     public const long MintBurnOperation = GasCostOf.WarmStateRead + GasCostOf.CallValue;
-
-    static ArbNativeTokenManager()
-    {
-        Dictionary<string, AbiEventDescription> allEvents = AbiMetadata.GetAllEventDescriptions(Abi);
-        NativeTokenMintedEvent = allEvents["NativeTokenMinted"];
-        NativeTokenBurnedEvent = allEvents["NativeTokenBurned"];
-    }
 
     /// <summary>
     /// Mints some amount of the native gas token for this chain to the caller
@@ -41,12 +34,10 @@ public static class ArbNativeTokenManager
     {
         // Access control - burn ALL gas if unauthorized
         if (!HasAccess(context))
-        {
             context.BurnOut(); // Burns all gas and throws OutOfGasException
-        }
 
         // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
-        context.Burn(MintBurnOperation);
+        context.Burn(ResourceKind.StorageAccessWrite, MintBurnOperation);
 
         Address caller = context.Caller;
         ArbitrumTransactionProcessor.MintBalance(caller, amount, context.ArbosState, context.WorldState,
@@ -62,12 +53,10 @@ public static class ArbNativeTokenManager
     {
         // Access control - burn ALL gas if unauthorized
         if (!HasAccess(context))
-        {
             context.BurnOut(); // Burns all gas and throws OutOfGasException
-        }
 
         // Charge gas for storage access and value transfer (WarmStateRead + CallValue = 9100)
-        context.Burn(MintBurnOperation);
+        context.Burn(ResourceKind.StorageAccessWrite, MintBurnOperation);
 
         Address caller = context.Caller;
         UInt256 balance = context.WorldState.GetBalance(caller);

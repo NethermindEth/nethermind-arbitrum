@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Evm;
@@ -43,7 +43,7 @@ public class WasmGasTestHelper : IDisposable
 
         // Create minimal execution environment
         _executionEnvironment = ExecutionEnvironment.Rent(
-            EmptyCodeInfo.Instance,
+            CodeInfo.Empty,
             Address.Zero,
             Address.Zero,
             Address.Zero,
@@ -106,18 +106,4 @@ public class WasmGasTestHelper : IDisposable
         _accessTracker.Dispose();
         _worldStateScope.Dispose();
     }
-}
-
-/// <summary>
-/// Empty code info for test purposes.
-/// </summary>
-internal sealed class EmptyCodeInfo : ICodeInfo
-{
-    public static readonly EmptyCodeInfo Instance = new();
-
-    private EmptyCodeInfo() { }
-
-    public bool IsEmpty => true;
-    public ReadOnlyMemory<byte> Code => ReadOnlyMemory<byte>.Empty;
-    public ReadOnlySpan<byte> CodeSpan => ReadOnlySpan<byte>.Empty;
 }

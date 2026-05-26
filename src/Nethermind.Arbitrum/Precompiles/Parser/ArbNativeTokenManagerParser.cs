@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
@@ -14,12 +17,12 @@ public class ArbNativeTokenManagerParser : IArbitrumPrecompile<ArbNativeTokenMan
     public static Address Address { get; } = ArbNativeTokenManager.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbNativeTokenManager.Abi);
+        = Solgen.ArbNativeTokenManager.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint MintNativeTokenId = PrecompileHelper.GetMethodId("mintNativeToken(uint256)");
-    private static readonly uint BurnNativeTokenId = PrecompileHelper.GetMethodId("burnNativeToken(uint256)");
+    private const uint MintNativeTokenId = Solgen.ArbNativeTokenManager.Methods.MintNativeToken;
+    private const uint BurnNativeTokenId = Solgen.ArbNativeTokenManager.Methods.BurnNativeToken;
 
     static ArbNativeTokenManagerParser()
     {

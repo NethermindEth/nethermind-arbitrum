@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Buffers.Binary;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Execution.Transactions;
@@ -8,7 +11,6 @@ using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
-using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
@@ -42,14 +44,14 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
     private const ulong EstimationPaddingUnits = 16 * GasCostOf.TxDataNonZeroEip2028;
     private const ulong EstimationPaddingBasisPoints = 100;
 
-    private static readonly UInt256 DefaultNonce = new(Keccak.Compute("Nonce"u8.ToArray()).BytesToArray().AsSpan()[..8]);
-    private static readonly UInt256 DefaultDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly UInt256 DefaultGasPrice = new(Keccak.Compute("GasFeeCap"u8.ToArray()).BytesToArray().AsSpan()[..4]);
-    private static readonly long DefaultGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8.ToArray()).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 DefaultNonce = new(Keccak.Compute("Nonce"u8).BytesToArray().AsSpan()[..8]);
+    private static readonly UInt256 DefaultDecodedMaxFeePerGas = new(Keccak.Compute("GasTipCap"u8).BytesToArray().AsSpan()[..4]);
+    private static readonly UInt256 DefaultGasPrice = new(Keccak.Compute("GasFeeCap"u8).BytesToArray().AsSpan()[..4]);
+    private static readonly long DefaultGasLimit = BinaryPrimitives.ReadInt32BigEndian(Keccak.Compute("Gas"u8).BytesToArray().AsSpan()[..4]);
     private const ulong ArbitrumOneChainId = 42_161; // see nitro's arbitrum_chain_info.json or arbitrum docs
     private static readonly ulong DefaultSignatureV = ArbitrumOneChainId * 3;
-    private static readonly byte[] DefaultSignatureR = Keccak.Compute("R"u8.ToArray()).BytesToArray();
-    private static readonly byte[] DefaultSignatureS = Keccak.Compute("S"u8.ToArray()).BytesToArray();
+    private static readonly byte[] DefaultSignatureR = Keccak.Compute("R"u8).BytesToArray();
+    private static readonly byte[] DefaultSignatureS = Keccak.Compute("S"u8).BytesToArray();
 
     public static readonly UInt256 InitialEquilibrationUnitsV0 = 60 * GasCostOf.TxDataNonZeroEip2028 * 100_000;
     public static readonly ulong InitialEquilibrationUnitsV6 = GasCostOf.TxDataNonZeroEip2028 * 10_000_000;
@@ -218,7 +220,8 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
         }
 
         // Approximate the l1 fee charged for posting this tx's calldata
-        return (PricePerUnitStorage.Get() * units, units);
+        UInt256 pricePerUnit = PricePerUnitStorage.Get();
+        return (pricePerUnit * units, units);
     }
 
     private static ulong GetPosterUnitsWithoutCache(Transaction tx, Address poster, ulong brotliCompressionLevel)
@@ -273,6 +276,7 @@ public partial class L1PricingState(ArbosStorage storage, ulong currentArbosVers
 
         ulong unitsSinceUpdate = UnitsSinceStorage.Get();
         ulong unitsAllocated = unitsSinceUpdate.SaturateMul(allocationNumerator) / allocationDenominator;
+
         unitsSinceUpdate -= unitsAllocated;
         UnitsSinceStorage.Set(unitsSinceUpdate);
 

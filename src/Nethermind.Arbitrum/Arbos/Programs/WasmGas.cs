@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Core;
@@ -15,19 +15,19 @@ public static class WasmGas
     {
         MultiGas gas = new();
 
-        // Code access cost -> StorageAccess
+        // Code access cost -> StorageAccessRead (WASM: state load)
         if (withCode)
         {
             long maxCodeSize = vm.Spec.MaxCodeSize;
             ulong codeAccessGas = ((ulong)maxCodeSize / 24576) * GasCostOf.ExtCodeEip150;
-            gas.Increment(ResourceKind.StorageAccess, codeAccessGas);
+            gas.Increment(ResourceKind.StorageAccessRead, codeAccessGas);
         }
 
         if (vm.VmState.AccessTracker.IsCold(address))
         {
             vm.VmState.AccessTracker.WarmUp(address);
-            // Cold: StorageAccess + Computation split
-            gas.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
+            // Cold: StorageAccessRead + Computation split
+            gas.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
             gas.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         }
         else
@@ -44,8 +44,8 @@ public static class WasmGas
         if (accessTracker.IsCold(in storageCell))
         {
             accessTracker.WarmUp(in storageCell);
-            // Cold: StorageAccess + Computation split
-            gas.Increment(ResourceKind.StorageAccess, GasCostOf.ColdSLoad - GasCostOf.WarmStateRead);
+            // Cold: StorageAccessRead + Computation split
+            gas.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdSLoad - GasCostOf.WarmStateRead);
             gas.Increment(ResourceKind.Computation, GasCostOf.WarmStateRead);
         }
         else
@@ -62,15 +62,15 @@ public static class WasmGas
 
         MultiGas cost = new();
 
-        // Cold access -> StorageAccess
+        // Cold slot load -> StorageAccessRead (loading slot before write)
         if (accessTracker.IsCold(in storageCell))
         {
-            cost.Increment(ResourceKind.StorageAccess, GasCostOf.ColdSLoad);
+            cost.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdSLoad);
             accessTracker.WarmUp(in storageCell);
         }
 
         ReadOnlySpan<byte> currentValue = vm.WorldState.Get(in storageCell);
-        long sClearRefunds = RefundOf.SClear(true);
+        long sClearRefunds = RefundOf.SClearAfterEip3529;
 
         // Same value -> just warm read (Computation)
         if (Bytes.AreEqual(currentValue, newValue))
@@ -79,7 +79,7 @@ public static class WasmGas
             return cost;
         }
 
-        Span<byte> originalValue = vm.WorldState.GetOriginal(in storageCell);
+        ReadOnlySpan<byte> originalValue = vm.WorldState.GetOriginal(in storageCell);
         if (Bytes.AreEqual(originalValue, currentValue))
         {
             if (originalValue.IsZero())
@@ -92,8 +92,8 @@ public static class WasmGas
             if (newValue.IsZero())
                 vmState.Refund += sClearRefunds;
 
-            // Reset existing slot -> StorageAccess (SReset - ColdSLoad)
-            cost.Increment(ResourceKind.StorageAccess, GasCostOf.SReset - GasCostOf.ColdSLoad);
+            // Reset existing slot -> StorageAccessWrite (WASM SSTORE write cost: SReset - ColdSLoad)
+            cost.Increment(ResourceKind.StorageAccessWrite, GasCostOf.SReset - GasCostOf.ColdSLoad);
             return cost;
         }
 
@@ -142,7 +142,7 @@ public static class WasmGas
         if (vm.VmState.AccessTracker.IsCold(contract))
         {
             vm.VmState.AccessTracker.WarmUp(contract);
-            cost.Increment(ResourceKind.StorageAccess, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
+            cost.Increment(ResourceKind.StorageAccessRead, GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead);
         }
 
         // New account creation with value transfer

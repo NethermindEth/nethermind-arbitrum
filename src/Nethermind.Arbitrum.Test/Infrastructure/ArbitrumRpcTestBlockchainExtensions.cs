@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Security.Cryptography;
 using FluentAssertions;
@@ -7,7 +7,7 @@ using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Blockchain;
@@ -97,7 +97,7 @@ public static class ArbitrumRpcTestBlockchainExtensions
                 .WithType(TxType.EIP1559)
                 .WithTo(null)
                 .WithData(stylusInitCode)
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(100_000_000)
                 .WithValue(0)
                 .WithNonce(senderNonce)
@@ -117,8 +117,8 @@ public static class ArbitrumRpcTestBlockchainExtensions
                 .WithType(TxType.EIP1559)
                 .WithTo(ArbosAddresses.ArbWasmAddress)
                 .WithData(calldata)
-                .WithValue(100.Ether())
-                .WithMaxFeePerGas(10.GWei())
+                .WithValue(100.Ether)
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(5_000_000)
                 .WithNonce(chain.WorldStateAccessor.GetNonce(sender))
                 .SignedAndResolved(FullChainSimulationAccounts.Owner)

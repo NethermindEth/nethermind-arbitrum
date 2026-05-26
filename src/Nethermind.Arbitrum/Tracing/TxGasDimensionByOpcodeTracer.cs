@@ -1,16 +1,16 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global - Properties are used by JSON serialization
 
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Serialization.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Nethermind.Arbitrum.Tracing;
 
@@ -34,7 +34,7 @@ public sealed class TxGasDimensionByOpcodeTracer(Transaction? transaction, Block
         Dictionary<string, GasDimensionBreakdown> dimensionsByName = new();
         foreach (KeyValuePair<Instruction, GasDimensionBreakdown> kvp in _dimensionsByOpcode)
         {
-            string opcodeName = (kvp.Key.GetName() ?? kvp.Key.ToString()).ToUpperInvariant();
+            string opcodeName = GetInstructionName(kvp.Key);
             dimensionsByName[opcodeName] = kvp.Value;
         }
 
@@ -83,7 +83,7 @@ public sealed class TxGasDimensionByOpcodeTracer(Transaction? transaction, Block
         // Aggregate the gas dimensions
         breakdown.OneDimensionalGasCost += (ulong)gasCost;
         breakdown.Computation += delta.Get(ResourceKind.Computation);
-        breakdown.StateAccess += delta.Get(ResourceKind.StorageAccess);
+        breakdown.StateAccess += delta.Get(ResourceKind.StorageAccessRead) + delta.Get(ResourceKind.StorageAccessWrite);
         breakdown.StateGrowth += delta.Get(ResourceKind.StorageGrowth);
         breakdown.HistoryGrowth += delta.Get(ResourceKind.HistoryGrowth);
     }

@@ -1,14 +1,13 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Security.Cryptography;
 using System.Text;
 using FluentAssertions;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
-using StylusNative = Nethermind.Arbitrum.Arbos.Stylus.StylusNative;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus;
 
@@ -209,7 +208,7 @@ public class StylusNativeTests
         StylusNativeResult<byte[]> wasmResult = StylusNative.WatToWasm(wat);
         wasmResult.Status.Should().Be(UserOutcomeKind.Success);
 
-        StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "WebAssembly translation error");
+        StylusNativeResult<byte[]> expected = StylusNativeResult<byte[]>.Failure(UserOutcomeKind.Failure, "Middleware error");
         StylusNativeResult<byte[]> actual = StylusNative.Compile(wasmResult.Value!, 1, true, StylusTargets.HostDescriptor, false);
 
         actual.Should().BeEquivalentTo(expected, o => o.ForErrorResult());

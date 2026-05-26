@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Config;
 using Nethermind.Core.Extensions;
@@ -44,11 +44,11 @@ public class WasmDbConfig : IWasmDbConfig
     public ulong? WriteBufferNumber { get; set; }
     public int? MaxOpenFiles { get; set; }
     public bool WriteAheadLogSync { get; set; } = false;
-    public ulong? ReadAheadSize { get; set; } = (ulong)256.KiB();
+    public ulong? ReadAheadSize { get; set; } = (ulong)256.KiB;
     public bool EnableDbStatistics { get; set; } = false;
     public uint StatsDumpPeriodSec { get; set; } = 600;
     public bool? VerifyChecksum { get; set; } = true;
-    public ulong? RowCacheSize { get; set; } = (ulong)16.MiB();
+    public ulong? RowCacheSize { get; set; } = (ulong)16.MiB;
     public bool EnableFileWarmer { get; set; } = false;
     public double CompressibilityHint { get; set; } = 1.0;
     public bool FlushOnExit { get; set; } = true;

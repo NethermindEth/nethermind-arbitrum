@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core.Extensions;
@@ -53,12 +56,8 @@ public class PrecompileAbiEncoder : IAbiEncoder
         bool includeSig = encodingStyle == AbiEncodingStyle.IncludeSignature;
         int sigOffset = includeSig ? 4 : 0;
         if (includeSig)
-        {
             if (!Bytes.AreEqual(AbiSignature.GetAddress(data), signature.Address))
-            {
                 throw new AbiException($"Signature in encoded ABI data is not consistent with {signature}");
-            }
-        }
 
         (object[] arguments, int position) = AbiType.DecodeSequence(signature.Types.Length, signature.Types, data, packed, sigOffset);
 

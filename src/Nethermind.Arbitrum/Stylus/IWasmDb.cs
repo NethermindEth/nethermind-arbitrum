@@ -1,11 +1,12 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
 
 namespace Nethermind.Arbitrum.Stylus;
 
-public interface IWasmDb
+public interface IWasmDb : IClearableCache
 {
     bool TryGetActivatedAsm(string target, in ValueHash256 moduleHash, out byte[] bytes);
     void WriteActivation(in ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);

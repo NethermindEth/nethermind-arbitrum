@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Diagnostics;
 using Nethermind.Arbitrum.Stylus;
@@ -14,6 +14,32 @@ public class ArbitrumConfig : IArbitrumConfig
     public WasmRebuildMode RebuildLocalWasm { get; set; } = WasmRebuildMode.Auto;
     public int MessageLagMs { get; set; } = 1000;
     public bool ExposeMultiGas { get; set; } = false;
+    public int ValidatorMaxStateRootsInMem { get; set; } = 1000;
+    public int ValidatorReconstructedStateMemDBMaxSizeMb { get; set; } = 1024;
+    public bool ValidationEnabled { get; set; } = false;
+    public bool EnableTestReset { get; set; } = false;
+    public bool SequencerEnabled { get; set; } = false;
+    public int SequencerNonceCacheSize { get; set; } = 1024;
+    public int SequencerMaxTxQueueSize { get; set; } = 1024;
+    public int SequencerMaxTxDataSize { get; set; } = 95000;
+    public int SequencerMaxAcceptableTimestampDelta { get; set; } = 3600;
+    public int SequencerMaxBlockSpeedMs { get; set; } = 250;
+    public int SequencerInactiveWaitMs { get; set; } = 50;
+    public bool SequencerAwaitTxResult { get; set; } = false;
+    public int SequencerQueueTimeoutMs { get; set; } = 12000;
+    public string SequencerSenderWhitelist { get; set; } = "";
+    public bool TimeboostEnabled { get; set; } = false;
+    public int TimeboostExpressLaneAdvantageMs { get; set; } = 200;
+    public ulong TimeboostQueueTimeoutInBlocks { get; set; } = 5;
+    public string TimeboostAuctionContractAddress { get; set; } = "";
+    public int TimeboostAuctionContractPollIntervalMs { get; set; } = 1000;
+    public string TimeboostAuctioneerAddress { get; set; } = "";
+    public int TimeboostEarlySubmissionGraceMs { get; set; } = 2000;
+    public int TimeboostRoundDurationSeconds { get; set; } = 60;
+    public int TimeboostAuctionClosingWindowSeconds { get; set; } = 15;
+    public bool ConsensusNodeRpcEnabled { get; set; } = false;
+    public string ConsensusNodeRpcUrl { get; set; } = "";
+    public int ConsensusNodeRpcTimeoutMs { get; set; } = 10000;
 }
 
 public static class ArbitrumConfigExtensions

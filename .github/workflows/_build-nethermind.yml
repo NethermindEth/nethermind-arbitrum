@@ -1,0 +1,56 @@
+name: Build Nethermind
+
+on:
+  workflow_call:
+    inputs:
+      configuration:
+        description: 'Build configuration (Debug or Release)'
+        required: false
+        default: 'Debug'
+        type: string
+      artifact_name:
+        description: 'Name for the build artifact'
+        required: false
+        default: 'nethermind-build'
+        type: string
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build Nethermind + Arbitrum Plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Nethermind-Arbitrum
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build Nethermind
+        run: dotnet build src/Nethermind/src/Nethermind/Nethermind.slnx -c ${{ inputs.configuration }}
+
+      - name: Build Arbitrum plugin
+        run: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj -c ${{ inputs.configuration }}
+
+      - name: Generate system test config
+        run: ./src/Nethermind.Arbitrum/Properties/scripts/generate-system-test-config.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        env:
+          CONFIG_LOWER: ${{ inputs.configuration == 'Release' && 'release' || 'debug' }}
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: |
+            src/Nethermind/src/Nethermind/artifacts/bin/Nethermind.Runner/${{ env.CONFIG_LOWER }}/
+          retention-days: 1

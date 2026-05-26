@@ -1,10 +1,10 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
-using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Blockchain;
 using Nethermind.Config;
 using Nethermind.Consensus;
@@ -16,6 +16,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Crypto;
 using Nethermind.Evm.State;
+using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.BlockProduction;
 
@@ -66,6 +67,13 @@ namespace Nethermind.Arbitrum.Execution
 
             Address blockAuthor = payloadAttributes?.MessageWithMetadata.Message.Header.Sender ?? throw new InvalidOperationException();
 
+            // Rotate next-block fees to current-block fees to compute baseFee for the header.
+            // This runs in a temporary BeginScope that gets discarded — the real persistent
+            // commit happens in the production/validation transaction executors.
+            arbosState.L2PricingState.CommitMultiGasFees();
+
+            UInt256 baseFee = arbosState.L2PricingState.BaseFeeWeiStorage.Get();
+
             BlockHeader header = new(
                 parent.Hash!,
                 Keccak.OfAnEmptySequenceRlp,
@@ -78,7 +86,7 @@ namespace Nethermind.Arbitrum.Execution
             {
                 MixHash = parent.MixHash,
                 TotalDifficulty = parent.TotalDifficulty + 1,
-                BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get(),
+                BaseFeePerGas = baseFee,
                 Nonce = payloadAttributes.MessageWithMetadata.DelayedMessagesRead
             };
 
@@ -123,7 +131,7 @@ namespace Nethermind.Arbitrum.Execution
         )
         {
             ulong timePassed = newHeader.Timestamp - parent.Timestamp;
-            byte[] binaryData = AbiMetadata.PackInput(AbiMetadata.StartBlockMethod, l1Header.BaseFeeL1, l1Header.BlockNumber, newHeader.Number, timePassed);
+            byte[] binaryData = ArbosActsCodec.PackInput(ArbosActsMethod.StartBlock, l1Header.BaseFeeL1 ?? UInt256.Zero, l1Header.BlockNumber, newHeader.Number, timePassed);
 
             return new ArbitrumInternalTransaction
             {

@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Text.Json.Serialization;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
 using Nethermind.Int256;
@@ -31,16 +32,16 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
     [JsonConstructor]
     public ArbitrumInternalTransactionForRpc() { }
 
-    public ArbitrumInternalTransactionForRpc(Transaction transaction, int? txIndex = null, Hash256? blockHash = null, long? blockNumber = null)
-        : base(transaction, txIndex, blockHash, blockNumber)
+    public ArbitrumInternalTransactionForRpc(Transaction transaction, in TransactionForRpcContext extraData)
+        : base(transaction, extraData)
     {
-        ChainId = transaction.ChainId;
+        ChainId = extraData.ChainId ?? transaction.ChainId;
         From = transaction.SenderAddress ?? Address.Zero;
         To = transaction.To;
         Input = transaction.Data.ToArray();
     }
 
-    public override Transaction ToTransaction()
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumInternalTransaction
         {
@@ -50,15 +51,8 @@ public class ArbitrumInternalTransactionForRpc : TransactionForRpc, IFromTransac
         };
     }
 
-    public static ArbitrumInternalTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumInternalTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
+    public static ArbitrumInternalTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
+        => new(tx, extraData);
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -85,18 +79,18 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
     [JsonConstructor]
     public ArbitrumDepositTransactionForRpc() { }
 
-    public ArbitrumDepositTransactionForRpc(Transaction transaction, int? txIndex = null, Hash256? blockHash = null, long? blockNumber = null)
-        : base(transaction, txIndex, blockHash, blockNumber)
+    public ArbitrumDepositTransactionForRpc(Transaction transaction, in TransactionForRpcContext extraData)
+        : base(transaction, extraData)
     {
         ArbitrumDepositTransaction? depositTx = transaction as ArbitrumDepositTransaction;
         RequestId = depositTx?.L1RequestId;
-        ChainId = transaction.ChainId;
+        ChainId = extraData.ChainId ?? transaction.ChainId;
         From = transaction.SenderAddress ?? Address.Zero;
         To = transaction.To;
         Value = transaction.Value;
     }
 
-    public override Transaction ToTransaction()
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumDepositTransaction
         {
@@ -109,15 +103,8 @@ public class ArbitrumDepositTransactionForRpc : TransactionForRpc, IFromTransact
         };
     }
 
-    public static ArbitrumDepositTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumDepositTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
+    public static ArbitrumDepositTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
+        => new(tx, extraData);
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -149,11 +136,11 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
     [JsonConstructor]
     public ArbitrumUnsignedTransactionForRpc() { }
 
-    public ArbitrumUnsignedTransactionForRpc(Transaction transaction, int? txIndex = null, Hash256? blockHash = null, long? blockNumber = null)
-        : base(transaction, txIndex, blockHash, blockNumber)
+    public ArbitrumUnsignedTransactionForRpc(Transaction transaction, in TransactionForRpcContext extraData)
+        : base(transaction, extraData)
     {
         ArbitrumUnsignedTransaction? unsignedTx = transaction as ArbitrumUnsignedTransaction;
-        ChainId = transaction.ChainId;
+        ChainId = extraData.ChainId ?? transaction.ChainId;
         From = transaction.SenderAddress ?? Address.Zero;
         Nonce = transaction.Nonce;
         GasFeeCap = unsignedTx?.GasFeeCap ?? transaction.MaxFeePerGas;
@@ -163,7 +150,7 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Transaction ToTransaction()
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumUnsignedTransaction
         {
@@ -181,15 +168,8 @@ public class ArbitrumUnsignedTransactionForRpc : TransactionForRpc, IFromTransac
         };
     }
 
-    public static ArbitrumUnsignedTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumUnsignedTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
+    public static ArbitrumUnsignedTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
+        => new(tx, extraData);
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -233,11 +213,11 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
     [JsonConstructor]
     public ArbitrumRetryTransactionForRpc() { }
 
-    public ArbitrumRetryTransactionForRpc(Transaction transaction, int? txIndex = null, Hash256? blockHash = null, long? blockNumber = null)
-        : base(transaction, txIndex, blockHash, blockNumber)
+    public ArbitrumRetryTransactionForRpc(Transaction transaction, in TransactionForRpcContext extraData)
+        : base(transaction, extraData)
     {
         ArbitrumRetryTransaction? retryTx = transaction as ArbitrumRetryTransaction;
-        ChainId = transaction.ChainId;
+        ChainId = extraData.ChainId ?? transaction.ChainId;
         TicketId = retryTx?.TicketId;
         From = transaction.SenderAddress ?? Address.Zero;
         Nonce = transaction.Nonce;
@@ -251,7 +231,7 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
         SubmissionFeeRefund = retryTx?.SubmissionFeeRefund;
     }
 
-    public override Transaction ToTransaction()
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumRetryTransaction
         {
@@ -273,15 +253,8 @@ public class ArbitrumRetryTransactionForRpc : TransactionForRpc, IFromTransactio
         };
     }
 
-    public static ArbitrumRetryTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumRetryTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
+    public static ArbitrumRetryTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
+        => new(tx, extraData);
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -336,11 +309,11 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
     [JsonConstructor]
     public ArbitrumSubmitRetryableTransactionForRpc() { }
 
-    public ArbitrumSubmitRetryableTransactionForRpc(Transaction transaction, int? txIndex = null, Hash256? blockHash = null, long? blockNumber = null)
-        : base(transaction, txIndex, blockHash, blockNumber)
+    public ArbitrumSubmitRetryableTransactionForRpc(Transaction transaction, in TransactionForRpcContext extraData)
+        : base(transaction, extraData)
     {
         ArbitrumSubmitRetryableTransaction? retryableTx = transaction as ArbitrumSubmitRetryableTransaction;
-        ChainId = transaction.ChainId;
+        ChainId = extraData.ChainId ?? transaction.ChainId;
         RequestId = retryableTx?.RequestId;
         From = transaction.SenderAddress ?? Address.Zero;
         L1BaseFee = retryableTx?.L1BaseFee;
@@ -357,7 +330,7 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
         Input = transaction.Data.ToArray();
     }
 
-    public override Transaction ToTransaction()
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumSubmitRetryableTransaction
         {
@@ -381,15 +354,8 @@ public class ArbitrumSubmitRetryableTransactionForRpc : TransactionForRpc, IFrom
         };
     }
 
-    public static ArbitrumSubmitRetryableTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumSubmitRetryableTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
+    public static ArbitrumSubmitRetryableTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
+        => new(tx, extraData);
 
     public override bool ShouldSetBaseFee() => false;
 }
@@ -422,11 +388,11 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
     [JsonConstructor]
     public ArbitrumContractTransactionForRpc() { }
 
-    public ArbitrumContractTransactionForRpc(Transaction transaction, int? txIndex = null, Hash256? blockHash = null, long? blockNumber = null)
-        : base(transaction, txIndex, blockHash, blockNumber)
+    public ArbitrumContractTransactionForRpc(Transaction transaction, in TransactionForRpcContext extraData)
+        : base(transaction, extraData)
     {
         ArbitrumContractTransaction? contractTx = transaction as ArbitrumContractTransaction;
-        ChainId = transaction.ChainId;
+        ChainId = extraData.ChainId ?? transaction.ChainId;
         RequestId = contractTx?.RequestId;
         From = transaction.SenderAddress ?? Address.Zero;
         GasFeeCap = contractTx?.GasFeeCap ?? transaction.MaxFeePerGas;
@@ -436,7 +402,7 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
         Input = transaction.Data.ToArray();
     }
 
-    public override Transaction ToTransaction()
+    public override Result<Transaction> ToTransaction(bool validateUserInput = false, long? gasCap = null, IReleaseSpec? spec = null)
     {
         return new ArbitrumContractTransaction
         {
@@ -454,15 +420,8 @@ public class ArbitrumContractTransactionForRpc : TransactionForRpc, IFromTransac
         };
     }
 
-    public static ArbitrumContractTransactionForRpc FromTransaction(Transaction tx, TransactionConverterExtraData extraData)
-    {
-        return new ArbitrumContractTransactionForRpc(tx, extraData.TxIndex, extraData.BlockHash, extraData.BlockNumber)
-        {
-            ChainId = extraData.ChainId ?? tx.ChainId
-        };
-    }
-
-    public override void EnsureDefaults(long? gasCap) { }
+    public static ArbitrumContractTransactionForRpc FromTransaction(Transaction tx, in TransactionForRpcContext extraData)
+        => new(tx, extraData);
 
     public override bool ShouldSetBaseFee() => false;
 }

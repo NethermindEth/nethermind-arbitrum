@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
+using System.Buffers.Binary;
+using Nethermind.Arbitrum.Config;
+using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
+using Nethermind.Blockchain;
+using Nethermind.Core;
+using Nethermind.Core.Test.Builders;
+using Nethermind.Crypto;
+using Nethermind.Facade;
+using Nethermind.Logging;
+using NSubstitute;
+
+namespace Nethermind.Arbitrum.Test.Infrastructure;
+
+public class TestExpressLane
+{
+    public static readonly Address TestAuctionContract = TestItem.AddressF;
+
+    public static ExpressLaneTracker CreateTracker(
+        out TestExpressLaneTrackerContext context,
+        Action<ArbitrumConfig>? setup = null,
+        ulong currentRound = 1,
+        int intoRoundSeconds = 30)
+    {
+        ArbitrumConfig config = TestSequencer.DefaultConfig(setup);
+
+        ManualRoundTimingInfo timing = new(config, DateTimeOffset.UtcNow, currentRound, TimeSpan.FromSeconds(intoRoundSeconds));
+        FakeAuctionContract auctionContract = new() { Address = TestAuctionContract };
+
+        ExpressLaneTracker tracker = new(timing, auctionContract, config, LimboLogs.Instance);
+        context = new(timing, auctionContract, config, currentRound, tracker);
+        tracker.Start(CancellationToken.None).GetAwaiter().GetResult();
+
+        return tracker;
+    }
+
+    public static ExpressLaneService CreateService(ExpressLaneTracker tracker, TestExpressLaneTrackerContext trackerContext, out TestExpressLaneServiceContext context)
+    {
+        TransactionQueue txQueue = new(trackerContext.Config, tracker, trackerContext.Timing.TimeProvider);
+        IBlockTree blockTree = Substitute.For<IBlockTree>();
+        Block head = Build.A.Block.WithHeader(Build.A.BlockHeader.TestObject).TestObject;
+        blockTree.Head.Returns(head);
+
+        context = new(txQueue);
+
+        return new ExpressLaneService(
+            trackerContext.Timing,
+            tracker,
+            trackerContext.Config,
+            txQueue,
+            new EthereumEcdsa(FullChainSimulationChainSpecProvider.ChainId),
+            FullChainSimulationChainSpecProvider.Create(),
+            blockTree,
+            new FakeStateReader(),
+            LimboLogs.Instance);
+    }
+}
+
+public record TestExpressLaneTrackerContext(
+    ManualRoundTimingInfo Timing,
+    FakeAuctionContract AuctionContract,
+    ArbitrumConfig Config,
+    ulong CurrentRound,
+    ExpressLaneTracker Tracker)
+{
+    public void AdvanceTime(TimeSpan delta) => Timing.Advance(delta);
+
+    // Advances by a full round duration. The big jump fires the loop's pending Task.Delay,
+    // triggering one leftover poll iteration on the still-current Result. We wait for that
+    // iteration's event so the loop is back at `await delayTask` (next iter armed) before
+    // returning — without this, the next AdvanceLoop's single time advance can race with
+    // the leftover poll, and either pick up stale Result or arm a Task.Delay beyond reach.
+    public async Task AdvanceToNextRound()
+    {
+        TaskCompletionSource leftoverDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<ResolvedRound> handler = (_, _) => leftoverDone.TrySetResult();
+
+        Tracker.ControllerLoopAdvanced += handler;
+
+        try
+        {
+            Timing.Advance(TimeSpan.FromSeconds(Config.TimeboostRoundDurationSeconds));
+            await leftoverDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Tracker.ControllerLoopAdvanced -= handler;
+        }
+    }
+
+    public async Task AdvanceLoop(ResolvedRound resolvedRound)
+    {
+        AuctionContract.Result = resolvedRound;
+
+        TaskCompletionSource pollDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<ResolvedRound> handler = (_, polled) =>
+        {
+            if (polled == resolvedRound)
+                pollDone.TrySetResult();
+        };
+
+        Tracker.ControllerLoopAdvanced += handler;
+
+        try
+        {
+            Timing.Advance(TimeSpan.FromMilliseconds(Config.TimeboostAuctionContractPollIntervalMs));
+            await pollDone.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            Tracker.ControllerLoopAdvanced -= handler;
+        }
+    }
+}
+
+public record TestExpressLaneServiceContext(TransactionQueue TxQueue);
+
+public sealed class FakeAuctionContract : IAuctionContract
+{
+    public Address Address { get; set; } = Address.Zero;
+
+    public ResolvedRound Result { get; set; } = new(Address.Zero, 0);
+
+    public ResolvedRound ResolveRounds() => Result;
+
+    public static byte[] AbiEncode(ResolvedRound resolvedRound)
+    {
+        byte[] output = new byte[128];
+        resolvedRound.Controller.Bytes.CopyTo(output.AsSpan(12, 20));
+        BinaryPrimitives.WriteUInt64BigEndian(output.AsSpan(56, 8), resolvedRound.Round);
+        return output;
+    }
+}
+
+public class FakeAuctionContractBlockchainBridgeFactory(byte[] callOutputData) : IBlockchainBridgeFactory
+{
+    public IBlockchainBridge CreateBlockchainBridge()
+    {
+        IBlockchainBridge bridge = Substitute.For<IBlockchainBridge>();
+        bridge.Call(Arg.Any<BlockHeader>(), Arg.Any<Transaction>()).Returns(new CallOutput { OutputData = callOutputData });
+        return bridge;
+    }
+}

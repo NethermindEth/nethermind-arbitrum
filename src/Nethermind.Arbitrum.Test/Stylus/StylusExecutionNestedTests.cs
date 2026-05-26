@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Abi;
@@ -54,7 +54,7 @@ public class StylusExecutionNestedTests
                 .WithType(TxType.EIP1559)
                 .WithTo(callContract)
                 .WithData(AbiEncoder.Instance.Encode(AbiEncodingStyle.IncludeSignature, ExecuteCallSignature, counterContract, GetNetworkFeeBalanceCalldata))
-                .WithMaxFeePerGas(10.GWei())
+                .WithMaxFeePerGas(10.GWei)
                 .WithGasLimit(650007)
                 .WithValue(0)
                 .WithNonce(chain.MainWorldState.GetNonce(sender))
@@ -65,7 +65,6 @@ public class StylusExecutionNestedTests
         ResultWrapper<MessageResult> callResult = await chain.Digest(new TestL2Transactions(L1BaseFee, sender, callTransaction));
         callResult.Result.Should().Be(Result.Success);
         TxReceipt txReceipt = chain.LatestReceipts()[1];
-        Console.WriteLine($"Tx {txReceipt.BlockHash} {txReceipt.TxHash}");
         txReceipt.StatusCode.Should().Be(StatusCode.Success);
         txReceipt.GasUsed.Should().Be(expectedGas);
     }

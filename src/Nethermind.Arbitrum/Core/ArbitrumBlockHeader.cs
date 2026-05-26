@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -7,10 +7,24 @@ using Nethermind.Int256;
 
 namespace Nethermind.Arbitrum.Core;
 
+/// <summary>
+/// Extended block header that carries the original base fee alongside a potentially-zeroed
+/// BaseFeePerGas. Mirrors Nitro's dual base fee fields in BlockContext
+/// (go-ethereum:consensus-v51/core/vm/evm.go:BlockContext):
+///   BaseFeePerGas  → Nitro's BaseFee        (zeroed during eth_call with gasPrice=0)
+///   OriginalBaseFee → Nitro's BaseFeeInBlock (always the real base fee)
+/// Both are equal during block processing; they diverge only in NoBaseFee contexts
+/// (eth_call, eth_createAccessList). See go-ethereum:consensus-v51/internal/ethapi/api.go:applyMessage.
+/// </summary>
 public class ArbitrumBlockHeader : BlockHeader
 {
     private readonly long _genesisBlockNumber;
     public override long GenesisBlockNumber => _genesisBlockNumber;
+
+    /// <summary>
+    /// The real block base fee — Nitro's BaseFeeInBlock (go-ethereum:consensus-v51/core/vm/evm.go:BlockContext).
+    /// Used for Arbitrum gas accounting (fee distribution, L1 poster costs, precompiles).
+    /// </summary>
     public UInt256 OriginalBaseFee { get; set; }
 
     public ArbitrumBlockHeader(BlockHeader original, UInt256 originalBaseFee, long genesisBlockNumber) : base(

@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Autofac;
 using FluentAssertions;
@@ -37,7 +37,7 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
     }
 
     [Test]
-    public void SetFinalityData_WithValidParameters_ReturnsSuccess()
+    public async Task SetFinalityData_WithValidParameters_ReturnsSuccess()
     {
         var genesisBlockNum = _specHelper.GenesisBlockNum;
         const ulong finalizedMessageIndex = 3ul;
@@ -59,7 +59,7 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
             FinalizedFinalityData = new RpcFinalityData { MsgIdx = finalizedMessageIndex, BlockHash = block1.Hash! }
         };
 
-        var result = _rpcModule.SetFinalityData(parameters);
+        var result = await _rpcModule.SetFinalityData(parameters);
 
         result.Should().NotBeNull();
         result.Result.ResultType.Should().Be(ResultType.Success);
@@ -67,24 +67,14 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
     }
 
     [Test]
-    public void SetFinalityData_WithNullParameters_ReturnsFailure()
-    {
-        var result = _rpcModule.SetFinalityData(null!);
-
-        result.Should().NotBeNull();
-        result.Result.ResultType.Should().Be(ResultType.Failure);
-        result.Result.Error.Should().Contain(ArbitrumRpcErrors.FormatNullParameters());
-    }
-
-    [Test]
-    public void SetFinalityData_WithMissingBlock_HandlesGracefullyOnValidation()
+    public async Task SetFinalityData_WithMissingBlock_HandlesGracefullyOnValidation()
     {
         var parameters = new SetFinalityDataParams
         {
             FinalizedFinalityData = new RpcFinalityData { MsgIdx = 3, BlockHash = TestItem.KeccakA }
         };
 
-        var result = _rpcModule.SetFinalityData(parameters);
+        var result = await _rpcModule.SetFinalityData(parameters);
 
         result.Should().NotBeNull();
         result.Result.ResultType.Should().Be(ResultType.Success);
@@ -92,11 +82,11 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
     }
 
     [Test]
-    public void SetFinalityData_WithEmptyParameters_ReturnsSuccess()
+    public async Task SetFinalityData_WithEmptyParameters_ReturnsSuccess()
     {
         var parameters = new SetFinalityDataParams();
 
-        var result = _rpcModule.SetFinalityData(parameters);
+        var result = await _rpcModule.SetFinalityData(parameters);
 
         result.Should().NotBeNull();
         result.Result.ResultType.Should().Be(ResultType.Success);
@@ -104,14 +94,14 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
     }
 
     [Test]
-    public void SetFinalityData_WithNonExistentBlock_HandlesGracefully()
+    public async Task SetFinalityData_WithNonExistentBlock_HandlesGracefully()
     {
         var parameters = new SetFinalityDataParams
         {
             FinalizedFinalityData = new RpcFinalityData { MsgIdx = 3, BlockHash = TestItem.KeccakA }
         };
 
-        var result = _rpcModule.SetFinalityData(parameters);
+        var result = await _rpcModule.SetFinalityData(parameters);
 
         result.Should().NotBeNull();
         result.Result.ResultType.Should().Be(ResultType.Success);
@@ -119,7 +109,7 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
     }
 
     [Test]
-    public void SetFinalityData_WithChainSpecGenesisBlock_RespectsGenesisOffset()
+    public async Task SetFinalityData_WithChainSpecGenesisBlock_RespectsGenesisOffset()
     {
         var genesisBlockNum = _specHelper.GenesisBlockNum;
         var blockNumber = (long)(genesisBlockNum + 3);
@@ -135,7 +125,7 @@ public sealed class ArbitrumRpcModuleSetFinalityDataTests
             FinalizedFinalityData = new RpcFinalityData { MsgIdx = 3, BlockHash = block.Hash! }
         };
 
-        var result = _rpcModule.SetFinalityData(parameters);
+        var result = await _rpcModule.SetFinalityData(parameters);
 
         result.Should().NotBeNull();
         result.Result.ResultType.Should().Be(ResultType.Success);

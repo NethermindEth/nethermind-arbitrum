@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -108,21 +108,21 @@ public sealed class AddressTable(ArbosStorage storage)
     /// <exception cref="InvalidOperationException">Thrown when the compressed data contains an invalid index</exception>
     public (Address, ulong) Decompress(ReadOnlySpan<byte> buffer)
     {
-        RlpStream rlpStream = new(buffer.ToArray()); // Note: ToArray allocation unavoidable due to RlpStream API
+        Rlp.ValueDecoderContext decoderContext = new(buffer);
 
         // Peek at the decoded item to determine if it's an address or index
-        (_, int contentLength) = rlpStream.PeekPrefixAndContentLength();
+        (_, int contentLength) = decoderContext.PeekPrefixAndContentLength();
 
         if (contentLength == 20)
         {
             // Full address
-            byte[] decodedAddressBytes = rlpStream.DecodeByteArray();
-            ulong bytesRead = (ulong)rlpStream.Position;
+            byte[] decodedAddressBytes = decoderContext.DecodeByteArray();
+            ulong bytesRead = (ulong)decoderContext.Position;
             return (new Address(decodedAddressBytes), bytesRead);
         }
 
-        ulong index = rlpStream.DecodeULong();
-        ulong bytesConsumed = (ulong)rlpStream.Position;
+        ulong index = decoderContext.DecodeULong();
+        ulong bytesConsumed = (ulong)decoderContext.Position;
         (Address address, bool exists) = LookupIndex(index);
         if (!exists)
             throw new InvalidOperationException("Invalid index in compressed address");

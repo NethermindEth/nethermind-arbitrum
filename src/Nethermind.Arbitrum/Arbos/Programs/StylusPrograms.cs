@@ -1,22 +1,26 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.ClearScript;
 using Nethermind.Arbitrum.Arbos.Compression;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
+using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Bytes32 = Nethermind.Arbitrum.Arbos.Stylus.Bytes32;
+using Bytes32 = Nethermind.Arbitrum.Stylus.Bytes32;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
@@ -51,9 +55,9 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return StylusParams.CreateFromStorage(paramsStorage, ArbosVersion);
     }
 
-    public ProgramActivationResult ActivateProgram(Address address, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode)
+    public ProgramActivationResult ActivateProgram(Address address, IReleaseSpec spec, IWorldState state, IWasmStore wasmStore, ulong blockTimestamp, MessageRunMode runMode, bool debugMode, StackAccessTracker accessTracker)
     {
-        if (state.IsDeadAccount(address))
+        if (accessTracker.DestroyList.Contains(address))
             return ProgramActivationResult.Failure(takeAllGas: false, new(StylusOperationResultType.UnknownError, "Account self-destructed", []));
 
         ValueHash256 codeHash = state.GetCodeHash(address);
@@ -65,7 +69,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (program.Version == stylusParams.StylusVersion && !isExpired) // already activated and up to date
             return ProgramActivationResult.Failure(takeAllGas: false, new(StylusOperationResultType.ProgramUpToDate, "", []));
 
-        StylusOperationResult<byte[]> wasm = GetWasm(address, state, stylusParams.MaxWasmSize);
+        FragmentReadCharger charger = new(storage.Burner, spec.MaxCodeSize, accessTracker);
+        StylusOperationResult<byte[]> wasm = GetWasm(address, state, stylusParams, in charger);
         if (!wasm.IsSuccess)
             return ProgramActivationResult.Failure(takeAllGas: false, wasm.Error.Value);
 
@@ -128,8 +133,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         ulong gasAvailable = startingGas;
         StylusParams stylusParams = GetParams();
 
-        // CodeSource is null when init code is returned from CREATE/CREATE2 and executed immediately.
-        // In such case Nitro lets the execution proceed until it fails at GetActiveProgram with ProgramNotActivated() code.
         Address codeSource = vmHost.VmState.Env.CodeSource ?? Address.Zero;
 
         // If it's EIP-7702 delegation code, extract the delegated address
@@ -137,9 +140,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             && vmHost.TxExecutionContext.CodeInfoRepository.TryGetDelegation(codeSource, vmHost.Spec, out Address? delegatedCodeSource))
             codeSource = delegatedCodeSource;
 
-        ref readonly ValueHash256 codeHash = ref codeSource != Address.Zero
-            ? ref vmHost.WorldState.GetCodeHash(codeSource)
-            : ref Hash256.Zero.ValueHash256;
+        ValueHash256 codeHash = ResolveCodeHash(vmHost, codeSource);
 
         StylusOperationResult<Program> program = GetActiveProgram(in codeHash, vmHost.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!program.IsSuccess)
@@ -177,7 +178,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         using CloseOpenedPages _ = vmHost.WasmStore.AddStylusPagesWithClosing(program.Value.Footprint);
 
         StylusOperationResult<byte[]> localAsm = GetLocalAsm(vmHost.WasmStore, program.Value, codeSource, in moduleHash, in codeHash, vmHost.VmState.Env.CodeInfo.CodeSpan,
-            stylusParams, vmHost.BlockExecutionContext.Header.Timestamp, debugMode);
+            stylusParams, ArbosVersion, vmHost.WorldState, vmHost.BlockExecutionContext.Header.Timestamp, debugMode);
         if (!localAsm.IsSuccess)
             return localAsm.CastFailure<byte[]>();
 
@@ -202,9 +203,24 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
-        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(), stylusConfig, evmApi, evmData,
-            debugMode, arbosTag, ref gasAvailable);
+        using IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
+
+        if (vmHost.IsRecordingExecution)
+        {
+            Dictionary<string, byte[]> asmMap = new();
+            foreach (string target in vmHost.WasmStore.GetWasmTargets())
+            {
+                if (!vmHost.WasmStore.TryGetActivatedAsm(target, moduleHash, out byte[]? asm))
+                    throw new InvalidOperationException($"Cannot find activated wasm, missing target: {target}");
+                asmMap.Add(target, asm);
+            }
+            vmHost.RecordUserWasm(moduleHash, asmMap);
+        }
+
+        long startTimestamp = Stopwatch.GetTimestamp();
+        StylusNativeResult<byte[]> callResult = StylusNative.Call(localAsm.Value, vmHost.VmState.Env.InputData.ToArray(),
+            stylusConfig, evmApi, evmData, debugMode, arbosTag, ref gasAvailable);
+        long elapsedMicroseconds = (long)Stopwatch.GetElapsedTime(startTimestamp).TotalMicroseconds;
 
         vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)gasAvailable);
 
@@ -214,6 +230,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong evmCost = GetEvmMemoryCost((ulong)resultLength);
             if (startingGas < evmCost)
             {
+                Metrics.RecordStylusExecution(elapsedMicroseconds);
                 vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong(0);
                 return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas, "Run out of gas during EVM memory cost calculation", []));
             }
@@ -221,6 +238,8 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             ulong maxGasToReturn = startingGas - evmCost;
             vmHost.VmState.Gas = ArbitrumGasPolicy.FromLong((long)System.Math.Min(gasAvailable, maxGasToReturn));
         }
+
+        Metrics.RecordStylusExecution(elapsedMicroseconds);
 
         return callResult.IsSuccess
             ? StylusOperationResult<byte[]>.Success(callResult.Value)
@@ -343,7 +362,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         emitEvent();
 
         // pay to cache the program, or to re-cache in case of upcoming revert
-        ProgramsStorage.Burner.Burn(program.InitCost);
+        ProgramsStorage.Burner.Burn(ResourceKind.WasmComputation, program.InitCost);
 
         ValueHash256 moduleHash = ModuleHashesStorage.Get(codeHash);
         if (cache)
@@ -418,11 +437,16 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             return;
         }
 
-        // Extract and decompress WASM
+        // Rebuild path: charger is the null-object (no gas, no warming, no limit enforcement) —
+        // mirrors Nitro's `getWasm(statedb, addr, params, nil)` call from the rebuild site.
+        ulong zeroArbosVersion = 0;
+        IBurner zeroGasBurner = new ZeroGasBurner();
+
         byte[] wasm;
         try
         {
-            StylusOperationResult<byte[]> wasmResult = GetWasmFromContractCode(code, progParams.MaxWasmSize);
+            FragmentReadCharger charger = FragmentReadCharger.Empty;
+            StylusOperationResult<byte[]> wasmResult = GetWasmFromContractCode(code, progParams, storage.WorldState, in charger);
             if (!wasmResult.IsSuccess)
             {
                 if (logger.IsError)
@@ -437,10 +461,6 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
                 logger.Error($"Failed to extract WASM from code for {codeHash}: {ex.Message}");
             return;
         }
-
-        // Compile missing targets
-        ulong zeroArbosVersion = 0;
-        IBurner zeroGasBurner = new ZeroGasBurner();
 
         StylusOperationResult<StylusActivationResult> activationResult =
             ActivateProgramInternal(
@@ -531,20 +551,22 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     }
 
     private static StylusOperationResult<byte[]> GetLocalAsm(IWasmStore wasmStore, Program program, Address address, scoped in ValueHash256 moduleHash,
-        scoped ref readonly ValueHash256 codeHash, ReadOnlySpan<byte> code, StylusParams stylusParams, ulong blockTimestamp, bool debugMode)
+        scoped ref readonly ValueHash256 codeHash, ReadOnlySpan<byte> code, StylusParams stylusParams, ulong arbosVersion, IWorldState state, ulong blockTimestamp, bool debugMode)
     {
         string localTarget = StylusTargets.GetLocalTargetName();
 
         if (wasmStore.TryGetActivatedAsm(localTarget, in moduleHash, out byte[]? localAsm))
             return StylusOperationResult<byte[]>.Success(localAsm);
 
-        StylusOperationResult<byte[]> wasm = GetWasmFromContractCode(code, stylusParams.MaxWasmSize);
-        if (!wasm.IsSuccess)
-            return wasm.WithErrorContext($"contract: {address}, moduleHash: {moduleHash}, codeHash: {codeHash}");
-
-        // Don't charge gas
+        // Don't charge gas. FragmentReadCharger.Empty mirrors Nitro's "nil charger" no-op semantics —
+        // no gas, no access-list warming, no limit enforcement — while reusing the activation code path.
         ulong zeroArbosVersion = 0;
         IBurner zeroGasBurner = new ZeroGasBurner();
+
+        FragmentReadCharger charger = FragmentReadCharger.Empty;
+        StylusOperationResult<byte[]> wasm = GetWasmFromContractCode(code, stylusParams, state, in charger);
+        if (!wasm.IsSuccess)
+            return wasm.WithErrorContext($"contract: {address}, moduleHash: {moduleHash}, codeHash: {codeHash}");
 
         IReadOnlyCollection<string> targets = wasmStore.GetWasmTargets();
 
@@ -633,10 +655,11 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         // Native compilation tasks
         tasks.AddRange(nativeTargets.Select(target => Task.Run(async () =>
         {
-            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, true, CraneliftActivationTimeout);
+            bool cranelift = false;
+            StylusNativeResult<byte[]> result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, cranelift, CraneliftActivationTimeout);
 
             if (!result.IsSuccess)
-                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, false, CraneliftActivationTimeout);
+                result = await CompileNativeWithTimeout(wasm, stylusVersion, debugMode, target, !cranelift, CraneliftActivationTimeout);
 
             results.Add(result.IsSuccess
                 ? new StylusActivateTaskResult(target, result.Value, null, StylusOperationResultType.Success)
@@ -707,28 +730,50 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         //     ...CacheWasmRust
     }
 
-    private static StylusOperationResult<byte[]> GetWasm(Address address, IWorldState state, uint maxWasmSize)
+    private static StylusOperationResult<byte[]> GetWasm(Address address, IWorldState state, StylusParams stylusParams, in FragmentReadCharger charger)
     {
         byte[]? prefixedWasm = state.GetCode(address);
         if (prefixedWasm is null)
-            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.UnknownError, $"No WASM code found for {address} address", []));
+            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotWasm, $"No WASM code found for {address} address", []));
 
-        return GetWasmFromContractCode(prefixedWasm, maxWasmSize)
+        return GetWasmFromContractCode(prefixedWasm, stylusParams, state, in charger)
             .WithErrorContext("address: " + address);
     }
 
-    private static StylusOperationResult<byte[]> GetWasmFromContractCode(ReadOnlySpan<byte> prefixedWasm, uint maxWasmSize)
+    private static StylusOperationResult<byte[]> GetWasmFromContractCode(ReadOnlySpan<byte> prefixedWasm, StylusParams stylusParams, IWorldState state, scoped in FragmentReadCharger charger)
     {
         if (prefixedWasm.Length == 0)
             return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotWasm, "", []));
 
+        if (StylusCode.IsStylusProgramClassic(prefixedWasm))
+            return GetWasmFromClassicStylus(prefixedWasm, stylusParams.MaxWasmSize);
+
+        if (stylusParams.ArbosVersion < Arbos.ArbosVersion.StylusContractLimit)
+            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.InvalidByteCode, "Specified bytecode is not a Stylus program", []));
+
+        if (StylusCode.IsStylusProgramRoot(prefixedWasm))
+            return GetWasmFromRootStylus(prefixedWasm, stylusParams, state, in charger);
+
+        if (StylusCode.IsStylusProgramFragment(prefixedWasm))
+            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.FragmentedActivationDirect,
+                "Fragmented stylus programs cannot be activated directly; activate the root program instead", []));
+
+        return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ProgramNotWasm, "", []));
+    }
+
+    private static StylusOperationResult<byte[]> GetWasmFromClassicStylus(ReadOnlySpan<byte> prefixedWasm, uint maxWasmSize)
+    {
         StylusOperationResult<StylusBytes> stylusBytes = StylusCode.StripStylusPrefix(prefixedWasm);
         if (!stylusBytes.IsSuccess)
             return stylusBytes.CastFailure<byte[]>();
 
+        StylusOperationResult<BrotliCompression.Dictionary> dictionary = ResolveStylusCompressionDictionary(stylusBytes.Value.DictionaryType);
+        if (!dictionary.IsSuccess)
+            return dictionary.CastFailure<byte[]>();
+
         try
         {
-            byte[] decompressed = BrotliCompression.Decompress(stylusBytes.Value.Bytes, maxWasmSize, stylusBytes.Value.Dictionary);
+            byte[] decompressed = BrotliCompression.Decompress(stylusBytes.Value.Bytes, maxWasmSize, dictionary.Value);
             return StylusOperationResult<byte[]>.Success(decompressed);
         }
         catch (Exception e)
@@ -737,7 +782,80 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         }
     }
 
-    private StylusOperationResult<Program> GetActiveProgram(in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
+    private static StylusOperationResult<byte[]> GetWasmFromRootStylus(ReadOnlySpan<byte> rootCode, StylusParams stylusParams, IWorldState state, scoped in FragmentReadCharger charger)
+    {
+        StylusOperationResult<StylusRoot> rootResult = StylusRoot.Parse(rootCode);
+        if (!rootResult.IsSuccess)
+            return rootResult.CastFailure<byte[]>();
+
+        StylusRoot root = rootResult.Value;
+
+        // Mirrors Nitro's `if charger != nil` gate (arbos/programs/programs.go:438-445): rebuild paths
+        // skip limit enforcement because they replay programs that were valid at deploy/activate time
+        // and the chain owner may have since tightened MaxFragmentCount.
+        if (charger.IsActive)
+        {
+            if (root.DecompressedLength > stylusParams.MaxWasmSize)
+                return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.DecompressedLengthExceedsMax,
+                    $"Invalid wasm: decompressedLength {root.DecompressedLength} is greater then MaxWasmSize {stylusParams.MaxWasmSize}", []));
+
+            if (root.Fragments.Count > stylusParams.MaxFragmentCount)
+                return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.FragmentCountExceedsLimit,
+                    $"Invalid wasm: fragment count exceeds limit of {stylusParams.MaxFragmentCount}", []));
+        }
+
+        if (root.Fragments.Count == 0)
+            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.FragmentCountZero, "Invalid wasm: fragment count cannot be zero", []));
+
+        using ArrayPoolList<byte> compressed = new((int)root.DecompressedLength);
+
+        foreach (Address addr in root.Fragments)
+        {
+            charger.EnsureCanReadFragment(addr);
+
+            byte[] fragCode = state.GetCode(addr) ?? [];
+
+            charger.ChargeForReadingFragment(addr, fragCode.Length);
+
+            StylusOperationResult<ReadOnlySpan<byte>> payload = StylusCode.StripStylusFragmentPrefix(fragCode);
+            if (!payload.IsSuccess)
+                return StylusOperationResult<byte[]>.Failure(payload.Error.Value).WithErrorContext($"Fragment: " + addr);
+
+            compressed.AddRange(payload.Value);
+        }
+
+        StylusOperationResult<BrotliCompression.Dictionary> dictionary = ResolveStylusCompressionDictionary(root.DictionaryType);
+        if (!dictionary.IsSuccess)
+            return dictionary.CastFailure<byte[]>();
+
+        byte[] decompressed;
+        try
+        {
+            decompressed = BrotliCompression.Decompress(compressed.AsSpan(), root.DecompressedLength, dictionary.Value);
+        }
+        catch (Exception e)
+        {
+            return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.UnknownError, e.Message, []));
+        }
+
+        return (uint)decompressed.Length == root.DecompressedLength
+            ? StylusOperationResult<byte[]>.Success(decompressed)
+            : StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.DecompressedLengthMismatch,
+                $"Invalid wasm: decompressed length {decompressed.Length} does not match expected length {root.DecompressedLength}", []));
+    }
+
+    // Mirrors Nitro arbos/programs/programs.go:520-528 (getStylusCompressionDict). The decimal-byte
+    // error format ("unsupported dictionary type: %d") is consensus-visible in the revert data.
+    private static StylusOperationResult<BrotliCompression.Dictionary> ResolveStylusCompressionDictionary(byte dictionaryType)
+    {
+        BrotliCompression.Dictionary dictionary = (BrotliCompression.Dictionary)dictionaryType;
+        return Enum.IsDefined(dictionary)
+            ? StylusOperationResult<BrotliCompression.Dictionary>.Success(dictionary)
+            : StylusOperationResult<BrotliCompression.Dictionary>.Failure(
+                new(StylusOperationResultType.UnsupportedCompressionDict, $"Unsupported dictionary type: {dictionaryType}", []));
+    }
+
+    private StylusOperationResult<Program> GetActiveProgram(scoped in ValueHash256 codeHash, ulong timestamp, StylusParams stylusParams)
     {
         Program program = GetProgram(in codeHash, timestamp);
         if (program.Version == 0)
@@ -806,6 +924,14 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         return linearCost + quadraticCost;
     }
 
+    private static ValueHash256 ResolveCodeHash(IStylusVmHost vmHost, Address codeSource)
+    {
+        if (codeSource != Address.Zero)
+            return vmHost.WorldState.GetCodeHash(codeSource);
+
+        return ValueKeccak.Compute(vmHost.VmState.Env.CodeInfo.CodeSpan);
+    }
+
     private record Program(
         ushort Version,
         ushort InitCost,
@@ -846,6 +972,67 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
     private record struct StylusActivationResult(StylusActivationInfo? Info, IReadOnlyDictionary<string, byte[]> AsmMap);
 
     private record StylusActivateTaskResult(string Target, byte[]? Asm, string? Error, StylusOperationResultType Status);
+
+    // Mirrors Nitro arbos/programs/programs.go:500-518 (fragmentReadGasCost). Resource-kind
+    // tagging matches Nitro's multigas split: cold-access cost → StorageAccess; warm-access
+    // cost → Computation; copy cost (CopyGas per 32-byte word) → StorageAccess. SingleGas()
+    // equals the pre-refactor ulong total, so the IBurner default DIM collapse preserves
+    // the existing on-chain gas burn while the typed metadata reaches the call site.
+    //
+    // Saturating arithmetic in MultiGas.Increment diverges from Nitro's SafeMul/SafeIncrement
+    // overflow-error path. Realistic Arbitrum inputs (codeSize ≤ MaxCodeSize = 24576) stay
+    // far below ulong.MaxValue, so saturation cannot fire and consensus is preserved. If a
+    // future chain raises MaxCodeSize materially, revisit and add an overflow-error path.
+    internal static MultiGas FragmentReadGasCost(bool warm, long codeSize)
+    {
+        Debug.Assert(codeSize >= 0, "FragmentReadGasCost requires non-negative codeSize");
+
+        MultiGas cost = new();
+        if (warm)
+            cost.Increment(ResourceKind.Computation, (ulong)GasCostOf.WarmStateRead);
+        else
+            cost.Increment(ResourceKind.StorageAccessRead, (ulong)GasCostOf.ColdAccountAccess);
+
+        ulong words = ((ulong)codeSize + 31) / 32;
+        cost.Increment(ResourceKind.StorageAccessRead, words * (ulong)GasCostOf.Memory);
+        return cost;
+    }
+
+    // Mirrors Nitro's fragmentReadCharger (arbos/programs/programs.go:334-383).
+    // FragmentReadCharger.Empty is the null-object equivalent of Nitro's `nil charger`.
+    private readonly struct FragmentReadCharger(IBurner burner, long maxCodeSize, StackAccessTracker accessTracker)
+    {
+        public static FragmentReadCharger Empty => default;
+
+        public bool IsActive { get; } = true;
+
+        // Affordability check only. Does not charge. Drains via BurnOut() on the burner when the
+        // worst-case-sized read of this address would exceed remaining gas, so the activator aborts
+        // before any state access for the fragment occurs.
+        public void EnsureCanReadFragment(Address addr)
+        {
+            if (!IsActive)
+                return;
+
+            bool warm = !accessTracker.IsCold(addr);
+            MultiGas cost = FragmentReadGasCost(warm, maxCodeSize);
+            if (burner.GasLeft < cost.SingleGas())
+                burner.BurnOut();
+        }
+
+        // Actual charge. WarmUp returns true iff the address was newly added (i.e. was cold) — one
+        // hash+probe instead of separate IsCold + WarmUp calls. First read of a cold address pays
+        // the cold cost; the access-list mutation makes subsequent EVM accesses see warm.
+        public void ChargeForReadingFragment(Address addr, long actualCodeSize)
+        {
+            if (!IsActive)
+                return;
+
+            bool wasCold = accessTracker.WarmUp(addr);
+            MultiGas cost = FragmentReadGasCost(warm: !wasCold, actualCodeSize);
+            burner.Burn(in cost);
+        }
+    }
 }
 
 public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHash256 codeHash, ValueHash256 moduleHash, UInt256 dataFee,
@@ -870,8 +1057,8 @@ public readonly ref struct ProgramActivationResult(ushort stylusVersion, ValueHa
     }
 }
 
-public readonly ref struct StylusBytes(ReadOnlySpan<byte> bytes, BrotliCompression.Dictionary dictionary)
+public readonly ref struct StylusBytes(ReadOnlySpan<byte> bytes, byte dictionaryType)
 {
     public readonly ReadOnlySpan<byte> Bytes = bytes;
-    public readonly BrotliCompression.Dictionary Dictionary = dictionary;
+    public readonly byte DictionaryType = dictionaryType;
 }

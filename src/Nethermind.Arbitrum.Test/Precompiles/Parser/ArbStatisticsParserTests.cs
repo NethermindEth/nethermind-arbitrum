@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Precompiles.Parser;
 using FluentAssertions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -12,7 +15,7 @@ namespace Nethermind.Arbitrum.Test.Precompiles.Parser;
 
 public class ArbStatisticsParserTests
 {
-    private static readonly uint _getStatsId = PrecompileHelper.GetMethodId("getStats()");
+    private static readonly uint GetStatsId = PrecompileTestAbiHelpers.GetMethodId("getStats()");
 
     [Test]
     [TestCase(new byte[] { })]
@@ -30,10 +33,10 @@ public class ArbStatisticsParserTests
         PrecompileTestContextBuilder context = new(worldState, GasSupplied: 0);
         context.WithBlockExecutionContext(genesisBlock.Header);
 
-        bool exists = ArbStatisticsParser.PrecompileImplementation.TryGetValue(_getStatsId, out PrecompileHandler? getStats);
+        bool exists = ArbStatisticsParser.PrecompileImplementation.TryGetValue(GetStatsId, out PrecompileHandler? getStats);
         exists.Should().BeTrue();
 
-        AbiFunctionDescription function = ArbStatisticsParser.PrecompileFunctionDescription[_getStatsId].AbiFunctionDescription;
+        AbiFunctionDescription function = ArbStatisticsParser.PrecompileFunctionDescription[GetStatsId].AbiFunctionDescription;
 
         byte[] result = getStats!(context, calldata);
 

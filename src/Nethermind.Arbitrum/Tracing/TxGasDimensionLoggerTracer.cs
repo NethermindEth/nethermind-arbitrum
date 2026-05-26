@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global - Properties are used by JSON serialization
 
@@ -71,11 +71,11 @@ public sealed class TxGasDimensionLoggerTracer : GasDimensionTracerBase
         DimensionLog log = new()
         {
             Pc = (ulong)pc,
-            Op = (opcode.GetName() ?? opcode.ToString()).ToUpperInvariant(),
+            Op = GetInstructionName(opcode),
             Depth = depth,
             OneDimensionalGasCost = (ulong)gasCost,
             Computation = delta.Get(ResourceKind.Computation),
-            StateAccess = delta.Get(ResourceKind.StorageAccess),
+            StateAccess = delta.Get(ResourceKind.StorageAccessRead) + delta.Get(ResourceKind.StorageAccessWrite),
             StateGrowth = delta.Get(ResourceKind.StorageGrowth),
             HistoryGrowth = delta.Get(ResourceKind.HistoryGrowth)
         };

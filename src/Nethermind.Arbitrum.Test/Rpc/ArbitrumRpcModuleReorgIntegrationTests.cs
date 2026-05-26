@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using System.Security.Cryptography;
 using FluentAssertions;
@@ -29,7 +29,7 @@ public class ArbitrumRpcModuleReorgIntegrationTests
         Address[] receivers = Enumerable.Range(0, 5)
             .Select(_ => new Address(RandomNumberGenerator.GetBytes(Address.Size)))
             .ToArray();
-        UInt256 value = 1000.Ether();
+        UInt256 value = 1000.Ether;
 
         // 1. Build chain with 5 deposits to different addresses
         ulong msgIndexAtBlock2 = 0;
@@ -93,7 +93,7 @@ public class ArbitrumRpcModuleReorgIntegrationTests
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
-        UInt256 value = 1000.Ether();
+        UInt256 value = 1000.Ether;
 
         // Build chain with 3 deposits
         await chain.Digest(new TestEthDeposit(new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, sender, receiver, value));
@@ -122,7 +122,7 @@ public class ArbitrumRpcModuleReorgIntegrationTests
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
-        UInt256 value = 1000.Ether();
+        UInt256 value = 1000.Ether;
 
         // Build 5 blocks
         ulong[] msgIndices = new ulong[5];
@@ -169,7 +169,7 @@ public class ArbitrumRpcModuleReorgIntegrationTests
 
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address receiver = new(RandomNumberGenerator.GetBytes(Address.Size));
-        UInt256 value = 1000.Ether();
+        UInt256 value = 1000.Ether;
 
         // Build 10 blocks
         await chain.Digest(new TestEthDeposit(new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, sender, receiver, value));
@@ -202,7 +202,7 @@ public class ArbitrumRpcModuleReorgIntegrationTests
         Address sender = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address originalReceiver = new(RandomNumberGenerator.GetBytes(Address.Size));
         Address newReceiver = new(RandomNumberGenerator.GetBytes(Address.Size));
-        UInt256 value = 1000.Ether();
+        UInt256 value = 1000.Ether;
 
         // Build chain with 3 deposits to the originalReceiver
         await chain.Digest(new TestEthDeposit(new Hash256(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, sender, originalReceiver, value));

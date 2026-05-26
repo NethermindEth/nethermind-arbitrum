@@ -1,8 +1,12 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Arbos.Programs;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core.Crypto;
 using Nethermind.Db;
 using Nethermind.Logging;
+
+namespace Nethermind.Arbitrum.Stylus;
 
 public class WasmStoreRebuilder(
     IWasmDb wasmDb,
@@ -11,12 +15,12 @@ public class WasmStoreRebuilder(
     ILogger logger)
 {
     public void RebuildWasmStore(
-    IDb codeDb,
-    Hash256 position,
-    ulong latestBlockTime,
-    ulong rebuildStartBlockTime,
-    bool debugMode,
-    CancellationToken cancellationToken)
+        IDb codeDb,
+        Hash256 position,
+        ulong latestBlockTime,
+        ulong rebuildStartBlockTime,
+        bool debugMode,
+        CancellationToken cancellationToken)
     {
         IReadOnlyCollection<string> targets = targetConfig.GetWasmTargets();
         DateTime lastStatusUpdate = DateTime.UtcNow;
@@ -36,7 +40,7 @@ public class WasmStoreRebuilder(
             if (codeHash.CompareTo(position) < 0)
                 continue;
 
-            if (!StylusCode.IsStylusProgram(code))
+            if (!StylusCode.IsStylusDeployableProgramPrefix(code, programs.ArbosVersion))
                 continue;
 
             try

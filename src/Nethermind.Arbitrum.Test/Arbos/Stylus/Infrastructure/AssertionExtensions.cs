@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using FluentAssertions.Equivalency;
-using Nethermind.Arbitrum.Arbos.Stylus;
+using Nethermind.Arbitrum.Stylus;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 

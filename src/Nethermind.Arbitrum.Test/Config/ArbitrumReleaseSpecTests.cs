@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
@@ -19,7 +19,7 @@ public class ArbitrumReleaseSpecTests
         IReleaseSpec spec = new ArbitrumReleaseSpec();
 
         // Ethereum precompiles (0x01-0x09)
-        spec.IsPrecompile(PrecompiledAddresses.EcRecover).Should().BeTrue("EcRecover should be a precompile");
+        spec.IsPrecompile(PrecompiledAddresses.ECRecover).Should().BeTrue("EcRecover should be a precompile");
         spec.IsPrecompile(PrecompiledAddresses.Sha256).Should().BeTrue("Sha256 should be a precompile");
         spec.IsPrecompile(PrecompiledAddresses.Ripemd160).Should().BeTrue("Ripemd160 should be a precompile");
         spec.IsPrecompile(PrecompiledAddresses.Identity).Should().BeTrue("Identity should be a precompile");
@@ -154,15 +154,36 @@ public class ArbitrumReleaseSpecTests
     }
 
     [Test]
-    public void IsPrecompile_PointEvaluationWithEip4844Disabled_ReturnsTrue()
+    [TestCase(0UL, false)]
+    [TestCase(10UL, false)]
+    [TestCase(20UL, false)]
+    [TestCase(29UL, false)]
+    [TestCase(30UL, true)]
+    [TestCase(31UL, true)]
+    [TestCase(40UL, true)]
+    [TestCase(50UL, true)]
+    public void IsPrecompile_PointEvaluation_ActivatesAtArbOS30(ulong arbOsVersion, bool expectedResult)
     {
-        ArbitrumReleaseSpec spec = new();
+        ArbitrumReleaseSpec spec = new() { ArbOsVersion = arbOsVersion, IsEip4844Enabled = false };
         IReleaseSpec specInterface = spec;
-        spec.ArbOsVersion = ArbosVersion.Stylus;
-        spec.IsEip4844Enabled = false;
 
-        // KZG (0x0a) should be included even when EIP-4844 is disabled
-        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG should be included for Arbitrum");
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().Be(expectedResult);
+    }
+
+    [Test]
+    public void IsPrecompile_PointEvaluationAcrossVersionChange_RebuildsCacheCorrectly()
+    {
+        ArbitrumReleaseSpec spec = new() { IsEip4844Enabled = false };
+        IReleaseSpec specInterface = spec;
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
+
+        spec.ArbOsVersion = 30;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue();
+
+        spec.ArbOsVersion = 29;
+        specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeFalse();
     }
 
     [Test]
@@ -194,14 +215,14 @@ public class ArbitrumReleaseSpecTests
         spec.IsRip7212Enabled = true;
 
         // Ethereum standard precompiles (0x01-0x0A)
-        specInterface.IsPrecompile(PrecompiledAddresses.EcRecover).Should().BeTrue("ECRecover");
+        specInterface.IsPrecompile(PrecompiledAddresses.ECRecover).Should().BeTrue("ECRecover");
         specInterface.IsPrecompile(PrecompiledAddresses.Sha256).Should().BeTrue("SHA256");
         specInterface.IsPrecompile(PrecompiledAddresses.Ripemd160).Should().BeTrue("RIPEMD160");
         specInterface.IsPrecompile(PrecompiledAddresses.Identity).Should().BeTrue("Identity");
         specInterface.IsPrecompile(PrecompiledAddresses.ModExp).Should().BeTrue("ModExp");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bn128Add).Should().BeTrue("EcAdd");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bn128Mul).Should().BeTrue("EcMul");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bn128Pairing).Should().BeTrue("EcPairing");
+        specInterface.IsPrecompile(PrecompiledAddresses.BN254Add).Should().BeTrue("EcAdd");
+        specInterface.IsPrecompile(PrecompiledAddresses.BN254Mul).Should().BeTrue("EcMul");
+        specInterface.IsPrecompile(PrecompiledAddresses.BN254PairingCheck).Should().BeTrue("EcPairing");
         specInterface.IsPrecompile(PrecompiledAddresses.Blake2F).Should().BeTrue("Blake2F");
         specInterface.IsPrecompile(PrecompiledAddresses.PointEvaluation).Should().BeTrue("KZG Point Evaluation");
 
@@ -237,13 +258,13 @@ public class ArbitrumReleaseSpecTests
         spec.ArbOsVersion = ArbosVersion.Forty;
         spec.IsEip2537Enabled = false;
 
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 G1Add not available before ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Msm).Should().BeFalse("BLS12-381 G1Msm not available before ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Add).Should().BeFalse("BLS12-381 G2Add not available before ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Msm).Should().BeFalse("BLS12-381 G2Msm not available before ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12PairingCheck).Should().BeFalse("BLS12-381 PairingCheck not available before ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFpToG1).Should().BeFalse("BLS12-381 MapFpToG1 not available before ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFp2ToG2).Should().BeFalse("BLS12-381 MapFp2ToG2 not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G1Add).Should().BeFalse("BLS12-381 G1Add not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G1Msm).Should().BeFalse("BLS12-381 G1Msm not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G2Add).Should().BeFalse("BLS12-381 G2Add not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G2Msm).Should().BeFalse("BLS12-381 G2Msm not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381PairingCheck).Should().BeFalse("BLS12-381 PairingCheck not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381FpToG1).Should().BeFalse("BLS12-381 MapFpToG1 not available before ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381Fp2ToG2).Should().BeFalse("BLS12-381 MapFp2ToG2 not available before ArbOS 50");
     }
 
     [Test]
@@ -254,13 +275,13 @@ public class ArbitrumReleaseSpecTests
         spec.ArbOsVersion = ArbosVersion.Fifty;
         spec.IsEip2537Enabled = true;
 
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeTrue("BLS12-381 G1Add available from ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Msm).Should().BeTrue("BLS12-381 G1Msm available from ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Add).Should().BeTrue("BLS12-381 G2Add available from ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G2Msm).Should().BeTrue("BLS12-381 G2Msm available from ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12PairingCheck).Should().BeTrue("BLS12-381 PairingCheck available from ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFpToG1).Should().BeTrue("BLS12-381 MapFpToG1 available from ArbOS 50");
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12MapFp2ToG2).Should().BeTrue("BLS12-381 MapFp2ToG2 available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G1Add).Should().BeTrue("BLS12-381 G1Add available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G1Msm).Should().BeTrue("BLS12-381 G1Msm available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G2Add).Should().BeTrue("BLS12-381 G2Add available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G2Msm).Should().BeTrue("BLS12-381 G2Msm available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381PairingCheck).Should().BeTrue("BLS12-381 PairingCheck available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381FpToG1).Should().BeTrue("BLS12-381 MapFpToG1 available from ArbOS 50");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381Fp2ToG2).Should().BeTrue("BLS12-381 MapFp2ToG2 available from ArbOS 50");
     }
 
     [Test]
@@ -272,7 +293,7 @@ public class ArbitrumReleaseSpecTests
         spec.IsEip2537Enabled = false;
 
         // Without EIP-2537 enabled, BLS12-381 should not be available
-        specInterface.IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 requires EIP-2537 to be enabled");
+        specInterface.IsPrecompile(PrecompiledAddresses.Bls12381G1Add).Should().BeFalse("BLS12-381 requires EIP-2537 to be enabled");
     }
 
     [Test]
@@ -284,13 +305,13 @@ public class ArbitrumReleaseSpecTests
         spec.IsEip2537Enabled = true;
 
         Address[] bls12381Addresses = [
-            PrecompiledAddresses.Bls12G1Add,
-            PrecompiledAddresses.Bls12G1Msm,
-            PrecompiledAddresses.Bls12G2Add,
-            PrecompiledAddresses.Bls12G2Msm,
-            PrecompiledAddresses.Bls12PairingCheck,
-            PrecompiledAddresses.Bls12MapFpToG1,
-            PrecompiledAddresses.Bls12MapFp2ToG2
+            PrecompiledAddresses.Bls12381G1Add,
+            PrecompiledAddresses.Bls12381G1Msm,
+            PrecompiledAddresses.Bls12381G2Add,
+            PrecompiledAddresses.Bls12381G2Msm,
+            PrecompiledAddresses.Bls12381PairingCheck,
+            PrecompiledAddresses.Bls12381FpToG1,
+            PrecompiledAddresses.Bls12381Fp2ToG2
         ];
 
         foreach (Address address in bls12381Addresses)
@@ -314,9 +335,9 @@ public class ArbitrumReleaseSpecTests
         specV50.ArbOsVersion = ArbosVersion.Fifty;
         specV50.IsEip2537Enabled = true;
 
-        ((IReleaseSpec)specV40).IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 40");
-        ((IReleaseSpec)specV49).IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 49");
-        ((IReleaseSpec)specV50).IsPrecompile(PrecompiledAddresses.Bls12G1Add).Should().BeTrue("BLS12-381 available at ArbOS 50");
+        ((IReleaseSpec)specV40).IsPrecompile(PrecompiledAddresses.Bls12381G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 40");
+        ((IReleaseSpec)specV49).IsPrecompile(PrecompiledAddresses.Bls12381G1Add).Should().BeFalse("BLS12-381 not available at ArbOS 49");
+        ((IReleaseSpec)specV50).IsPrecompile(PrecompiledAddresses.Bls12381G1Add).Should().BeTrue("BLS12-381 available at ArbOS 50");
     }
 
     [Test]
@@ -376,5 +397,32 @@ public class ArbitrumReleaseSpecTests
         spec.ArbOsVersion = 41;
         specInterface.IsPrecompile(ArbosAddresses.ArbNativeTokenManagerAddress).Should().BeTrue(
             "ArbNativeTokenManager should be available at version 41");
+    }
+
+    [Test]
+    public void IsEip4844Enabled_WithDefaultState_ReturnsFalse()
+    {
+        ArbitrumReleaseSpec spec = new();
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            "Arbitrum does not support EIP-4844 blob transactions");
+    }
+
+    [Test]
+    [TestCase(0UL)]
+    [TestCase(11UL)]
+    [TestCase(20UL)]
+    [TestCase(30UL)]
+    [TestCase(40UL)]
+    [TestCase(50UL)]
+    public void IsEip4844Enabled_AcrossAllArbOsVersions_RemainsFalse(ulong arbOsVersion)
+    {
+        ArbitrumReleaseSpec spec = new()
+        {
+            ArbOsVersion = arbOsVersion
+        };
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            $"EIP-4844 must remain disabled at ArbOS version {arbOsVersion} to prevent BlobGasUsed field inclusion");
     }
 }

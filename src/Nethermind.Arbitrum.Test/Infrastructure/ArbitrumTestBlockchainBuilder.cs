@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Autofac;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Core;
@@ -15,6 +16,7 @@ public class ArbitrumTestBlockchainBuilder
     private readonly List<Action<ArbitrumRpcTestBlockchain>> _configurations = new();
     private ChainSpec _chainSpec = FullChainSimulationChainSpecProvider.Create();
     private Action<ArbitrumConfig>? _configureArbitrum;
+    private Action<ContainerBuilder>? _configurer;
 
     public ArbitrumTestBlockchainBuilder WithChainSpec(ChainSpec chainSpec)
     {
@@ -25,6 +27,12 @@ public class ArbitrumTestBlockchainBuilder
     public ArbitrumTestBlockchainBuilder WithArbitrumConfig(Action<ArbitrumConfig> configure)
     {
         _configureArbitrum = configure;
+        return this;
+    }
+
+    public ArbitrumTestBlockchainBuilder WithContainerConfigurer(Action<ContainerBuilder> configurer)
+    {
+        _configurer = configurer;
         return this;
     }
 
@@ -74,12 +82,14 @@ public class ArbitrumTestBlockchainBuilder
         return this;
     }
 
-    public ArbitrumRpcTestBlockchain Build()
+    public ArbitrumRpcTestBlockchain Build(Action<ArbitrumRpcTestBlockchain>? afterBuild = null)
     {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(configurer: _configurer, chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
 
         foreach (Action<ArbitrumRpcTestBlockchain> configuration in _configurations)
             configuration(chain);
+
+        afterBuild?.Invoke(chain);
 
         return chain;
     }

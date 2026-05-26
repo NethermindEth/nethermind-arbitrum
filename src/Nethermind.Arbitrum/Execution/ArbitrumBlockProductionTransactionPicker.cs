@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Consensus.Processing;
@@ -17,7 +17,7 @@ public class ArbitrumBlockProductionTransactionPicker : BlockProcessor.BlockProd
     }
 
     public override BlockProcessor.AddingTxEventArgs CanAddTransaction(Block block, Transaction currentTx,
-        IReadOnlySet<Transaction> transactionsInBlock, IWorldState stateProvider)
+        IReadOnlySet<Transaction> transactionsInBlock, IReadOnlyStateProvider stateProvider)
     {
         BlockProcessor.AddingTxEventArgs args = new(transactionsInBlock.Count, currentTx, block, transactionsInBlock);
 

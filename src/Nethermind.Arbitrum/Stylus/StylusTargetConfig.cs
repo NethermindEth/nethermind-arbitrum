@@ -1,7 +1,6 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using Nethermind.Arbitrum.Arbos.Stylus;
 using Nethermind.Config;
 
 namespace Nethermind.Arbitrum.Stylus;
@@ -24,9 +23,13 @@ public class StylusTargetConfig : IStylusTargetConfig
     public string Amd64 { get; set; } = StylusTargets.LinuxX64Descriptor;
     public string[] ExtraArchs { get; set; } = [StylusTargets.WavmTargetName];
     public uint NativeLruCacheCapacityMb { get; set; } = 256;
+    public string[]? OverrideWasmTargets { get; init; }
 
     public IReadOnlyCollection<string> GetWasmTargets()
     {
+        if (OverrideWasmTargets is not null)
+            return OverrideWasmTargets;
+
         HashSet<string> targets = [StylusTargets.GetLocalTargetName()];
         foreach (string arch in ExtraArchs)
         {
@@ -36,7 +39,7 @@ public class StylusTargetConfig : IStylusTargetConfig
             targets.Add(arch);
         }
 
-        // Ensure targets are always have the same order... from Nitro
+        // Ensure targets always have the same order... from Nitro
         return targets.OrderBy(t => t).ToArray();
     }
 }

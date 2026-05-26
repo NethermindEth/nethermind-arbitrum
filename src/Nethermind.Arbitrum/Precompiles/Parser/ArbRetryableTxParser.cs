@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Precompiles.Abi;
@@ -14,37 +17,37 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     public static Address Address { get; } = ArbRetryableTx.Address;
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
-        = AbiMetadata.GetAllFunctionDescriptions(ArbRetryableTx.Abi);
+        = Solgen.ArbRetryableTx.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
 
     public static FrozenDictionary<uint, PrecompileHandler> PrecompileImplementation { get; }
 
-    private static readonly uint _redeemId = PrecompileHelper.GetMethodId("redeem(bytes32)");
-    private static readonly uint _getLifetimeId = PrecompileHelper.GetMethodId("getLifetime()");
-    private static readonly uint _getTimeoutId = PrecompileHelper.GetMethodId("getTimeout(bytes32)");
-    private static readonly uint _keepaliveId = PrecompileHelper.GetMethodId("keepalive(bytes32)");
-    private static readonly uint _getBeneficiaryId = PrecompileHelper.GetMethodId("getBeneficiary(bytes32)");
-    private static readonly uint _cancelId = PrecompileHelper.GetMethodId("cancel(bytes32)");
-    private static readonly uint _getCurrentRedeemerId = PrecompileHelper.GetMethodId("getCurrentRedeemer()");
-    private static readonly uint _submitRetryableId = PrecompileHelper.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)");
+    private const uint RedeemId = Solgen.ArbRetryableTx.Methods.Redeem;
+    private const uint GetLifetimeId = Solgen.ArbRetryableTx.Methods.GetLifetime;
+    private const uint GetTimeoutId = Solgen.ArbRetryableTx.Methods.GetTimeout;
+    private const uint KeepaliveId = Solgen.ArbRetryableTx.Methods.Keepalive;
+    private const uint GetBeneficiaryId = Solgen.ArbRetryableTx.Methods.GetBeneficiary;
+    private const uint CancelId = Solgen.ArbRetryableTx.Methods.Cancel;
+    private const uint GetCurrentRedeemerId = Solgen.ArbRetryableTx.Methods.GetCurrentRedeemer;
+    private const uint SubmitRetryableId = Solgen.ArbRetryableTx.Methods.SubmitRetryable;
 
     static ArbRetryableTxParser()
     {
         PrecompileImplementation = new Dictionary<uint, PrecompileHandler>
         {
-            { _redeemId, Redeem },
-            { _getLifetimeId, GetLifetime },
-            { _getTimeoutId, GetTimeout },
-            { _keepaliveId, KeepAlive },
-            { _getBeneficiaryId, GetBeneficiary },
-            { _cancelId, Cancel },
-            { _getCurrentRedeemerId, GetCurrentRedeemer },
-            { _submitRetryableId, SubmitRetryable },
+            { RedeemId, Redeem },
+            { GetLifetimeId, GetLifetime },
+            { GetTimeoutId, GetTimeout },
+            { KeepaliveId, KeepAlive },
+            { GetBeneficiaryId, GetBeneficiary },
+            { CancelId, Cancel },
+            { GetCurrentRedeemerId, GetCurrentRedeemer },
+            { SubmitRetryableId, SubmitRetryable },
         }.ToFrozenDictionary();
     }
 
     private static byte[] Redeem(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_redeemId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[RedeemId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -71,7 +74,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_getTimeoutId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[GetTimeoutId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -83,7 +86,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_keepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[KeepaliveId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 
@@ -93,7 +96,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     private static byte[] GetBeneficiary(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_getBeneficiaryId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetBeneficiaryId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -113,7 +116,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
     private static byte[] Cancel(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {
-        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[_cancelId].AbiFunctionDescription;
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[CancelId].AbiFunctionDescription;
 
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
@@ -132,7 +135,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
 
         return PrecompileAbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_getCurrentRedeemerId].AbiFunctionDescription.GetReturnInfo().Signature,
+            PrecompileFunctionDescription[GetCurrentRedeemerId].AbiFunctionDescription.GetReturnInfo().Signature,
             currentRedeemer
         );
     }
@@ -141,7 +144,7 @@ public class ArbRetryableTxParser : IArbitrumPrecompile<ArbRetryableTxParser>
     {
         object[] decoded = PrecompileAbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
-            PrecompileFunctionDescription[_submitRetryableId].AbiFunctionDescription.GetCallInfo().Signature,
+            PrecompileFunctionDescription[SubmitRetryableId].AbiFunctionDescription.GetCallInfo().Signature,
             inputData.ToArray()
         );
 

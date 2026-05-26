@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 namespace Nethermind.Arbitrum.Arbos;
 
@@ -33,6 +33,7 @@ public static class ArbosVersion
     public const ulong FortyNine = 49;
     public const ulong Fifty = 50;
     public const ulong FiftyOne = 51;
+    public const ulong Sixty = 60;
 
     // Semantic aliases for important milestones
     public const ulong FixRedeemGas = Eleven;
@@ -44,7 +45,11 @@ public static class ArbosVersion
     public const ulong StylusFixes = ThirtyOne; // Version 31+ includes fixes for Stylus
     public const ulong StylusChargingFixes = ThirtyTwo; // Version 32+ includes charging fixes for Stylus
     public const ulong ParentBlockHashSupport = Forty;  // Version 40+ supports parent block hash processing
+    public const ulong MaxWasmSize = Forty; // Version 40+ adds MaxWasmSize for Stylus contract size limits
     public const ulong NativeTokenManagement = FortyOne; // Version 41+ adds native token management precompile methods
     public const ulong Dia = Fifty; // Version 50+ (Dia) caps Stylus stack depth and adds per-tx gas limit
     public const ulong MultiConstraintPricing = Fifty; // Version 50+ introduces multi-constraint gas pricing
+    public const ulong MultiGasConstraintsVersion = Sixty; // Version 60+ enables multi-gas constraints with resource weights
+    public const ulong StylusContractLimit = Sixty; // Version 60+ adds MaxFragmentCount for Stylus contract size limits
+    public const ulong TransactionFiltering = Sixty; // Version 60+ adds transaction filtering feature
 }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
@@ -12,12 +15,20 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 
 public static class ArbOSInitialization
 {
+    public static IArbitrumSpecHelper GetSpecHelper()
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
+        ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
+            .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
+        return new ArbitrumSpecHelper(parameters, new DisabledArbOsVersionOverride());
+    }
+
     public static Block Create(IWorldState worldState, ISpecProvider? specProvider = null)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
-        IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters);
+        IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters, new DisabledArbOsVersionOverride());
 
         specProvider ??= FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(chainSpec);
 
@@ -28,12 +39,16 @@ public static class ArbOSInitialization
             null,
             digestInitMessage.SerializedChainConfig);
 
-        ArbitrumGenesisLoader genesisLoader = new(
+        ArbitrumGenesisStateInitializer stateInitializer = new(
             chainSpec,
-            specProvider,
             specHelper,
+            new ArbitrumConfig(),
+            LimboLogs.Instance);
+
+        ArbitrumGenesisLoader genesisLoader = new(specProvider,
             worldState,
             parsedInitMessage,
+            stateInitializer,
             LimboLogs.Instance);
 
         return genesisLoader.Load();

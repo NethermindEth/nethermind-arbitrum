@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
+using Nethermind.Arbitrum.Config;
+using Nethermind.Core;
+using Nethermind.Logging;
+
+namespace Nethermind.Arbitrum.Sequencer.Timeboost;
+
+public sealed class ExpressLaneTracker(
+    IRoundTimingInfo roundTimingInfo,
+    IAuctionContract auctionContract,
+    IArbitrumConfig arbitrumConfig,
+    ILogManager logManager) : IExpressLaneTracker, IDisposable
+{
+    private readonly ILogger _logger = logManager.GetClassLogger<ExpressLaneTracker>();
+    private readonly TimeSpan _pollInterval = TimeSpan.FromMilliseconds(arbitrumConfig.TimeboostAuctionContractPollIntervalMs);
+
+    private readonly Lock _roundLock = new();
+    private readonly Dictionary<ulong, Address> _roundControllers = new();
+
+    private CancellationTokenSource? _cts;
+    private Task? _pollingTask;
+
+    public event EventHandler<RoundControllerResolvedEventArgs>? ControllerResolved;
+    public event EventHandler<ResolvedRound>? ControllerLoopAdvanced;
+
+    public Address AuctionContractAddress => auctionContract.Address;
+
+    public Task Start(CancellationToken ct)
+    {
+        if (_pollingTask is not null)
+            return Task.CompletedTask;
+
+        TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _pollingTask = Task.Run(() => PollContractLoopAsync(_cts.Token, started));
+
+        return started.Task;
+    }
+
+    public Address? GetController(ulong round)
+    {
+        lock (_roundLock)
+            return _roundControllers.TryGetValue(round, out Address? controller) ? controller : null;
+    }
+
+    public bool CurrentRoundHasController()
+    {
+        ulong round = roundTimingInfo.RoundNumber();
+        lock (_roundLock)
+            return _roundControllers.ContainsKey(round);
+    }
+
+    public bool IsWithinAuctionCloseWindow(DateTime t)
+        => roundTimingInfo.IsWithinAuctionCloseWindow(t);
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        if (_pollingTask is not null)
+            _pollingTask.GetAwaiter().GetResult();
+        _cts?.Dispose();
+    }
+
+    private async Task PollContractLoopAsync(CancellationToken ct, TaskCompletionSource started)
+    {
+        try
+        {
+            Task delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+
+            // Timer is now registered with the time provider; safe to release Start().
+            started.TrySetResult();
+
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    await delayTask;
+                    ResolvedRound polled = PollResolvedRounds();
+
+                    // Register the next Task.Delay BEFORE firing the event, so any observer that
+                    // resumes from this event sees the loop already armed for the next time advance.
+                    delayTask = Task.Delay(_pollInterval, roundTimingInfo.TimeProvider, ct);
+
+                    ControllerLoopAdvanced?.Invoke(this, polled);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    if (_logger.IsDebug)
+                        _logger.Debug($"ExpressLaneTracker: poll failed: {ex.Message}");
+                }
+            }
+        }
+        finally
+        {
+            // Ensure Start() is released even if initial Task.Delay throws.
+            started.TrySetResult();
+        }
+    }
+
+    private ResolvedRound PollResolvedRounds()
+    {
+        ResolvedRound resolved = auctionContract.ResolveRounds();
+
+        if (resolved.Controller == Address.Zero || resolved.Round == 0)
+            return resolved;
+
+        ulong currentRound = roundTimingInfo.RoundNumber();
+        bool isNewDiscovery;
+        lock (_roundLock)
+        {
+            isNewDiscovery = !_roundControllers.ContainsKey(resolved.Round);
+            _roundControllers[resolved.Round] = resolved.Controller;
+
+            // Clean up rounds older than 2 behind current
+            if (currentRound > 2)
+            {
+                ulong oldest = currentRound - 2;
+                List<ulong>? toRemove = null;
+                foreach (ulong key in _roundControllers.Keys)
+                    if (key < oldest)
+                        (toRemove ??= []).Add(key);
+
+                if (toRemove is not null)
+                    foreach (ulong key in toRemove)
+                        _roundControllers.Remove(key);
+            }
+        }
+
+        if (isNewDiscovery)
+            ControllerResolved?.Invoke(this, new RoundControllerResolvedEventArgs { Round = resolved.Round, Controller = resolved.Controller });
+
+        if (_logger.IsDebug)
+            _logger.Debug($"ExpressLaneTracker: round {resolved.Round} controller = {resolved.Controller}");
+
+        return resolved;
+    }
+}

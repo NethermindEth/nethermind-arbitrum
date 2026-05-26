@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Autofac.Features.AttributeFilters;
 using Nethermind.Api.Steps;
@@ -18,7 +18,7 @@ using Nethermind.Logging;
 
 namespace Nethermind.Arbitrum.Stylus;
 
-[RunnerStepDependencies([typeof(InitializeBlockchain)], [typeof(StartBlockProcessor)])]
+[RunnerStepDependencies([typeof(InitializeBlockchain), typeof(ArbitrumInitializeStylusNative)], [typeof(StartBlockProcessor)])]
 public class ArbitrumInitializeWasmDb(
     IWasmDb wasmDb,
     [KeyFilter("code")] IDb codeDb,

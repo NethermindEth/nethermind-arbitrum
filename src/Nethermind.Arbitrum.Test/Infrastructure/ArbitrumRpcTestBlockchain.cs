@@ -1,22 +1,28 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
-using Nethermind.Arbitrum.Genesis;
-using Nethermind.Arbitrum.Modules;
 using Nethermind.Arbitrum.Config;
 using Nethermind.Arbitrum.Data;
+using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Modules;
+using Nethermind.Arbitrum.Sequencer;
+using Nethermind.Arbitrum.Sequencer.Queues;
+using Nethermind.Arbitrum.Sequencer.Timeboost;
 using Nethermind.Blockchain.Receipts;
 using Nethermind.Config;
+using Nethermind.Consensus.Producers;
+using Nethermind.Db.LogIndex;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Facade;
 using Nethermind.Facade.Eth;
 using Nethermind.Facade.Eth.RpcTransaction;
@@ -30,6 +36,12 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
 using Nethermind.Wallet;
+using Nethermind.Arbitrum.Execution.Stateless;
+using Nethermind.Arbitrum.Math;
+using Nethermind.Consensus.Stateless;
+using Nethermind.Arbitrum.Rpc;
+using Nethermind.Arbitrum.Stylus;
+using Nethermind.History;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -46,8 +58,9 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         WorldStateAccessor = new ScopedGlobalWorldStateAccessor(this);
     }
 
-    public IEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
+    public IArbitrumEthRpcModule ArbitrumEthRpcModule { get; private set; } = null!;
     public IArbitrumRpcModule ArbitrumRpcModule { get; private set; } = null!;
+    public INitroExecutionRpcModule NitroExecutionRpcModule { get; private set; } = null!;
     public ScopedGlobalWorldStateAccessor WorldStateAccessor { get; }
     public IArbitrumSpecHelper SpecHelper => Dependencies.SpecHelper;
 
@@ -248,6 +261,84 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         return await ArbitrumRpcModule.DigestMessage(parameters);
     }
 
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestL2Transactions message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.L2Message, message.RequestId, message.L1BaseFee,
+            message.Sender, message.Transactions);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestSubmitRetryable retryable)
+    {
+        ArbitrumSubmitRetryableTransaction transaction = new()
+        {
+            SourceHash = retryable.RequestId,
+            Nonce = UInt256.Zero,
+            GasPrice = UInt256.Zero,
+            DecodedMaxFeePerGas = retryable.GasFee,
+            GasLimit = (long)retryable.GasLimit,
+            Value = 0,
+            Data = retryable.RetryData,
+            IsOPSystemTransaction = false,
+            Mint = retryable.DepositValue,
+
+            ChainId = ChainSpec.ChainId,
+            RequestId = retryable.RequestId,
+            SenderAddress = retryable.Sender,
+            L1BaseFee = retryable.L1BaseFee,
+            DepositValue = retryable.DepositValue,
+            GasFeeCap = retryable.GasFee,
+            Gas = retryable.GasLimit,
+            RetryTo = retryable.Receiver,
+            RetryValue = retryable.RetryValue,
+            Beneficiary = retryable.Beneficiary,
+            MaxSubmissionFee = retryable.MaxSubmissionFee,
+            FeeRefundAddr = retryable.Beneficiary,
+            RetryData = retryable.RetryData
+        };
+
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.SubmitRetryable, retryable.RequestId, retryable.L1BaseFee,
+            retryable.Sender, transaction);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    public async Task<(ResultWrapper<MessageResult> Result, DigestMessageParameters Parameters)> DigestAndGetParams(TestEndOfBlock message)
+    {
+        DigestMessageParameters parameters = CreateDigestMessage(ArbitrumL1MessageKind.EndOfBlock, Hash256.Zero, message.L1BaseFee, Address.Zero);
+
+        ResultWrapper<MessageResult> result = await ArbitrumRpcModule.DigestMessage(parameters);
+        return (result, parameters);
+    }
+
+    // Helper function to return the witness because RecordBlockCreation returns the accumulated preimages altogether
+    public async Task<ArbitrumWitness> BuildBlockWitness(RecordBlockCreationParameters parameters)
+    {
+        long blockNumber = MessageBlockConverter.MessageIndexToBlockNumber(parameters.Index, Dependencies.SpecHelper).Data;
+        BlockHeader parent = BlockTree.FindHeader(blockNumber - 1)
+            ?? throw new ArgumentException($"Unable to find parent for block {blockNumber}");
+
+        ArbitrumPayloadAttributes payload = new()
+        {
+            MessageWithMetadata = parameters.Message,
+            Number = blockNumber
+        };
+
+        string[] wasmTargets = parameters.WasmTargets;
+        string localTarget = StylusTargets.GetLocalTargetName();
+        if (!wasmTargets.Contains(localTarget))
+            wasmTargets = wasmTargets.Append(localTarget).ToArray();
+
+        IArbitrumWitnessGeneratingBlockProcessingEnvFactory factory = Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
+        using IWitnessGeneratingBlockProcessingEnvScope scope = factory.CreateScope(wasmTargets);
+        IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+        (Block _, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        return witness;
+    }
+
     public void DumpBlocks()
     {
         List<Block> blocks = new();
@@ -291,26 +382,44 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
 
         chain.Build(configurer);
 
-        chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModuleFactory(
-                chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
-                chain.BlockTree,
-                chain.BlockProductionTrigger,
-                chain.ArbitrumRpcTxSource,
-                chain.ChainSpec,
-                chain.Dependencies.SpecHelper,
-                chain.LogManager,
-                chain.Dependencies.CachedL1PriceData,
-                chain.BlockProcessingQueue,
-                chain.Container.Resolve<IArbitrumConfig>(),
-                new Nethermind.Arbitrum.Config.VerifyBlockHashConfig(), // Disabled for tests
-                new Nethermind.Serialization.Json.EthereumJsonSerializer(),
-                chain.Container.Resolve<IBlocksConfig>(),
-                null) // No ProcessExitSource in tests
-            .Create());
+        ArbitrumExecutionEngine engine = new(
+            chain.Container.Resolve<ArbitrumBlockTreeInitializer>(),
+            chain.BlockTree,
+            chain.Container.Resolve<IManualBlockProductionTrigger>(),
+            chain.ChainSpec,
+            chain.Dependencies.SpecHelper,
+            chain.LogManager,
+            chain.Dependencies.CachedL1PriceData,
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>(),
+            chain.Container.Resolve<ArbitrumBlockFactory>(),
+            chain.Container.Resolve<IArbitrumSequencerEngine>(),
+            chain.Container.Resolve<IExpressLaneService>(),
+            chain.Container.Resolve<IExpressLaneTracker>(),
+            chain.Container.Resolve<IAuctionResolutionQueue>(),
+            chain.Container.Resolve<IEthereumEcdsa>(),
+            chain.Dependencies.StateReconstructor,
+            chain.Container.Resolve<IHistoryPruner>());
 
-        chain.ArbitrumEthRpcModule = new ArbitrumEthRpcModule(
+        chain.ArbitrumRpcModule = new ArbitrumRpcModuleWrapper(chain, new ArbitrumRpcModule(engine));
+
+        IArbitrumConfig arbitrumConfig = chain.Container.Resolve<IArbitrumConfig>();
+
+        if (arbitrumConfig.SequencerEnabled)
+            chain.Container.Resolve<SequencerState>().Activate();
+
+        chain.NitroExecutionRpcModule = new NitroExecutionRpcModule(engine, chain.Container.Resolve<ArbitrumClHealthTracker>());
+        chain.ArbitrumEthRpcModule = CreateEthRpcModule(chain);
+
+        return chain;
+    }
+
+    private static ArbitrumEthRpcModule CreateEthRpcModule(ArbitrumRpcTestBlockchain chain)
+    {
+        return new ArbitrumEthRpcModule(
             chain.Container.Resolve<IJsonRpcConfig>(),
             chain.Container.Resolve<IBlockchainBridge>(),
+            chain.BlockTree,
             chain.BlockTree,
             chain.Container.Resolve<IReceiptFinder>(),
             chain.Container.Resolve<IStateReader>(),
@@ -324,16 +433,26 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<IFeeHistoryOracle>(),
             chain.Container.Resolve<IProtocolsManager>(),
             chain.Container.Resolve<IForkInfo>(),
+            chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
-            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>()
+            new HeadBlockSignal(chain.BlockTree),
+            chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
+            chain.Container.Resolve<TransactionQueue>(),
+            chain.Container.Resolve<SequencerState>(),
+            chain.Container.Resolve<IEthereumEcdsa>(),
+            chain.Container.Resolve<IArbitrumConfig>(),
+            chain.Container.Resolve<IBlockMetadataProvider>()
         );
-
-        return chain;
     }
+
+    // Fixed epoch so block timestamps (and hence block hashes) are deterministic across runs —
+    // required by tests for blockHash assertions. Picked arbitrarily (November 2023)
+    private const ulong BaseUnixTimestampSeconds = 1_700_000_000UL;
 
     private MessageWithMetadata CreateMessageWithMetadata(ArbitrumL1MessageKind kind, Hash256 requestId, UInt256 l1BaseFee, Address sender, params Transaction[] transactions)
     {
-        L1IncomingMessageHeader header = new(kind, sender, _latestL1BlockNumber + 1, (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+        ulong l1BlockNumber = _latestL1BlockNumber + 1;
+        L1IncomingMessageHeader header = new(kind, sender, l1BlockNumber, BaseUnixTimestampSeconds + l1BlockNumber,
             requestId, l1BaseFee);
 
         byte[] l2Msg = NitroL2MessageSerializer.SerializeTransactions(transactions, header);
@@ -427,7 +546,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             return rpc.ArbOSVersionForMessageIndex(messageIndex);
         }
 
-        public ResultWrapper<string> SetFinalityData(SetFinalityDataParams parameters)
+        public Task<ResultWrapper<string>> SetFinalityData(SetFinalityDataParams parameters)
         {
             return rpc.SetFinalityData(parameters);
         }
@@ -451,6 +570,54 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             return rpc.FullSyncProgressMap();
         }
+
+        public Task<ResultWrapper<MaintenanceStatus>> MaintenanceStatus()
+        {
+            return rpc.MaintenanceStatus();
+        }
+
+        public Task<ResultWrapper<bool>> ShouldTriggerMaintenance()
+        {
+            return rpc.ShouldTriggerMaintenance();
+        }
+
+        public Task<ResultWrapper<string>> TriggerMaintenance()
+        {
+            return rpc.TriggerMaintenance();
+        }
+
+        public Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
+            => rpc.RecordBlockCreation(parameters);
+
+        public Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
+            => rpc.PrepareForRecord(parameters);
+
+        public Task<ResultWrapper<StartSequencingResult>> StartSequencing(StartSequencingParams parameters)
+            => rpc.StartSequencing(parameters);
+
+        public Task<ResultWrapper<string>> EndSequencing(EndSequencingParams? parameters)
+            => rpc.EndSequencing(parameters);
+
+        public ResultWrapper<string> EnqueueDelayedMessages(EnqueueDelayedMessagesParams parameters)
+            => rpc.EnqueueDelayedMessages(parameters);
+
+        public Task<ResultWrapper<string>> AppendLastSequencedBlock()
+            => rpc.AppendLastSequencedBlock();
+
+        public ResultWrapper<ulong> NextDelayedMessageNumber()
+            => rpc.NextDelayedMessageNumber();
+
+        public Task<ResultWrapper<SequencedMsg?>> ResequenceReorgedMessage(MessageWithMetadata? message)
+            => rpc.ResequenceReorgedMessage(message);
+
+        public ResultWrapper<string> Pause()
+            => rpc.Pause();
+
+        public ResultWrapper<string> Activate()
+            => rpc.Activate();
+
+        public ResultWrapper<string> ForwardTo(string url)
+            => rpc.ForwardTo(url);
     }
 
     public class ScopedGlobalWorldStateAccessor(ArbitrumRpcTestBlockchain chain)
@@ -465,6 +632,24 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         {
             using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
             return chain.MainWorldState.GetBalance(address);
+        }
+
+        public byte[]? GetCode(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetCode(address);
+        }
+
+        public bool HasCode(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.HasCode(address);
+        }
+
+        public ValueHash256 GetCodeHash(Address address, BlockHeader? header = null)
+        {
+            using IDisposable _ = chain.MainWorldState.BeginScope(header ?? chain.BlockTree.Head!.Header);
+            return chain.MainWorldState.GetCodeHash(address);
         }
 
         public T UseArbosStorage<T>(Func<ArbosStorage, T> storageReader, BlockHeader? header = null)
@@ -490,8 +675,19 @@ public record TestL2FundedByL1Contract(Hash256 RequestId, UInt256 L1BaseFee, Add
 public record TestL2Transactions(Hash256 RequestId, UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
 {
     public TestL2Transactions(UInt256 L1BaseFee, Address Sender, params Transaction[] Transactions)
-        : this(new(RandomNumberGenerator.GetBytes(Hash256.Size)), L1BaseFee, Sender, Transactions)
+        : this(DeriveRequestId(Transactions), L1BaseFee, Sender, Transactions)
     {
+    }
 
+    // Deterministic request id keyed on the transactions themselves so the resulting block hash
+    // is stable across test runs — required by ArbitrumWitnessGenerationTests' BlockHash assertions.
+    private static Hash256 DeriveRequestId(Transaction[] transactions)
+    {
+        byte[] buffer = new byte[Hash256.Size * transactions.Length];
+        for (int i = 0; i < transactions.Length; i++)
+            transactions[i].Hash!.Bytes.CopyTo(buffer.AsSpan(i * Hash256.Size));
+        return Keccak.Compute(buffer);
     }
 }
+
+public record TestEndOfBlock(UInt256 L1BaseFee);

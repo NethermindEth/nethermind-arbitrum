@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Autofac;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
@@ -26,7 +29,7 @@ public class ArbitrumChainSpecProviderTests
             chainSpec.EngineChainSpecParametersProvider.GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         engineParameters.InitialArbOSVersion = 10;
 
-        ArbitrumModule module = new(chainSpec, new BlocksConfig());
+        ArbitrumModule module = new(chainSpec, new BlocksConfig(), new ArbitrumConfig());
 
         ContainerBuilder containerBuilder = new();
         containerBuilder.AddModule(new TestNethermindModule(new ConfigProvider(), chainSpec));
@@ -85,7 +88,7 @@ public class ArbitrumChainSpecProviderTests
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
 
-        ArbitrumModule module = new(chainSpec, new BlocksConfig());
+        ArbitrumModule module = new(chainSpec, new BlocksConfig(), new ArbitrumConfig());
 
         ContainerBuilder containerBuilder = new();
         //explicitly state we won't use TestSpecProvider
@@ -303,6 +306,36 @@ public class ArbitrumChainSpecProviderTests
         bool shouldHaveUpdatedGas = arbOsVersion >= 50;
         spec.IsEip7951Enabled.Should().Be(shouldHaveUpdatedGas,
             $"EIP-7951 should be {(shouldHaveUpdatedGas ? "enabled" : "disabled")} at ArbOS version {arbOsVersion}");
+    }
+
+    [Test]
+    [TestCase(10UL, TestName = "ArbOS v10 (Pre-Shanghai)")]
+    [TestCase(11UL, TestName = "ArbOS v11 (Shanghai)")]
+    [TestCase(20UL, TestName = "ArbOS v20 (Cancun)")]
+    [TestCase(30UL, TestName = "ArbOS v30 (Stylus)")]
+    [TestCase(40UL, TestName = "ArbOS v40 (Prague)")]
+    [TestCase(50UL, TestName = "ArbOS v50 (Osaka)")]
+    public void SpecProvider_WithAnyArbOSVersion_DisablesEip4844(ulong arbOsVersion)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: arbOsVersion);
+
+        Action<ContainerBuilder> configurer = builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                L1BaseFee = 92
+            });
+        };
+
+        using ArbitrumRpcTestBlockchain blockchain = ArbitrumRpcTestBlockchain.CreateDefault(
+            configurer: configurer,
+            chainSpec: chainSpec);
+
+        IReleaseSpec spec = blockchain.SpecProvider.GenesisSpec;
+
+        spec.IsEip4844Enabled.Should().BeFalse(
+            $"EIP-4844 must be disabled at ArbOS v{arbOsVersion}");
     }
 
     private static void AssertForkFeatures(string forkName, bool shouldBeEnabled, params Func<bool>[] featureChecks)

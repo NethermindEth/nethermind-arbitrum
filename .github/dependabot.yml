@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    ignore:
+      # Versions managed manually based on Nitro compatibility
+      - dependency-name: "dtolnay/rust-toolchain"
+      - dependency-name: "foundry-rs/foundry-toolchain"
+
+  - package-ecosystem: "nuget"
+    directory: "/src"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: "docker"
+    directory: "/scripts/build"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3

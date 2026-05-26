@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
+  "Init": {
+    "ChainSpecPath": "chainspec/arbitrum-local.json",
+    "BaseDbPath": "nethermind_db/arbitrum-local",
+    "LogFileName": "arbitrum-local.log"
+  },
+  "TxPool": {
+    "BlobsSupport": "Disabled"
+  },
+  "Sync": {
+    "NetworkingEnabled": false,
+    "FastSync": false,
+    "SnapSync": false,
+    "FastSyncCatchUpHeightDelta": "10000000000",
+    "PivotNumber": 0,
+    "PivotHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "Discovery": {
+    "DiscoveryVersion": "V5"
+  },
+  "JsonRpc": {
+    "Enabled": true,
+    "Port": 20545,
+    "EnginePort": 20551,
+    "UnsecureDevNoRpcAuthentication": true,
+    "EngineEnabledModules": [
+      "Net",
+      "Eth",
+      "Subscribe",
+      "Web3",
+      "Arbitrum",
+      "nitroexecution"
+    ],
+    "AdditionalRpcUrls": [
+      "http://localhost:28551|http;ws|net;eth;subscribe;web3;client;debug"
+    ],
+    "EnabledModules": [
+      "Admin",
+      "Clique",
+      "Consensus",
+      "Db",
+      "Debug",
+      "Deposit",
+      "Erc20",
+      "Eth",
+      "Evm",
+      "Net",
+      "Nft",
+      "Parity",
+      "Personal",
+      "Proof",
+      "Subscribe",
+      "Trace",
+      "TxPool",
+      "Vault",
+      "Web3",
+      "Arbitrum",
+      "nitroexecution"
+    ],
+    "RpcRecorderState": "None"
+  },
+  "Pruning": {
+    "PruningBoundary": 192,
+    "MaxUnpersistedBlockCount": 5000,
+    "MinUnpersistedBlockCount": 2000,
+    "MaxBufferedCommitCount": 5000
+  },
+  "Blocks": {
+    "SecondsPerSlot": 2,
+    "BuildBlocksOnMainState": true
+  },
+  "Merge": {
+    "Enabled": true
+  },
+  "Arbitrum": {
+    "BlockProcessingTimeout": 10000,
+    "RebuildLocalWasm": "auto",
+    "SequencerEnabled": true,
+    "SequencerAwaitTxResult": false,
+    "TimeboostEnabled": true,
+    "TimeboostAuctionContractAddress": "0x7DD3F2a3fAeF3B9F2364c335163244D3388Feb83",
+    "TimeboostAuctioneerAddress": "0x46225F4cee2b4A1d506C7f894bb3dAeB21BF1596",
+    "TimeboostRoundDurationSeconds": 60,
+    "TimeboostAuctionClosingWindowSeconds": 15,
+    "TimeboostExpressLaneAdvantageMs": 200,
+    "TimeboostQueueTimeoutInBlocks": 5
+  }
+}

@@ -1,10 +1,13 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Core.Test;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -17,10 +20,12 @@ namespace Nethermind.Arbitrum.Test.Infrastructure;
 public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupplied)
     : ArbitrumPrecompileExecutionContext(Address.Zero, UInt256.Zero, GasSupplied, WorldState, TestWasmStore.Create(), new BlockExecutionContext(), 0, null)
 {
+    private const long DefaultBlockTimestamp = 1_700_000_000;
+
     public PrecompileTestContextBuilder WithArbosState()
     {
-        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger());
-        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger());
+        ArbosState = ArbosState.OpenArbosState(WorldState, this, LimboLogs.Instance.GetClassLogger<ArbosState>());
+        FreeArbosState = ArbosState.OpenArbosState(WorldState, new ZeroGasBurner(), LimboLogs.Instance.GetClassLogger<ArbosState>());
         return this;
     }
 
@@ -40,6 +45,11 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
     {
         Caller = caller;
         return this;
+    }
+
+    public PrecompileTestContextBuilder WithExecutingAccount(Address executingAccount)
+    {
+        return this with { ExecutingAccount = executingAccount };
     }
 
     public void ResetGasLeft(ulong gasLeft = 0)
@@ -155,6 +165,52 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
             provider.SetBlockhash(blockNumber, hash);
         }
         return provider;
+    }
+
+    public static IDisposable CreateAtBlock(out PrecompileTestContextBuilder context, ulong blockNumber = 0, ulong blockTimestamp = DefaultBlockTimestamp, ulong arbosVersion = ArbosVersion.Fifty)
+    {
+        BlockHeader header = Build.A.BlockHeader
+            .WithNumber((long)blockNumber)
+            .WithTimestamp(blockTimestamp)
+            .TestObject;
+
+        return Create(out context, setup: c => c
+            .WithArbosVersion(arbosVersion)
+            .WithBlockExecutionContext(header));
+    }
+
+    public static IDisposable Create(out PrecompileTestContextBuilder context, Func<PrecompileTestContextBuilder, PrecompileTestContextBuilder> setup)
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        IDisposable scope = worldState.BeginScope(IWorldState.PreGenesis);
+        _ = ArbOSInitialization.Create(worldState);
+
+        // Mirror ArbitrumVirtualMachine.RunPrecompile so the activation path observes the same shape
+        // in tests as in production.
+        StackAccessTracker tracker = new();
+        context = setup(new PrecompileTestContextBuilder(worldState, ulong.MaxValue)
+        {
+            AccessTracker = tracker,
+        });
+
+        return new TrackerScope(tracker, scope);
+    }
+
+    private sealed class TrackerScope(StackAccessTracker tracker, IDisposable scope) : IDisposable
+    {
+        // `tracker` is not stored in an extra field — the primary-ctor capture has the same
+        // _trackingState reference, so Dispose() on it returns the same pooled state.
+        public void Dispose()
+        {
+            try
+            {
+                scope.Dispose();
+            }
+            finally
+            {
+                tracker.Dispose();
+            }
+        }
     }
 
     // Test helper to create a mock blockhash provider

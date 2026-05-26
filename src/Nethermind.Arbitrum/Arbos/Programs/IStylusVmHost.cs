@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
@@ -20,9 +21,12 @@ public interface IStylusVmHost
     public VmState<ArbitrumGasPolicy> VmState { get; }
     public IReleaseSpec Spec { get; }
     ulong CurrentArbosVersion { get; }
+    bool IsRecordingExecution { get; }
 
     StylusEvmResult StylusCall(ExecutionType kind, Address to, ReadOnlyMemory<byte> input, ulong gasLeftReportedByRust, ulong gasRequestedByRust,
         in UInt256 value);
 
     StylusEvmResult StylusCreate(ReadOnlyMemory<byte> initCode, in UInt256 endowment, UInt256? salt, ulong gasLimit);
+
+    void RecordUserWasm(ValueHash256 moduleHash, IReadOnlyDictionary<string, byte[]> asmMap);
 }

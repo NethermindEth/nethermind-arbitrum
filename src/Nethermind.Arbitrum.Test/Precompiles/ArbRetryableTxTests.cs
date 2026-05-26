@@ -1,9 +1,15 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
 using FluentAssertions;
 using Nethermind.Abi;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -14,17 +20,25 @@ using Nethermind.Crypto;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
 using Nethermind.Int256;
+using Solgen = Nethermind.Arbitrum.Precompiles.Solgen;
+using Nethermind.Serialization.Rlp;
 
 namespace Nethermind.Arbitrum.Test.Precompiles;
 
 public class ArbRetryableTxTests
 {
+    [OneTimeSetUp]
+    public void Setup()
+    {
+        TxDecoder.Instance.RegisterDecoder(new ArbitrumRetryTxDecoder());
+    }
+
     [Test]
     public void EmitTicketCreatedEvent_WithValidContext_EmitsCorrectLogEntry()
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -48,7 +62,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -61,7 +75,7 @@ public class ArbRetryableTxTests
         Hash256 retryTxHash256 = new(retryTxHash.ToBigEndian());
         UInt256 sequenceNum = 1;
         Hash256 sequenceNumHash256 = new(sequenceNum.ToBigEndian());
-        Hash256[] expectedEventTopics = new Hash256[] { Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256 };
+        Hash256[] expectedEventTopics = [Keccak.Compute(eventSignature), ticketIdHash256, retryTxHash256, sequenceNumHash256];
 
         // Construct event data
         ulong donatedGas = 1;
@@ -71,7 +85,7 @@ public class ArbRetryableTxTests
         object[] data = [donatedGas, donor, maxRefund, submissionFeeRefund];
         byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256]),
+            new AbiSignature(string.Empty, AbiUInt.UInt64, AbiAddress.Instance, AbiUInt.UInt256, AbiUInt.UInt256),
             data);
 
         LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
@@ -95,7 +109,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -111,7 +125,7 @@ public class ArbRetryableTxTests
         object[] data = [newTimeout];
         byte[] expectedEventData = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
-            new AbiSignature(string.Empty, [AbiUInt.UInt256]),
+            new AbiSignature(string.Empty, AbiUInt.UInt256),
             data);
 
         LogEntry expectedLogEntry = new(ArbRetryableTx.Address, expectedEventData, expectedEventTopics);
@@ -133,7 +147,7 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -183,9 +197,9 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -240,7 +254,7 @@ public class ArbRetryableTxTests
             CurrentRetryable = Hash256.Zero
         };
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         // Redeem the retryable
@@ -249,7 +263,7 @@ public class ArbRetryableTxTests
         returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
         newContext.GasLeft.Should().Be(gasLeft);
-        newContext.GasLeft.Should().Be(GasCostOf.DataCopy); // just enough for returning the 32bytes result
+        newContext.GasLeft.Should().Be(GasCostOf.Memory); // just enough for returning the 32bytes result
         retryable.NumTries.Get().Should().Be(1);
 
         // Redeem execution used up all gas, give some gas for asserting
@@ -262,9 +276,9 @@ public class ArbRetryableTxTests
     {
         // Initialize ArbOS state
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
 
         ulong gasSupplied = ulong.MaxValue;
@@ -318,7 +332,7 @@ public class ArbRetryableTxTests
             CurrentRetryable = Hash256.Zero
         };
         newContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
-        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(System.Math.Min(long.MaxValue, gasToDonate) + 1);
+        newContext.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
         newContext.ResetGasLeft(); // for gas assertion check (opening arbos and setting backlog consumes gas)
 
         // Redeem the retryable
@@ -327,7 +341,7 @@ public class ArbRetryableTxTests
         returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
         newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
         newContext.GasLeft.Should().Be(gasLeft);
-        newContext.GasLeft.Should().Be(GasCostOf.DataCopy); // just enough for returning the 32bytes result
+        newContext.GasLeft.Should().Be(GasCostOf.Memory); // just enough for returning the 32bytes result
         retryable.NumTries.Get().Should().Be(1);
 
         // Redeem execution used up all gas, give some gas for asserting
@@ -335,7 +349,170 @@ public class ArbRetryableTxTests
         newContext.ArbosState.L2PricingState.GasBacklogStorage.Get().Should().Be(1);
     }
 
-    public static ulong ComputeRedeemCost(out ulong gasToDonate, ulong gasSupplied, ulong calldataSize)
+    [TestCase(0ul)]
+    [TestCase(65ul)]
+    public void ArbRetryable_RedeemCorrectly_BurnsCorrectMultiGas(ulong calldataSize)
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosState().WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketIdHash = Hash256FromUlong(123);
+        byte[] calldata = new byte[calldataSize];
+        ulong timeout = genesis.Header.Timestamp + 1;
+        setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        // Use backlog = gasToDonate + 1 so the shrink leaves backlog at 1 (non-zero write),
+        // keeping the gasPoolUpdateCost estimate exact and gasLeft == GasCostOf.Memory.
+        ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize);
+
+        PrecompileTestContextBuilder context = new(worldState, gasSupplied) { CurrentRetryable = Hash256.Zero };
+        context.WithArbosState().WithBlockExecutionContext(genesis.Header);
+        context.ArbosState.L2PricingState.GasBacklogStorage.Set(gasToDonate + 1);
+        context.ResetGasLeft();
+
+        ulong[] burnedBefore = Enumerable.Range(0, MultiGas.NumResourceKinds)
+            .Select(i => context.BurnedMultiGas.Get((ResourceKind)i))
+            .ToArray();
+
+        ArbRetryableTx.Redeem(context, ticketIdHash);
+
+        context.GasLeft.Should().Be(gasLeft).And.Be((ulong)GasCostOf.Memory);
+
+        ulong[] delta = Enumerable.Range(0, MultiGas.NumResourceKinds)
+            .Select(i => context.BurnedMultiGas.Get((ResourceKind)i) - burnedBefore[i])
+            .ToArray();
+
+        // --- expected values per resource kind ---
+
+        // StorageAccessWrite: retryable size fee (GasCostOf.SLoad per word, charged as Write per Nitro spec)
+        //                     + IncrementNumTries (non-zero write)
+        //                     + ShrinkBacklog.Set(1) (non-zero write, backlog = gasToDonate + 1 → 1)
+        ulong byteCount = 6 * EvmPooledMemory.WordSize + (1 + Math.Utils.Div32Ceiling(calldataSize)) * EvmPooledMemory.WordSize;
+        ulong writeBytes = Math.Utils.Div32Ceiling(byteCount);
+        ulong sizeFee = (ulong)GasCostOf.SLoad * writeBytes;
+        ulong expectedWrite = sizeFee + 2 * ArbosStorage.StorageWriteCost;
+
+        // StorageAccessRead: RetryableSizeBytes (open + calldata size) + OpenRetryable + IncrementNumTries (read)
+        //                    + From + To + CallValue + Calldata.Get (size + ⌊len/32⌋ chunks + 1 last chunk)
+        //                    + ShrinkBacklog.Get
+        ulong expectedRead = (10 + calldataSize / 32) * ArbosStorage.StorageReadCost;
+
+        // HistoryGrowth: the single RedeemScheduled event
+        ulong expectedHistoryGrowth = ArbRetryableTx.RedeemScheduledEventGasCost(Hash256.Zero, Hash256.Zero, 0, 0, Address.Zero, 0, 0);
+
+        // SingleDim: all donated gas
+        ulong expectedSingleDim = gasToDonate;
+
+        delta[(int)ResourceKind.StorageAccessWrite].Should().Be(expectedWrite);
+        delta[(int)ResourceKind.StorageAccessRead].Should().Be(expectedRead);
+        delta[(int)ResourceKind.HistoryGrowth].Should().Be(expectedHistoryGrowth);
+        delta[(int)ResourceKind.SingleDim].Should().Be(expectedSingleDim);
+        delta[(int)ResourceKind.Computation].Should().Be(0);
+        delta[(int)ResourceKind.Unknown].Should().Be(0);
+        delta[(int)ResourceKind.StorageGrowth].Should().Be(0);
+        delta[(int)ResourceKind.L2Calldata].Should().Be(0);
+        delta[(int)ResourceKind.WasmComputation].Should().Be(0);
+
+        // Sanity: all resource kinds must account for every gas unit consumed.
+        delta.Aggregate(0ul, (sum, x) => sum + x).Should().Be(gasSupplied - gasLeft);
+    }
+
+    [Test]
+    public void Redeem_WithMultiConstraintPricing_ReservesCorrectGasForPoolUpdate()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        Block genesis = ArbOSInitialization.Create(worldState);
+        genesis.Header.Timestamp = 100;
+
+        ulong gasSupplied = ulong.MaxValue;
+        PrecompileTestContextBuilder setupContext = new(worldState, gasSupplied);
+        setupContext.WithArbosVersion(ArbosVersion.FiftyOne).WithBlockExecutionContext(genesis.Header);
+
+        Hash256 ticketIdHash = Hash256FromUlong(123);
+
+        ulong calldataSize = 65;
+        byte[] calldata = new byte[calldataSize];
+        ulong timeout = genesis.Header.Timestamp + 1;
+
+        Retryable retryable = setupContext.ArbosState.RetryableState.CreateRetryable(
+            ticketIdHash, Address.Zero, Address.Zero, 0, Address.Zero, timeout, calldata
+        );
+
+        setupContext.ArbosState.L2PricingState.AddConstraint(1_000_000, 60, 5_000_000);
+
+        ulong nonce = retryable.NumTries.Get();
+        UInt256 maxRefund = UInt256.MaxValue;
+
+        ulong gasPoolUpdateCost = setupContext.ArbosState.L2PricingState.GasPoolUpdateCost();
+        gasPoolUpdateCost.Should().BeGreaterThan(ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost);
+
+        // GasPoolUpdateCost() reads ConstraintsLength from storage for ArbOS >= 51
+        ulong gasPoolUpdateCostOverhead = ArbosStorage.StorageReadCost;
+        ulong gasLeft = ComputeRedeemCost(out ulong gasToDonate, gasSupplied, calldataSize, gasPoolUpdateCost, gasPoolUpdateCostOverhead);
+
+        ArbitrumRetryTransaction expectedRetryTx = new()
+        {
+            ChainId = setupContext.ChainId,
+            Nonce = nonce,
+            SenderAddress = retryable.From.Get(),
+            DecodedMaxFeePerGas = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            GasFeeCap = setupContext.BlockExecutionContext.Header.BaseFeePerGas,
+            Gas = gasToDonate,
+            GasLimit = (long)gasToDonate,
+            To = retryable.To?.Get(),
+            Value = retryable.CallValue.Get(),
+            Data = retryable.Calldata.Get(),
+            TicketId = ticketIdHash,
+            RefundTo = setupContext.Caller,
+            MaxRefund = maxRefund,
+            SubmissionFeeRefund = 0
+        };
+
+        Hash256 expectedTxHash = expectedRetryTx.CalculateHash();
+
+        LogEntry redeemScheduleEvent = EventsEncoder.BuildLogEntryFromEvent(
+            ArbRetryableTx.RedeemScheduledEvent, ArbRetryableTx.Address, ticketIdHash,
+            expectedTxHash, nonce, gasToDonate, setupContext.Caller, maxRefund, 0
+        );
+
+        PrecompileTestContextBuilder newContext = new(worldState, gasSupplied)
+        {
+            CurrentRetryable = Hash256.Zero
+        };
+        newContext.WithArbosVersion(ArbosVersion.FiftyOne).WithBlockExecutionContext(genesis.Header);
+        GasConstraint constraint = newContext.ArbosState.L2PricingState.OpenConstraintAt(0);
+        constraint.SetBacklog(gasToDonate + 1);
+        newContext.ResetGasLeft();
+
+        Hash256 returnedTxHash = ArbRetryableTx.Redeem(newContext, ticketIdHash);
+
+        returnedTxHash.Should().BeEquivalentTo(expectedTxHash);
+        newContext.EventLogs.Should().BeEquivalentTo(new[] { redeemScheduleEvent });
+        newContext.GasLeft.Should().Be(gasLeft);
+        newContext.GasLeft.Should().Be(GasCostOf.Memory);
+        retryable.NumTries.Get().Should().Be(1);
+
+        newContext.ResetGasLeft();
+        constraint.Backlog.Should().Be(1);
+    }
+
+    public static ulong ComputeRedeemCost(
+        out ulong gasToDonate,
+        ulong gasSupplied,
+        ulong calldataSize,
+        ulong gasPoolUpdateCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost,
+        ulong gasPoolUpdateCostOverhead = 0)
     {
         ulong gasLeft = gasSupplied;
 
@@ -359,6 +536,9 @@ public class ArbRetryableTxTests
             (2 + calldataSize / 32) * ArbosStorage.StorageReadCost; // see ArbosStorage.GetBytes()
         gasLeft -= arbitrumRetryTxCreationCost;
 
+        // GasPoolUpdateCost() reads ConstraintsLength from storage for ArbOS >= 51
+        gasLeft -= gasPoolUpdateCostOverhead;
+
         // RedeemScheduled event has:
         // - topics: event signature + 3 indexed parameters
         // - data: 4 non-indexed static (32 bytes each) parameters
@@ -366,14 +546,13 @@ public class ArbRetryableTxTests
             GasCostOf.Log +
             GasCostOf.LogTopic * (1 + 3) +
             GasCostOf.LogData * (4 * EvmPooledMemory.WordSize);
-        ulong futureGasCosts = GasCostOf.DataCopy + GasCostOf.SLoadEip1884 + GasCostOf.SSet + redeemScheduledEventGasCost;
+        ulong futureGasCosts = GasCostOf.Memory + gasPoolUpdateCost + redeemScheduledEventGasCost;
         gasToDonate = gasLeft - futureGasCosts;
 
         gasLeft -= redeemScheduledEventGasCost;
         gasLeft -= gasToDonate;
 
-        ulong addToGasPoolCost = ArbosStorage.StorageReadCost + ArbosStorage.StorageWriteCost;
-        gasLeft -= addToGasPoolCost;
+        gasLeft -= gasPoolUpdateCost;
 
         return gasLeft;
     }
@@ -382,7 +561,7 @@ public class ArbRetryableTxTests
     public void Redeem_SelfModifyingRetryable_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -402,7 +581,7 @@ public class ArbRetryableTxTests
     public void Redeem_RetryableDoesNotExists_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
 
@@ -429,7 +608,7 @@ public class ArbRetryableTxTests
     public void GetTimeout_RetryableExists_ReturnsCalculatedTimeout()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -453,7 +632,7 @@ public class ArbRetryableTxTests
     public void GetTimeout_RetryableExpired_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -477,9 +656,9 @@ public class ArbRetryableTxTests
     public void KeepAlive_RetryableExpiresBefore1Lifetime_ReturnsNewTimeout()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
-        var genesis = ArbOSInitialization.Create(worldState);
+        Block genesis = ArbOSInitialization.Create(worldState);
 
         genesis.Header.Timestamp = 100;
         ulong gasSupplied = ulong.MaxValue;
@@ -538,7 +717,7 @@ public class ArbRetryableTxTests
     public void KeepAlive_RetryableDoesNotExist_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -557,7 +736,7 @@ public class ArbRetryableTxTests
     public void KeepAlive_RetryableExpiresAfter1Lifetime_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -582,7 +761,7 @@ public class ArbRetryableTxTests
     public void GetBeneficiary_RetryableExists_ReturnsBeneficiary()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -604,7 +783,7 @@ public class ArbRetryableTxTests
     public void GetBeneficiary_RetryableExpired_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -628,7 +807,7 @@ public class ArbRetryableTxTests
     public void Cancel_RetryableExists_DeletesIt()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -699,7 +878,7 @@ public class ArbRetryableTxTests
     public void Cancel_SelfModifyingRetryable_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -720,7 +899,7 @@ public class ArbRetryableTxTests
     public void Cancel_NotBeneficiary_Throws()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         Block genesis = ArbOSInitialization.Create(worldState);
         genesis.Header.Timestamp = 100;
@@ -750,7 +929,7 @@ public class ArbRetryableTxTests
     public void GetCurrentRedeemer_RedeemTransaction_ReturnsRedeemer()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
 
@@ -768,7 +947,7 @@ public class ArbRetryableTxTests
     public void GetCurrentRedeemer_NotARedeemTransaction_ReturnsZeroAddress()
     {
         IWorldState worldState = TestWorldStateFactory.CreateForTest();
-        using var worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
 
         _ = ArbOSInitialization.Create(worldState);
         PrecompileTestContextBuilder context = new(worldState, ulong.MaxValue);
@@ -787,6 +966,53 @@ public class ArbRetryableTxTests
 
         ArbitrumPrecompileException expected = ArbRetryableTx.NotCallableSolidityError();
         thrownException.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
+    {
+        Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbRetryableTx.Abi);
+
+        allFunctions.Keys.Should().BeEquivalentTo(new[]
+        {
+            PrecompileTestAbiHelpers.GetMethodId("redeem(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("getLifetime()"),
+            PrecompileTestAbiHelpers.GetMethodId("getTimeout(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("keepalive(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("getBeneficiary(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("cancel(bytes32)"),
+            PrecompileTestAbiHelpers.GetMethodId("getCurrentRedeemer()"),
+            PrecompileTestAbiHelpers.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)"),
+        });
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedEvents()
+    {
+        Dictionary<string, AbiEventDescription> allEvents = PrecompileTestAbiHelpers.GetAllEventDescriptions(Solgen.ArbRetryableTx.Abi);
+
+        allEvents.Keys.Should().BeEquivalentTo("TicketCreated", "LifetimeExtended", "RedeemScheduled", "Canceled", "Redeemed");
+    }
+
+    [Test]
+    public void Abi_WhenParsed_ContainsExpectedErrors()
+    {
+        Dictionary<string, AbiErrorDescription> allErrors = PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbRetryableTx.Abi);
+
+        allErrors.Keys.Should().BeEquivalentTo("NoTicketWithID", "NotCallable");
+    }
+
+    [Test]
+    public void MethodIds_AllFunctions_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("redeem(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.Redeem);
+        PrecompileTestAbiHelpers.GetMethodId("getLifetime()").Should().Be(Solgen.ArbRetryableTx.Methods.GetLifetime);
+        PrecompileTestAbiHelpers.GetMethodId("getTimeout(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.GetTimeout);
+        PrecompileTestAbiHelpers.GetMethodId("keepalive(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.Keepalive);
+        PrecompileTestAbiHelpers.GetMethodId("getBeneficiary(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.GetBeneficiary);
+        PrecompileTestAbiHelpers.GetMethodId("cancel(bytes32)").Should().Be(Solgen.ArbRetryableTx.Methods.Cancel);
+        PrecompileTestAbiHelpers.GetMethodId("getCurrentRedeemer()").Should().Be(Solgen.ArbRetryableTx.Methods.GetCurrentRedeemer);
+        PrecompileTestAbiHelpers.GetMethodId("submitRetryable(bytes32,uint256,uint256,uint256,uint256,uint64,uint256,address,address,address,bytes)").Should().Be(Solgen.ArbRetryableTx.Methods.SubmitRetryable);
     }
 
     public static Hash256 Hash256FromUlong(ulong value) => new(new UInt256(value).ToBigEndian());

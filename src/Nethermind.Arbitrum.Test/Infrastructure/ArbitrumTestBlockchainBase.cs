@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
+
+using System.Collections.Concurrent;
 using Autofac;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
@@ -6,6 +10,8 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Genesis;
+using Nethermind.Arbitrum.Rpc;
+using Nethermind.Arbitrum.Sequencer;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Find;
@@ -37,7 +43,9 @@ using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.TxPool;
+using NSubstitute;
 using BlockchainProcessorOptions = Nethermind.Consensus.Processing.BlockchainProcessor.Options;
+using Nethermind.Arbitrum.Execution.Stateless;
 
 namespace Nethermind.Arbitrum.Test.Infrastructure;
 
@@ -86,10 +94,16 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     public ILogFinder LogFinder => Dependencies.LogFinder;
 
     public CachedL1PriceData CachedL1PriceData => Dependencies.CachedL1PriceData;
+    public IArbitrumConfig ArbitrumConfig => arbitrumConfig;
 
     public ISpecProvider SpecProvider => Dependencies.SpecProvider;
 
     public IWasmDb WasmDB => Container.Resolve<IWasmDb>();
+
+    public IWasmStore WasmStore => Dependencies.WasmStore;
+    public IArbosVersionProvider ArbosVersionProvider => Dependencies.ArbosVersionProvider;
+
+    public IStateReconstructor StateReconstructor => Dependencies.StateReconstructor;
 
     public IDb CodeDB => Container.ResolveKeyed<IDb>("code");
 
@@ -128,6 +142,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         return ArbitrumRpcTestBlockchain.CreateDefault(preConfigurer);
     }
+
     protected virtual ArbitrumTestBlockchainBase Build(Action<ContainerBuilder>? configurer = null)
     {
         Timestamper = new ManualTimestamper(InitialTimestamp);
@@ -153,13 +168,14 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             Dependencies.BlockPreprocessorStep,
             StateReader,
             LogManager,
-            BlockchainProcessorOptions.Default);
+            BlockchainProcessorOptions.Default,
+            Substitute.For<IProcessingStats>());
 
         BlockchainProcessor = chainProcessor;
         BlockProcessingQueue = chainProcessor;
         chainProcessor.Start();
 
-        _ = new NonProcessingProducedBlockSuggester(BlockTree, BlockProducerRunner);
+        Container.Resolve<ArbitrumSequencerBlockSuggester>();
         BlockProducerRunner.Start();
 
         RegisterTransactionDecoders();
@@ -184,12 +200,16 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 null,
                 digestInitMessage.SerializedChainConfig);
 
-            ArbitrumGenesisLoader genesisLoader = new(
+            ArbitrumGenesisStateInitializer stateInitializer = new(
                 ChainSpec,
-                SpecProvider,
                 Dependencies.SpecHelper,
+                new ArbitrumConfig(),
+                LimboLogs.Instance);
+
+            ArbitrumGenesisLoader genesisLoader = new(SpecProvider,
                 worldState,
                 parsedInitMessage,
+                stateInitializer,
                 LimboLogs.Instance);
 
             genesisBlock = genesisLoader.Load();
@@ -205,9 +225,9 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         {
             using IDisposable dispose = worldState.BeginScope(genesisBlock?.Header ?? IWorldState.PreGenesis);
 
-            worldState.CreateAccount(TestItem.AddressA, 100.Ether());
-            worldState.CreateAccount(TestItem.AddressB, 200.Ether());
-            worldState.CreateAccount(TestItem.AddressC, 300.Ether());
+            worldState.CreateAccount(TestItem.AddressA, 100.Ether);
+            worldState.CreateAccount(TestItem.AddressB, 200.Ether);
+            worldState.CreateAccount(TestItem.AddressC, 300.Ether);
             worldState.CreateAccount(TestItem.AddressD, 0, 0);
             byte[] byteCode = Bytes.FromHexString("0x1234567890");
             worldState.InsertCode(TestItem.AddressD, Keccak.Compute(byteCode), byteCode, SpecProvider.GenesisSpec);
@@ -235,7 +255,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         return builder
             .AddModule(new PseudoNethermindModule(ChainSpec, configProvider, LimboLogs.Instance))
             .AddModule(new TestEnvironmentModule(TestItem.PrivateKeyA, Random.Shared.Next().ToString()))
-            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>()))
+            .AddModule(new ArbitrumModule(ChainSpec, configProvider.GetConfig<IBlocksConfig>(), configProvider.GetConfig<IArbitrumConfig>()))
             .AddSingleton<IDbFactory>(new MemDbFactory())
             .AddSingleton<Configuration>()
             .AddSingleton<BlockchainContainerDependencies>()
@@ -243,7 +263,16 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .AddSingleton<IUnclesValidator>(Always.Valid)
             .AddSingleton<ISealer>(new NethDevSealEngine(TestItem.AddressD))
             .AddSingleton<ArbitrumInitializeStylusNative>()
-            .AddSingleton<ArbitrumInitializeWasmDb>();
+            .AddSingleton<ArbitrumInitializeWasmDb>()
+            .AddSingleton<IManualBlockProductionTrigger>(BlockProductionTrigger)
+            .AddSingleton<ArbitrumSequencerBlockSuggester>(ctx => new ArbitrumSequencerBlockSuggester(
+                ctx.Resolve<IBlockTree>(),
+                BlockProducerRunner,
+                ctx.Resolve<IBlocksConfig>(),
+                NullLogManager.Instance))
+            .AddSingleton<FakeArbitrumConsensusClient>()
+            .AddSingleton<IArbitrumConsensusClient>(c => c.Resolve<FakeArbitrumConsensusClient>())
+            .AddSingleton<IBlockMetadataProvider, BlockMetadataProvider>();
     }
 
     public void RebuildWasmStore(Hash256? startPosition = null, CancellationToken cancellationToken = default)
@@ -263,7 +292,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                 ArbosState arbosState = ArbosState.OpenArbosState(
                     MainWorldState,
                     new SystemBurner(),
-                    LogManager.GetClassLogger());
+                    LogManager.GetClassLogger<ArbosState>());
 
                 StylusPrograms programs = arbosState.Programs;
 
@@ -271,7 +300,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
                     WasmDB,
                     StylusTargetConfig,
                     programs,
-                    LogManager.GetClassLogger());
+                    LogManager.GetClassLogger<WasmStoreRebuilder>());
 
                 rebuilder.RebuildWasmStore(
                     CodeDB,
@@ -308,6 +337,9 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
         IBlockProducerEnvFactory BlockProducerEnvFactory,
         ISealer Sealer,
         CachedL1PriceData CachedL1PriceData,
+        IWasmStore WasmStore,
+        IArbosVersionProvider ArbosVersionProvider,
+        IStateReconstructor StateReconstructor,
         IArbitrumSpecHelper SpecHelper);
 
     private void InitializeArbitrumPluginSteps(IContainer container)
@@ -326,7 +358,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     private IBlockProducer InitBlockProducer()
     {
         IBlockProducerEnvFactory blockProducerEnvFactory = Container.Resolve<IBlockProducerEnvFactory>();
-        IBlockProducerEnv producerEnv = blockProducerEnvFactory.Create();
+        IBlockProducerEnv producerEnv = blockProducerEnvFactory.CreatePersistent();
 
         return new ArbitrumBlockProducer(
             producerEnv.TxSource,
@@ -357,4 +389,15 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     }
 
     private void RegisterTransactionDecoders() => InitTxTypesAndRlpDecoders();
+}
+
+public sealed class FakeArbitrumConsensusClient : IArbitrumConsensusClient
+{
+    private readonly ConcurrentDictionary<long, byte[]?> _responses = new();
+
+    public void SetupResult(long blockNumber, byte[]? blockMetadata) =>
+        _responses.TryAdd(blockNumber, blockMetadata);
+
+    public Task<byte[]?> GetBlockMetadataAsync(long blockNumber) =>
+        Task.FromResult(_responses.TryGetValue(blockNumber, out byte[]? response) ? response : null);
 }

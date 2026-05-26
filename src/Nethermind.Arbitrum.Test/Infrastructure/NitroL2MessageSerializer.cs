@@ -1,8 +1,9 @@
-// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
-// SPDX-License-Identifier: LGPL-3.0-only
+// SPDX-License-Identifier: BUSL-1.1
+// SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Execution.Transactions;
+using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -15,7 +16,7 @@ public static class NitroL2MessageSerializer
 {
     public static byte[] SerializeTransactions(IReadOnlyList<Transaction> transactions, L1IncomingMessageHeader header)
     {
-        if (transactions.Count == 0)
+        if (transactions.Count == 0 && header.Kind != ArbitrumL1MessageKind.EndOfBlock)
             throw new ArgumentException("Transactions must be non-empty", nameof(transactions));
 
         using MemoryStream stream = new();
@@ -51,6 +52,9 @@ public static class NitroL2MessageSerializer
                 // SerializeBatchPostingReport(writer, transactions[0] as ArbitrumInternalTransaction, header, batchGasCost);
                 throw new InvalidOperationException($"{ArbitrumL1MessageKind.BatchPostingReport} is not supported as {nameof(ArbitrumInternalTransaction)} " +
                     $"can't be used to build proper {nameof(DigestMessageParameters)}. It lacks original BatchHash and ExtraGas properties.");
+
+            case ArbitrumL1MessageKind.EndOfBlock:
+                break;
 
             default:
                 throw new ArgumentException($"Unsupported L1 message kind: {header.Kind}");
@@ -172,7 +176,7 @@ public static class NitroL2MessageSerializer
         if (batchGasCost == null)
             throw new ArgumentException("BatchGasCost is required for BatchPostingReport");
 
-        Dictionary<string, object> decoded = AbiMetadata.UnpackInput(AbiMetadata.BatchPostingReport, tx.Data.ToArray());
+        Dictionary<string, object> decoded = ArbosActsCodec.UnpackInput(ArbosActsMethod.BatchPostingReport, tx.Data.ToArray());
 
         UInt256 batchTimestamp = (UInt256)decoded["batchTimestamp"];
         Address batchPosterAddr = (Address)decoded["batchPosterAddress"];

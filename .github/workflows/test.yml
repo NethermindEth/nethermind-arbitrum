@@ -1,0 +1,101 @@
+# Test and coverage workflow
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+  pull-requests: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test with coverage
+        run: >
+          dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
+          --configuration Release
+          --collect:"XPlat Code Coverage"
+          --results-directory ./coverage
+          --
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+          DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Include=[Nethermind.Arbitrum*]*
+
+      - name: Upload to Codecov
+        if: github.actor != 'dependabot[bot]'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage
+          fail_ci_if_error: false
+
+      # Dependabot cannot access CODECOV_TOKEN — set statuses manually so required checks pass
+      - name: Set codecov statuses (dependabot)
+        if: github.actor == 'dependabot[bot]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          for context in "codecov/patch" "codecov/project"; do
+            gh api "repos/$REPO/statuses/$SHA" \
+              -f state=success \
+              -f context="$context" \
+              -f description="Coverage skipped for dependabot"
+          done
+
+  notify-submodule-failure:
+    name: Notify Submodule Update Failure
+    needs: test
+    if: needs.test.result == 'failure' && startsWith(github.head_ref, 'auto/nethermind-update')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Post failure comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number found, skipping notification"
+            exit 0
+          fi
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "$REPO" \
+            --body "## ⚠️ Test Failure Detected
+
+          The Nethermind submodule update introduced a test failure.
+
+          **Failed Job:** test
+          **Workflow Run:** $SERVER_URL/$REPO/actions/runs/$RUN_ID
+
+          Please review the failure and either:
+          1. Fix compatibility in a follow-up commit
+          2. Close this PR and wait for upstream fix
+          3. Pin to a specific working commit"
+
+          gh pr edit "$PR_NUMBER" \
+            --repo "$REPO" \
+            --add-label "breaking-change"
