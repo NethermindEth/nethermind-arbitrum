@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -17,10 +19,10 @@ using Nethermind.Specs.Forks;
 
 namespace Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 
-/// <summary>
-/// Test helper for creating mock IStylusVmHost instances for WasmGas unit tests.
-/// </summary>
-public class WasmGasTestHelper : IDisposable
+// Test fixture that wires a mock IStylusVmHost together with an initialized ArbosStorage and
+// StylusPrograms instance. Exposes the vmHost for hostio/precompile tests, and Programs/GetStylusParams
+// for tests that need to mutate Stylus chain parameters (e.g. PageLimit) at a given ArbOS version.
+public class TestStylusVm : IDisposable
 {
     private readonly StackAccessTracker _accessTracker;
     private readonly IWorldState _worldState;
@@ -32,8 +34,9 @@ public class WasmGasTestHelper : IDisposable
 
     public IStylusVmHost VmHost => _vmHost;
     public IWorldState WorldState => _worldState;
+    public ArbosStorage ArbosStorage { get; }
 
-    public WasmGasTestHelper(long gasAvailable = 1_000_000, IReleaseSpec? spec = null)
+    public TestStylusVm(long gasAvailable = 1_000_000, IReleaseSpec? spec = null, ulong arbosVersion = ArbosVersion.Forty)
     {
         spec ??= Cancun.Instance;
         _accessTracker = new StackAccessTracker();
@@ -41,7 +44,6 @@ public class WasmGasTestHelper : IDisposable
         _worldStateScope = _worldState.BeginScope(IWorldState.PreGenesis);
         _wasmStore = TestWasmStore.Create();
 
-        // Create minimal execution environment
         _executionEnvironment = ExecutionEnvironment.Rent(
             CodeInfo.Empty,
             Address.Zero,
@@ -57,42 +59,37 @@ public class WasmGasTestHelper : IDisposable
             _accessTracker,
             Snapshot.Empty);
 
-        // Create execution contexts
         BlockHeader testHeader = Build.A.BlockHeader.TestObject;
         BlockExecutionContext blockContext = new(testHeader, spec);
         TxExecutionContext txContext = new(Address.Zero, null!, null, UInt256.Zero);
 
-        _vmHost = new TestStylusVmHost(blockContext, txContext, _vmState, _worldState, _wasmStore, spec);
+        _vmHost = new TestStylusVmHost(blockContext, txContext, _vmState, _worldState, _wasmStore, spec, currentArbosVersion: arbosVersion);
+
+        ArbosStorage = TestArbosStorage.Create(_worldState);
+        StylusPrograms.Initialize(arbosVersion, ArbosStorage);
     }
 
-    /// <summary>
-    /// Pre-warms a storage cell so it's not cold.
-    /// </summary>
+    public StylusParams GetStylusParams()
+    {
+        return new StylusPrograms(ArbosStorage, _vmHost.CurrentArbosVersion).GetParams();
+    }
+
     public void WarmUpSlot(Address address, in UInt256 index)
     {
         StorageCell cell = new(address, index);
         _accessTracker.WarmUp(in cell);
     }
 
-    /// <summary>
-    /// Pre-warms an address so it's not cold.
-    /// </summary>
     public void WarmUpAddress(Address address)
     {
         _accessTracker.WarmUp(address);
     }
 
-    /// <summary>
-    /// Creates an account with balance.
-    /// </summary>
     public void CreateAccount(Address address, UInt256 balance = default)
     {
         _worldState.CreateAccountIfNotExists(address, balance);
     }
 
-    /// <summary>
-    /// Sets a storage slot value.
-    /// </summary>
     public void SetStorageValue(Address address, in UInt256 index, byte[] value)
     {
         _worldState.CreateAccountIfNotExists(address, 0);

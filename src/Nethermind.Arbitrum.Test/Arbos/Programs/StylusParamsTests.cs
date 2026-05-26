@@ -6,6 +6,7 @@ using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Test.Arbos.Stylus.Infrastructure;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core.Extensions;
 using Nethermind.Core.Test;
@@ -21,6 +22,7 @@ public class StylusParamsTests
     private const byte InitialMaxFragmentCount = 4;
     private const uint InitialMaxWasmSize = 128 * 1024;
     private const uint ArbOS60MaxWasmSize = 256 * 1024;
+    private const ushort DefaultPageLimit = 128;
 
     // Offsets within slot 0: base = 25 bytes; MaxWasmSize at 25..29 (uint, v40+); MaxFragmentCount at 29 (v60+).
     private const int MaxWasmSizeOffsetInSlot0 = 25;
@@ -249,5 +251,65 @@ public class StylusParamsTests
         Action act = () => stylusParams.UpgradeToStylusVersion(4);
 
         act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Test]
+    public void EnforceStylusPageLimit_BelowV59_ReturnsZero()
+    {
+        using TestStylusVm vm = new(arbosVersion: ArbosVersion.FiftyOne);
+        StylusParams stylusParams = vm.GetStylusParams();
+        stylusParams.SetPageLimit(DefaultPageLimit);
+
+        ulong penalty = stylusParams.EnforceStylusPageLimit(newOpen: (ushort)(DefaultPageLimit + 1));
+
+        penalty.Should().Be(0);
+    }
+
+    [Test]
+    public void EnforceStylusPageLimit_ZeroPageLimit_ReturnsZero()
+    {
+        using TestStylusVm vm = new(arbosVersion: ArbosVersion.FiftyNine);
+        StylusParams stylusParams = vm.GetStylusParams();
+        stylusParams.SetPageLimit(0);
+
+        ulong penalty = stylusParams.EnforceStylusPageLimit(newOpen: ushort.MaxValue);
+
+        penalty.Should().Be(0);
+    }
+
+    [Test]
+    public void EnforceStylusPageLimit_NewOpenEqualsLimit_ReturnsZero()
+    {
+        using TestStylusVm vm = new(arbosVersion: ArbosVersion.FiftyNine);
+        StylusParams stylusParams = vm.GetStylusParams();
+        stylusParams.SetPageLimit(DefaultPageLimit);
+
+        ulong penalty = stylusParams.EnforceStylusPageLimit(newOpen: DefaultPageLimit);
+
+        penalty.Should().Be(0);
+    }
+
+    [Test]
+    public void EnforceStylusPageLimit_NewOpenExceedsLimit_ReturnsMaxUint64()
+    {
+        using TestStylusVm vm = new(arbosVersion: ArbosVersion.FiftyNine);
+        StylusParams stylusParams = vm.GetStylusParams();
+        stylusParams.SetPageLimit(DefaultPageLimit);
+
+        ulong penalty = stylusParams.EnforceStylusPageLimit(newOpen: (ushort)(DefaultPageLimit + 1));
+
+        penalty.Should().Be(ulong.MaxValue);
+    }
+
+    [Test]
+    public void EnforceStylusPageLimit_V60ExceedsLimit_ReturnsMaxUint64()
+    {
+        using TestStylusVm vm = new(arbosVersion: ArbosVersion.Sixty);
+        StylusParams stylusParams = vm.GetStylusParams();
+        stylusParams.SetPageLimit(DefaultPageLimit);
+
+        ulong penalty = stylusParams.EnforceStylusPageLimit(newOpen: (ushort)(DefaultPageLimit + 1));
+
+        penalty.Should().Be(ulong.MaxValue);
     }
 }

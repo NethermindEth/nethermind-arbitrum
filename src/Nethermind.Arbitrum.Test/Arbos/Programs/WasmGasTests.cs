@@ -75,7 +75,7 @@ public class WasmGasTests
     [Test]
     public void WasmStateLoadCost_ColdSlot_ReturnsStorageAccessReadAndComputation()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
 
         MultiGas gas = WasmGas.WasmStateLoadCost(helper.VmHost, cell);
@@ -93,7 +93,7 @@ public class WasmGasTests
     [Test]
     public void WasmStateLoadCost_WarmSlot_ReturnsComputationOnly()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
 
         // Pre-warm the slot
@@ -112,7 +112,7 @@ public class WasmGasTests
     [Test]
     public void WasmStateStoreCost_ColdSlotNewValue_ReturnsStorageAccessReadAndGrowth()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
         helper.CreateAccount(TestItem.AddressA);
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
         byte[] newValue = new byte[32];
@@ -133,7 +133,7 @@ public class WasmGasTests
     [Test]
     public void WasmStateStoreCost_WarmSlotNewValue_ReturnsStorageGrowthOnly()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
         helper.CreateAccount(TestItem.AddressA);
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
 
@@ -155,7 +155,7 @@ public class WasmGasTests
     [Test]
     public void WasmStateStoreCost_SameValue_ReturnsComputationOnly()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
         helper.CreateAccount(TestItem.AddressA);
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
 
@@ -183,7 +183,7 @@ public class WasmGasTests
         // SReset branch — the only WASM site that emits StorageAccessWrite. Mirrors Nitro
         // operations_acl_arbitrum.go:81. Requires committing the world state so GetOriginal
         // returns the pre-write value.
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
         helper.CreateAccount(TestItem.AddressA);
         StorageCell cell = new(TestItem.AddressA, UInt256.One);
 
@@ -210,7 +210,7 @@ public class WasmGasTests
     [Test]
     public void WasmAccountTouchCost_ColdAccountNoCode_ReturnsStorageAccessReadAndComputation()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         MultiGas gas = WasmGas.WasmAccountTouchCost(helper.VmHost, TestItem.AddressA, withCode: false);
 
@@ -227,7 +227,7 @@ public class WasmGasTests
     [Test]
     public void WasmAccountTouchCost_WarmAccountNoCode_ReturnsComputationOnly()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         // Pre-warm the address
         helper.WarmUpAddress(TestItem.AddressA);
@@ -242,7 +242,7 @@ public class WasmGasTests
     [Test]
     public void WasmAccountTouchCost_WithCode_AddsCodeAccessCost()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         // Pre-warm to isolate code access cost
         helper.WarmUpAddress(TestItem.AddressA);
@@ -261,7 +261,7 @@ public class WasmGasTests
     [Test]
     public void WasmAccountTouchCost_ColdAccountWithCode_CombinesBothCosts()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         MultiGas gas = WasmGas.WasmAccountTouchCost(helper.VmHost, TestItem.AddressA, withCode: true);
 
@@ -282,7 +282,7 @@ public class WasmGasTests
     [Test]
     public void WasmCallCost_ColdContractNoValue_ReturnsStorageAccessReadAndComputation()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         (MultiGas gas, bool outOfGas) = WasmGas.WasmCallCost(helper.VmHost, TestItem.AddressA, hasValue: false, gasLeft: 100_000);
 
@@ -300,7 +300,7 @@ public class WasmGasTests
     [Test]
     public void WasmCallCost_WarmContractNoValue_ReturnsComputationOnly()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         // Pre-warm the contract address
         helper.WarmUpAddress(TestItem.AddressA);
@@ -317,7 +317,7 @@ public class WasmGasTests
     [Test]
     public void WasmCallCost_ColdContractWithValueToNewAccount_ReturnsStorageGrowth()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         // Account doesn't exist, so value transfer creates it
         (MultiGas gas, bool outOfGas) = WasmGas.WasmCallCost(helper.VmHost, TestItem.AddressA, hasValue: true, gasLeft: 100_000);
@@ -339,7 +339,7 @@ public class WasmGasTests
     [Test]
     public void WasmCallCost_WarmContractWithValueToExistingAccount_NoStorageGrowth()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         // Create and warm up the account
         helper.CreateAccount(TestItem.AddressA, 100);
@@ -362,7 +362,7 @@ public class WasmGasTests
     [Test]
     public void WasmCallCost_InsufficientGas_ReturnsOutOfGas()
     {
-        using WasmGasTestHelper helper = new();
+        using TestStylusVm helper = new();
 
         // Cold account + value to a new account + value transfer:
         // 2,600 (cold) + 25,000 (new account) + 9,000 (value transfer) = 36,600

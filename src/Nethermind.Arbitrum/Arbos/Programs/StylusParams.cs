@@ -371,6 +371,26 @@ public class StylusParams(
         MaxFragmentCount = maxFragmentCount;
     }
 
+    // Mirrors Nitro arbos/programs/api.go:485-535 (enforceStylusPageLimit, consensus branch only).
+    // Returns ulong.MaxValue when newOpen exceeds PageLimit at ArbOS v59+; callers saturating-add
+    // the result to a gas cost so the surrounding burn fires a deterministic OOG. The node-level
+    // MaxOpenPages cap (which calls statedb.FilterTx) is intentionally not ported — replay
+    // determinism requires every node to include the offending tx as a failed receipt rather than
+    // drop it pre-inclusion.
+    public ulong EnforceStylusPageLimit(ushort newOpen)
+    {
+        if (ArbosVersion < ArbosVersions.StylusPageLimitConsensusCap)
+            return 0;
+
+        if (PageLimit == 0)
+            return 0;
+
+        if (newOpen > PageLimit)
+            return ulong.MaxValue;
+
+        return 0;
+    }
+
     private static ReadOnlySpan<byte> ReadFromStorage(ArbosStorage storage, ref ReadOnlySpan<byte> buffer, ref ulong currentSlot, int count)
     {
         if (buffer.Length < count)

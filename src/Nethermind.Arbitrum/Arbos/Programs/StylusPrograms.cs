@@ -181,6 +181,16 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         if (!cached)
             callCost = callCost.SaturateAdd(program.Value.InitGas(stylusParams));
 
+        // Cumulative open + footprint must not exceed the chain owner's PageLimit at v59+.
+        // openNow mirrors Nitro's `open` from statedb.GetStylusPages (arbos/programs/programs.go:228,252):
+        // the outer frames' cumulative open pages. The static-footprint reservation below
+        // (AddStylusPagesWithClosing) bypasses the addPages hostio, so a program with a large static
+        // footprint and no memory.grow would otherwise push the cumulative total above PageLimit undetected.
+        ushort newOpen = openNow.SaturateAdd(program.Value.Footprint);
+        ulong penalty = stylusParams.EnforceStylusPageLimit(newOpen);
+
+        callCost = callCost.SaturateAdd(penalty);
+
         if (gasAvailable < callCost)
         {
             return StylusOperationResult<byte[]>.Failure(new(StylusOperationResultType.ExecutionOutOfGas,
@@ -217,7 +227,7 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
             Tracing = tracingInfo != null
         };
 
-        using IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel);
+        using IStylusEvmApi evmApi = new StylusEvmApi(vmHost, vmHost.VmState.Env.ExecutingAccount, memoryModel, stylusParams);
 
         if (vmHost.IsRecordingExecution)
         {

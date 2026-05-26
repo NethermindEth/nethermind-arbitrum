@@ -473,6 +473,81 @@ public class StylusProgramsTests
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
+    [Test]
+    public void CallProgram_V59CumulativeOpenExceedsPageLimit_OOGs()
+    {
+        using StackAccessTracker tracker = new();
+        IWasmStore store = TestWasmStore.Create();
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
+
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
+        result.IsSuccess.Should().BeTrue();
+
+        // Bump runtime to v59 and inflate the outer-frames' open page count so that any
+        // non-zero footprint trips the cap. Mirrors the Nitro nested-call scenario:
+        // outer frame holds many open pages, inner call's footprint would push the cumulative
+        // total above PageLimit. The strict greater-than check (newOpen > PageLimit) means
+        // PageLimit=1 with footprint=0 would not trip, so we drive openNow well past PageLimit.
+        programs.ArbosVersion = ArbosVersion.StylusPageLimitConsensusCap;
+        StylusParams stylusParams = programs.GetParams();
+        stylusParams.SetPageLimit(128);
+        stylusParams.Save();
+        store.AddStylusPages(200);
+
+        byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
+
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        callResult.IsSuccess.Should().BeFalse();
+        callResult.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ExecutionOutOfGas);
+    }
+
+    [Test]
+    public void CallProgram_V51WithV59WouldExceedLimit_StillCalls()
+    {
+        using StackAccessTracker tracker = new();
+        IWasmStore store = TestWasmStore.Create();
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
+
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
+        result.IsSuccess.Should().BeTrue();
+
+        // Same inflated open-page state that trips the v59 cap; here ArbosVersion stays at
+        // Forty so the consensus check is inactive and the call must proceed.
+        StylusParams stylusParams = programs.GetParams();
+        stylusParams.SetPageLimit(128);
+        stylusParams.Save();
+        store.AddStylusPages(200);
+
+        byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
+
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        // The v59 cap is inactive at v40; the call proceeds. It may succeed or fail downstream,
+        // but it must not be a PageLimit-driven entry-OOG.
+        callResult.IsSuccess.Should().BeTrue();
+    }
+
     private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
     {
         ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);

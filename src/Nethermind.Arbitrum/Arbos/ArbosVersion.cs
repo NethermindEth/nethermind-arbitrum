@@ -51,6 +51,7 @@ public static class ArbosVersion
     public const ulong Dia = Fifty; // Version 50+ (Dia) caps Stylus stack depth and adds per-tx gas limit
     public const ulong MultiConstraintPricing = Fifty; // Version 50+ introduces multi-constraint gas pricing
     public const ulong StylusActivationGas = FiftyNine; // Version 59+ enables configurable Stylus activation gas charge
+    public const ulong StylusPageLimitConsensusCap = FiftyNine; // Version 59+ enforces StylusParams.PageLimit as a consensus cap on cumulative open Stylus pages
     public const ulong MultiGasConstraintsVersion = Sixty; // Version 60+ enables multi-gas constraints with resource weights
     public const ulong StylusContractLimit = Sixty; // Version 60+ adds MaxFragmentCount for Stylus contract size limits
     public const ulong TransactionFiltering = Sixty; // Version 60+ adds transaction filtering feature
