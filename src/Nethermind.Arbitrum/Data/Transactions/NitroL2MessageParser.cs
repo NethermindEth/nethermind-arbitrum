@@ -5,6 +5,7 @@ using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
@@ -16,7 +17,7 @@ namespace Nethermind.Arbitrum.Data.Transactions;
 
 public static class NitroL2MessageParser
 {
-    public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ulong lastArbosVersion, ILogger logger)
+    public static IReadOnlyList<Transaction> ParseTransactions(L1IncomingMessage message, ulong chainId, ulong lastArbosVersion, IProcessExitSource processExitSource, ILogger logger)
     {
         if (message.L2Msg is null || message.L2Msg.Length == 0)
         {
@@ -71,8 +72,10 @@ public static class NitroL2MessageParser
         }
         catch (Exception ex)
         {
-            if (logger.IsWarn)
-                logger.Warn($"Error parsing incoming messages for: {message.Header.Kind} - {ex}");
+            if (logger.IsError)
+                logger.Error($"Error parsing incoming messages for: {message.Header.Kind} - {ex} - shutting down");
+
+            processExitSource.Exit(ExitCodes.GeneralError);
             return [];
         }
     }
