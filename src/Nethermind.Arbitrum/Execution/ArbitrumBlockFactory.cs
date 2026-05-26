@@ -239,8 +239,8 @@ public sealed class ArbitrumBlockFactory(
 
             Block block = buildResult.Data;
 
-            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash!, static _ => new TaskCompletionSource<Block>());
-            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash!, static _ => new TaskCompletionSource<BlockRemovedEventArgs>());
+            TaskCompletionSource<Block> newBestBlockTcs = _newBestSuggestedBlockEvents.GetOrAdd(block.Hash!, static _ => new TaskCompletionSource<Block>(TaskCreationOptions.RunContinuationsAsynchronously));
+            TaskCompletionSource<BlockRemovedEventArgs> blockRemovedTcs = _blockRemovedEvents.GetOrAdd(block.Hash!, static _ => new TaskCompletionSource<BlockRemovedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously));
 
             using CancellationTokenSource processingTimeoutTokenSource = arbitrumConfig.BuildProcessingTimeoutTokenSource();
             await Task.WhenAll(newBestBlockTcs.Task, blockRemovedTcs.Task)
@@ -275,14 +275,14 @@ public sealed class ArbitrumBlockFactory(
             return;
 
         _newBestSuggestedBlockEvents
-            .GetOrAdd(e.Block.Hash, static _ => new TaskCompletionSource<Block>())
+            .GetOrAdd(e.Block.Hash, static _ => new TaskCompletionSource<Block>(TaskCreationOptions.RunContinuationsAsynchronously))
             .TrySetResult(e.Block);
     }
 
     private void OnBlockRemoved(object? sender, BlockRemovedEventArgs e)
     {
         _blockRemovedEvents
-            .GetOrAdd(e.BlockHash, static _ => new TaskCompletionSource<BlockRemovedEventArgs>())
+            .GetOrAdd(e.BlockHash, static _ => new TaskCompletionSource<BlockRemovedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously))
             .TrySetResult(e);
     }
 }

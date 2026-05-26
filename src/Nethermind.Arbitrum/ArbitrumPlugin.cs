@@ -58,7 +58,6 @@ using Nethermind.Logging;
 using Nethermind.Serialization.Json;
 using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
-using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.Blockchain.FullPruning;
 using Nethermind.Trie.Pruning;

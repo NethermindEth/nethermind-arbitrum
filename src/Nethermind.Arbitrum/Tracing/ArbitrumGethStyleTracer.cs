@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
+using System.IO.Abstractions;
+using System.IO.Pipelines;
+using System.Text.Json;
 using Nethermind.Blockchain;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Blockchain.Find;
 using Nethermind.Blockchain.Receipts;
+using Nethermind.Blockchain.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.JavaScript;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
@@ -12,15 +16,14 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Core.Extensions;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing;
 using Nethermind.Evm.TransactionProcessing;
-using Nethermind.State.OverridableEnv;
-using System.IO.Abstractions;
-using Nethermind.Core.Extensions;
-using Nethermind.Crypto;
 using Nethermind.Serialization.Rlp;
+using Nethermind.State.OverridableEnv;
 
 namespace Nethermind.Arbitrum.Tracing;
 
@@ -34,25 +37,26 @@ public class ArbitrumGethStyleTracer(
     IOverridableEnv<GethStyleTracer.BlockProcessingComponents> blockProcessingEnv
 ) : IGethStyleTracer
 {
-    public GethLikeTxTrace Trace(Hash256 blockHash, int txIndex, GethTraceOptions options, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(Hash256 blockHash, int txIndex, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         Block block = blockTree.FindBlock(blockHash, BlockTreeLookupOptions.None) ?? throw new InvalidOperationException($"No historical block found for {blockHash}");
-        if (txIndex > block.Transactions.Length - 1) throw new InvalidOperationException($"Block {blockHash} has only {block.Transactions.Length} transactions and the requested tx index was {txIndex}");
+        if (txIndex > block.Transactions.Length - 1)
+            throw new InvalidOperationException($"Block {blockHash} has only {block.Transactions.Length} transactions and the requested tx index was {txIndex}");
 
-        return TraceImpl(block, block.Transactions[txIndex].Hash, cancellationToken, options)!;
+        return TraceImpl(block, block.Transactions[txIndex].Hash, cancellationToken, options);
     }
 
-    public GethLikeTxTrace Trace(Rlp blockRlp, Hash256 txHash, GethTraceOptions options, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(Rlp blockRlp, Hash256 txHash, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
-        return TraceBlockImpl(GetBlockToTrace(blockRlp), options with { TxHash = txHash }, cancellationToken).FirstOrDefault()!;
+        return TraceBlockImpl(GetBlockToTrace(blockRlp), options with { TxHash = txHash }, cancellationToken).FirstOrDefault();
     }
 
-    public GethLikeTxTrace Trace(Block block, Hash256 txHash, GethTraceOptions options, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(Block block, Hash256 txHash, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
-        return TraceBlockImpl(block, options with { TxHash = txHash }, cancellationToken).FirstOrDefault()!;
+        return TraceBlockImpl(block, options with { TxHash = txHash }, cancellationToken).FirstOrDefault();
     }
 
-    public GethLikeTxTrace? Trace(BlockParameter blockParameter, Transaction tx, GethTraceOptions options, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(BlockParameter blockParameter, Transaction tx, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         Block block = blockTree.FindBlock(blockParameter) ?? throw new InvalidOperationException($"Cannot find block {blockParameter}");
         tx.Hash ??= tx.CalculateHash();
@@ -70,35 +74,37 @@ public class ArbitrumGethStyleTracer(
         }
     }
 
-    public GethLikeTxTrace Trace(Hash256 txHash, GethTraceOptions traceOptions, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(Hash256 txHash, GethTraceOptions traceOptions, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         Hash256? blockHash = receiptStorage.FindBlockHash(txHash);
         if (blockHash is null)
         {
-            return null!;
+            return null;
         }
 
         Block? block = blockTree.FindBlock(blockHash, BlockTreeLookupOptions.RequireCanonical);
         if (block is null)
         {
-            return null!;
+            return null;
         }
 
-        return TraceImpl(block, txHash, cancellationToken, traceOptions)!;
+        return TraceImpl(block, txHash, cancellationToken, traceOptions);
     }
 
-    public GethLikeTxTrace Trace(long blockNumber, int txIndex, GethTraceOptions options, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(long blockNumber, int txIndex, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         Block block = blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.RequireCanonical) ?? throw new InvalidOperationException($"No historical block found for {blockNumber}");
-        if (txIndex > block.Transactions.Length - 1) throw new InvalidOperationException($"Block {blockNumber} has only {block.Transactions.Length} transactions and the requested tx index was {txIndex}");
+        if (txIndex > block.Transactions.Length - 1)
+            throw new InvalidOperationException($"Block {blockNumber} has only {block.Transactions.Length} transactions and the requested tx index was {txIndex}");
 
-        return TraceImpl(block, block.Transactions[txIndex].Hash, cancellationToken, options)!;
+        return TraceImpl(block, block.Transactions[txIndex].Hash, cancellationToken, options);
     }
 
-    public GethLikeTxTrace Trace(long blockNumber, Transaction tx, GethTraceOptions options, CancellationToken cancellationToken)
+    public GethLikeTxTrace? Trace(long blockNumber, Transaction tx, GethTraceOptions options, CancellationToken cancellationToken)
     {
         Block block = blockTree.FindBlock(blockNumber, BlockTreeLookupOptions.RequireCanonical) ?? throw new InvalidOperationException($"No historical block found for {blockNumber}");
-        if (tx.Hash is null) throw new InvalidOperationException("Cannot trace transactions without tx hash set.");
+        if (tx.Hash is null)
+            throw new InvalidOperationException("Cannot trace transactions without tx hash set.");
 
         block = block.WithReplacedBodyCloned(BlockBody.WithOneTransactionOnly(tx));
         using var scope = blockProcessingEnv.BuildAndOverride(block.Header, options.StateOverrides);
@@ -106,7 +112,7 @@ public class ArbitrumGethStyleTracer(
         try
         {
             scope.Component.BlockchainProcessor.Process(block, ProcessingOptions.Trace, blockTracer.WithCancellation(cancellationToken), cancellationToken);
-            return blockTracer.BuildResult().SingleOrDefault()!;
+            return blockTracer.BuildResult().SingleOrDefault();
         }
         catch
         {
@@ -115,21 +121,41 @@ public class ArbitrumGethStyleTracer(
         }
     }
 
-    public IReadOnlyCollection<GethLikeTxTrace> TraceBlock(BlockParameter blockParameter, GethTraceOptions options, CancellationToken cancellationToken)
+    public IReadOnlyCollection<GethLikeTxTrace> TraceBlock(BlockParameter blockParameter, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         var block = blockTree.FindBlock(blockParameter);
 
         return TraceBlockImpl(block, options, cancellationToken);
     }
 
-    public IReadOnlyCollection<GethLikeTxTrace> TraceBlock(Rlp blockRlp, GethTraceOptions options, CancellationToken cancellationToken)
+    public IReadOnlyCollection<GethLikeTxTrace> TraceBlock(Rlp blockRlp, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         return TraceBlockImpl(GetBlockToTrace(blockRlp), options, cancellationToken);
     }
 
-    public IReadOnlyCollection<GethLikeTxTrace> TraceBlock(Block block, GethTraceOptions options, CancellationToken cancellationToken)
+    public IReadOnlyCollection<GethLikeTxTrace> TraceBlock(Block block, GethTraceOptions options, CancellationToken cancellationToken, Utf8JsonWriter? writer = null, PipeWriter? pipeWriter = null)
     {
         return TraceBlockImpl(block, options, cancellationToken);
+    }
+
+    public IReadOnlyCollection<Hash256> TraceBlockIntermediateRoots(Hash256 blockHash, GethTraceOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(blockHash);
+        ArgumentNullException.ThrowIfNull(options);
+
+        Block block = blockTree.FindBlock(blockHash)
+                      ?? badBlockStore.GetAll().FirstOrDefault(b => b.Hash == blockHash)
+                      ?? throw new InvalidOperationException($"Cannot find block {blockHash}");
+
+        if (block.IsGenesis)
+            throw new GenesisNotTraceableException();
+
+        BlockHeader? parent = FindParent(block);
+
+        using var scope = blockProcessingEnv.BuildAndOverride(parent, options.StateOverrides);
+        IntermediateRootsBlockTracer tracer = new(scope.Component.WorldState, specProvider.GetSpec(block.Header));
+        scope.Component.BlockchainProcessor.Process(block, ProcessingOptions.Trace, tracer.WithCancellation(cancellationToken), cancellationToken);
+        return tracer.BuildResult();
     }
 
     public IEnumerable<string> TraceBlockToFile(Hash256 blockHash, GethTraceOptions options, CancellationToken cancellationToken)

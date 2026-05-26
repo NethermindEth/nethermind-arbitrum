@@ -78,14 +78,14 @@ public class ArbitrumNativeCallTracerCallFrameConverter : JsonConverter<Arbitrum
 {
     public override void Write(Utf8JsonWriter writer, ArbitrumNativeCallFrame value, JsonSerializerOptions options)
     {
-        NumberConversion? previousValue = ForcedNumberConversion.ForcedConversion.Value;
+        NumberConversion previousValue = ForcedNumberConversion.Value;
         try
         {
             writer.WriteStartObject();
 
-            ForcedNumberConversion.ForcedConversion.Value = NumberConversion.Hex;
+            ForcedNumberConversion.Value = NumberConversion.Hex;
             writer.WritePropertyName("type"u8);
-            JsonSerializer.Serialize(writer, value.Type.GetName(), options);
+            JsonSerializer.Serialize(writer, Enum.GetName(value.Type), options);
 
             writer.WritePropertyName("from"u8);
             JsonSerializer.Serialize(writer, value.From, options);
@@ -164,7 +164,7 @@ public class ArbitrumNativeCallTracerCallFrameConverter : JsonConverter<Arbitrum
         }
         finally
         {
-            ForcedNumberConversion.ForcedConversion.Value = previousValue;
+            ForcedNumberConversion.Value = previousValue;
         }
     }
 
@@ -322,7 +322,7 @@ public sealed class ArbitrumNativeCallTracer : GethLikeNativeTxTracer, IArbitrum
         }
     }
 
-    public override void MarkAsSuccess(Address recipient, GasConsumed gasSpent, byte[] output, LogEntry[] logs, Hash256? stateRoot = null)
+    public override void MarkAsSuccess(Address recipient, in GasConsumed gasSpent, byte[] output, LogEntry[] logs, Hash256? stateRoot = null)
     {
         base.MarkAsSuccess(recipient, gasSpent, output, logs, stateRoot);
         NativeCallTracerCallFrame firstCallFrame = _callStack[0];
@@ -330,7 +330,7 @@ public sealed class ArbitrumNativeCallTracer : GethLikeNativeTxTracer, IArbitrum
         firstCallFrame.Output = new ArrayPoolList<byte>(output);
     }
 
-    public override void MarkAsFailed(Address recipient, GasConsumed gasSpent, byte[] output, string? error, Hash256? stateRoot = null)
+    public override void MarkAsFailed(Address recipient, in GasConsumed gasSpent, byte[] output, string? error, Hash256? stateRoot = null)
     {
         base.MarkAsFailed(recipient, gasSpent, output, error, stateRoot);
         NativeCallTracerCallFrame firstCallFrame = _callStack[0];
