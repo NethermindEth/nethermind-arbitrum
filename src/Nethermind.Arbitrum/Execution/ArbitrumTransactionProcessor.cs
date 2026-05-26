@@ -132,8 +132,7 @@ namespace Nethermind.Arbitrum.Execution
             }
 
             // Commit / restore according to options
-            return FinalizeTransaction(evmResult, tx, !evmResult ? tracer : NullTxTracer.Instance, snapshot,
-                isPreProcessing: false);
+            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, snapshot, isPreProcessing: false);
         }
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
