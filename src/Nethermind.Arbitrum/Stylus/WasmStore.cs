@@ -154,6 +154,7 @@ public readonly ref struct CloseOpenedPages(ushort openNow, IWasmStore store)
 // Not safe for concurrent use; the surrounding WasmStore is per-block-scope, single-threaded.
 public sealed class RecentWasms
 {
+    private const ushort MinCapacity = 1;
     private LruCache<ValueHash256, byte>? _cache;
 
     public bool Insert(in ValueHash256 codeHash, ushort retain)
@@ -161,7 +162,7 @@ public sealed class RecentWasms
         // Mirror Nitro `lru.NewBasicLRU(int(retain))` which clamps non-positive capacity to 1
         // (`go-ethereum/common/lru/basiclru.go`). Diverging here breaks consensus on a v60+ chain
         // whose owner sets BlockCacheSize=0 via ArbOwner.SetWasmBlockCacheSize.
-        int capacity = retain == 0 ? 1 : retain;
+        int capacity = System.Math.Max(MinCapacity, retain);
         _cache ??= new LruCache<ValueHash256, byte>(capacity, "RecentWasms");
 
         if (_cache.TryGet(codeHash, out _))
