@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Text.Json;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Programs;
@@ -10,9 +9,11 @@ using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles.Abi;
+using Nethermind.Arbitrum.Precompiles.Events;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
 using Nethermind.Core;
 using Nethermind.Int256;
+using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Precompiles;
 
@@ -27,11 +28,17 @@ public static class ArbOwner
     public const ulong NativeTokenEnableDelay = 7 * 24 * 60 * 60; // 1 week in seconds
 
     public static readonly AbiEventDescription OwnerActsEvent = Solgen.ArbOwner.Events.OwnerActs.ToAbiEventDescription();
+    public static readonly AbiEventDescription ChainOwnerAddedEvent = Solgen.ArbOwner.Events.ChainOwnerAdded.ToAbiEventDescription();
+    public static readonly AbiEventDescription ChainOwnerRemovedEvent = Solgen.ArbOwner.Events.ChainOwnerRemoved.ToAbiEventDescription();
+    public static readonly AbiEventDescription NativeTokenOwnerAddedEvent = Solgen.ArbOwner.Events.NativeTokenOwnerAdded.ToAbiEventDescription();
+    public static readonly AbiEventDescription NativeTokenOwnerRemovedEvent = Solgen.ArbOwner.Events.NativeTokenOwnerRemoved.ToAbiEventDescription();
 
     // AddChainOwner adds a new owner to the chain
     public static void AddChainOwner(ArbitrumPrecompileExecutionContext context, Address newOwner)
     {
         context.ArbosState.ChainOwners.Add(newOwner);
+        if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Sixty)
+            EmitChainOwnerAddedEvent(context, newOwner);
     }
 
     // RemoveChainOwner removes an owner from the list of chain owners
@@ -41,6 +48,8 @@ public static class ArbOwner
             throw ArbitrumPrecompileException.CreateFailureException("Tried to remove non-owner");
 
         context.ArbosState.ChainOwners.Remove(owner, context.ArbosState.CurrentArbosVersion);
+        if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Sixty)
+            EmitChainOwnerRemovedEvent(context, owner);
     }
 
     // IsChainOwner checks if the account is a chain owner
@@ -96,6 +105,8 @@ public static class ArbOwner
             throw ArbitrumPrecompileException.CreateFailureException("native token feature is not enabled yet");
 
         context.ArbosState.NativeTokenOwners.Add(newOwner);
+        if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Sixty)
+            EmitNativeTokenOwnerAddedEvent(context, newOwner);
     }
 
     // RemoveNativeTokenOwner removes account from the list of native token owners
@@ -105,6 +116,8 @@ public static class ArbOwner
             throw ArbitrumPrecompileException.CreateFailureException("Tried to remove non native token owner");
 
         context.ArbosState.NativeTokenOwners.Remove(account, context.ArbosState.CurrentArbosVersion);
+        if (context.ArbosState.CurrentArbosVersion >= ArbosVersion.Sixty)
+            EmitNativeTokenOwnerRemovedEvent(context, account);
     }
 
     // IsNativeTokenOwner checks if the account is a native token owner
@@ -443,6 +456,30 @@ public static class ArbOwner
         }
 
         context.ArbosState.ChainConfigStorage.Set(serializedChainConfig);
+    }
+
+    private static void EmitChainOwnerAddedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(ChainOwnerAddedEvent, Address, owner);
+        context.AddEventLog(log);
+    }
+
+    private static void EmitChainOwnerRemovedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(ChainOwnerRemovedEvent, Address, owner);
+        context.AddEventLog(log);
+    }
+
+    private static void EmitNativeTokenOwnerAddedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(NativeTokenOwnerAddedEvent, Address, owner);
+        context.AddEventLog(log);
+    }
+
+    private static void EmitNativeTokenOwnerRemovedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(NativeTokenOwnerRemovedEvent, Address, owner);
+        context.AddEventLog(log);
     }
 
     // SetCalldataPriceIncrease sets the increased calldata price feature on or off (EIP-7623)
