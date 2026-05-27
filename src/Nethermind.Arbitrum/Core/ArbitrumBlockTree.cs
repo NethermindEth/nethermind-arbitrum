@@ -11,7 +11,7 @@ using Nethermind.Db;
 using Nethermind.Db.Blooms;
 using Nethermind.Logging;
 using Nethermind.State.Repositories;
-using IBlockAccessListStore = Nethermind.Blockchain.Headers.IBlockAccessListStore;
+using IBlockAccessListStore = Nethermind.Blockchain.BlockAccessLists.IBlockAccessListStore;
 
 namespace Nethermind.Arbitrum.Core;
 

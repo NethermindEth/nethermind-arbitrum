@@ -67,10 +67,10 @@ public partial class ArbitrumEthRpcModuleTests
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
 
-        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+        ResultWrapper<HexBytes> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
 
         result.Result.ResultType.Should().Be(ResultType.Success);
-        result.Data.Should().Be("0x");
+        result.Data.ToString().Should().Be("0x");
     }
 
     [Test]
@@ -92,10 +92,10 @@ public partial class ArbitrumEthRpcModuleTests
             [FullChainSimulationAccounts.AccountA.Address] = new AccountOverride { Balance = 999.Ether }
         };
 
-        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest, stateOverride);
+        ResultWrapper<HexBytes> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest, stateOverride);
 
         result.Result.ResultType.Should().Be(ResultType.Success);
-        result.Data.Should().Be("0x");
+        result.Data.ToString().Should().Be("0x");
     }
 
     [Test]
@@ -112,7 +112,7 @@ public partial class ArbitrumEthRpcModuleTests
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
 
-        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+        ResultWrapper<HexBytes> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
 
         result.Result.ResultType.Should().Be(ResultType.Failure);
         result.ErrorCode.Should().Be(ErrorCodes.InvalidInput);
@@ -239,10 +239,10 @@ public partial class ArbitrumEthRpcModuleTests
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
         txCall.Gas = null;
 
-        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+        ResultWrapper<HexBytes> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
 
         result.Result.ResultType.Should().Be(ResultType.Success);
-        result.Data.Should().Be("0x");
+        result.Data.ToString().Should().Be("0x");
     }
 
     [Test]
@@ -261,10 +261,10 @@ public partial class ArbitrumEthRpcModuleTests
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
 
-        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, new BlockParameter(2));
+        ResultWrapper<HexBytes> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, new BlockParameter(2));
 
         result.Result.ResultType.Should().Be(ResultType.Success);
-        result.Data.Should().Be("0x");
+        result.Data.ToString().Should().Be("0x");
     }
 
     [Test]
