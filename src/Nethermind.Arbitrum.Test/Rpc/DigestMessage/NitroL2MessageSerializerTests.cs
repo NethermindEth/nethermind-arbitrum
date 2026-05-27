@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Data.Transactions;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Logging;
 using Nethermind.Serialization.Json;
+using NSubstitute;
+using System.Text.Json;
 
 namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage;
 
@@ -32,7 +34,7 @@ public class NitroL2MessageSerializerTests
             if (parameters.Message.Message.Header.Kind == ArbitrumL1MessageKind.BatchPostingReport)
                 continue;
 
-            IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainConfig.ChainId, 40, new ILogger());
+            IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(parameters.Message.Message, chainConfig.ChainId, 40, Substitute.For<IProcessExitSource>(), new ILogger());
             byte[] serialized = NitroL2MessageSerializer.SerializeTransactions(transactions, parameters.Message.Message.Header);
 
             parameters.Message.Message.L2Msg.Should().BeEquivalentTo(serialized, o => o.WithStrictOrdering());
