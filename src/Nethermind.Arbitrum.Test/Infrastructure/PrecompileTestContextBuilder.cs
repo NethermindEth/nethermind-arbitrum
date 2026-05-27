@@ -52,6 +52,11 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return this with { ExecutingAccount = executingAccount };
     }
 
+    public PrecompileTestContextBuilder WithAccessTracker(StackAccessTracker tracker)
+    {
+        return this with { AccessTracker = tracker };
+    }
+
     public void ResetGasLeft(ulong gasLeft = 0)
     {
         GasLeft = gasLeft == 0 ? GasSupplied : gasLeft;

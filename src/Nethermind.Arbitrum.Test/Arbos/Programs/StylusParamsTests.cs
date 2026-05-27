@@ -206,11 +206,11 @@ public class StylusParamsTests
         StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
 
         StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
-        stylusParams.UpgradeToStylusVersion(2);
+        stylusParams.UpgradeToStylusVersion(StylusVersions.V2);
 
-        stylusParams.UpgradeToStylusVersion(3);
+        stylusParams.UpgradeToStylusVersion(StylusVersions.V3);
 
-        stylusParams.StylusVersion.Should().Be(3);
+        stylusParams.StylusVersion.Should().Be(StylusVersions.V3);
     }
 
     [Test]
@@ -220,9 +220,9 @@ public class StylusParamsTests
         StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
 
         StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
-        stylusParams.StylusVersion.Should().Be(1);
+        stylusParams.StylusVersion.Should().Be(StylusVersions.V1);
 
-        Action act = () => stylusParams.UpgradeToStylusVersion(3);
+        Action act = () => stylusParams.UpgradeToStylusVersion(StylusVersions.V3);
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -234,9 +234,9 @@ public class StylusParamsTests
         StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
 
         StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
-        stylusParams.UpgradeToStylusVersion(2);
+        stylusParams.UpgradeToStylusVersion(StylusVersions.V2);
 
-        stylusParams.StylusVersion.Should().Be(2);
+        stylusParams.StylusVersion.Should().Be(StylusVersions.V2);
     }
 
     [Test]
@@ -246,9 +246,9 @@ public class StylusParamsTests
         StylusPrograms.Initialize(ArbosVersion.FiftyOne, storage);
 
         StylusParams stylusParams = new StylusPrograms(storage, ArbosVersion.FiftyOne).GetParams();
-        stylusParams.UpgradeToStylusVersion(2);
+        stylusParams.UpgradeToStylusVersion(StylusVersions.V2);
 
-        Action act = () => stylusParams.UpgradeToStylusVersion(4);
+        Action act = () => stylusParams.UpgradeToStylusVersion((StylusVersions)4);
 
         act.Should().Throw<InvalidOperationException>();
     }

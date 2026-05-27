@@ -14,10 +14,18 @@ using ArbosVersions = Nethermind.Arbitrum.Arbos.ArbosVersion;
 
 namespace Nethermind.Arbitrum.Arbos.Programs;
 
+public enum StylusVersions : ushort
+{
+    None = 0,
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
+}
+
 public class StylusParams(
     ulong arbosVersion,
     ArbosStorage storage,
-    ushort stylusVersion,
+    StylusVersions stylusVersion,
     uint inkPrice,
     uint maxStackDepth,
     ushort freePages,
@@ -62,7 +70,7 @@ public class StylusParams(
     private const uint ArbOS50MaxStackDepth = 22000; // Default wasmer stack depth for ArbOS 50
 
     public ulong ArbosVersion { get; private set; } = arbosVersion;
-    public ushort StylusVersion { get; private set; } = stylusVersion;
+    public StylusVersions StylusVersion { get; private set; } = stylusVersion;
     public uint InkPrice { get; private set; } = inkPrice <= MaxInkPrice ? inkPrice : throw new ArgumentException("InkPrice exceeds 24 bits"); // 24 bits
     public uint MaxStackDepth { get; private set; } = maxStackDepth;
     public ushort FreePages { get; private set; } = freePages;
@@ -111,7 +119,7 @@ public class StylusParams(
         Span<byte> buffer = stackalloc byte[totalSerializationSize];
         int currentOffset = 0;
 
-        BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(currentOffset), StylusVersion);
+        BinaryPrimitives.WriteUInt16BigEndian(buffer.Slice(currentOffset), (ushort)StylusVersion);
         currentOffset += sizeof(ushort);
 
         ArbitrumBinaryWriter.WriteUInt24BigEndian(buffer.Slice(currentOffset, 3), InkPrice);
@@ -172,25 +180,25 @@ public class StylusParams(
         }
     }
 
-    public void UpgradeToStylusVersion(ushort newStylusVersion)
+    public void UpgradeToStylusVersion(StylusVersions newStylusVersion)
     {
         switch (newStylusVersion)
         {
-            case 2:
-                if (StylusVersion != 1)
-                    throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 1 is required.");
-                StylusVersion = 2;
+            case StylusVersions.V2:
+                if (StylusVersion != StylusVersions.V1)
+                    throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version {StylusVersions.V1} is required.");
+                StylusVersion = StylusVersions.V2;
                 MinInitGas = V2MinInitGas;
                 break;
 
-            case 3:
-                if (StylusVersion != 2)
-                    throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version 2 is required.");
-                StylusVersion = 3;
+            case StylusVersions.V3:
+                if (StylusVersion != StylusVersions.V2)
+                    throw new InvalidOperationException($"Cannot upgrade from version {StylusVersion} to version {newStylusVersion}. Version {StylusVersions.V2} is required.");
+                StylusVersion = StylusVersions.V3;
                 break;
 
             default:
-                throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only versions 2 and 3 are supported.");
+                throw new InvalidOperationException($"Unsupported version upgrade to {newStylusVersion}. Only versions {StylusVersions.V2} and {StylusVersions.V3} are supported.");
         }
     }
 
@@ -210,7 +218,7 @@ public class StylusParams(
             if (ArbosVersion >= newArbosVersion)
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade from {ArbosVersion} to {newArbosVersion}.");
 
-            if (StylusVersion != 2)
+            if (StylusVersion != StylusVersions.V2)
                 throw new InvalidOperationException($"Unexpected ArbOS version upgrade to {newArbosVersion} with Stylus version {StylusVersion}.");
 
             MaxWasmSize = InitialMaxWasmSize;
@@ -244,7 +252,7 @@ public class StylusParams(
         StylusParams parameters = new(
             arbosVersion,
             storage,
-            1,
+            StylusVersions.V1,
             InitialInkPrice,
             InitialStackDepth,
             InitialFreePages,
@@ -275,7 +283,7 @@ public class StylusParams(
         return new StylusParams(
             arbosVersion,
             storage,
-            BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
+            (StylusVersions)BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),
             ReadUInt24BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 3)),
             BinaryPrimitives.ReadUInt32BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 4)),
             BinaryPrimitives.ReadUInt16BigEndian(ReadFromStorage(storage, ref buffer, ref currentSlot, 2)),

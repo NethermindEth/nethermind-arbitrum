@@ -161,7 +161,7 @@ public class ArbosState
 
                     case 31: // StylusFixes
                         StylusParams stylusParamsV31 = Programs.GetParams();
-                        stylusParamsV31.UpgradeToStylusVersion(2);
+                        stylusParamsV31.UpgradeToStylusVersion(StylusVersions.V2);
                         stylusParamsV31.Save();
                         break;
 
@@ -227,7 +227,7 @@ public class ArbosState
 
                     case 59: // StylusActivationGas
                         StylusParams stylusParamsV59 = Programs.GetParams();
-                        stylusParamsV59.UpgradeToStylusVersion(3);
+                        stylusParamsV59.UpgradeToStylusVersion(StylusVersions.V3);
                         stylusParamsV59.Save();
                         break;
 

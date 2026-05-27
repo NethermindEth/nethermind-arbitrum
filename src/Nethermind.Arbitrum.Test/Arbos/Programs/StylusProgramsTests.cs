@@ -49,7 +49,7 @@ public class StylusProgramsTests
         programs.GetParams().Should().BeEquivalentTo(new StylusParams(
             DefaultArbosVersion,
             storage,
-            stylusVersion: 1,
+            stylusVersion: StylusVersions.V1,
             inkPrice: 10000,
             maxStackDepth: 262144,
             freePages: 2,
@@ -314,7 +314,7 @@ public class StylusProgramsTests
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
-        stylusParams.UpgradeToStylusVersion(2); // Set a higher Stylus version than the program supports
+        stylusParams.UpgradeToStylusVersion(StylusVersions.V2); // Set a higher Stylus version than the program supports
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
@@ -617,9 +617,9 @@ public class StylusProgramsTests
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        StylusOperationResult<ushort> version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<StylusVersions> version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
 
-        StylusOperationResult<ushort> expected = StylusOperationResult<ushort>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        StylusOperationResult<StylusVersions> expected = StylusOperationResult<StylusVersions>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
         version.IsSuccess.Should().BeFalse();
         version.Error.Should().Be(expected.Error);
     }
@@ -642,7 +642,7 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
         Hash256 codeHashValue = new(codeHash.Bytes);
 
-        StylusOperationResult<ushort> version = programs.CodeHashVersion(codeHashValue, header.Timestamp, stylusParams);
+        StylusOperationResult<StylusVersions> version = programs.CodeHashVersion(codeHashValue, header.Timestamp, stylusParams);
 
         version.IsSuccess.Should().BeTrue();
         version.Value.Should().Be(stylusParams.StylusVersion);
@@ -822,7 +822,7 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
 
         stylusParams.Should().NotBeNull();
-        stylusParams.StylusVersion.Should().Be(1); // Default Stylus version
+        stylusParams.StylusVersion.Should().Be(StylusVersions.V1); // Default Stylus version
         stylusParams.InkPrice.Should().Be(10000u); // InitialInkPrice
         stylusParams.MaxStackDepth.Should().Be(262144u); // InitialStackDepth
     }

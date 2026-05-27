@@ -115,13 +115,13 @@ public class ArbosVersionUpgradeTests
             .WithArbosVersion(ArbosVersion.FiftyOne)
             .WithReleaseSpec();
 
-        context.ArbosState.Programs.GetParams().StylusVersion.Should().Be(2, "harness inits chain through v32, which runs the v31 Stylus fix");
+        context.ArbosState.Programs.GetParams().StylusVersion.Should().Be(StylusVersions.V2, "harness inits chain through v32, which runs the v31 Stylus fix");
 
         context.ArbosState.UpgradeArbosVersion(ArbosVersion.FiftyNine, false, worldState, London.Instance);
 
         context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.FiftyNine);
         StylusParams upgraded = context.ArbosState.Programs.GetParams();
-        upgraded.StylusVersion.Should().Be(3);
+        upgraded.StylusVersion.Should().Be(StylusVersions.V3);
     }
 
     [Test]
@@ -137,13 +137,13 @@ public class ArbosVersionUpgradeTests
             .WithArbosVersion(ArbosVersion.Fifty)
             .WithReleaseSpec();
 
-        context.ArbosState.Programs.GetParams().StylusVersion.Should().Be(2, "harness inits chain through v32, which runs the v31 Stylus fix");
+        context.ArbosState.Programs.GetParams().StylusVersion.Should().Be(StylusVersions.V2, "harness inits chain through v32, which runs the v31 Stylus fix");
 
         context.ArbosState.UpgradeArbosVersion(ArbosVersion.Sixty, false, worldState, London.Instance);
 
         context.ArbosState.CurrentArbosVersion.Should().Be(ArbosVersion.Sixty);
         StylusParams upgraded = context.ArbosState.Programs.GetParams();
-        upgraded.StylusVersion.Should().Be(3, "v59 hook ran during the traversal and bumped Stylus runtime to 3");
+        upgraded.StylusVersion.Should().Be(StylusVersions.V3, "v59 hook ran during the traversal and bumped Stylus runtime to 3");
     }
 
     [Test]
