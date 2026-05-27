@@ -461,25 +461,25 @@ public static class ArbOwner
     private static void EmitChainOwnerAddedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
     {
         LogEntry log = EventsEncoder.BuildLogEntryFromEvent(ChainOwnerAddedEvent, Address, owner);
-        context.AddEventLog(log);
+        EventsEncoder.EmitEvent(context, log);
     }
 
     private static void EmitChainOwnerRemovedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
     {
         LogEntry log = EventsEncoder.BuildLogEntryFromEvent(ChainOwnerRemovedEvent, Address, owner);
-        context.AddEventLog(log);
+        EventsEncoder.EmitEvent(context, log);
     }
 
     private static void EmitNativeTokenOwnerAddedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
     {
         LogEntry log = EventsEncoder.BuildLogEntryFromEvent(NativeTokenOwnerAddedEvent, Address, owner);
-        context.AddEventLog(log);
+        EventsEncoder.EmitEvent(context, log);
     }
 
     private static void EmitNativeTokenOwnerRemovedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
     {
         LogEntry log = EventsEncoder.BuildLogEntryFromEvent(NativeTokenOwnerRemovedEvent, Address, owner);
-        context.AddEventLog(log);
+        EventsEncoder.EmitEvent(context, log);
     }
 
     // SetCalldataPriceIncrease sets the increased calldata price feature on or off (EIP-7623)
