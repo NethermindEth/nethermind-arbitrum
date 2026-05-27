@@ -136,6 +136,11 @@ public record ArbitrumPrecompileExecutionContext(
 
     public void BurnOut()
     {
+        // Credit the drained remainder to Computation before zeroing — mirrors Nitro
+        // precompiles/context.go:68-71 so the multi-gas pricer's per-resource backlogs
+        // stay in sync on every OOG path. The credit must happen before GasLeft is
+        // zeroed; otherwise the source of truth for the drained amount is gone.
+        _burnedMultiGas.Increment(ResourceKind.Computation, GasLeft);
         GasLeft = 0;
         Nethermind.Evm.Metrics.EvmExceptions++;
         throw ArbitrumPrecompileException.CreateOutOfGasException();

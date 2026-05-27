@@ -4,6 +4,8 @@
 using FluentAssertions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
@@ -52,9 +54,7 @@ public sealed class ArbWasmTests
         // record's AccessTracker copy, which would alias the same _trackingState after Dispose.
         _accessTracker = new StackAccessTracker();
         _context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
-        {
-            AccessTracker = _accessTracker,
-        }
+            .WithAccessTracker(_accessTracker)
             .WithArbosState()
             .WithBlockExecutionContext(Build.A.BlockHeader.TestObject)
             .WithReleaseSpec();
@@ -436,6 +436,7 @@ public sealed class ArbWasmTests
         PrecompileTestAbiHelpers.GetMethodId("programInitGas(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramInitGas);
         PrecompileTestAbiHelpers.GetMethodId("programMemoryFootprint(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramMemoryFootprint);
         PrecompileTestAbiHelpers.GetMethodId("programTimeLeft(address)").Should().Be(Solgen.ArbWasm.Methods.ProgramTimeLeft);
+        PrecompileTestAbiHelpers.GetMethodId("activationGas()").Should().Be(Solgen.ArbWasm.Methods.ActivationGas);
     }
 
     [Test]
@@ -496,5 +497,148 @@ public sealed class ArbWasmTests
 
         result.Should().BeTrue();
         handler.Should().NotBeNull();
+    }
+
+    [Test]
+    public void ActivationGas_DefaultAtStylusActivationGasVersion_ReturnsZero()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.StylusActivationGas);
+
+        ActivationGas(context).Should().Be(0);
+    }
+
+    [Test]
+    public void ActivationGas_AfterSet_ReturnsStoredValue()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.StylusActivationGas);
+        context.ArbosState.Programs.SetActivationGas(5_000_000);
+
+        ActivationGas(context).Should().Be(5_000_000);
+    }
+
+    [Test]
+    public void ActivationGas_BelowStylusActivationGasVersion_DispatchRejected()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.StylusActivationGas - 1);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbWasm.Methods.ActivationGas, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void ActivationGas_AtStylusActivationGasVersion_IsDispatched()
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, DefaultGasSupplied)
+            .WithArbosVersion(ArbosVersion.StylusActivationGas)
+            .WithExecutingAccount(ArbWasmParser.Address);
+
+        bool result = ArbWasmParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbWasm.Methods.ActivationGas, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
+    public void ActivateProgram_AtStylusActivationGasWithMaxUlongKillSwitch_OOGs()
+    {
+        // ulong.MaxValue exceeds any plausible gas supply, so the configurable burn OOGs first.
+        // The fixed charge is never attempted (kill-switch O(1) ordering invariant).
+        const ulong gasSupplied = 100_000_000;
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, gasSupplied)
+            .WithAccessTracker(_accessTracker)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.StylusActivationGas);
+        context.ArbosState.Programs.SetActivationGas(ulong.MaxValue);
+
+        ulong gasAtStart = context.GasLeft;
+
+        Action action = () => ActivateProgram(context, Address.Zero);
+
+        ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
+        ArbitrumPrecompileException expected = ArbitrumPrecompileException.CreateOutOfGasException();
+        exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
+        context.GasLeft.Should().Be(0);
+
+        // BurnOut credits the drained remainder to Computation (Nitro precompiles/context.go:68-71).
+        // The failed ulong.MaxValue SingleDim Burn never partial-credits its own kind, so SingleDim
+        // stays at zero; the Total invariant pins that every supplied unit is accounted for somewhere.
+        context.BurnedMultiGas.Total.Should().Be(gasSupplied);
+        context.BurnedMultiGas.Get(ResourceKind.Computation).Should().Be(gasAtStart - ArbosStorage.StorageReadCost);
+        context.BurnedMultiGas.Get(ResourceKind.SingleDim).Should().Be(0);
+    }
+
+    [TestCaseSource(nameof(ActivateProgramBurnScenarios))]
+    public void ActivateProgram_BurnsExpectedGas(ActivateProgramBurnScenario scenario)
+    {
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(_worldState, 10_000_000)
+            .WithAccessTracker(_accessTracker)
+            .WithArbosState()
+            .WithArbosVersion(scenario.ArbosVersion);
+        foreach (ulong gas in scenario.ActivationGasSetSequence)
+            context.ArbosState.Programs.SetActivationGas(gas);
+        ulong initialGas = context.GasLeft;
+
+        try
+        {
+            ActivateProgram(context, Address.Zero);
+        }
+        catch
+        {
+            // Expected to fail due to missing program, but should still burn gas
+        }
+
+        (initialGas - context.GasLeft).Should().Be(scenario.ExpectedBurn);
+    }
+
+    public sealed record ActivateProgramBurnScenario(
+        string Description,
+        ulong ArbosVersion,
+        ulong[] ActivationGasSetSequence,
+        ulong ExpectedBurn)
+    {
+        public override string ToString() => Description;
+    }
+
+    private static IEnumerable<ActivateProgramBurnScenario> ActivateProgramBurnScenarios()
+    {
+        // At v59+ the slot read costs StorageReadCost regardless of stored value. With no setter
+        // call the configurable charge itself is zero — the feature contributes only the slot read
+        // cost on top of the v58-baseline fixed compile charge.
+        yield return new(
+            "v59 default zero burns StorageReadCost + ActivationFixedCost",
+            ArbosVersion.StylusActivationGas,
+            [],
+            ArbosStorage.StorageReadCost + ActivationFixedCost);
+
+        // v59 with a configured value layers the configurable burn between StorageRead and Fixed.
+        yield return new(
+            "v59 with configured 5M burns StorageReadCost + 5M + ActivationFixedCost",
+            ArbosVersion.StylusActivationGas,
+            [5_000_000UL],
+            ArbosStorage.StorageReadCost + 5_000_000UL + ActivationFixedCost);
+
+        // Kill-switch reset: MaxValue then 0 restores the baseline v59 burn shape.
+        yield return new(
+            "v59 after kill-switch reset returns to default-zero baseline",
+            ArbosVersion.StylusActivationGas,
+            [ulong.MaxValue, 0UL],
+            ArbosStorage.StorageReadCost + ActivationFixedCost);
+
+        // Writer is unconditional, but the reader short-circuits below v59 without touching storage,
+        // so neither the stored value nor the StorageReadCost reaches the burn site.
+        yield return new(
+            "below v59 ignores stored value (reader short-circuits before slot read)",
+            ArbosVersion.StylusActivationGas - 1,
+            [5_000_000UL],
+            ActivationFixedCost);
     }
 }

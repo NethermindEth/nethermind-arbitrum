@@ -79,8 +79,9 @@ public class ArbitrumReceiptStorageDecoderTests
             computation: 10,
             historyGrowth: 11,
             storageAccessRead: 12,
+            storageAccessWrite: 17,
             storageGrowth: 13,
-            l1Calldata: 14,
+            singleDim: 14,
             l2Calldata: 15,
             wasmComputation: 16,
             refund: 7);
@@ -283,17 +284,17 @@ public class ArbitrumReceiptStorageDecoderTests
         ulong storageAccessRead = 0,
         ulong storageAccessWrite = 0,
         ulong storageGrowth = 0,
-        ulong l1Calldata = 0,
+        ulong singleDim = 0,
         ulong l2Calldata = 0,
         ulong wasmComputation = 0,
         ulong refund = 0)
     {
         ulong total = unknown + computation + historyGrowth + storageAccessRead + storageAccessWrite +
-                      storageGrowth + l1Calldata + l2Calldata + wasmComputation;
+                      storageGrowth + singleDim + l2Calldata + wasmComputation;
 
         int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
         ulong[] gas = [unknown, computation, historyGrowth, storageAccessRead, storageAccessWrite,
-                       storageGrowth, l1Calldata, l2Calldata, wasmComputation];
+                       storageGrowth, singleDim, l2Calldata, wasmComputation];
         foreach (ulong g in gas)
             contentLength += Rlp.LengthOf(g);
 

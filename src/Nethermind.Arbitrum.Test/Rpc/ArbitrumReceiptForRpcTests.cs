@@ -182,6 +182,7 @@ public class ArbitrumReceiptForRpcTests
             computation: 10,
             historyGrowth: 11,
             storageAccessRead: 12,
+            storageAccessWrite: 17,
             storageGrowth: 13,
             singleDim: 14,
             l2Calldata: 15,
@@ -194,7 +195,7 @@ public class ArbitrumReceiptForRpcTests
         json.Computation.Should().Be(10);
         json.HistoryGrowth.Should().Be(11);
         json.StorageAccessRead.Should().Be(12);
-        json.StorageAccessWrite.Should().Be(0);
+        json.StorageAccessWrite.Should().Be(17);
         json.StorageGrowth.Should().Be(13);
         json.SingleDim.Should().Be(14);
         json.L2Calldata.Should().Be(15);
@@ -229,6 +230,7 @@ public class ArbitrumReceiptForRpcTests
             computation: 10,
             historyGrowth: 11,
             storageAccessRead: 12,
+            storageAccessWrite: 17,
             storageGrowth: 13,
             singleDim: 14,
             l2Calldata: 15,
@@ -242,6 +244,7 @@ public class ArbitrumReceiptForRpcTests
         serialized.Should().Contain("\"computation\":10");
         serialized.Should().Contain("\"historyGrowth\":11");
         serialized.Should().Contain("\"storageAccessRead\":12");
+        serialized.Should().Contain("\"storageAccessWrite\":17");
         serialized.Should().Contain("\"storageGrowth\":13");
         serialized.Should().Contain("\"singleDim\":14");
         serialized.Should().Contain("\"l2Calldata\":15");

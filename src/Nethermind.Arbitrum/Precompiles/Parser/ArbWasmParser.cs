@@ -45,6 +45,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     private const uint ProgramInitGasId = Solgen.ArbWasm.Methods.ProgramInitGas;
     private const uint ProgramMemoryFootprintId = Solgen.ArbWasm.Methods.ProgramMemoryFootprint;
     private const uint ProgramTimeLeftId = Solgen.ArbWasm.Methods.ProgramTimeLeft;
+    private const uint ActivationGasId = Solgen.ArbWasm.Methods.ActivationGas;
 
     static ArbWasmParser()
     {
@@ -70,6 +71,7 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
             { ProgramInitGasId, ProgramInitGas },
             { ProgramMemoryFootprintId, ProgramMemoryFootprint },
             { ProgramTimeLeftId, ProgramTimeLeft },
+            { ActivationGasId, ActivationGas },
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -79,6 +81,8 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
     {
         foreach (ArbitrumFunctionDescription functionDescription in PrecompileFunctionDescription.Values)
             functionDescription.ArbOSVersion = AvailableFromArbosVersion;
+
+        PrecompileFunctionDescription[ActivationGasId].ArbOSVersion = ArbosVersion.StylusActivationGas;
     }
 
     private static byte[] ActivateProgram(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -161,6 +165,9 @@ public sealed class ArbWasmParser : IArbitrumPrecompile<ArbWasmParser>
 
     private static byte[] BlockCacheSize(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
         => new UInt256(ArbWasm.BlockCacheSize(context)).ToBigEndian();
+
+    private static byte[] ActivationGas(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+        => new UInt256(ArbWasm.ActivationGas(context)).ToBigEndian();
 
     private static byte[] CodeHashVersion(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
     {

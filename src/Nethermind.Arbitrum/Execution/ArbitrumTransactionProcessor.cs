@@ -107,7 +107,7 @@ namespace Nethermind.Arbitrum.Execution
                     gasUsed = arbTx.OverrideSpentGas.Value;
 
                 // ArbitrumSubmitRetryable uses Single, others use ComputationGas
-                var multiGas = new MultiGas();
+                MultiGas multiGas = new MultiGas();
                 ResourceKind resourceKind = tx is ArbitrumSubmitRetryableTransaction
                     ? ResourceKind.SingleDim
                     : ResourceKind.Computation;
@@ -1138,8 +1138,8 @@ namespace Nethermind.Arbitrum.Execution
                 }
             }
 
-            // Preserve intrinsic gas MultiGas breakdown and add poster gas to single dimension gas.
-            // This ensures intrinsic gas (computation, L2 calldata, etc.) plus L1 costs are tracked.
+            // Preserve intrinsic gas MultiGas breakdown and add poster gas under SingleDim.
+            // Matches Nitro /v3.10.0/tx_processor.go:820 which tags posterGas as ResourceKindSingleDim.
             MultiGas accumulated = intrinsicGas.GetAccumulated();
             if (gasNeededToStartEVM > 0)
                 accumulated.Increment(ResourceKind.SingleDim, gasNeededToStartEVM);
