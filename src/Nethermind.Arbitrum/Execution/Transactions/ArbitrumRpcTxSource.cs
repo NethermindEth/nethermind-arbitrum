@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Arbitrum.Data.Transactions;
+using Nethermind.Config;
 using Nethermind.Consensus.Producers;
 using Nethermind.Consensus.Transactions;
 using Nethermind.Core;
@@ -24,7 +25,7 @@ public class ArbitrumRpcTxSource(ILogManager logManager) : ITxSource
     }
 }
 
-public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger) : ITxSource
+public class ArbitrumPayloadTxSource(ISpecProvider specProvider, IProcessExitSource processExitSource, ILogger logger) : ITxSource
 {
     public bool SupportsBlobs => false;
 
@@ -33,9 +34,8 @@ public class ArbitrumPayloadTxSource(ISpecProvider specProvider, ILogger logger)
         if (logger.IsTrace)
             logger.Trace($"Getting L2 transactions for block {parent.Number}, gas limit {gasLimit}");
 
-        if (payloadAttributes is ArbitrumPayloadAttributes arbitrumPayloadAttributes)
-            if (arbitrumPayloadAttributes.MessageWithMetadata != null)
-                return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, arbitrumPayloadAttributes.PreviousArbosVersion, logger);
+        if (payloadAttributes is ArbitrumPayloadAttributes { MessageWithMetadata: not null } arbitrumPayloadAttributes)
+            return NitroL2MessageParser.ParseTransactions(arbitrumPayloadAttributes.MessageWithMetadata.Message, specProvider.ChainId, arbitrumPayloadAttributes.PreviousArbosVersion, processExitSource, logger);
 
         return [];
     }
