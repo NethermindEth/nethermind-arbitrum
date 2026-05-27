@@ -113,6 +113,51 @@ public class MultiGasRlpTests
     }
 
     [Test]
+    public void Decode_LegacyEightKindEncoding_DecodesPositionallyWithTrailingSlotZero()
+    {
+        // Pins the decoder's contract: per-kind entries are read positionally by slot
+        // index, and any missing *trailing* entries default to zero. Decode does NOT
+        // remap legacy enum indices into new ones — when ResourceKind is reordered or
+        // a slot is inserted (e.g. StorageAccessWrite at index 4), legacy positional
+        // data lands in whichever new kind occupies the same slot. The legacy 8-kind
+        // ordering was:
+        //   [0]=Unknown, [1]=Computation, [2]=HistoryGrowth, [3]=StorageAccess,
+        //   [4]=StorageGrowth, [5]=L1Calldata, [6]=L2Calldata, [7]=WasmComputation.
+        // No production receipts exist with the legacy layout, so semantic remapping
+        // is unnecessary; if migration is ever needed it is the caller's job, not the
+        // decoder's. The assertions below intentionally use the *new* ResourceKind at
+        // each slot to make the positional-decode behavior explicit.
+        ulong[] legacyGas = [0, 100, 0, 200, 0, 50, 0, 0];
+        ulong total = 350;
+        ulong refund = 0;
+
+        int contentLength = Rlp.LengthOf(total) + Rlp.LengthOf(refund);
+        foreach (ulong g in legacyGas)
+            contentLength += Rlp.LengthOf(g);
+
+        RlpStream stream = new(Rlp.LengthOfSequence(contentLength));
+        stream.StartSequence(contentLength);
+        stream.Encode(total);
+        stream.Encode(refund);
+        foreach (ulong g in legacyGas)
+            stream.Encode(g);
+
+        byte[] encoded = stream.Data.ToArray()!;
+        Rlp.ValueDecoderContext ctx = new(encoded);
+        MultiGas decoded = MultiGas.Decode(ref ctx);
+
+        decoded.Total.Should().Be(350UL);
+        // Slot 1: legacy Computation → new Computation (no shift).
+        decoded.Get(ResourceKind.Computation).Should().Be(100UL);
+        // Slot 3: legacy StorageAccess → new StorageAccessRead (same index, narrower meaning).
+        decoded.Get(ResourceKind.StorageAccessRead).Should().Be(200UL);
+        // Slot 5: legacy L1Calldata → new StorageGrowth. Positional-only; not a semantic remap.
+        decoded.Get(ResourceKind.StorageGrowth).Should().Be(50UL);
+        // No 9th slot was encoded, so WasmComputation stays at zero (trailing-zero rule).
+        decoded.Get(ResourceKind.WasmComputation).Should().Be(0UL);
+    }
+
+    [Test]
     public void GetRlpLength_DefaultGas_ReturnsCorrectLength()
     {
         MultiGas gas = default;

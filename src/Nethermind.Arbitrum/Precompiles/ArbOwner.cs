@@ -404,6 +404,14 @@ public static class ArbOwner
         stylusParams.Save();
     }
 
+    // SetWasmActivationGas sets the constant gas charge applied before each Stylus contract activation.
+    // Defaults to zero. Can be raised to deter DOS via activations, or set to a value exceeding
+    // the block gas limit to block all activations entirely. Available from ArbOS version 59.
+    public static void SetWasmActivationGas(ArbitrumPrecompileExecutionContext context, ulong gas)
+    {
+        context.ArbosState.Programs.SetActivationGas(gas);
+    }
+
     // Adds account as a wasm cache manager
     public static void AddWasmCacheManager(ArbitrumPrecompileExecutionContext context, Address manager)
     {

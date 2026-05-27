@@ -112,13 +112,13 @@ public class ArbOwnerPublicTests
             GasPrice = null
         };
 
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
+        ResultWrapper<HexBytes> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
         object[] precompileResponse = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             functionDescription.GetReturnInfo().Signature,
-            Bytes.FromHexString(result.Data));
+            result.Data.Bytes.ToArray());
 
         ((Address[])precompileResponse[0]).Should().BeEquivalentTo([InitialChainOwner]);
     }
@@ -452,13 +452,13 @@ public class ArbOwnerPublicTests
             GasPrice = null
         };
 
-        ResultWrapper<string> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
+        ResultWrapper<HexBytes> result = chain.ArbitrumEthRpcModule.eth_call(tx, BlockParameter.Latest);
         result.Result.Should().Be(Result.Success);
 
         object[] precompileResponse = AbiEncoder.Instance.Decode(
             AbiEncodingStyle.None,
             functionDescription.GetReturnInfo().Signature,
-            Bytes.FromHexString(result.Data));
+            result.Data.Bytes.ToArray());
 
         ((ulong)precompileResponse[0]).Should().Be(0); // version
         ((ulong)precompileResponse[1]).Should().Be(0); // timestamp

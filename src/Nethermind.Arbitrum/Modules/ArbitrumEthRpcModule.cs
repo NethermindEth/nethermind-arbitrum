@@ -129,7 +129,7 @@ namespace Nethermind.Arbitrum.Modules
             return ResultWrapper<UInt256>.Success(account.Nonce);
         }
 
-        public override ResultWrapper<string> eth_call(
+        public override ResultWrapper<HexBytes> eth_call(
             TransactionForRpc transactionCall,
             BlockParameter? blockParameter = null,
             Dictionary<Address, AccountOverride>? stateOverride = null,
@@ -137,13 +137,13 @@ namespace Nethermind.Arbitrum.Modules
         {
             SearchResult<BlockHeader> searchResult = _blockFinder.SearchForHeader(blockParameter);
             if (searchResult is { IsError: true, Error: not null })
-                return ResultWrapper<string>.Fail(searchResult.Error, searchResult.ErrorCode);
+                return ResultWrapper<HexBytes>.Fail(searchResult.Error, searchResult.ErrorCode);
 
             if (searchResult.Object == null)
-                return ResultWrapper<string>.Fail("Block not found", 0);
+                return ResultWrapper<HexBytes>.Fail("Block not found", 0);
 
             if (blockOverride?.GasLimit > (ulong)_rpcConfig.GasCap!.Value)
-                return ResultWrapper<string>.Fail($"GasLimit value is too large, max value {_rpcConfig.GasCap.Value}", ErrorCodes.InvalidInput);
+                return ResultWrapper<HexBytes>.Fail($"GasLimit value is too large, max value {_rpcConfig.GasCap.Value}", ErrorCodes.InvalidInput);
 
             UInt256 originalBaseFee = searchResult.Object.BaseFeePerGas;
 
@@ -402,17 +402,17 @@ namespace Nethermind.Arbitrum.Modules
             IJsonRpcConfig rpcConfig,
             UInt256 originalBaseFee,
             ArbitrumChainSpecEngineParameters chainSpecParams)
-            : ArbitrumTxExecutor<string>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee, chainSpecParams)
+            : ArbitrumTxExecutor<HexBytes>(blockchainBridge, blockFinder, rpcConfig, originalBaseFee, chainSpecParams)
         {
-            protected override ResultWrapper<string> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
+            protected override ResultWrapper<HexBytes> ExecuteTx(BlockHeader header, Transaction tx, Dictionary<Address, AccountOverride>? stateOverride, CancellationToken token)
             {
                 CallOutput result = _blockchainBridge.Call(header, tx, stateOverride, BlobBaseFeeOverride, token);
 
                 return result switch
                 {
-                    { Error: null } => ResultWrapper<string>.Success(result.OutputData.ToHexString(true)),
-                    { InputError: true } => ResultWrapper<string>.Fail(result.Error, ErrorCodes.InvalidInput),
-                    _ => ResultWrapper<string>.Fail(result.Error, ErrorCodes.Default)
+                    { Error: null } => ResultWrapper<HexBytes>.Success(new HexBytes(result.OutputData)),
+                    { InputError: true } => ResultWrapper<HexBytes>.Fail(result.Error, ErrorCodes.InvalidInput),
+                    _ => ResultWrapper<HexBytes>.Fail(result.Error, ErrorCodes.Default)
                 };
             }
         }

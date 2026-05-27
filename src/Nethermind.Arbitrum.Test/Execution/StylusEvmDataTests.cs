@@ -192,12 +192,12 @@ public class StylusEvmDataTests
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
 
-        ResultWrapper<string> result = context.Chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
+        ResultWrapper<HexBytes> result = context.Chain.ArbitrumEthRpcModule.eth_call(txCall, BlockParameter.Latest);
 
         result.Result.ResultType.Should().Be(ResultType.Success, $"eth_call should succeed: {result.Result.Error}");
-        result.Data.Should().NotBeNullOrEmpty("Return data should not be empty");
+        result.Data.Bytes.IsEmpty.Should().BeFalse("Return data should not be empty");
 
-        byte[] responseBytes = Bytes.FromHexString(result.Data!);
+        byte[] responseBytes = result.Data.Bytes.ToArray();
         return EvmDataCallData.ParseResponse(responseBytes, expectedCodeLength);
     }
 

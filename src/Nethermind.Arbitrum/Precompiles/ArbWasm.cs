@@ -115,8 +115,17 @@ public static class ArbWasm
     /// <exception cref="ArbitrumPrecompileException">Thrown when activation fails</exception>
     public static ArbWasmActivateProgramResult ActivateProgram(ArbitrumPrecompileExecutionContext context, Address program)
     {
-        // charge a fixed cost up front to begin activation
-        context.Burn(ResourceKind.Computation, ActivationFixedCost);
+        // Configurable activation gas charge (v59+; default zero, read short-circuits below).
+        // Burned first so the kill-switch (ulong.MaxValue) aborts before any decompression
+        // or compile work. Burn is unconditional — matches Nitro ArbWasm.go:46-48.
+        MultiGas activationCharge = new();
+        activationCharge.Increment(ResourceKind.SingleDim, context.ArbosState.Programs.GetActivationGas());
+        context.Burn(in activationCharge);
+
+        // Fixed compile-cost approximation, tagged Computation for Nitro parity (ArbWasm.go:51).
+        MultiGas fixedCharge = new();
+        fixedCharge.Increment(ResourceKind.Computation, ActivationFixedCost);
+        context.Burn(in fixedCharge);
 
         MessageRunMode runMode = MessageRunMode.MessageCommitMode;
 
@@ -139,7 +148,7 @@ public static class ArbWasm
 
         EmitProgramActivatedEvent(context, result.CodeHash, result.ModuleHash, program, result.DataFee, result.StylusVersion);
 
-        return new ArbWasmActivateProgramResult(result.StylusVersion, result.DataFee);
+        return new ArbWasmActivateProgramResult((ushort)result.StylusVersion, result.DataFee);
     }
 
     /// <summary>
@@ -171,7 +180,7 @@ public static class ArbWasm
     /// <param name="context">The precompile execution context</param>
     /// <returns>The current stylus version</returns>
     public static ushort StylusVersion(ArbitrumPrecompileExecutionContext context)
-        => context.ArbosState.Programs.GetParams().StylusVersion;
+        => (ushort)context.ArbosState.Programs.GetParams().StylusVersion;
 
     /// <summary>
     /// Gets the amount of ink 1 gas buys
@@ -275,6 +284,13 @@ public static class ArbWasm
         => context.ArbosState.Programs.GetParams().BlockCacheSize;
 
     /// <summary>
+    /// Gets the constant gas charge applied before each Stylus contract activation.
+    /// Defaults to zero. Available from ArbOS version 59.
+    /// </summary>
+    public static ulong ActivationGas(ArbitrumPrecompileExecutionContext context)
+        => context.ArbosState.Programs.GetActivationGas();
+
+    /// <summary>
     /// Gets the stylus version that program with codeHash was most recently compiled with
     /// </summary>
     /// <param name="context">The precompile execution context</param>
@@ -283,14 +299,14 @@ public static class ArbWasm
     public static ushort CodeHashVersion(ArbitrumPrecompileExecutionContext context, Hash256 codeHash)
     {
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(
+        StylusOperationResult<StylusVersions> result = context.ArbosState.Programs.CodeHashVersion(
             codeHash,
             context.BlockExecutionContext.Header.Timestamp,
             stylusParams);
         if (!result.IsSuccess)
             throw CreateExceptionFromStylusOperationError(result.Error.Value);
 
-        return result.Value;
+        return (ushort)result.Value;
     }
 
     /// <summary>
@@ -323,11 +339,11 @@ public static class ArbWasm
     {
         ValueHash256 codeHash = context.ArbosState.BackingStorage.GetCodeHash(program);
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
-        StylusOperationResult<ushort> result = context.ArbosState.Programs.CodeHashVersion(in codeHash, context.BlockExecutionContext.Header.Timestamp, stylusParams);
+        StylusOperationResult<StylusVersions> result = context.ArbosState.Programs.CodeHashVersion(in codeHash, context.BlockExecutionContext.Header.Timestamp, stylusParams);
         if (!result.IsSuccess)
             throw CreateExceptionFromStylusOperationError(result.Error.Value);
 
-        return result.Value;
+        return (ushort)result.Value;
     }
 
     /// <summary>
@@ -452,10 +468,10 @@ public static class ArbWasm
     /// <param name="program">The address of the activated program</param>
     /// <param name="dataFee">The data fee charged for activation</param>
     /// <param name="version">The stylus version</param>
-    private static void EmitProgramActivatedEvent(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash, ValueHash256 moduleHash, Address program, UInt256 dataFee, ushort version)
+    private static void EmitProgramActivatedEvent(ArbitrumPrecompileExecutionContext context, ValueHash256 codeHash, ValueHash256 moduleHash, Address program, UInt256 dataFee, StylusVersions version)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ProgramActivatedEvent, Address, codeHash.ToByteArray(), moduleHash.ToByteArray(),
-            program, dataFee, version);
+            program, dataFee, (ushort)version);
         EventsEncoder.EmitEvent(context, eventLog);
     }
 

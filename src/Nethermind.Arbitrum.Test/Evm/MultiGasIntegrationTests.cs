@@ -468,7 +468,7 @@ public class MultiGasIntegrationTests
         gas.SingleGas().Should().Be(gasSpent, "SingleGas() must equal gas spent");
 
         // Cold accesses: only target first access (2600) - caller (tx.to) is pre-warmed by EIP-2929
-        // Second CALL to target is warm (100) → goes to Computation, not StorageAccess
+        // Second CALL to target is warm (100) → goes to Computation, not StorageAccessRead
         AssertMultiGasBreakdown(gas, gasSpent,
             expectedStorageAccess: GasCostOf.ColdAccountAccess - GasCostOf.WarmStateRead, // Only 1 cold access (target)
             expectedStorageGrowth: 0);

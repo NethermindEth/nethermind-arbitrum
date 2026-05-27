@@ -237,4 +237,37 @@ public class TxGasDimensionLoggerTracerTests
         log.StateGrowth.Should().Be(30);
         log.HistoryGrowth.Should().Be(40);
     }
+
+    [Test]
+    public void CaptureGasDimension_SstoreResetMix_StateAccessSumsReadAndWrite()
+    {
+        // Pins the invariant that StateAccess accumulates both StorageAccessRead and
+        // StorageAccessWrite — drift here would silently drop the write portion of an
+        // SSTORE-reset opcode from the dimensional trace output.
+        Transaction tx = Build.A.Transaction.WithHash(TestItem.KeccakA).TestObject;
+        Block block = Build.A.Block.WithNumber(100).TestObject;
+        TxGasDimensionLoggerTracer tracer = new(tx, block, DefaultOptions);
+
+        MultiGas gasBefore = default;
+        MultiGas gasAfter = default;
+        gasAfter.Increment(ResourceKind.Computation, 7);
+        gasAfter.Increment(ResourceKind.StorageAccessRead, 2100);
+        gasAfter.Increment(ResourceKind.StorageAccessWrite, 2900);
+        gasAfter.Increment(ResourceKind.HistoryGrowth, 13);
+
+        tracer.BeginGasDimensionCapture(pc: 0, Instruction.SSTORE, depth: 1, gasBefore);
+        tracer.EndGasDimensionCapture(gasAfter);
+        tracer.MarkAsSuccess(Address.Zero, new GasConsumed(5020, 5020), [], []);
+        GethLikeTxTrace result = tracer.BuildResult();
+
+        TxGasDimensionResult dimensionResult = (TxGasDimensionResult)result.CustomTracerResult!.Value;
+        DimensionLog log = dimensionResult.DimensionLogs[0];
+
+        // The four tracked dimensions must sum to the one-dimensional delta.
+        ulong sum = log.Computation + log.StateAccess + log.StateGrowth + log.HistoryGrowth;
+        sum.Should().Be(log.OneDimensionalGasCost,
+            "tracer dimensions must reconstruct the per-step delta — drift would drop kinds silently");
+
+        log.StateAccess.Should().Be(2100UL + 2900UL, "StateAccess = StorageAccessRead + StorageAccessWrite");
+    }
 }
