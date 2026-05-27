@@ -409,21 +409,20 @@ public class StylusProgramsTests
         getNumberResult2.Value.Should().BeEquivalentTo(new UInt256(1).ToBigEndian());
     }
 
-    [Test]
-    public void ProgramKeepalive_WithNonActivatedProgram_ReturnsFailure()
+    [TestCaseSource(nameof(NonActivatedQueryCases))]
+    public void StylusQuery_WithNonActivatedProgram_ReturnsProgramNotActivatedFailure(NonActivatedQuery query)
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
         state.BeginScope(IWorldState.PreGenesis);
         (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
-        Hash256 nonActivatedCodeHash = Hash256.Zero;
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        StylusOperationResult<UInt256> result = programs.ProgramKeepalive(nonActivatedCodeHash, timestamp, stylusParams);
+        (bool isSuccess, StylusPrograms.StylusOperationError? error) = query(programs, timestamp, stylusParams);
 
-        StylusOperationResult<UInt256> expected = StylusOperationResult<UInt256>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Be(expected.Error);
+        StylusPrograms.StylusOperationError expected = new(StylusOperationResultType.ProgramNotActivated, "", []);
+        isSuccess.Should().BeFalse();
+        error.Should().Be(expected);
     }
 
     [Test]
@@ -454,23 +453,6 @@ public class StylusProgramsTests
     }
 
     [Test]
-    public void CodeHashVersion_WithNonActivatedProgram_ReturnsZero()
-    {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
-        state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
-        Hash256 nonActivatedCodeHash = Hash256.Zero;
-        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        StylusParams stylusParams = programs.GetParams();
-
-        StylusOperationResult<ushort> version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
-
-        StylusOperationResult<ushort> expected = StylusOperationResult<ushort>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
-        version.IsSuccess.Should().BeFalse();
-        version.Error.Should().Be(expected.Error);
-    }
-
-    [Test]
     public void CodeHashVersion_WithActivatedProgram_ReturnsVersion()
     {
         using StackAccessTracker tracker = new();
@@ -495,24 +477,6 @@ public class StylusProgramsTests
     }
 
     [Test]
-    public void ProgramAsmSize_WithNonActivatedProgram_ReturnsFailure()
-    {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
-        state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, ICodeInfoRepository _) = DeployTestsContract.CreateTestPrograms(state);
-        Hash256 nonActivatedCodeHash = Hash256.Zero;
-        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        StylusParams stylusParams = programs.GetParams();
-
-        StylusOperationResult<uint> result = programs.ProgramAsmSize(nonActivatedCodeHash, timestamp, stylusParams);
-
-        StylusOperationResult<uint> expected = StylusOperationResult<uint>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Be(expected.Error);
-        result.Value.Should().Be(0);
-    }
-
-    [Test]
     public void ProgramAsmSize_WithActivatedProgram_ReturnsSize()
     {
         using StackAccessTracker tracker = new();
@@ -534,23 +498,6 @@ public class StylusProgramsTests
 
         asmSize.IsSuccess.Should().BeTrue();
         asmSize.Value.Should().BeGreaterThan(0); // Actual size depends on the compiled program
-    }
-
-    [Test]
-    public void ProgramInitGas_WithNonActivatedProgram_ReturnsFailure()
-    {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
-        state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
-        ValueHash256 nonActivatedCodeHash = Hash256.Zero;
-        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        StylusParams stylusParams = programs.GetParams();
-
-        StylusOperationResult<(ulong gas, ulong gasWhenCached)> result = programs.ProgramInitGas(nonActivatedCodeHash, timestamp, stylusParams);
-
-        StylusOperationResult<(ulong gas, ulong gasWhenCached)> expected = StylusOperationResult<(ulong gas, ulong gasWhenCached)>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
-        result.IsSuccess.Should().BeFalse();
-        result.Error.Should().Be(expected.Error);
     }
 
     [Test]
@@ -579,23 +526,6 @@ public class StylusProgramsTests
     }
 
     [Test]
-    public void ProgramMemoryFootprint_WithNonActivatedProgram_ReturnsFailure()
-    {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
-        state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
-        ValueHash256 nonActivatedCodeHash = Hash256.Zero;
-        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        StylusParams stylusParams = programs.GetParams();
-
-        StylusOperationResult<ushort> footprint = programs.ProgramMemoryFootprint(nonActivatedCodeHash, timestamp, stylusParams);
-
-        StylusOperationResult<ushort> expected = StylusOperationResult<ushort>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
-        footprint.IsSuccess.Should().BeFalse();
-        footprint.Error.Should().BeEquivalentTo(expected.Error);
-    }
-
-    [Test]
     public void ProgramMemoryFootprint_WithActivatedProgram_ReturnsFootprint()
     {
         using StackAccessTracker tracker = new();
@@ -616,23 +546,6 @@ public class StylusProgramsTests
 
         footprint.IsSuccess.Should().BeTrue();
         footprint.Value.Should().BeGreaterThan(0); // Actual footprint depends on program
-    }
-
-    [Test]
-    public void ProgramTimeLeft_WithNonActivatedProgram_ReturnsFailure()
-    {
-        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
-        state.BeginScope(IWorldState.PreGenesis);
-        (StylusPrograms programs, _) = DeployTestsContract.CreateTestPrograms(state);
-        ValueHash256 nonActivatedCodeHash = Hash256.Zero;
-        ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        StylusParams stylusParams = programs.GetParams();
-
-        StylusOperationResult<ulong> timeLeft = programs.ProgramTimeLeft(nonActivatedCodeHash, timestamp, stylusParams);
-
-        StylusOperationResult<ulong> expected = StylusOperationResult<ulong>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
-        timeLeft.IsSuccess.Should().BeFalse();
-        timeLeft.Error.Should().BeEquivalentTo(expected.Error);
     }
 
     [Test]
@@ -738,6 +651,49 @@ public class StylusProgramsTests
 
         ulong expectedExtraCost = scenario.FullInitGas - scenario.CachedInitGas;
         ((ulong)(gasAfterCall1 - gasAfterCall2)).Should().Be(expectedExtraCost);
+    }
+
+    public delegate (bool IsSuccess, StylusPrograms.StylusOperationError? Error) NonActivatedQuery(
+        StylusPrograms programs, ulong timestamp, StylusParams stylusParams);
+
+    private static IEnumerable<TestCaseData> NonActivatedQueryCases()
+    {
+        yield return new TestCaseData(new NonActivatedQuery((programs, timestamp, stylusParams) =>
+        {
+            StylusOperationResult<ushort> result = programs.CodeHashVersion(Hash256.Zero, timestamp, stylusParams);
+            return (result.IsSuccess, result.Error);
+        })).SetName("CodeHashVersion");
+
+        yield return new TestCaseData(new NonActivatedQuery((programs, timestamp, stylusParams) =>
+        {
+            StylusOperationResult<uint> result = programs.ProgramAsmSize(Hash256.Zero, timestamp, stylusParams);
+            result.Value.Should().Be(0);
+            return (result.IsSuccess, result.Error);
+        })).SetName("ProgramAsmSize");
+
+        yield return new TestCaseData(new NonActivatedQuery((programs, timestamp, stylusParams) =>
+        {
+            StylusOperationResult<(ulong gas, ulong gasWhenCached)> result = programs.ProgramInitGas(Hash256.Zero, timestamp, stylusParams);
+            return (result.IsSuccess, result.Error);
+        })).SetName("ProgramInitGas");
+
+        yield return new TestCaseData(new NonActivatedQuery((programs, timestamp, stylusParams) =>
+        {
+            StylusOperationResult<ushort> result = programs.ProgramMemoryFootprint(Hash256.Zero, timestamp, stylusParams);
+            return (result.IsSuccess, result.Error);
+        })).SetName("ProgramMemoryFootprint");
+
+        yield return new TestCaseData(new NonActivatedQuery((programs, timestamp, stylusParams) =>
+        {
+            StylusOperationResult<ulong> result = programs.ProgramTimeLeft(Hash256.Zero, timestamp, stylusParams);
+            return (result.IsSuccess, result.Error);
+        })).SetName("ProgramTimeLeft");
+
+        yield return new TestCaseData(new NonActivatedQuery((programs, timestamp, stylusParams) =>
+        {
+            StylusOperationResult<UInt256> result = programs.ProgramKeepalive(Hash256.Zero, timestamp, stylusParams);
+            return (result.IsSuccess, result.Error);
+        })).SetName("ProgramKeepalive");
     }
 
     private static VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)

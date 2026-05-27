@@ -15,78 +15,16 @@ public class RecentWasmsTests
     private static readonly ValueHash256 HashB = HashOf(0xB);
     private static readonly ValueHash256 HashC = HashOf(0xC);
 
-    [Test]
-    public void Insert_FirstCall_ReturnsFalse()
+    [TestCaseSource(nameof(InsertScenarios))]
+    public void Insert_FollowsLruSemantics(ushort capacity, (ValueHash256 Hash, bool ExpectedHit)[] steps)
     {
         RecentWasms cache = new();
 
-        bool hit = cache.Insert(in HashA, DefaultCapacity);
-
-        hit.Should().BeFalse();
-    }
-
-    [Test]
-    public void Insert_SecondCallSameHash_ReturnsTrue()
-    {
-        RecentWasms cache = new();
-        cache.Insert(in HashA, DefaultCapacity);
-
-        bool hit = cache.Insert(in HashA, DefaultCapacity);
-
-        hit.Should().BeTrue();
-    }
-
-    [Test]
-    public void Insert_DistinctHashes_AllReturnFalse()
-    {
-        RecentWasms cache = new();
-
-        cache.Insert(in HashA, DefaultCapacity).Should().BeFalse();
-        cache.Insert(in HashB, DefaultCapacity).Should().BeFalse();
-        cache.Insert(in HashC, DefaultCapacity).Should().BeFalse();
-    }
-
-    [Test]
-    public void Insert_CapacityZero_BehavesLikeCapacityOne()
-    {
-        // Mirror Nitro `lru.NewBasicLRU(int(retain))` which clamps non-positive capacity to 1.
-        RecentWasms cache = new();
-
-        cache.Insert(in HashA, 0).Should().BeFalse();
-        cache.Insert(in HashA, 0).Should().BeTrue();
-        // Inserting a second distinct hash evicts the only slot's entry.
-        cache.Insert(in HashB, 0).Should().BeFalse();
-        cache.Insert(in HashA, 0).Should().BeFalse();
-    }
-
-    [Test]
-    public void Insert_BeyondCapacity_EvictsLeastRecentlyUsed()
-    {
-        RecentWasms cache = new();
-        const ushort capacity = 2;
-
-        cache.Insert(in HashA, capacity); // cache=[A]
-        cache.Insert(in HashB, capacity); // cache=[A,B], LRU=A
-        cache.Insert(in HashC, capacity); // overflows: evicts A, cache=[B,C]
-
-        // B and C survived the overflow; A was evicted.
-        cache.Insert(in HashB, capacity).Should().BeTrue();
-        cache.Insert(in HashC, capacity).Should().BeTrue();
-    }
-
-    [Test]
-    public void Insert_HitOnExistingEntry_PromotesEntry()
-    {
-        RecentWasms cache = new();
-        const ushort capacity = 2;
-
-        cache.Insert(in HashA, capacity);
-        cache.Insert(in HashB, capacity);
-        cache.Insert(in HashA, capacity).Should().BeTrue(); // promotes A
-        cache.Insert(in HashC, capacity);                   // evicts B (now LRU), not A
-
-        cache.Insert(in HashA, capacity).Should().BeTrue();  // A survived
-        cache.Insert(in HashB, capacity).Should().BeFalse(); // B was evicted
+        for (int i = 0; i < steps.Length; i++)
+        {
+            (ValueHash256 hash, bool expectedHit) = steps[i];
+            cache.Insert(in hash, capacity).Should().Be(expectedHit, $"step {i} (hash {hash})");
+        }
     }
 
     [Test]
@@ -110,6 +48,55 @@ public class RecentWasmsTests
         Action act = () => cache.Clear();
 
         act.Should().NotThrow();
+    }
+
+    public static IEnumerable<TestCaseData> InsertScenarios()
+    {
+        yield return new TestCaseData(DefaultCapacity, new (ValueHash256 Hash, bool ExpectedHit)[]
+        {
+            (HashA, false),
+        }).SetName("FirstCall_ReturnsFalse");
+
+        yield return new TestCaseData(DefaultCapacity, new (ValueHash256 Hash, bool ExpectedHit)[]
+        {
+            (HashA, false),
+            (HashA, true),
+        }).SetName("SecondCallSameHash_ReturnsTrue");
+
+        yield return new TestCaseData(DefaultCapacity, new (ValueHash256 Hash, bool ExpectedHit)[]
+        {
+            (HashA, false),
+            (HashB, false),
+            (HashC, false),
+        }).SetName("DistinctHashes_AllReturnFalse");
+
+        // Mirror Nitro `lru.NewBasicLRU(int(retain))` which clamps non-positive capacity to 1.
+        yield return new TestCaseData((ushort)0, new (ValueHash256 Hash, bool ExpectedHit)[]
+        {
+            (HashA, false),
+            (HashA, true),
+            (HashB, false), // second distinct hash evicts the only slot's entry
+            (HashA, false), // A was evicted
+        }).SetName("CapacityZero_BehavesLikeCapacityOne");
+
+        yield return new TestCaseData((ushort)2, new (ValueHash256 Hash, bool ExpectedHit)[]
+        {
+            (HashA, false),
+            (HashB, false),
+            (HashC, false), // overflows: evicts A (LRU)
+            (HashB, true),  // B survived
+            (HashC, true),  // C survived
+        }).SetName("BeyondCapacity_EvictsLeastRecentlyUsed");
+
+        yield return new TestCaseData((ushort)2, new (ValueHash256 Hash, bool ExpectedHit)[]
+        {
+            (HashA, false),
+            (HashB, false),
+            (HashA, true),  // promotes A
+            (HashC, false), // evicts B (now LRU), not A
+            (HashA, true),  // A survived
+            (HashB, false), // B was evicted
+        }).SetName("HitOnExistingEntry_PromotesEntry");
     }
 
     private static ValueHash256 HashOf(byte seed)
