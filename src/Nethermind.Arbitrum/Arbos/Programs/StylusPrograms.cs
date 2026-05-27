@@ -159,8 +159,13 @@ public class StylusPrograms(ArbosStorage storage, ulong arbosVersion)
         StylusMemoryModel memoryModel = new(stylusParams.FreePages, stylusParams.PageGas);
         ulong callCost = memoryModel.GetGasCost(program.Value.Footprint, openNow, openEver);
 
-        // Pay for program init
-        bool cached = program.Value.Cached || vmHost.WasmStore.GetRecentWasms().Insert(in codeHash, stylusParams.BlockCacheSize);
+        // Pay for program init.
+        // Nitro shape (arbos/programs/programs.go:234-238): always evaluate Insert at v60+ so the
+        // per-block LRU side-effect lands even when program.Cached is already true. C# `||` would
+        // short-circuit and silently desynchronise the recent-cache against Nitro.
+        bool recentWasmsCacheHit = ArbosVersion >= Arbos.ArbosVersion.StylusContractLimit
+            && vmHost.WasmStore.GetRecentWasms().Insert(in codeHash, stylusParams.BlockCacheSize);
+        bool cached = program.Value.Cached || recentWasmsCacheHit;
         if (cached || program.Value.Version > Arbos.ArbosVersion.One) // in version 1 cached cost is part of init cost
             callCost = callCost.SaturateAdd(program.Value.CachedGas(stylusParams));
 
