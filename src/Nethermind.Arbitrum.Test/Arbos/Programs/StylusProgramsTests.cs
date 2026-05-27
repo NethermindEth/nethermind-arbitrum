@@ -827,23 +827,133 @@ public class StylusProgramsTests
         stylusParams.MaxStackDepth.Should().Be(262144u); // InitialStackDepth
     }
 
-    private static ISpecProvider CreateSpecProvider(ulong arbOsVersion = DefaultArbosVersion)
+    [Test]
+    public void CallProgram_PreV60SameContractTwiceInBlock_ChargesFullInitGasOnBoth()
     {
-        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(arbOsVersion);
-        ArbitrumChainSpecBasedSpecProvider baseProvider = new(chainSpec, LimboLogs.Instance);
-        ArbosStateVersionProvider versionProvider = new(null!);
-        return new ArbitrumDynamicSpecProvider(baseProvider, versionProvider);
+        CounterCallScenario scenario = SetupCounterCallScenario(ArbosVersion.Fifty);
+
+        long gasAfterCall1 = scenario.InvokeCounter();
+        long gasAfterCall2 = scenario.InvokeCounter();
+
+        gasAfterCall2.Should().Be(gasAfterCall1);
     }
 
-    private record Program(
-        ushort Version,
-        ushort InitCost,
-        ushort CachedCost,
-        ushort Footprint,
-        uint ActivatedAtHours,
-        uint AsmEstimateKb,
-        ulong AgeSeconds,
-        bool Cached);
+    [Test]
+    public void CallProgram_V60SameContractTwiceInBlock_SecondCallSavesFullMinusCachedInitGas()
+    {
+        CounterCallScenario scenario = SetupCounterCallScenario(ArbosVersion.Sixty);
+
+        long gasAfterCall1 = scenario.InvokeCounter();
+        long gasAfterCall2 = scenario.InvokeCounter();
+
+        ulong expectedSavings = scenario.FullInitGas - scenario.CachedInitGas;
+        ((ulong)(gasAfterCall2 - gasAfterCall1)).Should().Be(expectedSavings);
+    }
+
+    [Test]
+    public void CallProgram_V60SameContractAcrossBlocks_BothCallsChargeFullInitGas()
+    {
+        CounterCallScenario scenario = SetupCounterCallScenario(ArbosVersion.Sixty);
+
+        long gasAfterCall1 = scenario.InvokeCounter();
+        scenario.WasmStore.GetRecentWasms().Clear();
+        long gasAfterCall2 = scenario.InvokeCounter();
+
+        gasAfterCall2.Should().Be(gasAfterCall1);
+    }
+
+    // Pre-fix, the call-site OR short-circuited Insert whenever program.Cached was true, so the
+    // per-block LRU never observed the codeHash on call 1. Call 2 (Cached=false) then missed the
+    // LRU and was charged full initGas, diverging from Nitro by initGas-cachedGas.
+    [Test]
+    public void CallProgram_V60CachedFlagFlippedBetweenCalls_BothCallsEndWithIdenticalGas()
+    {
+        CounterCallScenario scenario = SetupCounterCallScenario(ArbosVersion.Sixty);
+
+        scenario.SetCached(true);
+        long gasAfterCall1 = scenario.InvokeCounter();
+        scenario.SetCached(false);
+        long gasAfterCall2 = scenario.InvokeCounter();
+
+        gasAfterCall2.Should().Be(gasAfterCall1);
+    }
+
+    // Pins the v60 gate: pre-v60 Insert is suppressed under the same flip scenario, so call 2
+    // (Cached=false) misses the LRU and pays full initGas instead of cachedGas.
+    [Test]
+    public void CallProgram_PreV60CachedFlagFlippedBetweenCalls_SecondCallPaysFullInitGas()
+    {
+        CounterCallScenario scenario = SetupCounterCallScenario(ArbosVersion.Fifty);
+
+        scenario.SetCached(true);
+        long gasAfterCall1 = scenario.InvokeCounter();
+        scenario.SetCached(false);
+        long gasAfterCall2 = scenario.InvokeCounter();
+
+        ulong expectedExtraCost = scenario.FullInitGas - scenario.CachedInitGas;
+        ((ulong)(gasAfterCall1 - gasAfterCall2)).Should().Be(expectedExtraCost);
+    }
+
+    private static VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
+    {
+        ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
+        return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
+    }
+
+    private static (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header, ulong arbosVersion = ArbosVersion.Forty)
+    {
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(arbosVersion);
+        BlockExecutionContext blockContext = new(header, specProvider.GenesisSpec);
+        TxExecutionContext transactionContext = new(caller, repository, [], 0);
+
+        return (blockContext, transactionContext);
+    }
+
+    private static CounterCallScenario SetupCounterCallScenario(ulong arbosVersion)
+    {
+        const ulong activationBudget = (InitBudget + ActivationBudget + CallBudget) * 10;
+
+        using StackAccessTracker tracker = new();
+        IWasmStore store = TestWasmStore.Create();
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, activationBudget, arbosVersion);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
+
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(arbosVersion);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+
+        ProgramActivationResult activation = programs.ActivateProgram(
+            contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, debugMode: true, tracker);
+        activation.IsSuccess.Should().BeTrue();
+
+        StylusParams stylusParams = programs.GetParams();
+        StylusOperationResult<(ulong gas, ulong gasWhenCached)> initGasResult = programs.ProgramInitGas(activation.CodeHash, header.Timestamp, stylusParams);
+        initGasResult.IsSuccess.Should().BeTrue();
+
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header, arbosVersion);
+        byte[] callData = CounterContractCallData.GetNumberCalldata();
+
+        long Invoke()
+        {
+            using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+            TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
+
+            StylusOperationResult<byte[]> result = programs.CallProgram(vmHost,
+                tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+            result.IsSuccess.Should().BeTrue();
+
+            return ArbitrumGasPolicy.GetRemainingGas(in vmHost.VmState.Gas);
+        }
+
+        return new CounterCallScenario(
+            programs.ProgramsStorage,
+            store,
+            activation.CodeHash,
+            initGasResult.Value.gas,
+            initGasResult.Value.gasWhenCached,
+            Invoke);
+    }
 
     private static Program GetProgram(ArbosStorage programStorage, in ValueHash256 codeHash, ulong timestamp)
     {
@@ -861,5 +971,40 @@ public class StylusProgramsTests
         ulong ageSeconds = ArbitrumTime.HoursToAgeSeconds(timestamp, activatedAtHours);
 
         return new Program(version, initCost, cachedCost, footprint, activatedAtHours, asmEstimateKb, ageSeconds, cached);
+    }
+
+    private record Program(
+        ushort Version,
+        ushort InitCost,
+        ushort CachedCost,
+        ushort Footprint,
+        uint ActivatedAtHours,
+        uint AsmEstimateKb,
+        ulong AgeSeconds,
+        bool Cached);
+
+    // Test-only scenario for activate-then-call-counter-twice flows. SetCached bypasses
+    // ArbWasm.SetProgramCached's cache-managers gate by writing the Cached bit directly
+    // into the program-storage slot StylusPrograms.CallProgram reads at the OR site.
+    private sealed class CounterCallScenario(
+        ArbosStorage programsStorage,
+        IWasmStore wasmStore,
+        ValueHash256 codeHash,
+        ulong fullInitGas,
+        ulong cachedInitGas,
+        Func<long> invoke)
+    {
+        public IWasmStore WasmStore { get; } = wasmStore;
+        public ulong FullInitGas { get; } = fullInitGas;
+        public ulong CachedInitGas { get; } = cachedInitGas;
+
+        public long InvokeCounter() => invoke();
+
+        public void SetCached(bool cached)
+        {
+            ValueHash256 programData = programsStorage.Get(codeHash);
+            ArbitrumBinaryWriter.WriteBool(programData.BytesAsSpan[14..], cached);
+            programsStorage.Set(codeHash, programData);
+        }
     }
 }
