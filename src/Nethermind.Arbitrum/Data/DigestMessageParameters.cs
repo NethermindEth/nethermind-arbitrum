@@ -49,9 +49,9 @@ public record DigestInitMessage(
 );
 
 public record MessageWithMetadataAndBlockInfo(
-    [property: JsonPropertyName("message")] MessageWithMetadata MessageWithMeta,
-    [property: JsonPropertyName("blockHash")] Hash256 BlockHash,
-    [property: JsonPropertyName("blockMetadata"), JsonConverter(typeof(Base64Converter))] byte[] BlockMetadata
+    [property: JsonPropertyName("messageWithMeta")] MessageWithMetadata MessageWithMeta,
+    [property: JsonPropertyName("blockHash")] Hash256? BlockHash,
+    [property: JsonPropertyName("blockMetadata"), JsonConverter(typeof(Base64Converter))] byte[]? BlockMetadata
 );
 
 public record ReorgParameters(
