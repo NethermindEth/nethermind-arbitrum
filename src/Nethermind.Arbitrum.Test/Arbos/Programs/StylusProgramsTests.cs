@@ -548,21 +548,6 @@ public class StylusProgramsTests
         callResult.IsSuccess.Should().BeTrue();
     }
 
-    private VmState<ArbitrumGasPolicy> CreateEvmState(IWorldState state, Address caller, Address contract, CodeInfo codeInfo, byte[] callData, long gasAvailable = 1_000_000_000)
-    {
-        ExecutionEnvironment env = ExecutionEnvironment.Rent(codeInfo, caller, caller, contract, 0, 0, 0, callData);
-        return VmState<ArbitrumGasPolicy>.RentTopLevel(ArbitrumGasPolicy.FromLong(gasAvailable), ExecutionType.TRANSACTION, env, new StackAccessTracker(), state.TakeSnapshot());
-    }
-
-    private (BlockExecutionContext, TxExecutionContext) CreateExecutionContext(ICodeInfoRepository repository, Address caller, BlockHeader header)
-    {
-        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
-        BlockExecutionContext blockContext = new(header, specProvider.GenesisSpec);
-        TxExecutionContext transactionContext = new(caller, repository, [], 0);
-
-        return (blockContext, transactionContext);
-    }
-
     [Test]
     public void ProgramKeepalive_WithNonActivatedProgram_ReturnsFailure()
     {
