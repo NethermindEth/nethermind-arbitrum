@@ -86,7 +86,7 @@ public sealed class ArbitrumHistoryPrunerTests
     private sealed class CapturingScheduler : IBackgroundTaskScheduler
     {
         public bool WasCalled { get; private set; }
-        public TaskCompletionSource Invoked { get; } = new();
+        public TaskCompletionSource Invoked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public bool TryScheduleTask<TReq>(TReq request, Func<TReq, CancellationToken, Task> fulfillFunc, TimeSpan? timeout = null, string? source = null)
         {
