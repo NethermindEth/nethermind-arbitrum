@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Text;
-using System.Text.Json;
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Config;
@@ -12,12 +10,17 @@ using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Test.Infrastructure;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
 using Nethermind.Int256;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Specs.Test.ChainSpecStyle;
+using NSubstitute;
+using System.Text;
+using System.Text.Json;
+using Nethermind.Logging;
 using static NUnit.Framework.Assert;
 
 namespace Nethermind.Arbitrum.Test.Rpc.DigestMessage;
@@ -44,7 +47,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("AAAAAAAAAAAAAAAAP6sYRiLcGbYQk0m5SBFJO/KkU2IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAI4byb8EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAjmgvhUZ1IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGTUgAAAAAAAAAAAAAAACTtMEUtA7PH8NHRUAKG5uRFcNOQgAAAAAAAAAAAAAAAJO0wRS0Ds8fw0dFQAobm5EVw05CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUggAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO5rKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
             null, null);
 
-        ArbitrumSubmitRetryableTransaction transaction = (ArbitrumSubmitRetryableTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
+        ArbitrumSubmitRetryableTransaction transaction = (ArbitrumSubmitRetryableTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new()).Single();
 
         ArbitrumSubmitRetryableTransaction expectedTransaction = new()
         {
@@ -89,7 +92,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("BPilgIUXSHboAIMBhqCAgLhTYEWAYA5gADmAYADzUP5//////////////////////////////////////////+A2AWAAgWAggjeANYKCNPWAFRVgOVeBgv1bgIJSUFBQYBRgDPMboCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIioCIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIi"),
             null, null);
 
-        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
+        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new()).Single();
 
         transaction.Should().BeEquivalentTo(new Transaction
         {
@@ -122,7 +125,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("Px6ufUbYjwj8L47Sf8sqsYPrLQ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAFS0Cx+FK9oAAAA=="),
             null, null);
 
-        ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
+        ArbitrumDepositTransaction transaction = (ArbitrumDepositTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new()).Single();
 
         ArbitrumDepositTransaction expectedTransaction = new()
         {
@@ -157,7 +160,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("BAL4doMGSrqAhFloLwCEZVPxAIJSCJReFJfdHwjIey2P4j6aq2wd6DPZJ4kFa8deLWMQAACAwICgTJ7ERDhsUJoSmXYhVhdHIN5YgHJ2PBS1e9YImp0iAfmgTkKAGg0ukQ/BHPiMnbTpFqIuHlSBgQff7dPFFlMlhP4="),
             null, null);
 
-        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
+        Transaction transaction = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new()).Single();
 
         transaction.Should().BeEquivalentTo(new Transaction
         {
@@ -197,7 +200,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String(l2Msg),
             batchDataCost, null);
 
-        ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new()).Single();
+        ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new()).Single();
 
         byte[] packedData = ArbosActsCodec.PackInput(ArbosActsMethod.BatchPostingReport, batchTimestamp, batchPosterAddr, 1, batchDataCost,
             l1BaseFee);
@@ -234,7 +237,7 @@ public class NitroL2MessageParserTests
             Convert.FromBase64String("AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACPDRgAAAAAAAAAAAAAAAAARtX/jSFhPBC5DbGv3w8Pe8XHeSQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0J3gig=="),
             null, null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new());
         ArbitrumDepositTransaction deposit = (ArbitrumDepositTransaction)transactions[0];
         ArbitrumContractTransaction contract = (ArbitrumContractTransaction)transactions[1];
 
@@ -290,7 +293,7 @@ public class NitroL2MessageParserTests
             emptyL2MsgBytes,
             null, null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new());
 
         transactions.Should().BeEmpty();
     }
@@ -520,7 +523,7 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: batchDataStats);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new());
 
         transactions.Should().NotBeEmpty("Parser should successfully parse with BatchDataStats present");
 
@@ -567,7 +570,7 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Forty, Substitute.For<IProcessExitSource>(), new());
 
         transactions.Should().BeEmpty("Parser should return empty when both BatchGasCost and BatchDataStats are null");
     }
@@ -606,7 +609,7 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: batchDataStats);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, Substitute.For<IProcessExitSource>(), new());
 
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
@@ -657,7 +660,7 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: batchDataStats);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, new());
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, Substitute.For<IProcessExitSource>(), new());
 
         transactions.Should().NotBeEmpty();
         ArbitrumInternalTransaction transaction = (ArbitrumInternalTransaction)transactions.Single();
@@ -677,7 +680,7 @@ public class NitroL2MessageParserTests
     }
 
     [Test]
-    public static void ParseBatchPostingReport_WhenArbOS50WithoutBatchDataStats_ReturnsEmpty()
+    public static void ParseBatchPostingReport_WhenArbOS50WithoutBatchDataStats_ExitsProcess()
     {
         ulong batchTimestamp = 1745999275;
         Address batchPosterAddr = new("0xe2148eE53c0755215Df69b2616E552154EdC584f");
@@ -706,8 +709,10 @@ public class NitroL2MessageParserTests
             BatchGasCost: null,
             BatchDataStats: null);
 
-        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, 50, new());
+        IProcessExitSource testExitSource = Substitute.For<IProcessExitSource>();
+        IReadOnlyList<Transaction> transactions = NitroL2MessageParser.ParseTransactions(message, ChainId, ArbosVersion.Fifty, testExitSource, LimboTraceLogger.Instance);
 
+        testExitSource.Received().Exit(ExitCodes.GeneralError);
         transactions.Should().BeEmpty("Parser should return empty when BatchDataStats is missing for ArbOS >= 50");
     }
 
