@@ -251,6 +251,47 @@ public class ArbitrumBlockProcessorTests
         }
     }
 
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    public void UpdateArbitrumBlockHeader_OnV60_ReadsCollectTipsFromState(bool flagValue, bool expectedBit)
+    {
+        using TestContext ctx = new(blockGasLimit: 1_000_000);
+        ctx.UpgradeArbosTo(ArbosVersion.Sixty);
+        ctx.SetCollectTips(flagValue);
+
+        Transaction tx = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0);
+        BlockToProduce block = ctx.ExecuteBlock(tx);
+
+        Assert.That(block.Header.MixHash!.Bytes[25], Is.EqualTo(expectedBit ? (byte)1 : (byte)0));
+    }
+
+    [Test]
+    public void UpdateArbitrumBlockHeader_DelayedInboxBlock_ForcesCollectTipsBitToZero()
+    {
+        using TestContext ctx = new(blockGasLimit: 1_000_000);
+        ctx.UpgradeArbosTo(ArbosVersion.Sixty);
+        ctx.SetCollectTips(true);
+
+        Transaction tx = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0);
+        BlockToProduce block = ctx.ExecuteBlock(withInternalTx: false, beneficiary: TestItem.AddressF, tx);
+
+        Assert.That(block.Header.MixHash!.Bytes[25], Is.EqualTo((byte)0),
+            "delayed-inbox blocks (coinbase != BatchPoster) must always emit a zero bit");
+    }
+
+    [Test]
+    public void UpdateArbitrumBlockHeader_PreV60Chain_LeavesCollectTipsBitZero()
+    {
+        using TestContext ctx = new(blockGasLimit: 1_000_000);
+        // Default chain stays at the pre-v60 InitialArbOSVersion (32) — the storage slot for
+        // CollectTips reads as zero and the header bit must follow.
+
+        Transaction tx = ctx.CreateTransaction(gasLimit: 25_000, nonce: 0);
+        BlockToProduce block = ctx.ExecuteBlock(tx);
+
+        Assert.That(block.Header.MixHash!.Bytes[25], Is.EqualTo((byte)0));
+    }
+
     private class TestContext : IDisposable
     {
         private readonly ArbitrumRpcTestBlockchain _chain;
@@ -296,6 +337,26 @@ public class ArbitrumBlockProcessorTests
                     _chain.Container.Resolve<IArbitrumConfig>()));
         }
 
+        public void UpgradeArbosTo(ulong arbosVersion)
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(
+                StateProvider,
+                new SystemBurner(readOnly: false),
+                _chain.LogManager.GetClassLogger<ArbosState>());
+            arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+            StateProvider.Commit(_chain.SpecProvider.GenesisSpec);
+        }
+
+        public void SetCollectTips(bool collect)
+        {
+            ArbosState arbosState = ArbosState.OpenArbosState(
+                StateProvider,
+                new SystemBurner(readOnly: false),
+                _chain.LogManager.GetClassLogger<ArbosState>());
+            arbosState.SetCollectTips(collect);
+            StateProvider.Commit(_chain.SpecProvider.GenesisSpec);
+        }
+
         public Transaction CreateTransaction(long gasLimit, UInt256 nonce, Address? to = null)
         {
             return Build.A.Transaction
@@ -310,16 +371,19 @@ public class ArbitrumBlockProcessorTests
         }
 
         public BlockToProduce ExecuteBlock(params Transaction[] transactions) =>
-            ExecuteBlock(withInternalTx: false, transactions);
+            ExecuteBlock(withInternalTx: false, beneficiary: null, transactions);
 
-        public BlockToProduce ExecuteBlock(bool withInternalTx, params Transaction[] transactions)
+        public BlockToProduce ExecuteBlock(bool withInternalTx, params Transaction[] transactions) =>
+            ExecuteBlock(withInternalTx, beneficiary: null, transactions);
+
+        public BlockToProduce ExecuteBlock(bool withInternalTx, Address? beneficiary, params Transaction[] transactions)
         {
             Block block = Build.A.Block
                 .WithNumber(_chain.BlockTree.Head!.Number + 1)
                 .WithParent(_chain.BlockTree.Head!)
                 .WithBaseFeePerGas(_baseFeePerGas)
                 .WithGasLimit(10_000_000)
-                .WithBeneficiary(ArbosAddresses.BatchPosterAddress)
+                .WithBeneficiary(beneficiary ?? ArbosAddresses.BatchPosterAddress)
                 .WithTransactions(transactions)
                 .TestObject;
 

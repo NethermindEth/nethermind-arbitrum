@@ -75,6 +75,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetGasPricingConstraints;
     private const uint SetMultiGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints;
     private const uint SetWasmActivationGasId = Solgen.ArbOwner.Methods.SetWasmActivationGas;
+    private const uint SetCollectTipsId = Solgen.ArbOwner.Methods.SetCollectTips;
 
 
     static ArbOwnerParser()
@@ -132,7 +133,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { SetGasBacklogId, SetGasBacklog },
             { SetGasPricingConstraintsId, SetGasPricingConstraints },
             { SetMultiGasPricingConstraintsId, SetMultiGasPricingConstraints },
-            { SetWasmActivationGasId, SetWasmActivationGas }
+            { SetWasmActivationGasId, SetWasmActivationGas },
+            { SetCollectTipsId, SetCollectTips }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -174,6 +176,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[SetWasmActivationGasId].ArbOSVersion = ArbosVersion.StylusActivationGas;
         PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Sixty;
         PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
+        PrecompileFunctionDescription[SetCollectTipsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -756,6 +759,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         ulong gas = (ulong)decoded[0];
         ArbOwner.SetWasmActivationGas(context, gas);
+        return [];
+    }
+
+    private static byte[] SetCollectTips(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetCollectTipsId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        bool collectTips = (bool)decoded[0];
+        ArbOwner.SetCollectTips(context, collectTips);
         return [];
     }
 

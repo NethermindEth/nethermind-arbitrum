@@ -45,6 +45,7 @@ public class ArbosState
         TransactionFilteringEnabledTime = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.TransactionFilteringEnabledTimeOffset);
         FilteredFundsRecipient = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.FilteredFundsRecipientOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
+        CollectTipsStorage = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.CollectTipsOffset);
     }
 
     public ArbosStorage BackingStorage { get; }
@@ -71,6 +72,7 @@ public class ArbosState
     public ArbosStorageBackedULong TransactionFilteringEnabledTime { get; }
     public ArbosStorageBackedAddress FilteredFundsRecipient { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
+    public ArbosStorageBackedULong CollectTipsStorage { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
@@ -295,6 +297,18 @@ public class ArbosState
         ArgumentOutOfRangeException.ThrowIfGreaterThan(level, BrotliCompression.LevelWell, nameof(level));
 
         BrotliCompressionLevel.Set(level);
+    }
+
+    public bool CollectTips()
+    {
+        if (CurrentArbosVersion < ArbosVersion.Sixty)
+            return false;
+        return CollectTipsStorage.Get() != 0;
+    }
+
+    public void SetCollectTips(bool collect)
+    {
+        CollectTipsStorage.Set(collect ? 1UL : 0UL);
     }
 
     public static ArbosState OpenArbosState(IWorldState worldState, IBurner burner, ILogger logger)

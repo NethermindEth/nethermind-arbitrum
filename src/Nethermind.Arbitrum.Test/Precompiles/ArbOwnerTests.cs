@@ -1080,6 +1080,53 @@ public class ArbOwnerTests
     }
 
     [Test]
+    public void SetCollectTips_AtSixty_StoresFlag()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetCollectTips(context, true);
+
+        context.ArbosState.CollectTips().Should().BeTrue();
+    }
+
+    [Test]
+    public void SetCollectTips_AtSixty_RoundTripsFalse()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetCollectTips(context, true);
+        ArbOwner.SetCollectTips(context, false);
+
+        context.ArbosState.CollectTips().Should().BeFalse();
+    }
+
+    [Test]
+    public void SetCollectTips_BelowSixtyArbOSVersion_DispatchRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.Sixty - 1);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetCollectTips, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void SetCollectTips_AtSixtyArbOSVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context = context.WithExecutingAccount(ArbOwnerParser.Address);
+
+        bool result = ArbOwnerParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwner.Methods.SetCollectTips, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
     public void OwnerActsEvent_BuildLogEntry_PinsTopicsAndDataLayout()
     {
         // Models the log built by OwnerLogic.EmitOwnerSuccessEvent after a successful owner call.

@@ -167,7 +167,16 @@ namespace Nethermind.Arbitrum.Execution
         {
             _lastExecutionSuccess = statusCode == StatusCode.Success;
 
-            UInt256 fees = (UInt256)spentGas * premiumPerGas;
+            // Tip is charged on compute gas only — the poster's L1 portion is reimbursed via PosterFee.
+            // Matches Nitro state_transition.go:execute (`computeGasUsed = gasUsed - posterGas`).
+            long posterGasLong = (long)TxExecContext.PosterGas;
+            if (spentGas < posterGasLong)
+            {
+                if (_logger.IsError)
+                    _logger.Error($"gas used < poster gas: spentGas={spentGas}, posterGas={posterGasLong}");
+            }
+            long computeSpent = System.Math.Max(0L, spentGas - posterGasLong);
+            UInt256 fees = (UInt256)computeSpent * premiumPerGas;
 
             Address tipRecipient = _arbosState!.NetworkFeeAccount.Get();
             WorldState.AddToBalanceAndCreateIfNotExists(tipRecipient, fees, spec);
@@ -292,7 +301,13 @@ namespace Nethermind.Arbitrum.Execution
 
         protected override UInt256 CalculateEffectiveGasPrice(Transaction tx, bool eip1559Enabled, in UInt256 baseFee, out UInt256 opcodeGasPrice)
         {
-            opcodeGasPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in baseFee);
+            // Pre-v3: full price. Nitro's evm.GasPrice is deep-copied from msg.GasPrice in
+            // NewEVMTxContext (core/evm.go:89) before the state_transition.go:661 clamp rebinds
+            // the msg pointer, so the clamp does not affect what GasPriceOp returns.
+            // v3+: GetPaidGasPrice — full price when CollectTips, else baseFee.
+            UInt256 fullPaidPrice = tx.CalculateEffectiveGasPrice(eip1559Enabled, in baseFee);
+            bool isPreV3 = _arbosState!.CurrentArbosVersion < ArbosVersion.Three;
+            opcodeGasPrice = (isPreV3 || CollectTips()) ? fullPaidPrice : baseFee;
 
             // effectiveGasPrice relies on OriginalBaseFee (not the potentially-zeroed baseFee), matching Nitro's
             // TransactionToMessage which computes msg.GasPrice with the real header BaseFee before zeroing.
@@ -301,7 +316,7 @@ namespace Nethermind.Arbitrum.Execution
 
             // Tip-drop uses baseFee (not effectiveBaseFee), matching Nitro's
             // go-ethereum:consensus-v51/core/state_transition.go:execute which uses evm.Context.BaseFee.
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > baseFee)
+            if (!CollectTips() && effectiveGasPrice > baseFee)
                 return baseFee;
 
             return effectiveGasPrice;
@@ -321,7 +336,7 @@ namespace Nethermind.Arbitrum.Execution
             // Mirrors Nitro (go-ethereum:consensus-v51/core/state_transition.go:execute): when tips are not
             // collected and the effective gas price exceeds the base fee (i.e. there is a tip
             // component), drop it. In Nitro this is done by setting msg.GasTipCap = 0.
-            if (ShouldDropTip(VirtualMachine.BlockExecutionContext, _arbosState!.CurrentArbosVersion) && effectiveGasPrice > baseFee)
+            if (!CollectTips() && effectiveGasPrice > baseFee)
             {
                 premiumPerGas = UInt256.Zero;
                 return true;
@@ -1073,10 +1088,22 @@ namespace Nethermind.Arbitrum.Execution
             return amount;
         }
 
-        private static bool ShouldDropTip(BlockExecutionContext blockContext, ulong arbosVersion)
+        // Decides whether sequencer tips are collected for the current transaction.
+        // Mirrors Nitro tx_processor.go:CollectTips ordering: delayed-inbox → v9 → v10–v59 → v60+.
+        private bool CollectTips()
         {
-            return arbosVersion != ArbosVersion.Nine ||
-                   blockContext.Coinbase != ArbosAddresses.BatchPosterAddress;
+            // Delayed-inbox messages never collect — Nitro short-circuits regardless of ArbOS version.
+            if (VirtualMachine.BlockExecutionContext.Coinbase != ArbosAddresses.BatchPosterAddress)
+                return false;
+
+            ulong version = _arbosState!.CurrentArbosVersion;
+            if (version == ArbosVersion.Nine)
+                return true;
+
+            if (version < ArbosVersion.Sixty)
+                return false;
+
+            return _arbosState!.CollectTips();
         }
 
         private TransactionResult GasChargingHook(Transaction tx, in ArbitrumGasPolicy intrinsicGas, out ArbitrumGasPolicy gasAvailable)
@@ -1094,8 +1121,17 @@ namespace Nethermind.Arbitrum.Execution
             // Never skip L1 charging
             if (baseFee > 0)
             {
-                // Since tips go to the network, and not to the poster, we use the basefee.
-                // Note, this only determines the amount of gas bought, not the price per gas.
+                // When collecting tips, convert poster L1 costs into gas units using the actually-paid
+                // gas price (baseFee + tip) — each gas unit is worth more, so the user is not over-charged
+                // for the tip on the poster's data gas. Otherwise fall back to baseFee.
+                // Matches Nitro tx_processor.go:GasChargingHook (actualGasPrice = GetPaidGasPrice()).
+                UInt256 actualGasPrice = baseFee;
+                if (CollectTips())
+                {
+                    UInt256 paidGasPrice = tx.CalculateEffectiveGasPrice(_currentSpec!.IsEip1559Enabled, in baseFee);
+                    if (!paidGasPrice.IsZero)
+                        actualGasPrice = paidGasPrice;
+                }
 
                 ulong brotliCompressionLevel = _arbosState!.BrotliCompressionLevel.Get();
                 (UInt256 posterCost, ulong calldataUnits) = _arbosState!.L1PricingState.PosterDataCost(
@@ -1106,10 +1142,10 @@ namespace Nethermind.Arbitrum.Execution
                     _arbosState!.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
                 }
 
-                ulong posterGas = GetPosterGas(_arbosState!, baseFee, posterCost, isGasEstimation: false);
+                ulong posterGas = GetPosterGas(_arbosState!, actualGasPrice, posterCost, isGasEstimation: false);
                 gasNeededToStartEVM = TxExecContext.PosterGas = posterGas;
 
-                TxExecContext.PosterFee = baseFee * posterGas;
+                TxExecContext.PosterFee = actualGasPrice * posterGas;
             }
 
             // the user cannot pay for call data, so give up
@@ -1147,7 +1183,7 @@ namespace Nethermind.Arbitrum.Execution
             return TransactionResult.Ok;
         }
 
-        private static ulong GetPosterGas(ArbosState arbosState, UInt256 baseFee, UInt256 posterCost, bool isGasEstimation)
+        private static ulong GetPosterGas(ArbosState arbosState, UInt256 gasPrice, UInt256 posterCost, bool isGasEstimation)
         {
             if (isGasEstimation)
             {
@@ -1156,14 +1192,14 @@ namespace Nethermind.Arbitrum.Execution
                 // Note, reducing the poster cost will increase share the network fee gets, not reduce the total.
 
                 UInt256 minGasPrice = arbosState.L2PricingState.MinBaseFeeWeiStorage.Get();
-                UInt256 adjustedPrice = baseFee * 7 / 8; // assume congestion
-                baseFee = UInt256.Max(adjustedPrice, minGasPrice);
+                UInt256 adjustedPrice = gasPrice * 7 / 8; // assume congestion
+                gasPrice = UInt256.Max(adjustedPrice, minGasPrice);
 
                 // Pad the L1 cost in case the L1 gas price rises
                 posterCost = Utils.UInt256MulByBips(posterCost, GasEstimationL1PricePadding);
             }
 
-            return (posterCost / baseFee).ToULongSafe();
+            return (posterCost / gasPrice).ToULongSafe();
         }
 
         private record ArbitrumTransactionProcessorResult(
@@ -1334,21 +1370,17 @@ namespace Nethermind.Arbitrum.Execution
         {
             UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
 
-            // Calculate total transaction cost: price of gas * gas burnt
-            // This represents the total amount the user paid for this transaction
-            UInt256 totalCost = baseFee * gasUsed;
-
-            // Calculate compute cost: total cost = network's compute + poster's L1 costs
-            // The poster fee covers L1 calldata costs, compute cost goes to network operators
-            if (UInt256.SubtractUnderflow(totalCost, TxExecContext.PosterFee, out UInt256 computeCost))
+            // Network fee account receives baseFee * computeGas (compute portion only).
+            // Matches Nitro tx_processor.go:EndTxHook — `computeCost = baseFee * (gasUsed - posterGas)`.
+            // L1 poster's share is tracked separately via TxExecContext.PosterFee, which is paid out below.
+            ulong posterGas = TxExecContext.PosterGas;
+            if (gasUsed < posterGas)
             {
-                // Give all funds to the network account and continue
-                if (_logger.IsInfo)
-                    _logger.Info(
-                        $"Total cost < poster cost: gasUsed={gasUsed}, baseFee={baseFee}, posterFee={TxExecContext.PosterFee}");
-                TxExecContext.PosterFee = UInt256.Zero;
-                computeCost = totalCost;
+                if (_logger.IsError)
+                    _logger.Error($"gas used < poster gas: gasUsed={gasUsed}, posterGas={posterGas}");
             }
+            ulong computeGas = gasUsed > posterGas ? gasUsed - posterGas : 0;
+            UInt256 computeCost = baseFee * computeGas;
 
             // Handle infrastructure fees (ArbOS version 5+): extract infra fee from compute cost
             // Infrastructure fees are based on minimum base fee and go to infra fee account
@@ -1364,6 +1396,7 @@ namespace Nethermind.Arbitrum.Execution
             // Handle multi-dimensional gas refund (ArbOS version 60+)
             // If multi-gas pricing is enabled, refund the difference between flat-rate cost and
             // per-resource cost from networkFeeAccount back to the sender
+            UInt256 totalCost = baseFee * gasUsed;
             HandleMultiGasRefund(tx, totalCost);
 
             // Handle poster fee distribution and L1 fee tracking
