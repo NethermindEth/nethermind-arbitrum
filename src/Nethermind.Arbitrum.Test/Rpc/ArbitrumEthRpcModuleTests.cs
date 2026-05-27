@@ -261,10 +261,10 @@ public partial class ArbitrumEthRpcModuleTests
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
 
-        ResultWrapper<string> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, new BlockParameter(2));
+        ResultWrapper<HexBytes> result = _chain.ArbitrumEthRpcModule.eth_call(txCall, new BlockParameter(2));
 
         result.Result.ResultType.Should().Be(ResultType.Success);
-        result.Data.Should().Be("0x");
+        result.Data.ToString().Should().Be("0x");
     }
 
     [Test]
