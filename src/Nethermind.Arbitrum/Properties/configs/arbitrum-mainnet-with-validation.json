@@ -67,11 +67,9 @@
     "Enabled": true
   },
   "Snapshot": {
-    "Enabled": false,
+    "Enabled": true,
     "SnapshotDirectory": "snapshot/mainnet",
-    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/451380230-neth.tar.zst",
-    "SnapshotFileName": "snapshot.tar.zst",
-    "StripComponents": 3
+    "DownloadUrl": "https://arb-snapshot.nethermind.dev/arbitrum-snapshot/snapshot.zip"
   },
   "Arbitrum": {
     "BlockProcessingTimeout": 10000,
