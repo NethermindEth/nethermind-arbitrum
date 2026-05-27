@@ -493,7 +493,7 @@ public sealed class ArbitrumExecutionEngine(
                 if (builtBlock.Hash is null)
                     return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
-                TaskCompletionSource<Hash256> blockAddedTcs = new();
+                TaskCompletionSource<Hash256> blockAddedTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
                 void OnBlockAddedToMain(object? sender, BlockReplacementEventArgs e)
                 {
