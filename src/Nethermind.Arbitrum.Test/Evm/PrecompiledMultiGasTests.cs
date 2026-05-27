@@ -90,7 +90,8 @@ public class PrecompiledMultiGasTests
 
         // RunPrecompiledContract returns multigas.ComputationGas(gasCost)
         // Precompile gas goes to Computation only
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0, "Precompile has no StorageAccess");
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0, "Precompile has no StorageAccessRead");
+        gas.Get(ResourceKind.StorageAccessWrite).Should().Be(0, "Precompile has no StorageAccessWrite");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0, "Precompile has no StorageGrowth");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 
@@ -175,7 +176,8 @@ public class PrecompiledMultiGasTests
 
         // RunPrecompiledContract returns multigas.ComputationGas(gasCost)
         // Precompile gas goes to Computation only
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0, "Precompile has no StorageAccess");
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0, "Precompile has no StorageAccessRead");
+        gas.Get(ResourceKind.StorageAccessWrite).Should().Be(0, "Precompile has no StorageAccessWrite");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0, "Precompile has no StorageGrowth");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 
@@ -250,7 +252,8 @@ public class PrecompiledMultiGasTests
 
         // RunPrecompiledContract returns multigas.ComputationGas(gasCost)
         // Precompile gas goes to Computation only
-        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0, "Precompile has no StorageAccess");
+        gas.Get(ResourceKind.StorageAccessRead).Should().Be(0, "Precompile has no StorageAccessRead");
+        gas.Get(ResourceKind.StorageAccessWrite).Should().Be(0, "Precompile has no StorageAccessWrite");
         gas.Get(ResourceKind.StorageGrowth).Should().Be(0, "Precompile has no StorageGrowth");
         gas.Get(ResourceKind.HistoryGrowth).Should().Be(0, "No LOG operations");
 

@@ -49,7 +49,7 @@ public class StylusProgramsTests
         programs.GetParams().Should().BeEquivalentTo(new StylusParams(
             DefaultArbosVersion,
             storage,
-            stylusVersion: 1,
+            stylusVersion: StylusVersions.V1,
             inkPrice: 10000,
             maxStackDepth: 262144,
             freePages: 2,
@@ -79,6 +79,70 @@ public class StylusProgramsTests
         addressSetStorage.GetULong(0).Should().Be(0); // Initial size
 
         // Total set of slots changed
+        state.SetRecords.Should().HaveCount(7);
+    }
+
+    [Test]
+    public void GetActivationGas_FreshStorageAtStylusActivationGas_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void GetActivationGas_BelowStylusActivationGasAfterSet_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas - 1);
+
+        programs.SetActivationGas(5_000_000);
+
+        programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void SetActivationGas_AtStylusActivationGas_RoundTripsValue()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.SetActivationGas(5_000_000);
+
+        programs.GetActivationGas().Should().Be(5_000_000);
+    }
+
+    [Test]
+    public void SetActivationGas_AtStylusActivationGasWithMaxUlong_RoundTrips()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.SetActivationGas(ulong.MaxValue);
+
+        programs.GetActivationGas().Should().Be(ulong.MaxValue);
+    }
+
+    [Test]
+    public void SetActivationGas_AtStylusActivationGasAfterReset_ReturnsZero()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out _, out ArbosStorage storage);
+        StylusPrograms programs = new(storage, ArbosVersion.StylusActivationGas);
+
+        programs.SetActivationGas(5_000_000);
+        programs.SetActivationGas(0);
+
+        programs.GetActivationGas().Should().Be(0);
+    }
+
+    [Test]
+    public void Initialize_EmptyState_LeavesActivationGasSlotUnwritten()
+    {
+        using IDisposable disposable = TestArbosStorage.Create(out TrackingWorldState state, out ArbosStorage storage);
+        StylusPrograms.Initialize(DefaultArbosVersion, storage);
+
+        // Same write-record count as Initialize_EmptyState_InitializesState — Initialize must not touch slot [5].
         state.SetRecords.Should().HaveCount(7);
     }
 
@@ -250,7 +314,7 @@ public class StylusProgramsTests
         result.IsSuccess.Should().BeTrue();
 
         StylusParams stylusParams = programs.GetParams();
-        stylusParams.UpgradeToStylusVersion(2); // Set a higher Stylus version than the program supports
+        stylusParams.UpgradeToStylusVersion(StylusVersions.V2); // Set a higher Stylus version than the program supports
         stylusParams.Save();
 
         byte[] callData = CounterContractCallData.GetNumberCalldata();
@@ -410,6 +474,81 @@ public class StylusProgramsTests
     }
 
     [Test]
+    public void CallProgram_V59CumulativeOpenExceedsPageLimit_OOGs()
+    {
+        using StackAccessTracker tracker = new();
+        IWasmStore store = TestWasmStore.Create();
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
+
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
+        result.IsSuccess.Should().BeTrue();
+
+        // Bump runtime to v59 and inflate the outer-frames' open page count so that any
+        // non-zero footprint trips the cap. Mirrors the Nitro nested-call scenario:
+        // outer frame holds many open pages, inner call's footprint would push the cumulative
+        // total above PageLimit. The strict greater-than check (newOpen > PageLimit) means
+        // PageLimit=1 with footprint=0 would not trip, so we drive openNow well past PageLimit.
+        programs.ArbosVersion = ArbosVersion.StylusPageLimitConsensusCap;
+        StylusParams stylusParams = programs.GetParams();
+        stylusParams.SetPageLimit(128);
+        stylusParams.Save();
+        store.AddStylusPages(200);
+
+        byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
+
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        callResult.IsSuccess.Should().BeFalse();
+        callResult.Error!.Value.OperationResultType.Should().Be(StylusOperationResultType.ExecutionOutOfGas);
+    }
+
+    [Test]
+    public void CallProgram_V51WithV59WouldExceedLimit_StillCalls()
+    {
+        using StackAccessTracker tracker = new();
+        IWasmStore store = TestWasmStore.Create();
+        TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
+        state.BeginScope(IWorldState.PreGenesis);
+        (StylusPrograms programs, ICodeInfoRepository repository) = DeployTestsContract.CreateTestPrograms(state, InitBudget + ActivationBudget + CallBudget);
+        (Address caller, Address contract, BlockHeader header) = DeployTestsContract.DeployCounterContract(state, repository);
+
+        ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider(ArbosVersion.Forty);
+        CodeInfo codeInfo = repository.GetCachedCodeInfo(contract, specProvider.GenesisSpec, out _);
+
+        ProgramActivationResult result = programs.ActivateProgram(contract, Cancun.Instance, state, store, header.Timestamp, MessageRunMode.MessageCommitMode, true, tracker);
+        result.IsSuccess.Should().BeTrue();
+
+        // Same inflated open-page state that trips the v59 cap; here ArbosVersion stays at
+        // Forty so the consensus check is inactive and the call must proceed.
+        StylusParams stylusParams = programs.GetParams();
+        stylusParams.SetPageLimit(128);
+        stylusParams.Save();
+        store.AddStylusPages(200);
+
+        byte[] callData = CounterContractCallData.GetNumberCalldata();
+        using VmState<ArbitrumGasPolicy> vmState = CreateEvmState(state, caller, contract, codeInfo, callData);
+        (BlockExecutionContext blockContext, TxExecutionContext transactionContext) = CreateExecutionContext(repository, caller, header);
+        TestStylusVmHost vmHost = new(blockContext, transactionContext, vmState, state, store, specProvider.GenesisSpec);
+
+        StylusOperationResult<byte[]> callResult = programs.CallProgram(vmHost,
+            tracingInfo: null, specProvider.ChainId, l1BlockNumber: 0, reentrant: false, MessageRunMode.MessageCommitMode, debugMode: true);
+
+        // The v59 cap is inactive at v40; the call proceeds. It may succeed or fail downstream,
+        // but it must not be a PageLimit-driven entry-OOG.
+        callResult.IsSuccess.Should().BeTrue();
+    }
+
+    [Test]
     public void ProgramKeepalive_WithNonActivatedProgram_ReturnsFailure()
     {
         TrackingWorldState state = TrackingWorldState.CreateNewInMemory();
@@ -463,9 +602,9 @@ public class StylusProgramsTests
         ulong timestamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         StylusParams stylusParams = programs.GetParams();
 
-        StylusOperationResult<ushort> version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
+        StylusOperationResult<StylusVersions> version = programs.CodeHashVersion(nonActivatedCodeHash, timestamp, stylusParams);
 
-        StylusOperationResult<ushort> expected = StylusOperationResult<ushort>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
+        StylusOperationResult<StylusVersions> expected = StylusOperationResult<StylusVersions>.Failure(new(StylusOperationResultType.ProgramNotActivated, "", []));
         version.IsSuccess.Should().BeFalse();
         version.Error.Should().Be(expected.Error);
     }
@@ -488,7 +627,7 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
         Hash256 codeHashValue = new(codeHash.Bytes);
 
-        StylusOperationResult<ushort> version = programs.CodeHashVersion(codeHashValue, header.Timestamp, stylusParams);
+        StylusOperationResult<StylusVersions> version = programs.CodeHashVersion(codeHashValue, header.Timestamp, stylusParams);
 
         version.IsSuccess.Should().BeTrue();
         version.Value.Should().Be(stylusParams.StylusVersion);
@@ -668,7 +807,7 @@ public class StylusProgramsTests
         StylusParams stylusParams = programs.GetParams();
 
         stylusParams.Should().NotBeNull();
-        stylusParams.StylusVersion.Should().Be(1); // Default Stylus version
+        stylusParams.StylusVersion.Should().Be(StylusVersions.V1); // Default Stylus version
         stylusParams.InkPrice.Should().Be(10000u); // InitialInkPrice
         stylusParams.MaxStackDepth.Should().Be(262144u); // InitialStackDepth
     }

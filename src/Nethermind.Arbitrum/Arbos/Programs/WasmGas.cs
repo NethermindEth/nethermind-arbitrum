@@ -10,12 +10,11 @@ namespace Nethermind.Arbitrum.Arbos.Programs;
 
 public static class WasmGas
 {
-
     public static MultiGas WasmAccountTouchCost(IStylusVmHost vm, Address address, bool withCode)
     {
         MultiGas gas = new();
 
-        // Code access cost -> StorageAccessRead (WASM: state load)
+        // Code access cost -> StorageAccessRead (WASM: state load, Nitro v3.10.1 operations_acl_arbitrum.go:161)
         if (withCode)
         {
             long maxCodeSize = vm.Spec.MaxCodeSize;

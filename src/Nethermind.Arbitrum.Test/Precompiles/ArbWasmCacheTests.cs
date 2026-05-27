@@ -176,7 +176,7 @@ public class ArbWasmCacheTests
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.ArbosState.Programs.CacheManagersStorage.Add(ManagerA);
         PrecompileTestContextBuilder callerContext = context.WithCaller(ManagerA);
-        ushort stylusVersion = callerContext.ArbosState.Programs.GetParams().StylusVersion;
+        ushort stylusVersion = (ushort)callerContext.ArbosState.Programs.GetParams().StylusVersion;
 
         Action act = () => ArbWasmCache.CacheCodehash(callerContext, SomeCodeHash);
 
@@ -249,7 +249,7 @@ public class ArbWasmCacheTests
         StylusParams stylusParams = context.ArbosState.Programs.GetParams();
         uint activatedAtHours = ArbitrumTime.HoursSinceArbitrum(context.BlockExecutionContext.Header.Timestamp);
         Span<byte> data = stackalloc byte[32];
-        BinaryPrimitives.WriteUInt16BigEndian(data, stylusParams.StylusVersion);
+        BinaryPrimitives.WriteUInt16BigEndian(data, (ushort)stylusParams.StylusVersion);
         data[8] = (byte)(activatedAtHours >> 16);
         data[9] = (byte)(activatedAtHours >> 8);
         data[10] = (byte)activatedAtHours;

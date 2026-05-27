@@ -267,7 +267,7 @@ public class StylusProgramsFragmentTests
     }
 
     [Test]
-    public void FragmentReadGasCost_ColdAccess_TagsStorageAccess()
+    public void FragmentReadGasCost_ColdAccess_TagsStorageAccessRead()
     {
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: false, codeSize: 0);
 
@@ -287,7 +287,7 @@ public class StylusProgramsFragmentTests
     }
 
     [Test]
-    public void FragmentReadGasCost_ColdAccessWith1024ByteCode_TagsCopyCostAsStorageAccess()
+    public void FragmentReadGasCost_ColdAccessWith1024ByteCode_TagsCopyCostAsStorageAccessRead()
     {
         // 1024 bytes = 32 words; copy cost = 32 * GasCostOf.Memory.
         const long codeSize = 1024;
@@ -295,7 +295,7 @@ public class StylusProgramsFragmentTests
 
         MultiGas cost = StylusPrograms.FragmentReadGasCost(warm: false, codeSize);
 
-        // Cold-access cost + copy cost both live in StorageAccess; Computation stays at zero.
+        // Cold-access cost + copy cost both live in StorageAccessRead; Computation stays at zero.
         cost.Get(ResourceKind.StorageAccessRead).Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
         cost.Get(ResourceKind.Computation).Should().Be(0);
         cost.SingleGas().Should().Be(GasCostOf.ColdAccountAccess + expectedCopy);
@@ -304,7 +304,7 @@ public class StylusProgramsFragmentTests
     [Test]
     public void FragmentReadGasCost_WarmAccessWith1024ByteCode_SplitsAcrossDimensions()
     {
-        // Warm-access cost lands in Computation; copy cost lands in StorageAccess.
+        // Warm-access cost lands in Computation; copy cost lands in StorageAccessRead.
         const long codeSize = 1024;
         ulong expectedCopy = 32 * (ulong)GasCostOf.Memory;
 

@@ -138,7 +138,7 @@ public class ArbWasmCacheParserTests
 
         StylusParams stylusParams = _freeArbosState.Programs.GetParams();
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
-        ushort programVersion = stylusParams.StylusVersion;
+        ushort programVersion = (ushort)stylusParams.StylusVersion;
         bool programCached = false;
         ushort programInitCost = 10;
         Program program = new(programVersion, programInitCost, 0, 0, 0, 0, programAgeSeconds, programCached);
@@ -184,7 +184,7 @@ public class ArbWasmCacheParserTests
 
         StylusParams stylusParams = _freeArbosState.Programs.GetParams();
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
-        ushort programVersion = stylusParams.StylusVersion;
+        ushort programVersion = (ushort)stylusParams.StylusVersion;
         bool programCached = false;
         ushort programInitCost = 20;
         Program program = new(programVersion, programInitCost, 0, 0, 0, 0, programAgeSeconds, programCached);
@@ -257,7 +257,7 @@ public class ArbWasmCacheParserTests
         (_, Address contract, _) = DeployTestsContract.DeployCounterContract(_worldState, repository);
 
         StylusParams stylusParams = _freeArbosState.Programs.GetParams();
-        ushort programVersion = (ushort)(stylusParams.StylusVersion + 1); // make program version different from stylus version
+        ushort programVersion = (ushort)((ushort)stylusParams.StylusVersion + 1); // make program version different from stylus version
         Program program = new(programVersion, 0, 0, 0, 0, 0, 0, false);
 
         ValueHash256 codeHash = _worldState.GetCodeHash(contract);
@@ -273,7 +273,7 @@ public class ArbWasmCacheParserTests
         Action action = () => implementation!(_context, calldata);
 
         ArbitrumPrecompileException exception = action.Should().Throw<ArbitrumPrecompileException>().Which;
-        ArbitrumPrecompileException expected = ArbWasm.ProgramNeedsUpgradeError(programVersion, stylusParams.StylusVersion);
+        ArbitrumPrecompileException expected = ArbWasm.ProgramNeedsUpgradeError(programVersion, (ushort)stylusParams.StylusVersion);
         exception.Should().BeEquivalentTo(expected, o => o.ForArbitrumPrecompileException());
 
         ulong getCodeHashCost = ArbosStorage.StorageCodeHashCost;
@@ -297,7 +297,7 @@ public class ArbWasmCacheParserTests
         (_, Address contract, _) = DeployTestsContract.DeployCounterContract(_worldState, repository);
 
         StylusParams stylusParams = _freeArbosState.Programs.GetParams();
-        ushort programVersion = stylusParams.StylusVersion;
+        ushort programVersion = (ushort)stylusParams.StylusVersion;
         Program program = new(programVersion, 0, 0, 0, ActivatedAtHours: 0, 0, 0, false);
 
         ValueHash256 codeHash = _worldState.GetCodeHash(contract);
@@ -342,7 +342,7 @@ public class ArbWasmCacheParserTests
 
         StylusParams stylusParams = _freeArbosState.Programs.GetParams();
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
-        ushort programVersion = stylusParams.StylusVersion;
+        ushort programVersion = (ushort)stylusParams.StylusVersion;
         bool programCached = true;
         Program program = new(programVersion, 0, 0, 0, 0, 0, programAgeSeconds, programCached);
 
@@ -385,7 +385,7 @@ public class ArbWasmCacheParserTests
 
         StylusParams stylusParams = _freeArbosState.Programs.GetParams();
         ulong programAgeSeconds = ArbitrumTime.DaysToSeconds(stylusParams.ExpiryDays) - 1; // make program not expired
-        ushort programVersion = stylusParams.StylusVersion;
+        ushort programVersion = (ushort)stylusParams.StylusVersion;
         bool programCached = true; // make it cached from the start
         ushort programInitCost = 10;
         Program program = new(programVersion, programInitCost, 0, 0, 0, 0, programAgeSeconds, programCached);

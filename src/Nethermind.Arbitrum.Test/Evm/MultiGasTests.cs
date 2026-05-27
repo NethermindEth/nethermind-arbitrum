@@ -164,7 +164,7 @@ public class MultiGasTests
     {
         MultiGas gas = default;
 
-        // Out of range kind should throw (index >= NumResourceKinds which is 8)
+        // Out of range kind should throw (index >= NumResourceKinds which is 9).
         Action getOutOfRange = () => gas.Get((ResourceKind)99);
 
         getOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
@@ -189,12 +189,13 @@ public class MultiGasTests
         gas.Increment(ResourceKind.Computation, 21);
         gas.Increment(ResourceKind.HistoryGrowth, 15);
         gas.Increment(ResourceKind.StorageAccessRead, 5);
+        gas.Increment(ResourceKind.StorageAccessWrite, 4);
         gas.Increment(ResourceKind.StorageGrowth, 6);
         gas.Increment(ResourceKind.SingleDim, 7);
         gas.Increment(ResourceKind.L2Calldata, 8);
         gas.Increment(ResourceKind.WasmComputation, 9);
 
-        gas.Total.Should().Be(71UL);
+        gas.Total.Should().Be(75UL);
     }
 
     [Test]
@@ -398,5 +399,32 @@ public class MultiGasTests
         Action incrementOutOfRange = () => gas.Increment((ResourceKind)99, 100);
 
         incrementOutOfRange.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    // Pin enum ordering against Nitro multigas/resources.go:18-29. Drift breaks RLP layout and JSON keys.
+    [TestCase(ResourceKind.Unknown, (byte)0)]
+    [TestCase(ResourceKind.Computation, (byte)1)]
+    [TestCase(ResourceKind.HistoryGrowth, (byte)2)]
+    [TestCase(ResourceKind.StorageAccessRead, (byte)3)]
+    [TestCase(ResourceKind.StorageAccessWrite, (byte)4)]
+    [TestCase(ResourceKind.StorageGrowth, (byte)5)]
+    [TestCase(ResourceKind.SingleDim, (byte)6)]
+    [TestCase(ResourceKind.L2Calldata, (byte)7)]
+    [TestCase(ResourceKind.WasmComputation, (byte)8)]
+    public void ResourceKind_Always_HasExpectedOrdinals(ResourceKind kind, byte expectedOrdinal)
+    {
+        ((byte)kind).Should().Be(expectedOrdinal);
+    }
+
+    [Test]
+    public void Increment_SingleDim_AccumulatesIndependentlyOfOtherKinds()
+    {
+        MultiGas gas = default;
+        gas.Increment(ResourceKind.SingleDim, 5_000_000);
+        gas.Increment(ResourceKind.Computation, 1_659_168);
+
+        gas.Get(ResourceKind.SingleDim).Should().Be(5_000_000UL);
+        gas.Get(ResourceKind.Computation).Should().Be(1_659_168UL);
+        gas.Total.Should().Be(6_659_168UL);
     }
 }
