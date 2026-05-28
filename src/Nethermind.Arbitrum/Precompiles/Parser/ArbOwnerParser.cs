@@ -75,6 +75,13 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetGasPricingConstraints;
     private const uint SetMultiGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints;
     private const uint SetWasmActivationGasId = Solgen.ArbOwner.Methods.SetWasmActivationGas;
+    private const uint AddTransactionFiltererId = Solgen.ArbOwner.Methods.AddTransactionFilterer;
+    private const uint RemoveTransactionFiltererId = Solgen.ArbOwner.Methods.RemoveTransactionFilterer;
+    private const uint IsTransactionFiltererId = Solgen.ArbOwner.Methods.IsTransactionFilterer;
+    private const uint GetAllTransactionFilterersId = Solgen.ArbOwner.Methods.GetAllTransactionFilterers;
+    private const uint GetFilteredFundsRecipientId = Solgen.ArbOwner.Methods.GetFilteredFundsRecipient;
+    private const uint SetFilteredFundsRecipientId = Solgen.ArbOwner.Methods.SetFilteredFundsRecipient;
+    private const uint SetTransactionFilteringFromId = Solgen.ArbOwner.Methods.SetTransactionFilteringFrom;
 
 
     static ArbOwnerParser()
@@ -132,7 +139,14 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { SetGasBacklogId, SetGasBacklog },
             { SetGasPricingConstraintsId, SetGasPricingConstraints },
             { SetMultiGasPricingConstraintsId, SetMultiGasPricingConstraints },
-            { SetWasmActivationGasId, SetWasmActivationGas }
+            { SetWasmActivationGasId, SetWasmActivationGas },
+            { AddTransactionFiltererId, AddTransactionFilterer },
+            { RemoveTransactionFiltererId, RemoveTransactionFilterer },
+            { IsTransactionFiltererId, IsTransactionFilterer },
+            { GetAllTransactionFilterersId, GetAllTransactionFilterers },
+            { GetFilteredFundsRecipientId, GetFilteredFundsRecipient },
+            { SetFilteredFundsRecipientId, SetFilteredFundsRecipient },
+            { SetTransactionFilteringFromId, SetTransactionFilteringFrom }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -174,6 +188,13 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[SetWasmActivationGasId].ArbOSVersion = ArbosVersion.StylusActivationGas;
         PrecompileFunctionDescription[SetMultiGasPricingConstraintsId].ArbOSVersion = ArbosVersion.Sixty;
         PrecompileFunctionDescription[SetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
+        PrecompileFunctionDescription[AddTransactionFiltererId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[RemoveTransactionFiltererId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[IsTransactionFiltererId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[GetAllTransactionFilterersId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[GetFilteredFundsRecipientId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[SetFilteredFundsRecipientId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[SetTransactionFilteringFromId].ArbOSVersion = ArbosVersion.TransactionFiltering;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -866,6 +887,102 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         // We need to iterate and extract the values from the ValueTuples
         Array constraintsArray = (Array)decoded[0];
         ArbOwner.SetMultiGasPricingConstraintsFromTuples(context, constraintsArray);
+        return [];
+    }
+
+    private static byte[] AddTransactionFilterer(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[AddTransactionFiltererId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address filterer = (Address)decoded[0];
+        ArbOwner.AddTransactionFilterer(context, filterer);
+        return [];
+    }
+
+    private static byte[] RemoveTransactionFilterer(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[RemoveTransactionFiltererId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address filterer = (Address)decoded[0];
+        ArbOwner.RemoveTransactionFilterer(context, filterer);
+        return [];
+    }
+
+    private static byte[] IsTransactionFilterer(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[IsTransactionFiltererId].AbiFunctionDescription;
+
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            functionAbi.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address filterer = (Address)decoded[0];
+        bool isFilterer = ArbOwner.IsTransactionFilterer(context, filterer);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            isFilterer
+        );
+    }
+
+    private static byte[] GetAllTransactionFilterers(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        Address[] allFilterers = ArbOwner.GetAllTransactionFilterers(context);
+
+        AbiFunctionDescription functionAbi = PrecompileFunctionDescription[GetAllTransactionFilterersId].AbiFunctionDescription;
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            functionAbi.GetReturnInfo().Signature,
+            [allFilterers]
+        );
+    }
+
+    private static byte[] GetFilteredFundsRecipient(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        Address recipient = ArbOwner.GetFilteredFundsRecipient(context);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[GetFilteredFundsRecipientId].AbiFunctionDescription.GetReturnInfo().Signature,
+            recipient
+        );
+    }
+
+    private static byte[] SetFilteredFundsRecipient(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetFilteredFundsRecipientId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        Address newRecipient = (Address)decoded[0];
+        ArbOwner.SetFilteredFundsRecipient(context, newRecipient);
+        return [];
+    }
+
+    private static byte[] SetTransactionFilteringFrom(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetTransactionFilteringFromId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        ulong timestamp = (ulong)decoded[0];
+        ArbOwner.SetTransactionFilteringFrom(context, timestamp);
         return [];
     }
 }

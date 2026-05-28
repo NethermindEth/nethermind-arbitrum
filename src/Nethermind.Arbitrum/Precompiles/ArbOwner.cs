@@ -32,6 +32,9 @@ public static class ArbOwner
     public static readonly AbiEventDescription ChainOwnerRemovedEvent = Solgen.ArbOwner.Events.ChainOwnerRemoved.ToAbiEventDescription();
     public static readonly AbiEventDescription NativeTokenOwnerAddedEvent = Solgen.ArbOwner.Events.NativeTokenOwnerAdded.ToAbiEventDescription();
     public static readonly AbiEventDescription NativeTokenOwnerRemovedEvent = Solgen.ArbOwner.Events.NativeTokenOwnerRemoved.ToAbiEventDescription();
+    public static readonly AbiEventDescription TransactionFiltererAddedEvent = Solgen.ArbOwner.Events.TransactionFiltererAdded.ToAbiEventDescription();
+    public static readonly AbiEventDescription TransactionFiltererRemovedEvent = Solgen.ArbOwner.Events.TransactionFiltererRemoved.ToAbiEventDescription();
+    public static readonly AbiEventDescription FilteredFundsRecipientSetEvent = Solgen.ArbOwner.Events.FilteredFundsRecipientSet.ToAbiEventDescription();
 
     // AddChainOwner adds a new owner to the chain
     public static void AddChainOwner(ArbitrumPrecompileExecutionContext context, Address newOwner)
@@ -464,6 +467,71 @@ public static class ArbOwner
         }
 
         context.ArbosState.ChainConfigStorage.Set(serializedChainConfig);
+    }
+
+    public static void AddTransactionFilterer(ArbitrumPrecompileExecutionContext context, Address filterer)
+    {
+        context.ArbosState.TransactionFilterers.Add(filterer);
+        EmitTransactionFiltererAddedEvent(context, filterer);
+    }
+
+    public static void RemoveTransactionFilterer(ArbitrumPrecompileExecutionContext context, Address filterer)
+    {
+        if (!IsTransactionFilterer(context, filterer))
+            throw ArbitrumPrecompileException.CreateFailureException("Tried to remove non-filterer");
+
+        context.ArbosState.TransactionFilterers.Remove(filterer, context.ArbosState.CurrentArbosVersion);
+        EmitTransactionFiltererRemovedEvent(context, filterer);
+    }
+
+    public static bool IsTransactionFilterer(ArbitrumPrecompileExecutionContext context, Address filterer)
+    {
+        return context.ArbosState.TransactionFilterers.IsMember(filterer);
+    }
+
+    public static Address[] GetAllTransactionFilterers(ArbitrumPrecompileExecutionContext context)
+    {
+        return context.ArbosState.TransactionFilterers.AllMembers(AddressSet.MaxNumberOfOwners);
+    }
+
+    // GetFilteredFundsRecipient returns the address that receives funds from filtered transactions.
+    // Returns the zero address if not set, which means the network fee account is used as a fallback.
+    public static Address GetFilteredFundsRecipient(ArbitrumPrecompileExecutionContext context)
+    {
+        return context.ArbosState.FilteredFundsRecipient.Get();
+    }
+
+    // SetFilteredFundsRecipient sets the address that receives funds from filtered transactions.
+    // Setting to the zero address means the network fee account is used as a fallback.
+    public static void SetFilteredFundsRecipient(ArbitrumPrecompileExecutionContext context, Address newRecipient)
+    {
+        context.ArbosState.FilteredFundsRecipient.Set(newRecipient);
+        EmitFilteredFundsRecipientSetEvent(context, newRecipient);
+    }
+
+    // SetTransactionFilteringFrom sets a time in epoch seconds from which transaction filtering is active.
+    // Setting to 0 disables filtering.
+    public static void SetTransactionFilteringFrom(ArbitrumPrecompileExecutionContext context, ulong timestamp)
+    {
+        context.ArbosState.TransactionFilteringEnabledTime.Set(timestamp);
+    }
+
+    private static void EmitTransactionFiltererAddedEvent(ArbitrumPrecompileExecutionContext context, Address filterer)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(TransactionFiltererAddedEvent, Address, filterer);
+        EventsEncoder.EmitEvent(context, log);
+    }
+
+    private static void EmitTransactionFiltererRemovedEvent(ArbitrumPrecompileExecutionContext context, Address filterer)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(TransactionFiltererRemovedEvent, Address, filterer);
+        EventsEncoder.EmitEvent(context, log);
+    }
+
+    private static void EmitFilteredFundsRecipientSetEvent(ArbitrumPrecompileExecutionContext context, Address newRecipient)
+    {
+        LogEntry log = EventsEncoder.BuildLogEntryFromEvent(FilteredFundsRecipientSetEvent, Address, newRecipient);
+        EventsEncoder.EmitEvent(context, log);
     }
 
     private static void EmitChainOwnerAddedEvent(ArbitrumPrecompileExecutionContext context, Address owner)
