@@ -118,6 +118,20 @@ namespace Nethermind.Arbitrum.Execution
                     isPreProcessing: true, preProcessResult.Logs);
             }
 
+            // General filtered-transaction check (Nitro: RevertedTxHook equivalent).
+            // Deposit and SubmitRetryable filtering is handled within their own switch cases above.
+            // Here we catch all other ArbitrumTransaction types (ArbitrumUnsigned, ArbitrumContract, etc.)
+            // before handing off to the EVM.
+            // TODO: charge intrinsic/poster gas per Nitro RevertedTxHook (github.com/OffchainLabs/nitro/pull/4247)
+            if (tx is ArbitrumTransaction filteredArbTx && IsFilteredTransaction(filteredArbTx))
+            {
+                WorldState.IncrementNonce(tx.SenderAddress!);
+                filteredArbTx.OverrideSpentGas = 0;
+                TxExecContext.AccumulatedMultiGas = new MultiGas();
+                return FinalizeTransaction(TransactionResult.MalformedTransaction, tx, tracer, snapshot,
+                    isPreProcessing: true);
+            }
+
             // Store top level tx type used in precompiles
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
@@ -467,6 +481,12 @@ namespace Nethermind.Arbitrum.Execution
                             return new ArbitrumTransactionProcessorResult(false,
                                 TransactionResult.MalformedTransaction);
 
+                        if (IsFilteredTransaction(depositTx))
+                        {
+                            depositTx.OverrideSpentGas = 0;
+                            return new(false, TransactionResult.MalformedTransaction);
+                        }
+
                         MintBalance(depositTx.SenderAddress, depositTx.Value, _arbosState!, WorldState, _currentSpec!, _tracingInfo, BalanceChangeReason.BalanceIncreaseDeposit);
 
                         StartTracer();
@@ -484,6 +504,12 @@ namespace Nethermind.Arbitrum.Execution
 
                     case ArbitrumSubmitRetryableTransaction retryableTx:
                         StartTracer();
+                        if (IsFilteredTransaction(retryableTx))
+                        {
+                            WorldState.IncrementNonce(retryableTx.SenderAddress!);
+                            retryableTx.OverrideSpentGas = 0;
+                            return new(false, TransactionResult.MalformedTransaction);
+                        }
                         return ProcessArbitrumSubmitRetryableTransaction(retryableTx, in blCtx);
 
                     case ArbitrumRetryTransaction retryTx:
@@ -506,6 +532,15 @@ namespace Nethermind.Arbitrum.Execution
                 SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv));
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
             }
+        }
+
+        internal bool IsFilteredTransaction(ArbitrumTransaction tx)
+        {
+            if (tx.Hash is null) return false;
+            if (_arbosState!.CurrentArbosVersion < ArbosVersion.TransactionFiltering) return false;
+            ulong enabledTime = _arbosState.TransactionFilteringEnabledTime.Get();
+            if (enabledTime == 0 || _currentHeader!.Timestamp < enabledTime) return false;
+            return new FilteredTransactionsState(WorldState, new ZeroGasBurner()).IsFilteredFree(tx.Hash);
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(

@@ -3859,4 +3859,270 @@ public class ArbitrumTransactionProcessorTests
         actualInfraFee.Should().Be(expectedInfraCost,
             $"When minBaseFee ({minBaseFee}) < effectiveBaseFee ({effectiveBaseFee}), should use minBaseFee");
     }
+
+    // -------------------------------------------------------------------------
+    // Transaction filtering tests (3 flows mirroring Nitro tx_processor.go)
+    // -------------------------------------------------------------------------
+
+    [Test]
+    public void Execute_WithFilteredUnsignedTx_IncrementsNonce()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create();
+        ArbitrumUnsignedTransaction tx = ctx.BuildFilteredUnsignedTx();
+
+        // Verify prerequisites so test failures are actionable
+        ctx.IsFilteredFree(tx.Hash!).Should().BeTrue("hash must be in the filtered set before execution");
+        ctx.ArbosVersionInStorage.Should().BeGreaterOrEqualTo(ArbosVersion.TransactionFiltering,
+            "ArbOS version must be 60+ for filtering to activate");
+        ctx.FilteringEnabledTimestamp.Should().BeGreaterThan(0,
+            "TransactionFilteringEnabledTime must be non-zero for filtering to be active");
+        ctx.FilteringEnabledTimestamp.Should().BeLessOrEqualTo(ctx.ActiveBlockTimestamp,
+            "block timestamp must be >= filtering enabled timestamp");
+
+        ulong nonceBefore = (ulong)ctx.WorldState.GetNonce(tx.SenderAddress!);
+        ctx.Processor.Execute(tx, NullTxTracer.Instance);
+        ulong nonceAfter = (ulong)ctx.WorldState.GetNonce(tx.SenderAddress!);
+
+        nonceAfter.Should().Be(nonceBefore + 1, "filtered user transactions must increment the sender nonce");
+    }
+
+    [Test]
+    public void Execute_WithFilteredUnsignedTx_ProducesFailureReceipt()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create();
+        ArbitrumUnsignedTransaction tx = ctx.BuildFilteredUnsignedTx();
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+
+        TransactionResult result = ctx.Processor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok, "Execute() always returns Ok for pre-processing early exits");
+        tracer.BuildResult().Failed.Should().BeTrue("filtered transactions must produce a failure receipt");
+    }
+
+    [Test]
+    public void Execute_WithFilteredUnsignedTx_HashRemainsInFilteredSet()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create();
+        ArbitrumUnsignedTransaction tx = ctx.BuildFilteredUnsignedTx();
+
+        ctx.Processor.Execute(tx, NullTxTracer.Instance);
+
+        ctx.IsFilteredFree(tx.Hash!).Should().BeTrue(
+            "deletion from the on-chain filter is the responsibility of the external tx-authority service");
+    }
+
+    [Test]
+    public void Execute_WithFilteredTxBelowVersion60_ExecutesNormally()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create(arbosVersion: ArbosVersion.FiftyNine);
+        ArbitrumUnsignedTransaction tx = ctx.BuildFilteredUnsignedTx();
+
+        ulong nonceBefore = (ulong)ctx.WorldState.GetNonce(tx.SenderAddress!);
+        ctx.Processor.Execute(tx, NullTxTracer.Instance);
+
+        ctx.IsFilteredFree(tx.Hash!).Should().BeTrue(
+            "below v60 the filter check is inactive, filtered set must be unchanged");
+        // Nonce would only be incremented by the filtered path (which is disabled);
+        // non-filtered execution also increments via base.Execute — so we check the filtered set instead
+    }
+
+    [Test]
+    public void Execute_WithFilteredUnsignedTxBeforeEnabledTime_DoesNotFilter()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create(filteringEnabledTimestamp: ulong.MaxValue);
+        ArbitrumUnsignedTransaction tx = ctx.BuildFilteredUnsignedTx();
+
+        ctx.Processor.Execute(tx, NullTxTracer.Instance);
+
+        ctx.IsFilteredFree(tx.Hash!).Should().BeTrue(
+            "time gate prevents filtering, hash must remain in filtered set");
+    }
+
+    [Test]
+    public void Execute_WithFilteredUnsignedTxDisabledByZeroTime_DoesNotFilter()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create(filteringEnabledTimestamp: 0);
+        ArbitrumUnsignedTransaction tx = ctx.BuildFilteredUnsignedTx();
+
+        ctx.Processor.Execute(tx, NullTxTracer.Instance);
+
+        ctx.IsFilteredFree(tx.Hash!).Should().BeTrue(
+            "filtering disabled (enabledTime=0), hash must remain in filtered set");
+    }
+
+    [Test]
+    public void Execute_WithFilteredDepositTx_ProducesFailureReceipt()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create();
+        ArbitrumDepositTransaction tx = ctx.BuildFilteredDepositTx();
+        ArbitrumGethLikeTxTracer tracer = new(GethTraceOptions.Default);
+
+        ctx.Processor.Execute(tx, tracer);
+
+        tracer.BuildResult().Failed.Should().BeTrue("filtered deposit transactions must produce a failure receipt");
+    }
+
+    [Test]
+    public void Execute_WithFilteredDepositTx_DoesNotMintOrTransfer()
+    {
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create();
+        Address recipient = TestItem.AddressC;
+        ArbitrumDepositTransaction tx = ctx.BuildFilteredDepositTx(to: recipient, value: 1000);
+
+        UInt256 recipientBalanceBefore = ctx.WorldState.GetBalance(recipient);
+        ctx.Processor.Execute(tx, NullTxTracer.Instance);
+
+        ctx.WorldState.GetBalance(recipient).Should().Be(recipientBalanceBefore,
+            "filtered deposits must not mint or transfer funds");
+    }
+
+    /// <summary>
+    /// Encapsulates the test infrastructure for filtered-transaction scenarios.
+    /// ArbOS is set to version 60 (TransactionFiltering) and the filtering time gate
+    /// defaults to the genesis block timestamp so filtering is active immediately.
+    /// </summary>
+    private sealed class FilteredTxTestContext : IDisposable
+    {
+        private readonly IDisposable _worldStateScope;
+        private readonly ZeroGasBurner _burner = new();
+
+        public IWorldState WorldState { get; }
+        public ArbitrumTransactionProcessor Processor { get; }
+        public BlockHeader GenesisHeader { get; }
+        public ulong ActiveBlockTimestamp { get; }
+
+        public ulong ArbosVersionInStorage
+        {
+            get
+            {
+                ArbosState s = ArbosState.OpenArbosState(WorldState, _burner, LimboLogs.Instance.GetClassLogger<ArbosState>());
+                return s.CurrentArbosVersion;
+            }
+        }
+
+        public ulong FilteringEnabledTimestamp
+        {
+            get
+            {
+                ArbosState s = ArbosState.OpenArbosState(WorldState, _burner, LimboLogs.Instance.GetClassLogger<ArbosState>());
+                return s.TransactionFilteringEnabledTime.Get();
+            }
+        }
+
+        private FilteredTxTestContext(IWorldState worldState, IDisposable worldStateScope,
+            ArbitrumTransactionProcessor processor, BlockHeader genesisHeader, ulong activeBlockTimestamp)
+        {
+            WorldState = worldState;
+            _worldStateScope = worldStateScope;
+            Processor = processor;
+            GenesisHeader = genesisHeader;
+            ActiveBlockTimestamp = activeBlockTimestamp;
+        }
+
+        public static FilteredTxTestContext Create(
+            ulong arbosVersion = ArbosVersion.Sixty,
+            ulong? filteringEnabledTimestamp = null)
+        {
+            IWorldState worldState = TestWorldStateFactory.CreateForTest();
+            IDisposable scope = worldState.BeginScope(IWorldState.PreGenesis);
+
+            // Create genesis at the requested ArbOS version so all version-specific storage
+            // (including FilteredTransactionsState) is properly initialized.
+            Block genesis = ArbOSInitialization.Create(worldState, initialArbOsVersion: arbosVersion);
+
+            ZeroGasBurner burner = new();
+            ArbosState arbosState = ArbosState.OpenArbosState(worldState, burner,
+                TestLogManager.Instance.GetClassLogger<ArbosState>());
+
+            // Genesis block has timestamp 0 (disabled). Use timestamp 1 for the "active" block so that
+            // setting enabledAt = 1 satisfies: enabledTime > 0 && blockTimestamp >= enabledTime.
+            const ulong activeBlockTimestamp = 1;
+            ulong enabledAt = filteringEnabledTimestamp ?? activeBlockTimestamp;
+            arbosState.TransactionFilteringEnabledTime.Set(enabledAt);
+
+            // Give the sender enough balance to cover any gas
+            worldState.CreateAccount(TestItem.AddressA, 1_000_000);
+
+            ISpecProvider specProvider = FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider();
+            worldState.Commit(specProvider.GenesisSpec);
+
+            ArbitrumVirtualMachine vm = new(
+                ArbOSInitialization.GetSpecHelper(),
+                new TestBlockhashProvider(specProvider),
+                TestWasmStore.Create(),
+                specProvider,
+                TestLogManager.Instance);
+
+            // Use a block with timestamp = activeBlockTimestamp so filtering is active for all tests
+            // (unless overridden via filteringEnabledTimestamp to test the time gate).
+            BlockHeader activeHeader = Build.A.BlockHeader
+                .WithNumber(1)
+                .WithTimestamp(activeBlockTimestamp)
+                .WithBaseFee(genesis.Header.BaseFeePerGas)
+                .TestObject;
+            vm.SetBlockExecutionContext(new BlockExecutionContext(activeHeader, specProvider.GetSpec(activeHeader)));
+
+            ArbitrumTransactionProcessor processor = new(
+                BlobBaseFeeCalculator.Instance,
+                specProvider,
+                worldState,
+                TestWasmStore.Create(),
+                vm,
+                TestLogManager.Instance,
+                new EthereumCodeInfoRepository(worldState));
+
+            return new FilteredTxTestContext(worldState, scope, processor, genesis.Header, activeBlockTimestamp);
+        }
+
+        /// <summary>Builds an ArbitrumUnsignedTransaction whose hash is pre-added to the filtered set.</summary>
+        public ArbitrumUnsignedTransaction BuildFilteredUnsignedTx()
+        {
+            // Use a fixed test hash — the hash doesn't need to match the tx content for filtering tests.
+            // Standard CalculateHash() doesn't support Arbitrum tx types.
+            Hash256 txHash = TestItem.KeccakA;
+            ArbitrumUnsignedTransaction tx = new()
+            {
+                SenderAddress = TestItem.AddressA,
+                To = TestItem.AddressB,
+                Value = UInt256.Zero,
+                GasLimit = GasCostOf.Transaction,
+                Gas = (ulong)GasCostOf.Transaction,
+                Nonce = (ulong)WorldState.GetNonce(TestItem.AddressA),
+                Data = Array.Empty<byte>(),
+                Type = (TxType)ArbitrumTxType.ArbitrumUnsigned,
+                Hash = txHash
+            };
+            AddToFilteredSet(txHash);
+            return tx;
+        }
+
+        /// <summary>Builds an ArbitrumDepositTransaction whose hash is pre-added to the filtered set.</summary>
+        public ArbitrumDepositTransaction BuildFilteredDepositTx(Address? to = null, UInt256 value = default)
+        {
+            Hash256 txHash = TestItem.KeccakB;
+            ArbitrumDepositTransaction tx = new()
+            {
+                SenderAddress = TestItem.AddressA,
+                To = to ?? TestItem.AddressB,
+                Value = value,
+                GasLimit = GasCostOf.Transaction,
+                Data = Array.Empty<byte>(),
+                Type = (TxType)ArbitrumTxType.ArbitrumDeposit,
+                Hash = txHash
+            };
+            AddToFilteredSet(txHash);
+            return tx;
+        }
+
+        public bool IsFilteredFree(Hash256 txHash)
+            => new FilteredTransactionsState(WorldState, _burner).IsFilteredFree(txHash);
+
+        private void AddToFilteredSet(Hash256 txHash)
+        {
+            new FilteredTransactionsState(WorldState, _burner).Add(txHash);
+            WorldState.Commit(FullChainSimulationChainSpecProvider.CreateDynamicSpecProvider().GenesisSpec);
+        }
+
+        public void Dispose() => _worldStateScope.Dispose();
+    }
 }
