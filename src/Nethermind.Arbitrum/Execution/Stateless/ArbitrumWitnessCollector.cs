@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Diagnostics;
 using Nethermind.Core;
 using Nethermind.Consensus.Stateless;
 using Nethermind.Arbitrum.Arbos;
@@ -13,9 +14,14 @@ using Nethermind.Core.Specs;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
+/// <summary>Per-phase timing breakdown of <see cref="IBlockBuildingWitnessCollector.BuildBlockAndGetWitness"/>.</summary>
+public readonly record struct BuildBlockPhaseTimings(
+    TimeSpan BuildBlockElapsed,
+    TimeSpan CollectWitnessElapsed);
+
 public interface IBlockBuildingWitnessCollector
 {
-    Task<(Block Block, ArbitrumWitness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes);
+    Task<(Block Block, ArbitrumWitness Witness, BuildBlockPhaseTimings Timings)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes);
 }
 
 public class ArbitrumWitnessCollector(
@@ -25,8 +31,10 @@ public class ArbitrumWitnessCollector(
     ISpecProvider specProvider,
     IArbitrumSpecHelper specHelper) : IBlockBuildingWitnessCollector
 {
-    public async Task<(Block Block, ArbitrumWitness Witness)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes)
+    public async Task<(Block Block, ArbitrumWitness Witness, BuildBlockPhaseTimings Timings)> BuildBlockAndGetWitness(BlockHeader parentHeader, PayloadAttributes payloadAttributes)
     {
+        Stopwatch sw = Stopwatch.StartNew();
+
         using (worldState.BeginScope(parentHeader))
         {
             ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), NullLogger.Instance);
@@ -46,10 +54,12 @@ public class ArbitrumWitnessCollector(
         Block? producedBlock = await blockProducer.BuildBlock(parentHeader: parentHeader, payloadAttributes: payloadAttributes);
         if (producedBlock?.Hash is null)
             throw new NullReferenceException($"Failed to build block with parent header number: {parentHeader.Number} and hash: {parentHeader.Hash}");
+        TimeSpan buildBlockElapsed = sw.Elapsed;
 
         Witness witness = worldState.GetWitness(parentHeader);
         ArbitrumWitness arbitrumWitness = new(witness, wasmsRecorder.UserWasms);
+        TimeSpan collectWitnessElapsed = sw.Elapsed - buildBlockElapsed;
 
-        return (producedBlock, arbitrumWitness);
+        return (producedBlock, arbitrumWitness, new BuildBlockPhaseTimings(buildBlockElapsed, collectWitnessElapsed));
     }
 }

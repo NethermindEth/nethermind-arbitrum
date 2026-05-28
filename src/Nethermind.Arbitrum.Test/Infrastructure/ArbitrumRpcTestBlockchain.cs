@@ -336,7 +336,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
         IArbitrumWitnessGeneratingBlockProcessingEnvFactory factory = Container.Resolve<IArbitrumWitnessGeneratingBlockProcessingEnvFactory>();
         using IWitnessGeneratingBlockProcessingEnvScope scope = factory.CreateScope(wasmTargets);
         IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-        (Block _, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+        (Block _, ArbitrumWitness witness, _) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
         return witness;
     }
 

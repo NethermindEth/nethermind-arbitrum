@@ -454,7 +454,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
                     expectedParentHash = processedBlock.Hash!;
 
-                    MaybeCap();
+                    MaybeCap(block.Number);
 
                     if (_logger.IsDebug && blockNumber % 100 == 0)
                         _logger.Debug($"State reconstruction progress: {blockNumber - startBlock + 1}/{endBlock - startBlock + 1} blocks");
@@ -566,10 +566,14 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// <remarks>
     /// Executed under _reconstructionLock
     /// </remarks>
-    private void MaybeCap()
+    private void MaybeCap(long blockNumber)
     {
         if (_trieStore.DirtySize <= _maxMemDbSize)
+        {
+            if (blockNumber % 1000 == 0 && _logger.IsDebug)
+                _logger.Debug($"MaybeCap: MemDb size {_trieStore.DirtySize / 1.MiB:F3}MB is under the limit of {_maxMemDbSize / 1.MiB:F2}MB at block {blockNumber}, no capping needed");
             return;
+        }
 
         if (_fullPruningCts.IsCancellationRequested)
         {
@@ -598,30 +602,37 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         // nodes got evicted from memDB but not yet on disk should not cause any issue.
         // Other potential validator-related operations (not under _reconstructionLock) are
         // safe to occur concurrently as they would just be no-op or not access evicted nodes.
-        using (IWriteBatch rawBatch = _mainStateDb.StartWriteBatch())
+        IWriteBatch rawBatch = _mainStateDb.StartWriteBatch();
+        // {
+
+        while (_trieStore.DirtySize > targetSize)
         {
-            while (_trieStore.DirtySize > targetSize)
+            if (_fullPruningCts.IsCancellationRequested)
             {
-                if (_fullPruningCts.IsCancellationRequested)
-                {
-                    if (_logger.IsInfo)
-                        _logger.Info($"Full pruning started while capping was in progress, aborting capping to avoid redundant disk writes");
-                    break;
-                }
-
-                if (!_preparedQueue.TryDequeue(out BlockHeader? header))
-                    break;
-
-                _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
-                count++;
+                if (_logger.IsInfo)
+                    _logger.Info($"Full pruning started while capping was in progress, aborting capping to avoid redundant disk writes");
+                break;
             }
-        }
 
+            if (!_preparedQueue.TryDequeue(out BlockHeader? header))
+                break;
+
+            _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
+            count++;
+        }
+        // }
+        long beforeDispose = Stopwatch.GetTimestamp();
+        rawBatch.Dispose();
         long stopTime = Stopwatch.GetTimestamp();
+
         totalBytesFlushed -= _trieStore.DirtySize;
-        double elapsed = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
+
+        double totalElapsed = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
+        double derefAndSpilledElapsed = Stopwatch.GetElapsedTime(startTime, beforeDispose).TotalMilliseconds;
+        double flushingToDiskElapsed = Stopwatch.GetElapsedTime(beforeDispose, stopTime).TotalMilliseconds;
+
         if (_logger.IsInfo)
-            _logger.Info($"Finished capping MemDb overlay: flushed {totalBytesFlushed / 1.MiB:F3}MB by spilling {count} of {totalCount} state roots to disk, new size {_trieStore.DirtySize / 1.MiB:F3}MB, elapsed time: {elapsed:F1}ms");
+            _logger.Info($"Finished capping MemDb overlay: flushed {totalBytesFlushed / 1.MiB:F3}MB by spilling {count} of {totalCount} state roots to disk, new size {_trieStore.DirtySize / 1.MiB:F3}MB, derefAndSpilled {derefAndSpilledElapsed:F1}ms, flushing {flushingToDiskElapsed:F1}ms, total time: {totalElapsed:F1}ms");
     }
 
     private void RecoverTxSenders(Block block)
