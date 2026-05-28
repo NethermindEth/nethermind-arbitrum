@@ -151,6 +151,22 @@ public record PrecompileTestContextBuilder(IWorldState WorldState, ulong GasSupp
         return context;
     }
 
+    public PrecompileTestContextBuilder WithTransactionFilterers(params Address[] filterers)
+    {
+        PrecompileTestContextBuilder context = this;
+        if (FreeArbosState == null || ArbosState == null)
+        {
+            context = context.WithArbosState();
+        }
+
+        foreach (Address filterer in filterers)
+        {
+            context.FreeArbosState.TransactionFilterers.Add(filterer);
+        }
+
+        return context;
+    }
+
     public PrecompileTestContextBuilder WithChainId(ulong chainId)
     {
         return this with { ChainId = chainId };

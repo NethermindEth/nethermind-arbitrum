@@ -36,7 +36,8 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
             [ArbDebugParser.Address] = new PrecompileInfo(ArbDebugParser.Instance),
             [ArbWasmCacheParser.Address] = new PrecompileInfo(ArbWasmCacheParser.Instance),
             [ArbBlsParser.Address] = new PrecompileInfo(ArbBlsParser.Instance),
-            [ArbNativeTokenManagerParser.Address] = new PrecompileInfo(ArbNativeTokenManagerParser.Instance)
+            [ArbNativeTokenManagerParser.Address] = new PrecompileInfo(ArbNativeTokenManagerParser.Instance),
+            [ArbFilteredTransactionsManagerParser.Address] = new PrecompileInfo(ArbFilteredTransactionsManagerParser.Instance)
         };
     }
 
