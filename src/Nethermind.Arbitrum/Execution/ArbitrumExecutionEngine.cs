@@ -489,18 +489,23 @@ public sealed class ArbitrumExecutionEngine(
             wasmTargets = wasmTargets.Append(localTarget).ToArray();
 
         // Default values used by the finally block if we throw before each phase actually runs.
+        TimeSpan setupScopeElapsed = TimeSpan.Zero;
         BuildBlockPhaseTimings buildTimings = default;
         TimeSpan waitCanonicalElapsed = TimeSpan.Zero;
         TimeSpan updateValidHeaderElapsed = TimeSpan.Zero;
         try
         {
+            long setupStart = Stopwatch.GetTimestamp();
             using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
             IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
+            setupScopeElapsed = Stopwatch.GetElapsedTime(setupStart);
+
             (Block builtBlock, ArbitrumWitness witness, BuildBlockPhaseTimings timings) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
             buildTimings = timings;
 
             using (witness)
             {
+                long waitStart = Stopwatch.GetTimestamp();
                 if (builtBlock.Hash is null)
                     return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
@@ -516,7 +521,6 @@ public sealed class ArbitrumExecutionEngine(
 
                 try
                 {
-                    long waitStart = Stopwatch.GetTimestamp();
                     // Check immediately in case the block was committed before we subscribed
                     Hash256? canonicalHash = blockTree.FindCanonicalBlockInfo(blockNumber)?.BlockHash;
                     if (canonicalHash is null)
@@ -530,8 +534,9 @@ public sealed class ArbitrumExecutionEngine(
                     if (canonicalHash != builtBlock.Hash)
                         return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
+                    long updateValidHeaderStart = Stopwatch.GetTimestamp();
                     stateReconstructor.UpdateValidCandidateHeader(parent);
-                    updateValidHeaderElapsed = Stopwatch.GetElapsedTime(waitStart);
+                    updateValidHeaderElapsed = Stopwatch.GetElapsedTime(updateValidHeaderStart);
 
                     RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
                     return ResultWrapper<RecordResult>.Success(result);
@@ -557,6 +562,7 @@ public sealed class ArbitrumExecutionEngine(
                 $"[RecordBlockCreation] block {blockNumber} phases: " +
                 $"pruningGate={pruningGateElapsed.TotalMilliseconds:F1}ms, " +
                 $"ensureState={ensureStateElapsed.TotalMilliseconds:F1}ms, " +
+                $"setupScope={setupScopeElapsed.TotalMilliseconds:F1}ms, " +
                 $"buildBlock={buildTimings.BuildBlockElapsed.TotalMilliseconds:F1}ms, " +
                 $"collectWitness={buildTimings.CollectWitnessElapsed.TotalMilliseconds:F1}ms, " +
                 $"waitCanonical={waitCanonicalElapsed.TotalMilliseconds:F1}ms, " +

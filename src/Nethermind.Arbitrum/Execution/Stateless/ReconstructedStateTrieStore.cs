@@ -146,7 +146,7 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     /// <param name="rawBatch">A raw <see cref="IWriteBatch"/> against the main state DB.
     /// The caller is responsible for disposing (flushing) the batch after this call returns.</param>
     /// <param name="mainStateDb">The main state DB, used for the root-level short-circuit check.</param>
-    public void DereferenceAndSpill(Hash256 stateRoot, IWriteBatch rawBatch, IKeyValueStore mainStateDb)
+    public void DereferenceAndSpill(Hash256 stateRoot, IWriteBatch rawBatch, IKeyValueStore mainStateDb, ref long actualFlushCount, ref long actualFlushSize, ref long maxStackSize)
     {
         byte[] rootKey = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
         lock (_refCountLock)
@@ -165,16 +165,23 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             while (stack.TryPop(out var entry))
             {
                 if (!_parents.TryGetValue(entry.Key, out int count))
+                {
+                    maxStackSize = System.Math.Max(maxStackSize, stack.Count);
                     continue;
+                }
 
                 byte[] rlp = _memDb[entry.Key]!;
                 rawBatch.PutSpan(entry.Key, rlp);
+
+                actualFlushCount++;
+                actualFlushSize += rlp.Length;
 
                 if (entry.SpillOnly)
                 {
                     if (_children.TryGetValue(entry.Key, out var spillChildren))
                         foreach (byte[] c in spillChildren)
                             stack.Push((c, true));
+                    maxStackSize = System.Math.Max(maxStackSize, stack.Count);
                     continue;
                 }
 
@@ -194,6 +201,8 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                         foreach (byte[] c in exclusiveChildren)
                             stack.Push((c, false));
                 }
+
+                maxStackSize = System.Math.Max(maxStackSize, stack.Count);
             }
         }
     }

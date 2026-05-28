@@ -604,6 +604,9 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         // safe to occur concurrently as they would just be no-op or not access evicted nodes.
         IWriteBatch rawBatch = _mainStateDb.StartWriteBatch();
         // {
+        long actualFlushCount = 0;
+        long actualFlushSize = 0;
+        long maxStackSize = 0;
 
         while (_trieStore.DirtySize > targetSize)
         {
@@ -617,7 +620,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
             if (!_preparedQueue.TryDequeue(out BlockHeader? header))
                 break;
 
-            _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
+            _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb, ref actualFlushCount, ref actualFlushSize, ref maxStackSize);
             count++;
         }
         // }
@@ -632,7 +635,17 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         double flushingToDiskElapsed = Stopwatch.GetElapsedTime(beforeDispose, stopTime).TotalMilliseconds;
 
         if (_logger.IsInfo)
-            _logger.Info($"Finished capping MemDb overlay: flushed {totalBytesFlushed / 1.MiB:F3}MB by spilling {count} of {totalCount} state roots to disk, new size {_trieStore.DirtySize / 1.MiB:F3}MB, derefAndSpilled {derefAndSpilledElapsed:F1}ms, flushing {flushingToDiskElapsed:F1}ms, total time: {totalElapsed:F1}ms");
+            _logger.Info(
+                $"Finished capping MemDb overlay: " +
+                $"flushed evicted size {totalBytesFlushed / 1.MiB:F3}MB, " +
+                $"flushed total size {actualFlushSize / 1.MiB:F3}MB " +
+                $"flushed count {actualFlushCount} nodes, " +
+                $"max stack size reached: {maxStackSize}" +
+                $"by spilling {count} of {totalCount} state roots to disk, " +
+                $"new size {_trieStore.DirtySize / 1.MiB:F3}MB, " +
+                $"derefAndSpilled {derefAndSpilledElapsed:F1}ms, " +
+                $"flushing {flushingToDiskElapsed:F1}ms, " +
+                $"total time: {totalElapsed:F1}ms");
     }
 
     private void RecoverTxSenders(Block block)
