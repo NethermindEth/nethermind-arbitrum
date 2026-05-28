@@ -231,6 +231,10 @@ public class ArbOwnerTests
     public void EventTopics_AllEvents_MatchExpectedHashes()
     {
         ArbOwner.OwnerActsEvent.GetHash().Should().Be(ExpectedOwnerActsTopic);
+        ArbOwner.ChainOwnerAddedEvent.GetHash().Should().Be(new Hash256(Solgen.ArbOwner.Events.ChainOwnerAdded.Topic0Hex));
+        ArbOwner.ChainOwnerRemovedEvent.GetHash().Should().Be(new Hash256(Solgen.ArbOwner.Events.ChainOwnerRemoved.Topic0Hex));
+        ArbOwner.NativeTokenOwnerAddedEvent.GetHash().Should().Be(new Hash256(Solgen.ArbOwner.Events.NativeTokenOwnerAdded.Topic0Hex));
+        ArbOwner.NativeTokenOwnerRemovedEvent.GetHash().Should().Be(new Hash256(Solgen.ArbOwner.Events.NativeTokenOwnerRemoved.Topic0Hex));
     }
 
     [Test]
@@ -883,7 +887,7 @@ public class ArbOwnerTests
     }
 
     [Test]
-    public void SetMaxStylusContractFragments_BelowSixtyArbOSVersion_IsRejected()
+    public void SetMaxStylusContractFragments_BelowArbOSSixty_IsRejected()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.WithArbosVersion(ArbosVersion.Sixty - 1);
@@ -896,7 +900,7 @@ public class ArbOwnerTests
     }
 
     [Test]
-    public void SetMaxStylusContractFragments_AtSixtyArbOSVersion_IsDispatched()
+    public void SetMaxStylusContractFragments_AtArbOSSixty_IsDispatched()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
         context = context.WithExecutingAccount(ArbOwnerParser.Address);
@@ -1091,5 +1095,102 @@ public class ArbOwnerTests
         log.Topics.Should().HaveCount(3);
         log.Topics[0].Should().Be(ExpectedOwnerActsTopic);
         log.Data.Should().NotBeEmpty("data topic carries the ABI-encoded calldata payload");
+    }
+
+    [Test]
+    public void AddChainOwner_AtArbOSSixty_EmitsChainOwnerAddedEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.AddChainOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().Contain(log => log.Topics[0] == ArbOwner.ChainOwnerAddedEvent.GetHash());
+    }
+
+    [Test]
+    public void RemoveChainOwner_AtArbOSSixty_EmitsChainOwnerRemovedEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.ChainOwners.Add(ExampleOwnerA);
+
+        ArbOwner.RemoveChainOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().Contain(log => log.Topics[0] == ArbOwner.ChainOwnerRemovedEvent.GetHash());
+    }
+
+    [Test]
+    public void AddNativeTokenOwner_AtArbOSSixty_EmitsNativeTokenOwnerAddedEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp - 1);
+
+        ArbOwner.AddNativeTokenOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().Contain(log => log.Topics[0] == ArbOwner.NativeTokenOwnerAddedEvent.GetHash());
+    }
+
+    [Test]
+    public void RemoveNativeTokenOwner_AtArbOSSixty_EmitsNativeTokenOwnerRemovedEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.NativeTokenOwners.Add(ExampleOwnerA);
+
+        ArbOwner.RemoveNativeTokenOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().Contain(log => log.Topics[0] == ArbOwner.NativeTokenOwnerRemovedEvent.GetHash());
+    }
+
+    [Test]
+    public void AddChainOwner_BelowArbOSSixty_DoesNotEmitTypedOwnerEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.FiftyNine);
+
+        ArbOwner.AddChainOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().NotContain(log => log.Topics[0] == ArbOwner.ChainOwnerAddedEvent.GetHash());
+    }
+
+    [Test]
+    public void RemoveChainOwner_BelowArbOSSixty_DoesNotEmitTypedOwnerEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.FiftyNine);
+        context.ArbosState.ChainOwners.Add(ExampleOwnerA);
+
+        ArbOwner.RemoveChainOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().NotContain(log => log.Topics[0] == ArbOwner.ChainOwnerRemovedEvent.GetHash());
+    }
+
+    [Test]
+    public void AddNativeTokenOwner_BelowArbOSSixty_DoesNotEmitTypedOwnerEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.FiftyNine);
+        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp - 1);
+
+        ArbOwner.AddNativeTokenOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().NotContain(log => log.Topics[0] == ArbOwner.NativeTokenOwnerAddedEvent.GetHash());
+    }
+
+    [Test]
+    public void RemoveNativeTokenOwner_BelowArbOSSixty_DoesNotEmitTypedOwnerEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.FiftyNine);
+        context.ArbosState.NativeTokenOwners.Add(ExampleOwnerA);
+
+        ArbOwner.RemoveNativeTokenOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().NotContain(log => log.Topics[0] == ArbOwner.NativeTokenOwnerRemovedEvent.GetHash());
+    }
+
+    [Test]
+    public void AddChainOwner_AtArbOSSixty_TypedEventEncodesOwnerAddress()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        LogEntry expectedLog = EventsEncoder.BuildLogEntryFromEvent(ArbOwner.ChainOwnerAddedEvent, ArbOwner.Address, ExampleOwnerA);
+
+        ArbOwner.AddChainOwner(context, ExampleOwnerA);
+
+        context.EventLogs.Should().ContainEquivalentOf(expectedLog);
     }
 }
