@@ -27,7 +27,7 @@ public class ArbNullTxTracerTest
     private readonly Hash256 _dummyHash = Hash256.Zero;
     private readonly StorageCell _dummyStorageCell = new(Address.Zero, UInt256.Zero);
 
-    private void AssertThrows(TestDelegate code)
+    private void AssertThrows(Action code)
     {
         var ex = Assert.Throws<InvalidOperationException>(code);
         Assert.That(ex?.Message, Is.EqualTo(ErrorMessage));

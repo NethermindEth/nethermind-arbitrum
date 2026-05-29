@@ -29,7 +29,7 @@ public sealed class FakeStateReader : IStateReader
     public byte[]? GetCode(Hash256 codeHash) => throw new NotImplementedException();
     public byte[]? GetCode(in ValueHash256 codeHash) => throw new NotImplementedException();
 
-    public void RunTreeVisitor<TCtx>(ITreeVisitor<TCtx> treeVisitor, BlockHeader? baseBlock, VisitingOptions? visitingOptions = null)
+    public void RunTreeVisitor<TCtx>(ITreeVisitor<TCtx> treeVisitor, BlockHeader? baseBlock, VisitingOptions? visitingOptions = null, VisitingStats? diagnostics = null)
         where TCtx : struct, INodeContext<TCtx>
         => throw new NotImplementedException();
 
