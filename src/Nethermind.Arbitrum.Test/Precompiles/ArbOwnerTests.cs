@@ -1101,7 +1101,7 @@ public class ArbOwnerTests
     }
 
     [Test]
-    public void SetCollectTips_BelowSixtyArbOSVersion_DispatchRejected()
+    public void SetCollectTips_BelowArbOSSixty_DispatchRejected()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
         context.WithArbosVersion(ArbosVersion.Sixty - 1);
