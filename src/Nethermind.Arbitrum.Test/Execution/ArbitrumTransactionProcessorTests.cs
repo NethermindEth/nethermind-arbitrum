@@ -3932,10 +3932,8 @@ public class ArbitrumTransactionProcessorTests
         result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
 
         long afterBalance = ctx.WorldState.GetBalance(sender).ToLong();
-        afterBalance.Should().Be(1.Ether.ToLong() - gasLimit);
+        afterBalance.Should().Be(1.Ether.ToLong() - (gasLimit * baseFeePerGas.ToLongSafe()));
 
-        //tracer.BuildResult().Failed.Should().BeFalse(
-        //    "filtered transactions produce a success receipt — the tx was processed (nonce consumed, gas charged)");
     }
 
     [Test]

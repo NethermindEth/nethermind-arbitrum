@@ -70,6 +70,7 @@ namespace Nethermind.Arbitrum.Execution
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
         private readonly IWorldState _worldState = worldState;
+        //private bool _transactionWasFiltered;
 
         protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
@@ -118,23 +119,6 @@ namespace Nethermind.Arbitrum.Execution
                     isPreProcessing: true, preProcessResult.Logs);
             }
 
-            // General filtered-transaction check (Nitro: RevertedTxHook equivalent).
-            // Deposit and SubmitRetryable filtering is handled within their own switch cases above.
-            if (IsFilteredTransaction(tx))
-            {
-                WorldState.IncrementNonce(tx.SenderAddress!);
-
-                //TODO - consume gas
-                //BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
-                //IReleaseSpec spec = GetSpec(header);
-                //TransactionSubstate substate = new(EvmExceptionType.Revert, false);
-                //GasConsumed spentGas = tx.GasLimit;
-
-                //PayFees(tx, header, spec, tracer, in substate, spentGas.SpentGas, premiumPerGas, blobBaseFee, statusCode);
-
-                return FinalizeTransaction(FilteredTransactionResult(tx.Hash), tx, tracer, snapshot, isPreProcessing: false);
-            }
-
             // Store top level tx type used in precompiles
             TxExecContext.TopLevelTxType = (ArbitrumTxType)tx.Type;
 
@@ -142,19 +126,17 @@ namespace Nethermind.Arbitrum.Execution
             ExecutionOptions filteredOpts = opts & ~(ExecutionOptions.Restore | ExecutionOptions.Commit);
             TransactionResult evmResult = base.Execute(tx, tracer, filteredOpts);
 
-            // Post-processing changes the state - run only if EVM execution actually proceeded
             if (evmResult)
             {
                 PostProcessArbitrumTransaction(tx);
             }
 
-            // Commit / restore according to options
-            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, snapshot,
-                isPreProcessing: false);
+            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, snapshot, false);
         }
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
+            //_transactionWasFiltered = false;
             Metrics.ResetTransactionTracking();
 
             ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!,
@@ -420,7 +402,13 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.MarkAsSuccess(tx.To!, gasUsed, [], additionalLogs?.ToArray() ?? [], stateRoot);
                 }
                 else
+                {
+                    // isPreProcessing failures that consumed gas (filtered transactions) still count
+                    // toward block gas, matching Nitro where gasUsed = gasLimit for filtered txs.
+                    if (isPreProcessing && gasUsed > 0)
+                        _currentHeader!.GasUsed += gasUsed;
                     tracer.MarkAsFailed(tx.To!, gasUsed, [], result.ToString(), stateRoot);
+                }
             }
             return isPreProcessing ? TransactionResult.Ok : result;
         }
@@ -546,55 +534,22 @@ namespace Nethermind.Arbitrum.Execution
             return new FilteredTransactionsState(WorldState, new ZeroGasBurner()).IsFilteredFree(tx.Hash);
         }
 
+        protected override bool ShouldExecuteEvm(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
+            int delegationRefunds, IntrinsicGas<ArbitrumGasPolicy> gas,
+            in StackAccessTracker accessedItems, ArbitrumGasPolicy gasAvailable, ExecutionEnvironment env, out TransactionSubstate substate,
+            out GasConsumed gasConsumed, out int statusCode)
+        {
+            gasConsumed = tx.GasLimit;
+            statusCode = StatusCode.Failure;
+            substate = new TransactionSubstate(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
+            //_transactionWasFiltered = true;
+            return false;
+        }
+
         private Address GetFilteredFundsRecipient()
         {
             Address recipient = _arbosState!.FilteredFundsRecipient.Get();
             return recipient == Address.Zero ? _arbosState.NetworkFeeAccount.Get() : recipient;
-        }
-
-        /// <summary>
-        /// Charges intrinsic + poster gas for a filtered transaction (Nitro: RevertedTxHook gas charge).
-        /// Deducts from sender and distributes to fee accounts via the normal EndTxHook fee logic.
-        /// </summary>
-        private long ChargeFilteredGas(Transaction tx)
-        {
-            UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
-
-            long intrinsicGas = ArbitrumGasPolicy.GetRemainingGas(
-                ArbitrumGasPolicy.CalculateIntrinsicGas(tx, _currentSpec!).Standard);
-
-            ulong posterGas = 0;
-            if (baseFee > 0)
-            {
-                ulong brotliLevel = _arbosState!.BrotliCompressionLevel.Get();
-                Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
-                (UInt256 posterCost, ulong calldataUnits) = _arbosState.L1PricingState.PosterDataCost(
-                    tx, poster, brotliLevel, isTransactionProcessing: true);
-                if (calldataUnits > 0)
-                    _arbosState.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
-                posterGas = GetPosterGas(_arbosState!, baseFee, posterCost, isGasEstimation: false);
-            }
-
-            long totalGasCharged = System.Math.Min(intrinsicGas + (long)posterGas, tx.GasLimit);
-
-            TxExecContext.PosterGas = posterGas;
-            TxExecContext.PosterFee = baseFee * posterGas;
-
-            MultiGas multiGas = new();
-            multiGas.Increment(ResourceKind.Computation, (ulong)System.Math.Max(0, intrinsicGas));
-            if (posterGas > 0)
-                multiGas.Increment(ResourceKind.SingleDim, posterGas);
-            TxExecContext.AccumulatedMultiGas = multiGas;
-
-            if (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && tx.SenderAddress is not null)
-            {
-                UInt256 charge = baseFee * (ulong)totalGasCharged;
-                WorldState.SubtractFromBalance(tx.SenderAddress, charge, _currentSpec!);
-            }
-
-            HandleNormalTransactionEndTxHook(tx, (ulong)totalGasCharged);
-
-            return totalGasCharged;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
