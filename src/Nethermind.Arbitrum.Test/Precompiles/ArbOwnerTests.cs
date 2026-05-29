@@ -1114,7 +1114,7 @@ public class ArbOwnerTests
     }
 
     [Test]
-    public void SetCollectTips_AtSixtyArbOSVersion_IsDispatched()
+    public void SetCollectTips_AtArbOSSixty_IsDispatched()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
         context = context.WithExecutingAccount(ArbOwnerParser.Address);
