@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Numerics;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Data.Transactions;
@@ -9,21 +8,22 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
+using Nethermind.Arbitrum.Stylus;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
+using Nethermind.Crypto;
 using Nethermind.Evm;
+using Nethermind.Evm.CodeAnalysis;
 using Nethermind.Evm.GasPolicy;
+using Nethermind.Evm.State;
 using Nethermind.Evm.Tracing;
+using Nethermind.Evm.Tracing.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
-using Nethermind.Crypto;
-using Nethermind.Evm.CodeAnalysis;
-using Nethermind.Evm.State;
-using Nethermind.Evm.Tracing.State;
-using Nethermind.Arbitrum.Stylus;
+using System.Numerics;
 
 namespace Nethermind.Arbitrum.Execution
 {
@@ -120,16 +120,19 @@ namespace Nethermind.Arbitrum.Execution
 
             // General filtered-transaction check (Nitro: RevertedTxHook equivalent).
             // Deposit and SubmitRetryable filtering is handled within their own switch cases above.
-            // Here we catch all other ArbitrumTransaction types (ArbitrumUnsigned, ArbitrumContract, etc.)
-            // before handing off to the EVM.
-            // TODO: charge intrinsic/poster gas per Nitro RevertedTxHook (github.com/OffchainLabs/nitro/pull/4247)
-            if (tx is ArbitrumTransaction filteredArbTx && IsFilteredTransaction(filteredArbTx))
+            if (IsFilteredTransaction(tx))
             {
                 WorldState.IncrementNonce(tx.SenderAddress!);
-                filteredArbTx.OverrideSpentGas = 0;
-                TxExecContext.AccumulatedMultiGas = new MultiGas();
-                return FinalizeTransaction(TransactionResult.MalformedTransaction, tx, tracer, snapshot,
-                    isPreProcessing: true);
+
+                //TODO - consume gas
+                //BlockHeader header = VirtualMachine.BlockExecutionContext.Header;
+                //IReleaseSpec spec = GetSpec(header);
+                //TransactionSubstate substate = new(EvmExceptionType.Revert, false);
+                //GasConsumed spentGas = tx.GasLimit;
+
+                //PayFees(tx, header, spec, tracer, in substate, spentGas.SpentGas, premiumPerGas, blobBaseFee, statusCode);
+
+                return FinalizeTransaction(FilteredTransactionResult(tx.Hash), tx, tracer, snapshot, isPreProcessing: false);
             }
 
             // Store top level tx type used in precompiles
@@ -481,20 +484,21 @@ namespace Nethermind.Arbitrum.Execution
                             return new ArbitrumTransactionProcessorResult(false,
                                 TransactionResult.MalformedTransaction);
 
-                        if (IsFilteredTransaction(depositTx))
-                        {
-                            depositTx.OverrideSpentGas = 0;
-                            return new(false, TransactionResult.MalformedTransaction);
-                        }
+                        bool isFiltered = IsFilteredTransaction(depositTx);
+                        Address recipientAddress = depositTx.To;
+
+                        // Redirect deposit to FilteredFundsRecipient (defaults to networkFeeAccount).
+                        if (isFiltered)
+                            recipientAddress = GetFilteredFundsRecipient();
 
                         MintBalance(depositTx.SenderAddress, depositTx.Value, _arbosState!, WorldState, _currentSpec!, _tracingInfo, BalanceChangeReason.BalanceIncreaseDeposit);
 
                         StartTracer();
                         // We intentionally use the variant here that doesn't do tracing (instead of TransferBalance),
                         // because this transfer is represented as the outer eth transaction.
-                        Transfer(depositTx.SenderAddress!, depositTx.To, depositTx.Value, WorldState, _currentSpec!);
+                        Transfer(depositTx.SenderAddress!, recipientAddress, depositTx.Value, WorldState, _currentSpec!);
 
-                        return new ArbitrumTransactionProcessorResult(false, TransactionResult.Ok);
+                        return new ArbitrumTransactionProcessorResult(false, isFiltered ? FilteredTransactionResult(depositTx.Hash!) : TransactionResult.Ok);
 
                     case ArbitrumInternalTransaction internalTx:
                         StartTracer();
@@ -504,12 +508,6 @@ namespace Nethermind.Arbitrum.Execution
 
                     case ArbitrumSubmitRetryableTransaction retryableTx:
                         StartTracer();
-                        if (IsFilteredTransaction(retryableTx))
-                        {
-                            WorldState.IncrementNonce(retryableTx.SenderAddress!);
-                            retryableTx.OverrideSpentGas = 0;
-                            return new(false, TransactionResult.MalformedTransaction);
-                        }
                         return ProcessArbitrumSubmitRetryableTransaction(retryableTx, in blCtx);
 
                     case ArbitrumRetryTransaction retryTx:
@@ -534,13 +532,69 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        internal bool IsFilteredTransaction(ArbitrumTransaction tx)
+        internal bool IsFilteredTransaction(Transaction tx)
         {
-            if (tx.Hash is null) return false;
-            if (_arbosState!.CurrentArbosVersion < ArbosVersion.TransactionFiltering) return false;
+            if (tx.Hash is null)
+                return false;
+            if (_arbosState!.CurrentArbosVersion < ArbosVersion.TransactionFiltering)
+                return false;
+
             ulong enabledTime = _arbosState.TransactionFilteringEnabledTime.Get();
-            if (enabledTime == 0 || _currentHeader!.Timestamp < enabledTime) return false;
+            if (enabledTime == 0 || _currentHeader!.Timestamp < enabledTime)
+                return false;
+
             return new FilteredTransactionsState(WorldState, new ZeroGasBurner()).IsFilteredFree(tx.Hash);
+        }
+
+        private Address GetFilteredFundsRecipient()
+        {
+            Address recipient = _arbosState!.FilteredFundsRecipient.Get();
+            return recipient == Address.Zero ? _arbosState.NetworkFeeAccount.Get() : recipient;
+        }
+
+        /// <summary>
+        /// Charges intrinsic + poster gas for a filtered transaction (Nitro: RevertedTxHook gas charge).
+        /// Deducts from sender and distributes to fee accounts via the normal EndTxHook fee logic.
+        /// </summary>
+        private long ChargeFilteredGas(Transaction tx)
+        {
+            UInt256 baseFee = VirtualMachine.BlockExecutionContext.GetEffectiveBaseFeeForGasCalculations();
+
+            long intrinsicGas = ArbitrumGasPolicy.GetRemainingGas(
+                ArbitrumGasPolicy.CalculateIntrinsicGas(tx, _currentSpec!).Standard);
+
+            ulong posterGas = 0;
+            if (baseFee > 0)
+            {
+                ulong brotliLevel = _arbosState!.BrotliCompressionLevel.Get();
+                Address poster = VirtualMachine.BlockExecutionContext.Coinbase;
+                (UInt256 posterCost, ulong calldataUnits) = _arbosState.L1PricingState.PosterDataCost(
+                    tx, poster, brotliLevel, isTransactionProcessing: true);
+                if (calldataUnits > 0)
+                    _arbosState.L1PricingState.AddToUnitsSinceUpdate(calldataUnits);
+                posterGas = GetPosterGas(_arbosState!, baseFee, posterCost, isGasEstimation: false);
+            }
+
+            long totalGasCharged = System.Math.Min(intrinsicGas + (long)posterGas, tx.GasLimit);
+
+            TxExecContext.PosterGas = posterGas;
+            TxExecContext.PosterFee = baseFee * posterGas;
+
+            MultiGas multiGas = new();
+            multiGas.Increment(ResourceKind.Computation, (ulong)System.Math.Max(0, intrinsicGas));
+            if (posterGas > 0)
+                multiGas.Increment(ResourceKind.SingleDim, posterGas);
+            TxExecContext.AccumulatedMultiGas = multiGas;
+
+            if (!_currentOpts.HasFlag(ExecutionOptions.SkipValidation) && tx.SenderAddress is not null)
+            {
+                UInt256 charge = baseFee * (ulong)totalGasCharged;
+                WorldState.SubtractFromBalance(tx.SenderAddress, charge, _currentSpec!);
+            }
+
+            HandleNormalTransactionEndTxHook(tx, (ulong)totalGasCharged);
+
+            return totalGasCharged;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
@@ -709,6 +763,14 @@ namespace Nethermind.Arbitrum.Execution
         {
             List<LogEntry> eventLogs = new(2);
 
+            bool isFiltered = IsFilteredTransaction(tx);
+            if (isFiltered)
+            {
+                Address filteredFundsRecipient = GetFilteredFundsRecipient();
+                tx.FeeRefundAddr = filteredFundsRecipient;
+                tx.Beneficiary = filteredFundsRecipient;
+            }
+
             Address escrowAddress = GetRetryableEscrowAddress(tx.Hash!.ValueHash256);
             Address networkFeeAccount = _arbosState!.NetworkFeeAccount.Get();
 
@@ -814,7 +876,7 @@ namespace Nethermind.Arbitrum.Execution
                 }
 
                 tx.OverrideSpentGas = 0;
-                return new(false, TransactionResult.Ok, eventLogs);
+                return new(false, isFiltered ? FilteredTransactionResult(tx.Hash!) : TransactionResult.Ok, eventLogs);
             }
 
             UInt256 gasCost = effectiveBaseFee * userGas;
@@ -834,7 +896,7 @@ namespace Nethermind.Arbitrum.Execution
                         if (Logger.IsError)
                             Logger.Error($"failed to transfer gas cost to infrastructure fee account {tr}");
                         tx.OverrideSpentGas = 0;
-                        return new(false, TransactionResult.Ok, eventLogs);
+                        return new(false, isFiltered ? FilteredTransactionResult(tx.Hash!) : TransactionResult.Ok, eventLogs);
                     }
                 }
             }
@@ -847,7 +909,7 @@ namespace Nethermind.Arbitrum.Execution
                     if (Logger.IsError)
                         Logger.Error($"Failed to transfer gas cost to network fee account {tr}");
                     tx.OverrideSpentGas = 0;
-                    return new(false, TransactionResult.Ok, eventLogs);
+                    return new(false, isFiltered ? FilteredTransactionResult(tx.Hash!) : TransactionResult.Ok, eventLogs);
                 }
             }
 
@@ -864,6 +926,10 @@ namespace Nethermind.Arbitrum.Execution
 
             availableRefund += withheldGasFunds;
             availableRefund += withheldSubmissionFee;
+
+
+            if (isFiltered)
+                return new(false, FilteredTransactionResult(tx.Hash!), eventLogs);
 
             ArbitrumRetryTransaction outerRetryTx = new ArbitrumRetryTransaction
             {
@@ -1562,5 +1628,8 @@ namespace Nethermind.Arbitrum.Execution
 
             _arbosState!.L2PricingState.GrowBacklog(computeGas, usedMultiGas);
         }
+
+        private TransactionResult FilteredTransactionResult(Hash256? txHash) =>
+            TransactionResult.EvmException(EvmExceptionType.Revert, $"transaction {txHash?.ToShortString()} in onchain filter");
     }
 }
