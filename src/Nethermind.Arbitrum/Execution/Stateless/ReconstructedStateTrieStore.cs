@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
+using System.Diagnostics;
 using Nethermind.Core;
 using Nethermind.Core.Buffers;
 using Nethermind.Core.Crypto;
@@ -136,6 +137,33 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     }
 
     /// <summary>
+    /// Accumulated diagnostics for one capping pass (across all <see cref="DereferenceAndSpill"/> calls).
+    /// </summary>
+    public struct SpillStats
+    {
+        /// <summary>Nodes written to the spill batch (includes redundant shared-subtree re-writes).</summary>
+        public long FlushCount;
+        /// <summary>Bytes written to the spill batch.</summary>
+        public double FlushSize;
+        /// <summary>Nodes actually removed from the overlay (memory freed). The gap vs <see cref="FlushCount"/>
+        /// is redundant shared-node writes.</summary>
+        public long EvictedCount;
+        /// <summary>Peak traversal stack depth reached.</summary>
+        public long MaxStackSize;
+        /// <summary>Cumulative time spent waiting on the ref-count lock.</summary>
+        public double CumulLockWaitMs;
+        /// <summary>Largest single ref-count lock wait observed.</summary>
+        public double MaxLockWaitMs;
+         /// <summary>Time spent waiting on the ref-count lock for the last operation.</summary>
+        public double LastLockWaitMs;
+
+        public override readonly string ToString() =>
+            $"flushed {FlushCount} nodes / {FlushSize / 1.MiB:F3}MB, " +
+            $"evicted {EvictedCount} nodes, maxStack {MaxStackSize}, " +
+            $"lockWait cumul {CumulLockWaitMs:F1}ms (max {MaxLockWaitMs:F1}ms, last {LastLockWaitMs:F1}ms)";
+    }
+
+    /// <summary>
     /// Spills the MemDb-resident subtree of <paramref name="stateRoot"/> to disk via
     /// <paramref name="rawBatch"/> and cascade-dereferences the root in a single pass.
     /// Nodes in "cascade mode" (exclusively referenced by this root) are evicted from MemDb.
@@ -146,11 +174,18 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
     /// <param name="rawBatch">A raw <see cref="IWriteBatch"/> against the main state DB.
     /// The caller is responsible for disposing (flushing) the batch after this call returns.</param>
     /// <param name="mainStateDb">The main state DB, used for the root-level short-circuit check.</param>
-    public void DereferenceAndSpill(Hash256 stateRoot, IWriteBatch rawBatch, IKeyValueStore mainStateDb, ref long actualFlushCount, ref long actualFlushSize, ref long maxStackSize)
+    /// <param name="stats">Accumulated capping diagnostics, updated in place across all spill calls.</param>
+    public void DereferenceAndSpill(Hash256 stateRoot, IWriteBatch rawBatch, IKeyValueStore mainStateDb, ref SpillStats stats)
     {
         byte[] rootKey = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, stateRoot);
+        long beforeLock = Stopwatch.GetTimestamp();
         lock (_refCountLock)
         {
+            long afterLock = Stopwatch.GetTimestamp();
+            double lockElapsed = Stopwatch.GetElapsedTime(beforeLock, afterLock).TotalMilliseconds;
+            stats.CumulLockWaitMs += lockElapsed;
+            stats.MaxLockWaitMs = System.Math.Max(stats.MaxLockWaitMs, lockElapsed);
+            stats.LastLockWaitMs = lockElapsed;
             // No need to spill the state as it already exists in DB
             // only dereference the state from memDb
             if (mainStateDb.KeyExists(rootKey))
@@ -166,22 +201,22 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
             {
                 if (!_parents.TryGetValue(entry.Key, out int count))
                 {
-                    maxStackSize = System.Math.Max(maxStackSize, stack.Count);
+                    stats.MaxStackSize = System.Math.Max(stats.MaxStackSize, stack.Count);
                     continue;
                 }
 
                 byte[] rlp = _memDb[entry.Key]!;
                 rawBatch.PutSpan(entry.Key, rlp);
 
-                actualFlushCount++;
-                actualFlushSize += rlp.Length;
+                stats.FlushCount++;
+                stats.FlushSize += rlp.Length;
 
                 if (entry.SpillOnly)
                 {
                     if (_children.TryGetValue(entry.Key, out var spillChildren))
                         foreach (byte[] c in spillChildren)
                             stack.Push((c, true));
-                    maxStackSize = System.Math.Max(maxStackSize, stack.Count);
+                    stats.MaxStackSize = System.Math.Max(stats.MaxStackSize, stack.Count);
                     continue;
                 }
 
@@ -197,12 +232,13 @@ public class ReconstructedStateTrieStore(MemDb memDb, IReadOnlyTrieStore baseSto
                     _parents.Remove(entry.Key);
                     _memDbBytes -= rlp.Length;
                     _memDb.Remove(entry.Key);
+                    stats.EvictedCount++;
                     if (_children.Remove(entry.Key, out var exclusiveChildren))
                         foreach (byte[] c in exclusiveChildren)
                             stack.Push((c, false));
                 }
 
-                maxStackSize = System.Math.Max(maxStackSize, stack.Count);
+                stats.MaxStackSize = System.Math.Max(stats.MaxStackSize, stack.Count);
             }
         }
     }

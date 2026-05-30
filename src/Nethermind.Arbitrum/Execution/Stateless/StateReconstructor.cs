@@ -20,6 +20,7 @@ using Nethermind.Trie;
 using System.Diagnostics;
 using Nethermind.Core.Extensions;
 using Nethermind.Arbitrum.Math;
+using static Nethermind.Arbitrum.Execution.Stateless.ReconstructedStateTrieStore;
 
 namespace Nethermind.Arbitrum.Execution.Stateless;
 
@@ -595,7 +596,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
         long totalCount = _preparedQueue.Count;
         long count = 0;
-        double totalBytesFlushed = _trieStore.DirtySize;
+        double evictedBytesFlushed = _trieStore.DirtySize;
 
         // Disposing the batch flushes it to disk.
         // MaybeCap is done under the reconstruction lock, so, the small window where
@@ -604,9 +605,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         // safe to occur concurrently as they would just be no-op or not access evicted nodes.
         IWriteBatch rawBatch = _mainStateDb.StartWriteBatch();
         // {
-        long actualFlushCount = 0;
-        long actualFlushSize = 0;
-        long maxStackSize = 0;
+        SpillStats stats = default;
 
         while (_trieStore.DirtySize > targetSize)
         {
@@ -620,15 +619,19 @@ public class StateReconstructor : IStateReconstructor, IDisposable
             if (!_preparedQueue.TryDequeue(out BlockHeader? header))
                 break;
 
-            _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb, ref actualFlushCount, ref actualFlushSize, ref maxStackSize);
+            _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb, ref stats);
             count++;
+
+            if (_logger.IsDebug)
+                _logger.Debug($"MaybeCap iter {count}/{totalCount}: " +
+                    $"DirtySize {(double)_trieStore.DirtySize / 1.MiB:F3}MB (target {targetSize / 1.MiB:F2}MB), {stats}");
         }
         // }
         long beforeDispose = Stopwatch.GetTimestamp();
         rawBatch.Dispose();
         long stopTime = Stopwatch.GetTimestamp();
 
-        totalBytesFlushed -= _trieStore.DirtySize;
+        evictedBytesFlushed -= _trieStore.DirtySize;
 
         double totalElapsed = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
         double derefAndSpilledElapsed = Stopwatch.GetElapsedTime(startTime, beforeDispose).TotalMilliseconds;
@@ -637,12 +640,10 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         if (_logger.IsInfo)
             _logger.Info(
                 $"Finished capping MemDb overlay: " +
-                $"flushed evicted size {totalBytesFlushed / 1.MiB:F3}MB, " +
-                $"flushed total size {actualFlushSize / 1.MiB:F3}MB " +
-                $"flushed count {actualFlushCount} nodes, " +
-                $"max stack size reached: {maxStackSize}" +
+                $"freed size {evictedBytesFlushed / 1.MiB:F3}MB, " +
+                $"{stats}, " +
                 $"by spilling {count} of {totalCount} state roots to disk, " +
-                $"new size {_trieStore.DirtySize / 1.MiB:F3}MB, " +
+                $"new size {(double)_trieStore.DirtySize / 1.MiB:F3}MB, " +
                 $"derefAndSpilled {derefAndSpilledElapsed:F1}ms, " +
                 $"flushing {flushingToDiskElapsed:F1}ms, " +
                 $"total time: {totalElapsed:F1}ms");
