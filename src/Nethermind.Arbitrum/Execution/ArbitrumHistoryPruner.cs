@@ -51,4 +51,6 @@ public sealed class ArbitrumHistoryPruner(IHistoryPruner inner, IBlocksConfig bl
             return;
         inner.SchedulePruneHistory();
     }
+
+    public long GetRetentionBlocks(long retentionEpochs) => inner.GetRetentionBlocks(retentionEpochs);
 }

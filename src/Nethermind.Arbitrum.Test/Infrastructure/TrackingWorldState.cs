@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using Nethermind.Core;
+using Nethermind.Core.BlockAccessLists;
 using Nethermind.Core.Collections;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Eip2930;
@@ -52,6 +53,11 @@ public class TrackingWorldState(IWorldState worldState) : IWorldState
     public IDisposable BeginScope(BlockHeader? baseBlock)
     {
         return worldState.BeginScope(baseBlock);
+    }
+
+    public Task HintBal(ReadOnlyBlockAccessList bal)
+    {
+        return worldState.HintBal(bal);
     }
 
     public bool IsInScope { get; }
