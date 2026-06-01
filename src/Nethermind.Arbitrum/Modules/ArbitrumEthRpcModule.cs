@@ -69,13 +69,14 @@ namespace Nethermind.Arbitrum.Modules
             ILogIndexConfig? logIndexConfig,
             ulong? secondsPerSlot,
             HeadBlockSignal headBlockSignal,
+            IEthCapabilitiesProvider capabilitiesProvider,
             ArbitrumChainSpecEngineParameters chainSpecParams,
             TransactionQueue transactionQueue,
             SequencerState sequencerState,
             IEthereumEcdsa ecdsa,
             IArbitrumConfig arbitrumConfig,
             IBlockMetadataProvider blockMetadataProvider)
-            : base(rpcConfig, blockchainBridge, blockFinder, blockTree, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot, headBlockSignal)
+            : base(rpcConfig, blockchainBridge, blockFinder, blockTree, receiptFinder, stateReader, txPool, txSender, wallet, logManager, specProvider, gasPriceOracle, ethSyncingInfo, feeHistoryOracle, protocolsManager, forkInfo, logIndexConfig, secondsPerSlot, headBlockSignal, capabilitiesProvider)
         {
             _chainSpecParams = chainSpecParams;
             _transactionQueue = transactionQueue;

@@ -42,7 +42,7 @@ public class ArbitrumFullPrunerFactory(
 {
     private readonly ILogger _logger = logManager.GetClassLogger<ArbitrumFullPrunerFactory>();
 
-    public FullPruner? Create(IStateReader stateReader, IPruningTrieStore trieStore)
+    public FullPruner? Create(IWorldStateManager worldStateManager, IPruningTrieStore trieStore)
     {
         IDb stateDb = dbProvider.StateDb;
 
@@ -64,7 +64,8 @@ public class ArbitrumFullPrunerFactory(
             compositePruningTrigger,
             pruningConfig,
             blockTree,
-            new ValidatorStatePreservingStateReader(stateReader, stateReconstructor, reconStore, logManager),
+            (IStateBoundaryWriter)worldStateManager,
+            new ValidatorStatePreservingStateReader(worldStateManager.GlobalStateReader, stateReconstructor, reconStore, logManager),
             processExit,
             ChainSizes.CreateChainSizeInfo(chainSpec.ChainId),
             drive,
