@@ -436,6 +436,7 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
             chain.Container.Resolve<ILogIndexConfig>(),
             chain.Container.Resolve<IBlocksConfig>().SecondsPerSlot,
             new HeadBlockSignal(chain.BlockTree),
+            chain.Container.Resolve<IEthCapabilitiesProvider>(),
             chain.Container.Resolve<ArbitrumChainSpecEngineParameters>(),
             chain.Container.Resolve<TransactionQueue>(),
             chain.Container.Resolve<SequencerState>(),

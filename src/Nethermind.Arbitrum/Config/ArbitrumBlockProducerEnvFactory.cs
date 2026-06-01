@@ -9,6 +9,7 @@ using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Evm;
 using Nethermind.Evm.State;
+using Nethermind.Logging;
 using Nethermind.State;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 
@@ -65,6 +66,7 @@ public class ArbitrumGlobalWorldStateBlockProducerEnvFactory : GlobalWorldStateB
                     return new PrewarmerScopeProvider(
                         worldStateScopeProvider,
                         ctx.Resolve<PreBlockCaches>(),
+                        ctx.Resolve<ILogManager>(),
                         populatePreBlockCache: false);
                 })
                 .AddDecorator<ICodeInfoRepository>((ctx, originalCodeInfoRepository) =>
