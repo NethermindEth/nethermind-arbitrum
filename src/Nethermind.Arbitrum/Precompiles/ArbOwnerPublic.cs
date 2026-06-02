@@ -136,6 +136,14 @@ public static class ArbOwnerPublic
         return context.ArbosState.Programs.GetParams().MaxFragmentCount;
     }
 
+    /// <summary>
+    /// GetCollectTips returns whether sequencer tip collection is enabled. Available from ArbOS v60+.
+    /// </summary>
+    public static bool GetCollectTips(ArbitrumPrecompileExecutionContext context)
+    {
+        return context.ArbosState.CollectTips();
+    }
+
     private static void EmitChainOwnerRectifiedEvent(ArbitrumPrecompileExecutionContext context, Address rectifiedOwner)
     {
         LogEntry eventLog = EventsEncoder.BuildLogEntryFromEvent(ChainOwnerRectifiedEvent, Address, rectifiedOwner);

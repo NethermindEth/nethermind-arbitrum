@@ -16,4 +16,5 @@ public static class ArbosStateOffsets
     public const ulong NativeTokenEnabledTimeOffset = 8;
     public const ulong TransactionFilteringEnabledTimeOffset = 9;
     public const ulong FilteredFundsRecipientOffset = 10;
+    public const ulong CollectTipsOffset = 11;
 }

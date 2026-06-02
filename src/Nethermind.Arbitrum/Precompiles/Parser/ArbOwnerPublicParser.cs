@@ -33,6 +33,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
     private const uint GetScheduledUpgradeId = Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade;
     private const uint IsCalldataPriceIncreaseEnabledId = Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled;
     private const uint GetMaxStylusContractFragmentsId = Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments;
+    private const uint GetCollectTipsId = Solgen.ArbOwnerPublic.Methods.GetCollectTips;
 
     static ArbOwnerPublicParser()
     {
@@ -50,7 +51,8 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             { GetNativeTokenManagementFromId, GetNativeTokenManagementFrom },
             { GetScheduledUpgradeId, GetScheduledUpgrade },
             { IsCalldataPriceIncreaseEnabledId, IsCalldataPriceIncreaseEnabled },
-            { GetMaxStylusContractFragmentsId, GetMaxStylusContractFragments }
+            { GetMaxStylusContractFragmentsId, GetMaxStylusContractFragments },
+            { GetCollectTipsId, GetCollectTips }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -68,6 +70,7 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
         PrecompileFunctionDescription[GetParentGasFloorPerTokenId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[GetNativeTokenManagementFromId].ArbOSVersion = ArbosVersion.Fifty;
         PrecompileFunctionDescription[GetMaxStylusContractFragmentsId].ArbOSVersion = ArbosVersion.Sixty;
+        PrecompileFunctionDescription[GetCollectTipsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] IsChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -234,6 +237,17 @@ public class ArbOwnerPublicParser : IArbitrumPrecompile<ArbOwnerPublicParser>
             AbiEncodingStyle.None,
             PrecompileFunctionDescription[GetMaxStylusContractFragmentsId].AbiFunctionDescription.GetReturnInfo().Signature,
             maxFragments
+        );
+    }
+
+    private static byte[] GetCollectTips(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> _)
+    {
+        bool collectTips = ArbOwnerPublic.GetCollectTips(context);
+
+        return PrecompileAbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[GetCollectTipsId].AbiFunctionDescription.GetReturnInfo().Signature,
+            collectTips
         );
     }
 }

@@ -75,6 +75,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
     private const uint SetGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetGasPricingConstraints;
     private const uint SetMultiGasPricingConstraintsId = Solgen.ArbOwner.Methods.SetMultiGasPricingConstraints;
     private const uint SetWasmActivationGasId = Solgen.ArbOwner.Methods.SetWasmActivationGas;
+    private const uint SetCollectTipsId = Solgen.ArbOwner.Methods.SetCollectTips;
     private const uint AddTransactionFiltererId = Solgen.ArbOwner.Methods.AddTransactionFilterer;
     private const uint RemoveTransactionFiltererId = Solgen.ArbOwner.Methods.RemoveTransactionFilterer;
     private const uint IsTransactionFiltererId = Solgen.ArbOwner.Methods.IsTransactionFilterer;
@@ -146,7 +147,8 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
             { GetAllTransactionFilterersId, GetAllTransactionFilterers },
             { GetFilteredFundsRecipientId, GetFilteredFundsRecipient },
             { SetFilteredFundsRecipientId, SetFilteredFundsRecipient },
-            { SetTransactionFilteringFromId, SetTransactionFilteringFrom }
+            { SetTransactionFilteringFromId, SetTransactionFilteringFrom },
+            { SetCollectTipsId, SetCollectTips }
         }.ToFrozenDictionary();
 
         CustomizeFunctionDescriptionsWithArbosVersion();
@@ -195,6 +197,7 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
         PrecompileFunctionDescription[GetFilteredFundsRecipientId].ArbOSVersion = ArbosVersion.TransactionFiltering;
         PrecompileFunctionDescription[SetFilteredFundsRecipientId].ArbOSVersion = ArbosVersion.TransactionFiltering;
         PrecompileFunctionDescription[SetTransactionFilteringFromId].ArbOSVersion = ArbosVersion.TransactionFiltering;
+        PrecompileFunctionDescription[SetCollectTipsId].ArbOSVersion = ArbosVersion.Sixty;
     }
 
     private static byte[] AddChainOwner(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
@@ -777,6 +780,19 @@ public class ArbOwnerParser : IArbitrumPrecompile<ArbOwnerParser>
 
         ulong gas = (ulong)decoded[0];
         ArbOwner.SetWasmActivationGas(context, gas);
+        return [];
+    }
+
+    private static byte[] SetCollectTips(ArbitrumPrecompileExecutionContext context, ReadOnlySpan<byte> inputData)
+    {
+        object[] decoded = PrecompileAbiEncoder.Instance.Decode(
+            AbiEncodingStyle.None,
+            PrecompileFunctionDescription[SetCollectTipsId].AbiFunctionDescription.GetCallInfo().Signature,
+            inputData.ToArray()
+        );
+
+        bool collectTips = (bool)decoded[0];
+        ArbOwner.SetCollectTips(context, collectTips);
         return [];
     }
 

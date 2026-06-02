@@ -157,4 +157,76 @@ public class ArbosVersionUpgradeTests
     {
         ArbosVersion.StylusActivationGas.Should().Be(ArbosVersion.FiftyNine);
     }
+
+    [Test]
+    public void CollectTips_AtFiftyOne_ReturnsFalse()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FiftyOne)
+            .WithReleaseSpec();
+
+        context.ArbosState.CollectTips().Should().BeFalse();
+    }
+
+    [Test]
+    public void CollectTips_AtSixty_DefaultsToFalse()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        context.ArbosState.CollectTips().Should().BeFalse();
+    }
+
+    [Test]
+    public void CollectTips_AtSixty_RoundTripsThroughSetter()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.Sixty)
+            .WithReleaseSpec();
+
+        context.ArbosState.SetCollectTips(true);
+        context.ArbosState.CollectTips().Should().BeTrue();
+
+        context.ArbosState.SetCollectTips(false);
+        context.ArbosState.CollectTips().Should().BeFalse();
+    }
+
+    [Test]
+    public void UpgradeArbosVersion_From51To60_LeavesCollectTipsFalse()
+    {
+        // The v60 upgrade hook must NOT touch the CollectTips slot — zero-default is the design.
+        // Writing it would change block hashes on the upgrade boundary.
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+
+        PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(worldState, 1_000_000)
+            .WithArbosState()
+            .WithArbosVersion(ArbosVersion.FiftyOne)
+            .WithReleaseSpec();
+
+        context.ArbosState.UpgradeArbosVersion(ArbosVersion.Sixty, false, worldState, London.Instance);
+
+        context.ArbosState.CollectTips().Should().BeFalse();
+    }
 }

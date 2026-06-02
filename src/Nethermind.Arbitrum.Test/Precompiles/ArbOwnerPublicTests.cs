@@ -615,6 +615,50 @@ public class ArbOwnerPublicTests
     }
 
     [Test]
+    public void GetCollectTips_BeforeSetterAtSixty_ReturnsFalse()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwnerPublic.GetCollectTips(context).Should().BeFalse();
+    }
+
+    [Test]
+    public void GetCollectTips_AfterSetterAtSixty_ReturnsValue()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetCollectTips(context, true);
+
+        ArbOwnerPublic.GetCollectTips(context).Should().BeTrue();
+    }
+
+    [Test]
+    public void GetCollectTips_BelowSixtyArbOSVersion_IsRejected()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.WithArbosVersion(ArbosVersion.Sixty - 1);
+
+        bool result = ArbOwnerPublicParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwnerPublic.Methods.GetCollectTips, out bool shouldRevert, out _);
+
+        result.Should().BeFalse();
+        shouldRevert.Should().BeTrue();
+    }
+
+    [Test]
+    public void GetCollectTips_AtSixtyArbOSVersion_IsDispatched()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context = context.WithExecutingAccount(ArbOwnerPublicParser.Address);
+
+        bool result = ArbOwnerPublicParser.Instance.TryCheckMethodVisibility(context, NullLogger.Instance,
+            Solgen.ArbOwnerPublic.Methods.GetCollectTips, out bool _, out PrecompileHandler? handler);
+
+        result.Should().BeTrue();
+        handler.Should().NotBeNull();
+    }
+
+    [Test]
     public void Abi_WhenParsed_ContainsExpectedFunctionSignatures()
     {
         Dictionary<uint, ArbitrumFunctionDescription> allFunctions = PrecompileTestAbiHelpers.GetAllFunctionDescriptions(Solgen.ArbOwnerPublic.Abi);
@@ -666,5 +710,6 @@ public class ArbOwnerPublicTests
         PrecompileTestAbiHelpers.GetMethodId("getScheduledUpgrade()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetScheduledUpgrade);
         PrecompileTestAbiHelpers.GetMethodId("isCalldataPriceIncreaseEnabled()").Should().Be(Solgen.ArbOwnerPublic.Methods.IsCalldataPriceIncreaseEnabled);
         PrecompileTestAbiHelpers.GetMethodId("getMaxStylusContractFragments()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetMaxStylusContractFragments);
+        PrecompileTestAbiHelpers.GetMethodId("getCollectTips()").Should().Be(Solgen.ArbOwnerPublic.Methods.GetCollectTips);
     }
 }

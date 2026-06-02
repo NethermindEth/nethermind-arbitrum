@@ -79,6 +79,7 @@ public class ArbOwnerParserTests
     private static readonly uint SetMaxBlockGasLimitId = PrecompileTestAbiHelpers.GetMethodId("setMaxBlockGasLimit(uint64)");
     private static readonly uint SetParentGasFloorPerTokenId = PrecompileTestAbiHelpers.GetMethodId("setParentGasFloorPerToken(uint64)");
     private static readonly uint SetMaxStylusContractFragmentsId = PrecompileTestAbiHelpers.GetMethodId("setMaxStylusContractFragments(uint8)");
+    private static readonly uint SetCollectTipsId = PrecompileTestAbiHelpers.GetMethodId("setCollectTips(bool)");
 
     [Test]
     public void ParsesAddChainOwner_Always_AddsToState()
@@ -2055,5 +2056,32 @@ public class ArbOwnerParserTests
             constraint.AdjustmentWindow.Should().Be(100 * i + 2);
             constraint.Backlog.Should().Be(100 * i + 3);
         }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ParsesSetCollectTips_AtSixty_StoresFlag(bool collectTips)
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+
+        _ = ArbOSInitialization.Create(worldState);
+        PrecompileTestContextBuilder context = new(worldState, GasSupplied: ulong.MaxValue);
+        context.WithArbosVersion(ArbosVersion.Sixty);
+
+        bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(SetCollectTipsId, out PrecompileHandler? implementation);
+        exists.Should().BeTrue();
+
+        AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[SetCollectTipsId].AbiFunctionDescription;
+        byte[] calldata = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.None,
+            function.GetCallInfo().Signature,
+            collectTips
+        );
+
+        byte[] result = implementation!(context, calldata);
+
+        result.Should().BeEmpty();
+        context.ArbosState.CollectTips().Should().Be(collectTips);
     }
 }

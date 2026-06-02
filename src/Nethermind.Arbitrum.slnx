@@ -73,7 +73,6 @@
   <Project Path="Nethermind/src/Nethermind/Nethermind.JsonRpc/Nethermind.JsonRpc.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.KeyStore/Nethermind.KeyStore.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Merge.AuRa/Nethermind.Merge.AuRa.csproj" />
-  <Project Path="Nethermind/src/Nethermind/Nethermind.Merkleization/Nethermind.Merkleization.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Monitoring/Nethermind.Monitoring.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Network.Contract/Nethermind.Network.Contract.csproj" />
   <Project Path="Nethermind/src/Nethermind/Nethermind.Network.Discovery/Nethermind.Network.Discovery.csproj" />

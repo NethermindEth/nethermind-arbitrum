@@ -407,6 +407,14 @@ public static class ArbOwner
         stylusParams.Save();
     }
 
+    // SetCollectTips enables or disables sequencer tip collection. Available from ArbOS version 60.
+    // When enabled, sequenced (non-delayed) transaction tips are credited to the network fee account
+    // on their compute-gas portion. When disabled (the default), tips are dropped.
+    public static void SetCollectTips(ArbitrumPrecompileExecutionContext context, bool collectTips)
+    {
+        context.ArbosState.SetCollectTips(collectTips);
+    }
+
     // SetWasmActivationGas sets the constant gas charge applied before each Stylus contract activation.
     // Defaults to zero. Can be raised to deter DOS via activations, or set to a value exceeding
     // the block gas limit to block all activations entirely. Available from ArbOS version 59.

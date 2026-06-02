@@ -39,10 +39,10 @@ public class ValidatorStatePreservingStateReader(
 
     public bool HasStateForBlock(BlockHeader? baseBlock) => inner.HasStateForBlock(baseBlock);
 
-    public void RunTreeVisitor<TCtx>(ITreeVisitor<TCtx> treeVisitor, BlockHeader? baseBlock, VisitingOptions? visitingOptions = null)
+    public void RunTreeVisitor<TCtx>(ITreeVisitor<TCtx> treeVisitor, BlockHeader? baseBlock, VisitingOptions? visitingOptions = null, VisitingStats? diagnostics = null)
         where TCtx : struct, INodeContext<TCtx>
     {
-        inner.RunTreeVisitor(treeVisitor, baseBlock, visitingOptions);
+        inner.RunTreeVisitor(treeVisitor, baseBlock, visitingOptions, diagnostics);
 
         if (treeVisitor is not ICopyTreeVisitor || baseBlock is null)
             return;
