@@ -125,6 +125,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public static void Consume(ref ArbitrumGasPolicy gas, long cost)
     {
         EthereumGasPolicy.Consume(ref gas._ethereum, cost);
+        //don't allow accumulated to overflow if we are already OOG
+        if (gas._ethereum.Value < 0)
+            return;
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)cost);
     }
 
