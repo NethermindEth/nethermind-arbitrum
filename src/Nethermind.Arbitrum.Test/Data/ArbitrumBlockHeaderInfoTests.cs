@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
 using FluentAssertions;
+using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Data;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Extensions;
+using Nethermind.Core.Test.Builders;
 using Nethermind.Int256;
 using Nethermind.Logging;
 
@@ -41,6 +43,7 @@ namespace Nethermind.Arbitrum.Test.Data
                 Assert.That(empty.ArbOSFormatVersion, Is.EqualTo(0UL));
                 Assert.That(empty.L1BlockNumber, Is.EqualTo(0UL));
                 Assert.That(empty.SendCount, Is.EqualTo(0UL));
+                Assert.That(empty.CollectTips, Is.False);
             });
         }
 
@@ -257,6 +260,294 @@ namespace Nethermind.Arbitrum.Test.Data
             };
 
             return (header, new Hash256(sendRoot));
+        }
+
+        [Test]
+        public void UpdateHeader_CollectTipsTrueOnV60_SetsBit25()
+        {
+            BlockHeader header = CreateBareHeader();
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 0,
+                L1BlockNumber = 0,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = true,
+            };
+
+            ArbitrumBlockHeaderInfo.UpdateHeader(header, info);
+
+            byte[] bytes = header.MixHash!.Bytes.ToArray();
+            Assert.Multiple(() =>
+            {
+                Assert.That(bytes[25], Is.EqualTo((byte)1));
+                Assert.That(bytes[24], Is.EqualTo((byte)0));
+                for (int i = 26; i < 32; i++)
+                    Assert.That(bytes[i], Is.EqualTo((byte)0), $"byte {i} must remain zero");
+            });
+        }
+
+        [Test]
+        public void UpdateHeader_CollectTipsTrueOnV9_KeepsBit25Zero()
+        {
+            BlockHeader header = CreateBareHeader();
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 0,
+                L1BlockNumber = 0,
+                ArbOSFormatVersion = ArbosVersion.Nine,
+                CollectTips = true,
+            };
+
+            ArbitrumBlockHeaderInfo.UpdateHeader(header, info);
+
+            Assert.That(header.MixHash!.Bytes[25], Is.EqualTo((byte)0),
+                "v9 carve-out: bit 25 must never be written on v9 blocks");
+        }
+
+        [Test]
+        public void UpdateHeader_CollectTipsFalse_KeepsBit25Zero()
+        {
+            BlockHeader header = CreateBareHeader();
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 0,
+                L1BlockNumber = 0,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = false,
+            };
+
+            ArbitrumBlockHeaderInfo.UpdateHeader(header, info);
+
+            Assert.That(header.MixHash!.Bytes[25], Is.EqualTo((byte)0));
+        }
+
+        [Test]
+        public void Deserialize_V9_AlwaysReadsCollectTipsTrue()
+        {
+            BlockHeader header = BuildHeaderWithVersionAndBit25(ArbosVersion.Nine, bit25Value: 0);
+            ArbitrumBlockHeaderInfo info = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
+            Assert.That(info.CollectTips, Is.True, "v9 carve-out: deserialize always returns true regardless of bit 25");
+        }
+
+        [TestCase(ArbosVersion.Sixty, (byte)1, true)]
+        [TestCase(ArbosVersion.Sixty, (byte)0, false)]
+        [TestCase(ArbosVersion.FiftyOne, (byte)0, false)]
+        [TestCase(ArbosVersion.FiftyOne, (byte)1, true, Description = "Nitro honors bit 25 for any version != 9")]
+        public void Deserialize_FromBit25_ReadsCollectTips(ulong arbosVersion, byte bit25, bool expected)
+        {
+            BlockHeader header = BuildHeaderWithVersionAndBit25(arbosVersion, bit25);
+            ArbitrumBlockHeaderInfo info = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
+            Assert.That(info.CollectTips, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Deserialize_OnlyLowBitOfByte25_Matters()
+        {
+            // Nitro uses (byte & 0x1) == 1; bit value 0x2 must NOT be read as CollectTips=true.
+            BlockHeader header = BuildHeaderWithVersionAndBit25(ArbosVersion.Sixty, bit25Value: 0x2);
+            ArbitrumBlockHeaderInfo info = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
+            Assert.That(info.CollectTips, Is.False);
+        }
+
+        [TestCase(ArbosVersion.Sixty, true)]
+        [TestCase(ArbosVersion.Sixty, false)]
+        [TestCase(ArbosVersion.FiftyOne, false)]
+        [TestCase(ArbosVersion.FiftyOne, true)]
+        public void RoundTrip_AnyVersion_PreservesCollectTipsBit(ulong arbosVersion, bool collectTips)
+        {
+            BlockHeader header = CreateBareHeader();
+            ArbitrumBlockHeaderInfo original = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 42,
+                L1BlockNumber = 7,
+                ArbOSFormatVersion = arbosVersion,
+                CollectTips = collectTips,
+            };
+
+            ArbitrumBlockHeaderInfo.UpdateHeader(header, original);
+            ArbitrumBlockHeaderInfo decoded = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
+
+            Assert.That(decoded.CollectTips, Is.EqualTo(collectTips));
+        }
+
+        [Test]
+        public void RoundTrip_V9_AlwaysDecodesAsCollect()
+        {
+            // v9 carve-out: encode writes 0, decode forces true regardless.
+            BlockHeader header = CreateBareHeader();
+            ArbitrumBlockHeaderInfo original = new()
+            {
+                SendRoot = Hash256.Zero,
+                SendCount = 0,
+                L1BlockNumber = 0,
+                ArbOSFormatVersion = ArbosVersion.Nine,
+                CollectTips = false,
+            };
+
+            ArbitrumBlockHeaderInfo.UpdateHeader(header, original);
+            ArbitrumBlockHeaderInfo decoded = ArbitrumBlockHeaderInfo.Deserialize(header, _logger);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(decoded.CollectTips, Is.True, "v9 always decodes as collect=true");
+                Assert.That(header.MixHash!.Bytes[25], Is.EqualTo((byte)0), "v9 never writes bit 25");
+            });
+        }
+
+        [Test]
+        public void ResolveEffectiveGasPrice_CollectTipsTrue_ReturnsBaseFeePlusTip()
+        {
+            BlockHeader header = CreateBareHeader(baseFee: 1.GWei);
+            Transaction tx = CreateEip1559Transaction(maxPriorityFeePerGas: 100.Wei, maxFeePerGas: 1.GWei + 100.Wei);
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = true,
+            };
+
+            UInt256 effectiveGasPrice = info.ResolveEffectiveGasPrice(header, tx);
+
+            effectiveGasPrice.Should().Be(1.GWei + 100.Wei);
+        }
+
+        [Test]
+        public void ResolveEffectiveGasPrice_CollectTipsFalse_ReturnsBaseFee()
+        {
+            BlockHeader header = CreateBareHeader(baseFee: 1.GWei);
+            Transaction tx = CreateEip1559Transaction(maxPriorityFeePerGas: 100.Wei, maxFeePerGas: 1.GWei + 100.Wei);
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = false,
+            };
+
+            UInt256 effectiveGasPrice = info.ResolveEffectiveGasPrice(header, tx);
+
+            effectiveGasPrice.Should().Be(1.GWei);
+        }
+
+        [Test]
+        public void ResolveEffectiveGasPrice_V9HistoricalBlock_ReturnsFullPrice()
+        {
+            BlockHeader header = CreateBareHeader(baseFee: 1.GWei);
+            Transaction tx = CreateEip1559Transaction(maxPriorityFeePerGas: 100.Wei, maxFeePerGas: 1.GWei + 100.Wei);
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = ArbosVersion.Nine,
+                CollectTips = true,
+            };
+
+            UInt256 effectiveGasPrice = info.ResolveEffectiveGasPrice(header, tx);
+
+            effectiveGasPrice.Should().Be(1.GWei + 100.Wei);
+        }
+
+        [Test]
+        public void ResolveEffectiveGasPrice_CollectTipsTrueWithZeroTip_ReturnsBaseFee()
+        {
+            BlockHeader header = CreateBareHeader(baseFee: 1.GWei);
+            Transaction tx = CreateEip1559Transaction(maxPriorityFeePerGas: UInt256.Zero, maxFeePerGas: 1.GWei);
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = true,
+            };
+
+            UInt256 effectiveGasPrice = info.ResolveEffectiveGasPrice(header, tx);
+
+            effectiveGasPrice.Should().Be(1.GWei);
+        }
+
+        [Test]
+        public void ResolveEffectiveGasPrice_CollectTipsTrueWithLegacyTx_ReturnsTxGasPrice()
+        {
+            BlockHeader header = CreateBareHeader(baseFee: 1.GWei);
+            UInt256 legacyGasPrice = 1.GWei + 50.Wei;
+            Transaction tx = Build.A.Transaction
+                .WithType(TxType.Legacy)
+                .WithGasPrice(legacyGasPrice)
+                .TestObject;
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = true,
+            };
+
+            UInt256 effectiveGasPrice = info.ResolveEffectiveGasPrice(header, tx);
+
+            effectiveGasPrice.Should().Be(legacyGasPrice);
+        }
+
+        [Test]
+        public void ResolveEffectiveGasPrice_CollectTipsTrueWithTipCappedByMaxFee_ReturnsMaxFee()
+        {
+            BlockHeader header = CreateBareHeader(baseFee: 1.GWei);
+            UInt256 maxFee = 1.GWei + 30.Wei;
+            Transaction tx = CreateEip1559Transaction(maxPriorityFeePerGas: 100.Wei, maxFeePerGas: maxFee);
+            ArbitrumBlockHeaderInfo info = new()
+            {
+                SendRoot = Hash256.Zero,
+                ArbOSFormatVersion = ArbosVersion.Sixty,
+                CollectTips = true,
+            };
+
+            UInt256 effectiveGasPrice = info.ResolveEffectiveGasPrice(header, tx);
+
+            effectiveGasPrice.Should().Be(maxFee);
+        }
+
+        private static Transaction CreateEip1559Transaction(UInt256 maxPriorityFeePerGas, UInt256 maxFeePerGas) =>
+            Build.A.Transaction
+                .WithType(TxType.EIP1559)
+                .WithMaxPriorityFeePerGas(maxPriorityFeePerGas)
+                .WithMaxFeePerGas(maxFeePerGas)
+                .TestObject;
+
+        private static BlockHeader CreateBareHeader(UInt256? baseFee = null)
+        {
+            return new BlockHeader(
+                parentHash: Keccak.Zero,
+                unclesHash: Keccak.Zero,
+                beneficiary: Address.Zero,
+                difficulty: UInt256.One,
+                number: 1,
+                gasLimit: 1_000_000,
+                timestamp: 1_000,
+                extraData: new byte[32])
+            {
+                BaseFeePerGas = baseFee ?? UInt256.One,
+                MixHash = new Hash256(new byte[32]),
+            };
+        }
+
+        private static BlockHeader BuildHeaderWithVersionAndBit25(ulong arbosVersion, byte bit25Value)
+        {
+            byte[] mixHashBytes = new byte[32];
+            arbosVersion.ToBigEndianByteArray().CopyTo(mixHashBytes, 16);
+            mixHashBytes[25] = bit25Value;
+
+            return new BlockHeader(
+                parentHash: Keccak.Zero,
+                unclesHash: Keccak.Zero,
+                beneficiary: Address.Zero,
+                difficulty: UInt256.One,
+                number: 1,
+                gasLimit: 1_000_000,
+                timestamp: 1_000,
+                extraData: new byte[32])
+            {
+                BaseFeePerGas = UInt256.One,
+                MixHash = new Hash256(mixHashBytes),
+            };
         }
 
         private static BlockHeader CreateBlockHeader(

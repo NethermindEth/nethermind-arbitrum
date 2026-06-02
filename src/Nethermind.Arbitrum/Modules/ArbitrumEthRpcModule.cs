@@ -211,11 +211,13 @@ namespace Nethermind.Arbitrum.Modules
             TxGasInfo gasInfo = default;
             if (receipt.BlockHash is not null)
             {
-                BlockHeader? header = _blockFinder.FindHeader(receipt.BlockHash);
-                if (header is not null)
+                Block? block = _blockFinder.FindBlock(receipt.BlockHash);
+                if (block is not null)
                 {
-                    l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(header, _logger).L1BlockNumber;
-                    gasInfo = new TxGasInfo(header.BaseFeePerGas);
+                    ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+                    l1BlockNumber = headerInfo.L1BlockNumber;
+                    Transaction tx = block.Transactions[receipt.Index];
+                    gasInfo = new TxGasInfo(headerInfo.ResolveEffectiveGasPrice(block.Header, tx));
                 }
             }
 
@@ -242,17 +244,17 @@ namespace Nethermind.Arbitrum.Modules
 
             Block block = searchResult.Object!;
             TxReceipt[] receipts = _receiptFinder.Get(block);
-            ulong l1BlockNumber = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger).L1BlockNumber;
+            ArbitrumBlockHeaderInfo headerInfo = ArbitrumBlockHeaderInfo.Deserialize(block.Header, _logger);
+            ulong l1BlockNumber = headerInfo.L1BlockNumber;
             byte[]? blockMetadata = _blockMetadataProvider.GetBlockMetadataAsync(block.Number).GetAwaiter().GetResult();
 
-            TxGasInfo gasInfo = new(block.Header.BaseFeePerGas);
             ReceiptForRpc[] result = receipts
                 .Zip(block.Transactions, (receipt, tx) =>
                     (ReceiptForRpc)new ArbitrumReceiptForRpc(
                         tx.Hash!,
                         receipt,
                         block.Timestamp,
-                        gasInfo,
+                        new TxGasInfo(headerInfo.ResolveEffectiveGasPrice(block.Header, tx)),
                         l1BlockNumber,
                         receipts.GetBlockLogFirstIndex(receipt.Index),
                         Data.BlockMetadata.IsTxTimeboosted(blockMetadata, receipt.Index)))

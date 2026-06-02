@@ -14,7 +14,6 @@ using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
-using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
@@ -379,7 +378,10 @@ public class ArbitrumTransactionProcessorTests
         UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
         UInt256 posterCost = pricePerUnit * calldataUnits;
 
-        ulong posterGas = (posterCost / baseFeePerGas).ToULongSafe(); // Should be 151
+        // v9 + BatchPoster collects tips, so the posterGas denominator is actualGasPrice = baseFee + tip.
+        // Matches Nitro tx_processor.go:GasChargingHook (actualGasPrice = GetPaidGasPrice()).
+        ulong actualGasPrice = baseFeePerGas + premiumGas;
+        ulong posterGas = (posterCost / actualGasPrice).ToULongSafe();
 
         // Arbos version set to 9 + blockContext.Coinbase set to BatchPosterAddress
         // enables tipping for the tx
@@ -397,14 +399,15 @@ public class ArbitrumTransactionProcessorTests
 
         arbosState.L1PricingState.UnitsSinceStorage.Get().Should().Be(calldataUnits);
         virtualMachine.ArbitrumTxExecutionContext.PosterGas.Should().Be(posterGas);
-        virtualMachine.ArbitrumTxExecutionContext.PosterFee.Should().Be(baseFeePerGas * posterGas);
+        virtualMachine.ArbitrumTxExecutionContext.PosterFee.Should().Be(actualGasPrice * posterGas);
         virtualMachine.ArbitrumTxExecutionContext.ComputeHoldGas.Should().Be(differenceGasLeftGasAvailable);
 
-        // Tip for the tx
-        UInt256 txTip = premiumGas * (ulong)transferTx.SpentGas;
-        // Network compute fee for processing the tx
-        UInt256 totalCost = baseFeePerGas * (ulong)transferTx.SpentGas;
-        UInt256 networkComputeCostForTx = totalCost - virtualMachine.ArbitrumTxExecutionContext.PosterFee;
+        // Tip and compute cost both charged on compute-gas only (matches Nitro state_transition.go:execute and
+        // tx_processor.go:EndTxHook). The tip on the poster-gas portion is implicitly paid via PosterFee being
+        // computed at actualGasPrice rather than baseFee.
+        ulong computeGas = (ulong)transferTx.SpentGas - posterGas;
+        UInt256 txTip = premiumGas * computeGas;
+        UInt256 networkComputeCostForTx = baseFeePerGas * computeGas;
         UInt256 finalNetworkBalance = worldState.GetBalance(networkFeeAccount);
         finalNetworkBalance.Should().Be(initialNetworkBalance + txTip + networkComputeCostForTx);
 
@@ -2769,9 +2772,10 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
-    public void Execute_WhenTipIsDropped_EvmSeesOriginalPriceButRefundsUseDroppedPrice()
+    public void Execute_PreV3DelayedInboxGasPrice_ReturnsFullPriceAndRefundUsesBaseFee()
     {
-        // Test Nitro's dual gas price behavior: EVM context gets original price, refunds use dropped price
+        // pre-v3 delayed: GASPRICE = full price (Nitro evm.GasPrice is a pre-clamp deep copy);
+        // refund uses baseFee (fee-charging branch clamps when !CollectTips()).
 
         using ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
         {
@@ -2793,7 +2797,7 @@ public class ArbitrumTransactionProcessorTests
         UInt256 tipPerGas = 500;
         UInt256 originalGasPrice = baseFeePerGas + tipPerGas;
 
-        // Use different address (not BatchPosterAddress) to ensure tip dropping occurs
+        // Use different address (not BatchPosterAddress) so CollectTips() short-circuits to false via the delayed-inbox branch.
         BlockHeader header = new(chain.BlockTree.HeadHash, null!, TestItem.AddressF, UInt256.Zero, 0,
             100_000, 100, [])
         {
@@ -2839,28 +2843,16 @@ public class ArbitrumTransactionProcessorTests
 
         result.Should().Be(TransactionResult.Ok);
 
-        // Verify EVM saw original gas price (before tip drop)
         UInt256 storedGasPrice = new UInt256(worldState.Get(new StorageCell(contractAddress, 0)), isBigEndian: true);
-        storedGasPrice.Should().Be(originalGasPrice,
-            "EVM execution context should contain original gas price (base + tip) via tx.CalculateEffectiveGasPrice()");
+        storedGasPrice.Should().Be(originalGasPrice, "pre-v3 GASPRICE returns the full pre-clamp price.");
 
-        // Verify refund used dropped-tip price (base fee only)
         UInt256 expectedGasCost = baseFeePerGas * (ulong)tx.SpentGas;
         UInt256 expectedFinalBalance = initialBalance - expectedGasCost;
-
-        UInt256 actualFinalBalance = worldState.GetBalance(sender);
-        actualFinalBalance.Should().Be(expectedFinalBalance,
-            "Refund should use overridable effective gas price (base fee only after tip drop) via CalculateEffectiveGasPrice()");
-
-        // Verify the two prices were different (dual gas price behavior)
-        UInt256 balanceIfOriginalPriceUsed = initialBalance - originalGasPrice * (ulong)tx.SpentGas;
-        actualFinalBalance.Should().BeGreaterThan(balanceIfOriginalPriceUsed,
-            "Final balance should be higher than if original price was used, confirming dual gas price behavior");
+        worldState.GetBalance(sender).Should().Be(expectedFinalBalance, "refund clamps to baseFee when !CollectTips().");
 
         tracer.BeforeEvmTransfers.Count.Should().Be(2);
         tracer.AfterEvmTransfers.Count.Should().Be(0);
     }
-
 
     [TestCaseSource(nameof(PosterDataCostReturnsZeroCases))]
     public void PosterDataCost_WhenCalledWithNonBatchPosterOrArbitrumTxTypes_ShouldReturnZero(string posterHex, TxType txType)
@@ -3858,5 +3850,308 @@ public class ArbitrumTransactionProcessorTests
         UInt256 expectedInfraCost = minBaseFee * gasLimit;
         actualInfraFee.Should().Be(expectedInfraCost,
             $"When minBaseFee ({minBaseFee}) < effectiveBaseFee ({effectiveBaseFee}), should use minBaseFee");
+    }
+
+    // CollectTips() decision tree — Nitro tx_processor.go:CollectTips ordering: delayed → v9 → v10-v59 → v60+ flag.
+    // Observable signal: tip credited (or not) to NetworkFeeAccount and effective gas price refunded to sender.
+    [Test]
+    [TestCase(ArbosVersion.Nine, true, false, true, TestName = "CollectTips_V9_BatchPoster_Collects")]
+    [TestCase(ArbosVersion.Nine, false, false, false, TestName = "CollectTips_V9_NonBatchPoster_DropsDueToDelayedShortCircuit")]
+    [TestCase(ArbosVersion.FiftyOne, true, false, false, TestName = "CollectTips_V51_BatchPoster_AlwaysDrops")]
+    [TestCase(ArbosVersion.Sixty, true, false, false, TestName = "CollectTips_V60_FlagFalse_Drops")]
+    [TestCase(ArbosVersion.Sixty, true, true, true, TestName = "CollectTips_V60_FlagTrue_BatchPoster_Collects")]
+    [TestCase(ArbosVersion.Sixty, false, true, false, TestName = "CollectTips_V60_FlagTrue_NonBatchPoster_DelayedShortCircuit")]
+    public void CollectTips_DecisionTree_TipRoutedAccordingToVersionAndFlag(
+        ulong arbosVersion, bool batchPosterCoinbase, bool collectTipsFlag, bool tipShouldBeCollected)
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(cb =>
+            cb.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = false
+            }));
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable dispose = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), LimboLogs.Instance.GetLogger("arbosState"));
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+        if (arbosVersion >= ArbosVersion.Sixty)
+            arbosState.SetCollectTips(collectTipsFlag);
+
+        Address beneficiary = batchPosterCoinbase
+            ? ArbosAddresses.BatchPosterAddress
+            : new Address("0x0000000000000000000000000000000000000010");
+        BlockHeader header = new(chain.BlockTree.HeadHash, null!, beneficiary, UInt256.Zero, 0, 100_000, 100, [])
+        {
+            BaseFeePerGas = arbosState.L2PricingState.BaseFeeWeiStorage.Get()
+        };
+
+        const ulong gasLimit = 100_000;
+        UInt256 tip = 2 * header.BaseFeePerGas;
+        UInt256 maxFeePerGas = header.BaseFeePerGas * 5;
+        UInt256 value = 1.Ether;
+
+        worldState.CreateAccount(TestItem.AddressA, gasLimit * maxFeePerGas + value, 0);
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(TestItem.AddressA)
+            .WithTo(TestItem.AddressB)
+            .WithType(TxType.EIP1559)
+            .WithGasLimit((long)gasLimit)
+            .WithMaxPriorityFeePerGas(tip)
+            .WithMaxFeePerGas(maxFeePerGas)
+            .WithValue(value).TestObject;
+
+        BlockExecutionContext executionContext = new(header, chain.SpecProvider.GenesisSpec);
+        TransactionResult txResult = chain.TxProcessor.Execute(tx, executionContext, new ArbitrumGethLikeTxTracer(GethTraceOptions.Default));
+        txResult.Should().Be(TransactionResult.Ok);
+
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        // Non-BatchPoster coinbase → posterGas=0, so computeGas == spentGas
+        UInt256 expectedComputeCost = header.BaseFeePerGas * (ulong)tx.SpentGas;
+        UInt256 expectedTipCredit = tipShouldBeCollected ? tip * (ulong)tx.SpentGas : UInt256.Zero;
+
+        worldState.GetBalance(networkFeeAccount).Should().Be(expectedComputeCost + expectedTipCredit);
+
+        UInt256 unspentGas = gasLimit - (UInt256)tx.SpentGas;
+        UInt256 expectedSenderBalance = tipShouldBeCollected
+            ? unspentGas * maxFeePerGas + (UInt256)tx.SpentGas * (maxFeePerGas - (header.BaseFeePerGas + tip))
+            : gasLimit * maxFeePerGas - header.BaseFeePerGas * (UInt256)tx.SpentGas;
+        worldState.GetBalance(TestItem.AddressA).Should().Be(expectedSenderBalance);
+    }
+
+    // GasChargingHook posterGas denominator: when collecting, posterGas = posterCost / (baseFee + tip).
+    // PayFees & EndTxHook: tip and compute cost are credited on (spentGas - posterGas), not spentGas.
+    [Test]
+    public void V60_CollectTipsEnabled_PosterGasUsesActualGasPriceAndTipChargedOnComputeOnly()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        Block genesis = ArbOSInitialization.Create(worldState);
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
+            new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
+            GetSpecProvider(),
+            _logManager
+        );
+
+        UInt256 baseFeePerGas = 1_000;
+        UInt256 tipPerGas = 200;
+        genesis.Header.BaseFeePerGas = baseFeePerGas;
+        genesis.Header.Author = ArbosAddresses.BatchPosterAddress;
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
+            GetSpecProvider(),
+            worldState,
+            TestWasmStore.Create(),
+            virtualMachine,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), _logManager.GetClassLogger<ArbosState>());
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Sixty);
+        arbosState.L1PricingState.SetPricePerUnit(1000);
+        arbosState.SetCollectTips(true);
+
+        Address sender = TestItem.AddressA;
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(TestItem.AddressB)
+            .WithType(TxType.EIP1559)
+            .WithGasLimit(200_000)
+            .WithMaxPriorityFeePerGas(tipPerGas)
+            .WithMaxFeePerGas(baseFeePerGas + tipPerGas)
+            .WithValue(1)
+            .WithNonce(0)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+        worldState.CreateAccount(sender, 1.Ether);
+
+        Rlp encoded = Rlp.Encode(tx);
+        ulong brotliCompressionLevel = arbosState.BrotliCompressionLevel.Get();
+        ulong calldataUnits = (ulong)BrotliCompression.Compress(encoded.Bytes, brotliCompressionLevel).Length
+                              * GasCostOf.TxDataNonZeroEip2028;
+        UInt256 pricePerUnit = arbosState.L1PricingState.PricePerUnitStorage.Get();
+        UInt256 posterCost = pricePerUnit * calldataUnits;
+
+        UInt256 actualGasPrice = baseFeePerGas + tipPerGas;
+        ulong expectedPosterGasWithCollection = (posterCost / actualGasPrice).ToULongSafe();
+        ulong expectedPosterGasWithoutCollection = (posterCost / baseFeePerGas).ToULongSafe();
+        // Sanity: the collected case yields a strictly smaller posterGas than the baseFee-only case.
+        expectedPosterGasWithCollection.Should().BeLessThan(expectedPosterGasWithoutCollection);
+
+        Address networkFeeAccount = arbosState.NetworkFeeAccount.Get();
+        UInt256 initialNetworkBalance = worldState.GetBalance(networkFeeAccount);
+
+        TransactionResult result = txProcessor.Execute(tx, new ArbitrumGethLikeTxTracer(GethTraceOptions.Default));
+        result.Should().Be(TransactionResult.Ok);
+
+        virtualMachine.ArbitrumTxExecutionContext.PosterGas.Should().Be(expectedPosterGasWithCollection);
+        virtualMachine.ArbitrumTxExecutionContext.PosterFee.Should().Be(actualGasPrice * expectedPosterGasWithCollection);
+
+        // Network gets baseFee*computeGas + tip*computeGas == actualGasPrice * computeGas.
+        ulong computeGas = (ulong)tx.SpentGas - expectedPosterGasWithCollection;
+        UInt256 expectedNetworkCredit = actualGasPrice * computeGas;
+        worldState.GetBalance(networkFeeAccount).Should().Be(initialNetworkBalance + expectedNetworkCredit);
+    }
+
+    // GASPRICE parity vs Nitro's GasPriceOp at every era:
+    //   pre-v3: always full price (Nitro evm.GasPrice is a pre-clamp deep copy).
+    //   v3+:    full price when CollectTips, else baseFee.
+    [Test]
+    [TestCase(ArbosVersion.Two, true, false, true, TestName = "GasPriceOp_PreV3_Sequencer_ReturnsFullPrice")]
+    [TestCase(ArbosVersion.Two, false, false, true, TestName = "GasPriceOp_PreV3_DelayedInbox_ReturnsFullPrice")]
+    [TestCase(ArbosVersion.Nine, true, false, true, TestName = "GasPriceOp_V9_Sequencer_ReturnsFullPrice")]
+    [TestCase(ArbosVersion.Ten, true, false, false, TestName = "GasPriceOp_V10_Sequencer_ReturnsBaseFee")]
+    [TestCase(ArbosVersion.FiftyOne, true, false, false, TestName = "GasPriceOp_V51_ReturnsBaseFee")]
+    [TestCase(ArbosVersion.Sixty, true, true, true, TestName = "GasPriceOp_V60_CollectTrue_ReturnsFullPrice")]
+    [TestCase(ArbosVersion.Sixty, true, false, false, TestName = "GasPriceOp_V60_CollectFalse_ReturnsBaseFee")]
+    public void GasPriceOpcode_AcrossArbOSEras_FollowsCollectTipsFlag(
+        ulong arbosVersion, bool batchPosterCoinbase, bool collectTips, bool opcodeShouldReturnFullPrice)
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        Block genesis = ArbOSInitialization.Create(worldState);
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
+            new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
+            GetSpecProvider(),
+            _logManager
+        );
+
+        UInt256 baseFeePerGas = 1000;
+        UInt256 tipPerGas = 500;
+        UInt256 fullPrice = baseFeePerGas + tipPerGas;
+
+        genesis.Header.BaseFeePerGas = baseFeePerGas;
+        genesis.Header.Author = batchPosterCoinbase ? ArbosAddresses.BatchPosterAddress : TestItem.AddressF;
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
+            GetSpecProvider(),
+            worldState,
+            TestWasmStore.Create(),
+            virtualMachine,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), _logManager.GetClassLogger<ArbosState>());
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, arbosVersion);
+        if (arbosVersion >= ArbosVersion.Sixty)
+            arbosState.SetCollectTips(collectTips);
+        // Both gas-limit caps need to permit the contract call; v50+ caps to PerTxGasLimit, earlier to PerBlockGasLimit.
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(10_000_000);
+        arbosState.L2PricingState.PerTxGasLimitStorage.Set(10_000_000);
+
+        Address sender = TestItem.AddressA;
+        Address contractAddress = TestItem.AddressB;
+        byte[] contractCode = Prepare.EvmCode
+            .Op(Instruction.GASPRICE)
+            .PushData(0)
+            .Op(Instruction.SSTORE)
+            .Op(Instruction.STOP)
+            .Done;
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, Keccak.Compute(contractCode), contractCode, GetSpecProvider().GenesisSpec);
+
+        long gasLimit = 100_000;
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(contractAddress)
+            .WithType(TxType.EIP1559)
+            .WithGasLimit(gasLimit)
+            .WithMaxPriorityFeePerGas(tipPerGas)
+            .WithMaxFeePerGas(fullPrice)
+            .WithValue(0)
+            .WithNonce(0)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+        worldState.CreateAccount(sender, fullPrice * (ulong)gasLimit, 0);
+
+        TransactionResult result = txProcessor.Execute(tx, new ArbitrumGethLikeTxTracer(GethTraceOptions.Default));
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 storedGasPrice = new UInt256(worldState.Get(new StorageCell(contractAddress, 0)), isBigEndian: true);
+        storedGasPrice.Should().Be(opcodeShouldReturnFullPrice ? fullPrice : baseFeePerGas);
+    }
+
+    // Regression guard: pre-v3 with gasPrice == baseFee (no tip) also returns baseFee. Trivially correct both
+    // before and after the parity fix because fullPaidPrice == baseFee, but locks the invariant.
+    [Test]
+    public void GasPriceOpcode_PreV3ZeroPriority_ReturnsBaseFee()
+    {
+        IWorldState worldState = TestWorldStateFactory.CreateForTest();
+        using IDisposable worldStateDisposer = worldState.BeginScope(IWorldState.PreGenesis);
+        Block genesis = ArbOSInitialization.Create(worldState);
+
+        ArbitrumVirtualMachine virtualMachine = new(
+            ArbOSInitialization.GetSpecHelper(),
+            new TestBlockhashProvider(GetSpecProvider()),
+            TestWasmStore.Create(),
+            GetSpecProvider(),
+            _logManager
+        );
+
+        UInt256 baseFeePerGas = 1000;
+        genesis.Header.BaseFeePerGas = baseFeePerGas;
+        genesis.Header.Author = ArbosAddresses.BatchPosterAddress;
+        BlockExecutionContext blCtx = new(genesis.Header, GetSpecProvider().GetSpec(genesis.Header));
+        virtualMachine.SetBlockExecutionContext(in blCtx);
+
+        ArbitrumTransactionProcessor txProcessor = new(
+            BlobBaseFeeCalculator.Instance,
+            GetSpecProvider(),
+            worldState,
+            TestWasmStore.Create(),
+            virtualMachine,
+            _logManager,
+            new EthereumCodeInfoRepository(worldState)
+        );
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new SystemBurner(), _logManager.GetClassLogger<ArbosState>());
+        arbosState.BackingStorage.Set(ArbosStateOffsets.VersionOffset, ArbosVersion.Two);
+        arbosState.L2PricingState.PerBlockGasLimitStorage.Set(10_000_000);
+        arbosState.L2PricingState.PerTxGasLimitStorage.Set(10_000_000);
+
+        Address sender = TestItem.AddressA;
+        Address contractAddress = TestItem.AddressB;
+        byte[] contractCode = Prepare.EvmCode
+            .Op(Instruction.GASPRICE)
+            .PushData(0)
+            .Op(Instruction.SSTORE)
+            .Op(Instruction.STOP)
+            .Done;
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, Keccak.Compute(contractCode), contractCode, GetSpecProvider().GenesisSpec);
+
+        long gasLimit = 100_000;
+        Transaction tx = Build.A.Transaction
+            .WithSenderAddress(sender)
+            .WithTo(contractAddress)
+            .WithType(TxType.Legacy)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(baseFeePerGas)
+            .WithValue(0)
+            .WithNonce(0)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+        worldState.CreateAccount(sender, baseFeePerGas * (ulong)gasLimit, 0);
+
+        TransactionResult result = txProcessor.Execute(tx, new ArbitrumGethLikeTxTracer(GethTraceOptions.Default));
+        result.Should().Be(TransactionResult.Ok);
+
+        UInt256 storedGasPrice = new UInt256(worldState.Get(new StorageCell(contractAddress, 0)), isBigEndian: true);
+        storedGasPrice.Should().Be(baseFeePerGas);
     }
 }

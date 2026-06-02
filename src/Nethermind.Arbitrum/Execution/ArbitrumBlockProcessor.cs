@@ -184,6 +184,7 @@ namespace Nethermind.Arbitrum.Execution
 
                             ArbitrumBlockHeaderInfo currentInfo = ArbitrumBlockHeaderInfo.Deserialize(blockToProduce.Header, _logger);
                             currentInfo.ArbOSFormatVersion = updatedArbosVersion;
+                            currentInfo.CollectTips = ComputeCollectTips(arbosState, blockToProduce.Header);
                             ArbitrumBlockHeaderInfo.UpdateHeader(blockToProduce.Header, currentInfo);
                         }
 
@@ -354,7 +355,8 @@ namespace Nethermind.Arbitrum.Execution
                     SendRoot = Hash256.Zero,
                     SendCount = 0,
                     L1BlockNumber = 0,
-                    ArbOSFormatVersion = 0
+                    ArbOSFormatVersion = 0,
+                    CollectTips = false,
                 };
 
                 if ((ulong)header.Number != chainSpecParams.GenesisBlockNum)
@@ -363,12 +365,18 @@ namespace Nethermind.Arbitrum.Execution
                     arbBlockHeaderInfo.SendRoot = arbosState.SendMerkleAccumulator.CalculateRoot().ToCommitment();
                     arbBlockHeaderInfo.SendCount = arbosState.SendMerkleAccumulator.GetSize();
                     arbBlockHeaderInfo.L1BlockNumber = arbosState.Blockhashes.GetL1BlockNumber();
+                    arbBlockHeaderInfo.CollectTips = ComputeCollectTips(arbosState, header);
                 }
 
                 // Always use the actual ArbOS version from state (after upgrades have been applied)
                 arbBlockHeaderInfo.ArbOSFormatVersion = arbosState.CurrentArbosVersion;
                 ArbitrumBlockHeaderInfo.UpdateHeader(header, arbBlockHeaderInfo);
             }
+
+            // Delayed-inbox blocks (Coinbase != BatchPoster) always drop tips, regardless of the
+            // chain-wide flag — matches Nitro arbos/block_processor.go:723-727.
+            private static bool ComputeCollectTips(ArbosState arbosState, BlockHeader header)
+                => arbosState.CollectTips() && header.GasBeneficiary == ArbosAddresses.BatchPosterAddress;
 
             private TxAction ProcessTransaction(
                 Block block,

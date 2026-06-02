@@ -42,17 +42,18 @@ internal static partial class ArbitrumEvmInstructions
     /// <summary>
     /// Returns the gas price for the transaction.
     /// </summary>
+    /// <remarks>
+    /// All Arbitrum-specific GASPRICE semantics (pre-v3 legacy effective price, v3+ GasPriceOp matching
+    /// Nitro's GetPaidGasPrice — full price when CollectTips is on, baseFee when off) are encoded by
+    /// <see cref="Execution.ArbitrumTransactionProcessor.CalculateEffectiveGasPrice"/> when it sets
+    /// <c>opcodeGasPrice</c>. This opcode just exposes that value.
+    /// </remarks>
     private struct OpGasPrice
     {
         public static long GasCost => GasCostOf.Base;
 
         public static ref readonly UInt256 Operation(ArbitrumVirtualMachine vm)
-        {
-            return ref vm.FreeArbosState.CurrentArbosVersion is < ArbosVersion.Three or
-                ArbosVersion.Nine
-                ? ref vm.TxExecutionContext.GasPrice
-                : ref vm.BlockExecutionContext.Header.BaseFeePerGas;
-        }
+            => ref vm.TxExecutionContext.GasPrice;
     }
 
     /// <summary>

@@ -105,7 +105,9 @@ public class StylusEvmDataTests
         response.BlockNumberMinusOne.Should().Be((UInt256)context.Chain.BlockTree.Head!.Number - 1);
         response.ChainId.Should().Be(context.Chain.ChainSpec.ChainId);
         response.BaseFee.Should().Be(0);
-        response.GasPrice.Should().Be(1);
+        // eth_call runs with NoBaseFee — evm.Context.BaseFee is zeroed. At ArbOS v3+ on a non-collecting chain,
+        // Nitro's GasPriceOp returns GetPaidGasPrice() which falls back to evm.Context.BaseFee (= 0).
+        response.GasPrice.Should().Be(0);
         response.GasLimit.Should().Be(1125899906842624);
         response.Value.Should().Be(1);
         response.Timestamp.Should().Be(context.Chain.BlockTree.Head!.Header.Timestamp);
