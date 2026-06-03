@@ -295,7 +295,6 @@ public partial class ArbosStorageTests
             null,
             0,
             0,
-            0,
             Array.Empty<byte>());
         TracingInfo tracingInfo = new(tracer, scenario, executionEnv);
 
@@ -328,7 +327,6 @@ public partial class ArbosStorageTests
             TestAccount,
             TestAccount,
             null,
-            0,
             0,
             0,
             Array.Empty<byte>());

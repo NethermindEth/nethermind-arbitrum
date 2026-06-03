@@ -156,6 +156,9 @@ public sealed class ResettableArbitrumBlockTree : IBlockTree, IArbitrumResettabl
     public void DeleteInvalidBlock(Block invalidBlock)
         => _inner.DeleteInvalidBlock(invalidBlock);
 
+    public void ReportBadBlock(Block badBlock)
+        => _inner.ReportBadBlock(badBlock);
+
     public void DeleteOldBlock(long blockNumber, Hash256 blockHash)
         => _inner.DeleteOldBlock(blockNumber, blockHash);
 
