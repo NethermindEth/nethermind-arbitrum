@@ -150,11 +150,14 @@ internal static partial class ArbitrumEvmInstructions
         }
         else
         {
-            if (!gasLimit.IsUint64 || gasLimit.u0 >= long.MaxValue) goto OutOfGas;
+            if (!gasLimit.IsUint64 || gasLimit.u0 >= long.MaxValue)
+                goto OutOfGas;
+
             gasLimitUl = (long)gasLimit.u0;
         }
 
-        if (!TGasPolicy.UpdateGas(ref gas, gasLimitUl)) goto OutOfGas;
+        if (!TGasPolicy.UpdateGas(ref gas, gasLimitUl))
+            goto OutOfGas;
 
         // Add call stipend if value is being transferred.
         if (hasValueTransfer)
