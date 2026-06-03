@@ -678,6 +678,13 @@ namespace Nethermind.Arbitrum.Execution
                 DecodedMaxFeePerGas = UInt256.Zero,
             };
             systemTx.Hash = systemTx.CalculateHash();
+
+            // Since "Fast Eth Transfer" (PR #11804), Nethermind no longer calls PayValue when the transfer
+            // value is zero, so it skips the sender balance touch that Nitro still performs — making our
+            // captured witness diverge from Nitro's. We reinstate that touch here. Overriding PayValue is
+            // not an option: the zero-value check sits at the call site, before PayValue is ever invoked.
+            _ = _worldState.GetBalance(Address.SystemUser);
+
             TransactionResult systemTxResult = Process(systemTx, NullTxTracer.Instance, ExecutionOptions.Commit);
             if (systemTxResult != TransactionResult.Ok)
                 throw new InvalidOperationException($"ProcessParentBlockHash system transaction execution failed. TxHash={systemTx.Hash}, PrevHash={prevHash}, Result={systemTxResult}");
