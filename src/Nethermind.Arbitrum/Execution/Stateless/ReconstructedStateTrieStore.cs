@@ -288,7 +288,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             stats.DirtiesCountAfter = _dirties.Count;
             stats.DirtiesSizeAfter = _memDbBytes;
             stats.TotalMemSizeAfter = CurrentTotalFootprint();
-            stats.TotalTimeMs = Stopwatch.GetElapsedTime(beforeLock,  Stopwatch.GetTimestamp()).TotalMilliseconds;
+            stats.TotalTimeMs = Stopwatch.GetElapsedTime(beforeLock, Stopwatch.GetTimestamp()).TotalMilliseconds;
         }
 
         if (_logger.IsInfo)
