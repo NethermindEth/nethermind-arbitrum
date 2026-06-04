@@ -580,48 +580,20 @@ public class StateReconstructor : IStateReconstructor, IDisposable
             return;
         }
 
-        long startTime = Stopwatch.GetTimestamp();
-
         double targetSize = _maxMemDbSize.SaturateSub(BytesToEvictFromMemDb);
 
         if (_logger.IsInfo)
             _logger.Info($"MemDb overlay (size: {_trieStore.DirtySize / 1.MiB:F3}MB) " +
                 $"exceeded {_maxMemDbSize / 1.MiB:F2}MB, capping to {targetSize / 1.MiB:F2}MB " +
-                $"by spilling oldest state roots to disk");
+                $"by spilling oldest nodes to disk");
 
-        long totalCount = _preparedQueue.Count;
-        long count = 0;
-        double totalBytesFlushed = _trieStore.DirtySize;
-
-        // Disposing the batch flushes it to disk.
-        // MaybeCap is done under the reconstruction lock, so, the small window where
-        // nodes got evicted from memDB but not yet on disk should not cause any issue.
-        // Other potential validator-related operations (not under _reconstructionLock) are
-        // safe to occur concurrently as they would just be no-op or not access evicted nodes.
-        using (IWriteBatch rawBatch = _mainStateDb.StartWriteBatch())
-        {
-            while (_trieStore.DirtySize > targetSize)
-            {
-                if (_fullPruningCts.IsCancellationRequested)
-                {
-                    if (_logger.IsInfo)
-                        _logger.Info($"Full pruning started while capping was in progress, aborting capping to avoid redundant disk writes");
-                    break;
-                }
-
-                if (!_preparedQueue.TryDequeue(out BlockHeader? header))
-                    break;
-
-                _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
-                count++;
-            }
-        }
-
-        long stopTime = Stopwatch.GetTimestamp();
-        totalBytesFlushed -= _trieStore.DirtySize;
-        double elapsed = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
-        if (_logger.IsInfo)
-            _logger.Info($"Finished capping MemDb overlay: flushed {totalBytesFlushed / 1.MiB:F3}MB by spilling {count} of {totalCount} state roots to disk, new size {_trieStore.DirtySize / 1.MiB:F3}MB, elapsed time: {elapsed:F1}ms");
+        // Page the oldest overlay nodes out to disk by node age, stopping the instant we are back under
+        // targetSize. Cap owns the write batch (two-pass, durable-before-remove) and logs its own summary.
+        // It evicts only the small overshoot and never re-serialises shared subtrees, so the batch and
+        // write volume stay bounded. MaybeCap runs under the reconstruction lock, so the brief window
+        // where nodes are on disk but not yet removed from the overlay is safe: concurrent validator
+        // operations are read-only / no-op.
+        _trieStore.Cap(targetSize, _mainStateDb);
     }
 
     private void RecoverTxSenders(Block block)
