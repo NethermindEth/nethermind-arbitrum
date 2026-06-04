@@ -47,6 +47,12 @@ public class ArbitrumWitnessCollector(
         if (producedBlock?.Hash is null)
             throw new NullReferenceException($"Failed to build block with parent header number: {parentHeader.Number} and hash: {parentHeader.Hash}");
 
+        // Block production allocates producedBlock.AccountChanges (a pooled ArrayPoolList) in
+        // BlockProcessor.SetAccountChanges. In normal processing, TxPool disposes it once the block becomes
+        // canonical, but this witness-only block never reaches TxPool, so dispose it here.
+        // Note: For now, only 1 caller of this method and it doesn't need that field.
+        producedBlock.DisposeAccountChanges();
+
         Witness witness = worldState.GetWitness(parentHeader);
         ArbitrumWitness arbitrumWitness = new(witness, wasmsRecorder.UserWasms);
 
