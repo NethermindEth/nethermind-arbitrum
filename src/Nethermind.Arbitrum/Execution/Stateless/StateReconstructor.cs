@@ -574,8 +574,8 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         if (_fullPruningCts.IsCancellationRequested)
         {
             if (_logger.IsInfo)
-                _logger.Info($"MemDb overlay (size {(double)_trieStore.DirtySize / 1.MiB:F1}MB) " +
-                $"exceeded max size {(double)_maxMemDbSize / 1.MiB:F1}MB but full pruning is in progress, " +
+                _logger.Info($"MemDb overlay (size {(double)_trieStore.DirtySize / 1.MiB:F2}MB) " +
+                $"exceeded max size {(double)_maxMemDbSize / 1.MiB:F2}MB but full pruning is in progress, " +
                 $"skipping capping to avoid redundant disk writes");
             return;
         }
