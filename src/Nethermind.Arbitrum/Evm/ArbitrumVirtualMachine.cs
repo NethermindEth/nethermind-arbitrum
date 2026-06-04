@@ -550,15 +550,44 @@ public sealed unsafe class ArbitrumVirtualMachine(
             AccessTracker = state.AccessTracker,
         };
 
+        // Determine gas policy before execution. For most precompiles this is the default
+        // (normal charging). ArbFilteredTransactionsManager overrides this to implement
+        // Nitro's FreeAccessPrecompile wrapper: filterers pay nothing, non-filterers pay
+        // only the cost of the membership check.
+        GasConsumptionPolicy gasPolicy = precompile.ShouldConsumeGas(context);
+        if (gasPolicy.IsFree)
+            context.Free = true;
+
         CallResult result = precompile.IsDebug
             ? DebugPrecompileCall(state, context, precompile)
             : precompile.IsOwner
                 ? OwnerPrecompileCall(state, context, precompile)
                 : NonOwnerPrecompileCall(state, context, precompile);
 
+        // Apply gas policy overrides after the call.
+        if (gasPolicy.IsFree)
+        {
+            // Filterer: return all supplied gas. context.BurnedMultiGas is 0 since Free=true
+            // made every Burn() a no-op, so AddToAccumulated below would add nothing anyway.
+            ReturnSomeGas(state, context.GasSupplied);
+        }
+        else if (gasPolicy.CheckCost > 0)
+        {
+            // Non-filterer: the inner precompile called BurnOut (unauthorized), but the wrapper
+            // only charges for the membership check — discarding the BurnOut gas consumption,
+            // matching Nitro's `return output, burner.GasLeft(), burner.gasUsed, err`.
+            ulong gasToReturn = gasPolicy.CheckCost < context.GasSupplied
+                ? context.GasSupplied - gasPolicy.CheckCost
+                : 0;
+            ReturnSomeGas(state, gasToReturn);
+        }
+
         // Add precompile's MultiGas to child's gas policy so it flows through Refund correctly.
-        // Skip for owner precompiles - they don't charge multigas.
-        if (!precompile.IsOwner)
+        // Skip for owner precompiles (they don't charge multigas) and for precompiles with a
+        // custom gas policy (IsFree: BurnedMultiGas is 0; CheckCost>0: BurnedMultiGas reflects
+        // the discarded BurnOut amount, not the actual charge).
+        bool hasCustomGasPolicy = gasPolicy.IsFree || gasPolicy.CheckCost > 0;
+        if (!precompile.IsOwner && !hasCustomGasPolicy)
             ArbitrumGasPolicy.AddToAccumulated(ref state.Gas, context.BurnedMultiGas);
 
         return result;

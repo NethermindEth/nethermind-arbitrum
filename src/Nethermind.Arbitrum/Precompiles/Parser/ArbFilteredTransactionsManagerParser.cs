@@ -4,6 +4,7 @@
 using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -15,6 +16,18 @@ public class ArbFilteredTransactionsManagerParser : IArbitrumPrecompile<ArbFilte
     public static readonly ArbFilteredTransactionsManagerParser Instance = new();
 
     public static Address Address { get; } = ArbFilteredTransactionsManager.Address;
+
+    /// <summary>
+    /// Implements Nitro's FreeAccessPrecompile wrapper semantics: transaction filterers pay
+    /// nothing; non-filterers pay only the cost of the filterer membership check.
+    /// </summary>
+    public GasConsumptionPolicy ShouldConsumeGas(ArbitrumPrecompileExecutionContext context)
+    {
+        bool isFilterer = context.FreeArbosState.TransactionFilterers.IsMember(context.Caller);
+        return isFilterer
+            ? new GasConsumptionPolicy { IsFree = true, CheckCost = 0 }
+            : new GasConsumptionPolicy { IsFree = false, CheckCost = ArbosStorage.StorageReadCost };
+    }
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
         = Solgen.ArbFilteredTransactionsManager.Functions.All.ToFrozenDictionary(f => f.Key, f => f.Value.ToArbitrumFunctionDescription());
