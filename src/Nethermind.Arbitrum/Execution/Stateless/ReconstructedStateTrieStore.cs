@@ -221,30 +221,6 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         }
     }
 
-    /// <summary>Accumulated diagnostics for one <see cref="Cap"/> pass.</summary>
-    public struct SpillStats
-    {
-        /// <summary>Nodes written to the spill batch.</summary>
-        public long FlushCount;
-        /// <summary>Bytes written to the spill batch.</summary>
-        public double FlushSize;
-        /// <summary>Nodes removed from the overlay (memory freed).</summary>
-        public long EvictedCount;
-        /// <summary>Time spent acquiring the overlay lock.</summary>
-        public double LockWaitMs;
-        /// <summary>Time spent in <see cref="IWriteBatch.Dispose"/> (the disk flush).</summary>
-        public double FlushDisposeMs;
-        /// <summary>Time spent in the second pass removing flushed nodes from the overlay.</summary>
-        public double RemovePass2Ms;
-        /// <summary>Total time inside the lock (write pass + flush + remove pass), excluding lock acquisition.</summary>
-        public double TotalExclLockMs;
-
-        public override readonly string ToString() =>
-            $"flushed {FlushCount} nodes / {FlushSize / 1.MiB:F3}MB, evicted {EvictedCount} nodes, " +
-            $"lockWait {LockWaitMs:F1}ms, flushDispose {FlushDisposeMs:F1}ms, " +
-            $"removePass2 {RemovePass2Ms:F1}ms, total(excl lock) {TotalExclLockMs:F1}ms";
-    }
-
     /// <summary>
     /// Pages the oldest overlay nodes out to the main state DB, walking the flush list head-first and
     /// stopping the moment the overlay's in-memory size drops to <paramref name="targetSize"/>. Eviction
@@ -264,29 +240,27 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// </remarks>
     public void Cap(double targetSize, IKeyValueStoreWithBatching mainStateDb)
     {
-        SpillStats stats = default;
-        long footprintBefore, footprintAfter;
-        int liveNodes;
+        CapStats stats = default;
 
         long beforeLock = Stopwatch.GetTimestamp();
         lock (_lock)
         {
-            long afterLock = Stopwatch.GetTimestamp();
-            stats.LockWaitMs = Stopwatch.GetElapsedTime(beforeLock, afterLock).TotalMilliseconds;
-
             // Pass 1: write oldest-first into the batch until the projected footprint meets the target.
             // Use a local size since _memDbBytes is only decremented in pass 2; the per-node decrement
-            // includes the metadata overhead so it matches CurrentFootprintLockHeld()'s accounting.
+            // includes the metadata overhead so it matches CurrentFootprint()'s accounting.
             IWriteBatch batch = mainStateDb.StartWriteBatch();
-            footprintBefore = CurrentTotalFootprint();
-            long size = footprintBefore;
+
+            stats.DirtiesCountBefore = _dirties.Count;
+            stats.DirtiesSizeBefore = _memDbBytes;
+            stats.TotalMemSizeBefore = CurrentTotalFootprint();
+
+            long size = stats.TotalMemSizeBefore;
             byte[]? cursor = _oldest;
+
             while (size > targetSize && cursor is not null)
             {
                 Node node = _dirties[cursor];
                 batch.PutSpan(cursor, node.Rlp);
-                stats.FlushCount++;
-                stats.FlushSize += node.Rlp.Length;
                 size -= NodeDataSize(cursor, node) + NodeMemoryOverhead;
                 cursor = node.FlushNext;
             }
@@ -294,8 +268,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             // Flush to disk BEFORE removing from memory.
             long beforeDispose = Stopwatch.GetTimestamp();
             batch.Dispose();
-            long afterDispose = Stopwatch.GetTimestamp();
-            stats.FlushDisposeMs = Stopwatch.GetElapsedTime(beforeDispose, afterDispose).TotalMilliseconds;
+            stats.FlushTimeMs = Stopwatch.GetElapsedTime(beforeDispose, Stopwatch.GetTimestamp()).TotalMilliseconds;
 
             // Pass 2: writes are now durable on disk, clear out the flushed data from memory.
             while (_oldest is not null && !ReferenceEquals(_oldest, cursor))
@@ -305,27 +278,21 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
                 _dirties.Remove(key);
                 _memDbBytes -= NodeDataSize(key, node);
                 _oldest = node.FlushNext;
-                stats.EvictedCount++;
             }
+
             if (_oldest is null)
                 _newest = null;
             else
                 _dirties[_oldest].FlushPrev = null;
 
-            footprintAfter = CurrentTotalFootprint();
-            liveNodes = _dirties.Count;
-
-            long end = Stopwatch.GetTimestamp();
-            stats.RemovePass2Ms = Stopwatch.GetElapsedTime(afterDispose, end).TotalMilliseconds;
-            stats.TotalExclLockMs = Stopwatch.GetElapsedTime(afterLock, end).TotalMilliseconds;
+            stats.DirtiesCountAfter = _dirties.Count;
+            stats.DirtiesSizeAfter = _memDbBytes;
+            stats.TotalMemSizeAfter = CurrentTotalFootprint();
+            stats.TotalTimeMs = Stopwatch.GetElapsedTime(beforeLock,  Stopwatch.GetTimestamp()).TotalMilliseconds;
         }
 
         if (_logger.IsInfo)
-            _logger.Info(
-                $"Capped reconstructed-state overlay to {targetSize / 1.MiB:F2}MB: {stats}, " +
-                $"freed {(footprintBefore - footprintAfter) / (double)1.MiB:F3}MB, " +
-                $"live {liveNodes} nodes / {footprintAfter / (double)1.MiB:F3}MB, " +
-                $"total(incl lock) {Stopwatch.GetElapsedTime(beforeLock, Stopwatch.GetTimestamp()).TotalMilliseconds:F1}ms");
+            _logger.Info($"{stats}");
     }
 
     /// <summary>
@@ -571,5 +538,34 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     {
         public void Add(Hash256? address, TreePath path, Hash256 hash)
             => stack.Push((address, path, hash));
+    }
+
+    /// <summary>Accumulated diagnostics for one <see cref="Cap"/> pass.</summary>
+    private struct CapStats
+    {
+        /// <summary>Dirties count before capping</summary>
+        public long DirtiesCountBefore;
+        /// <summary>Dirties count after capping</summary>
+        public long DirtiesCountAfter;
+        /// <summary>Dirties size before capping (excl metadata)</summary>
+        public long DirtiesSizeBefore;
+        /// <summary>Dirties size after capping (excl metadata)</summary>
+        public long DirtiesSizeAfter;
+        /// <summary>Dirties size before capping (incl metadata)</summary>
+        public long TotalMemSizeBefore;
+        /// <summary>Dirties size after capping (incl metadata)</summary>
+        public long TotalMemSizeAfter;
+        /// <summary>Time spent in <see cref="IWriteBatch.Dispose"/> (the disk flush)</summary>
+        public double FlushTimeMs;
+        /// <summary>Total time spent for capping</summary>
+        public double TotalTimeMs;
+
+        public override readonly string ToString() =>
+            $"Capped reconstructed-state overlay to {(double)TotalMemSizeAfter / 1.MiB:F3}MB, " +
+            $"evicted/flushed {DirtiesCountBefore - DirtiesCountAfter} nodes, " +
+            $"flushed size {(double)(DirtiesSizeBefore - DirtiesSizeAfter) / 1.MiB:F3}MB, " +
+            $"size freed from memory (incl metadata) {(double)(TotalMemSizeBefore - TotalMemSizeAfter) / 1.MiB:F3}MB, " +
+            $"live in-mem {DirtiesCountAfter} nodes, " +
+            $"flush time {FlushTimeMs:F1}ms, total capping time {TotalTimeMs:F1}ms";
     }
 }
