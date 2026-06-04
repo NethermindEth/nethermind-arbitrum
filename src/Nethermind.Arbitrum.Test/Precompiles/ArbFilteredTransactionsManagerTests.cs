@@ -3,9 +3,11 @@
 
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Arbos.Storage;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
+using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -196,6 +198,183 @@ public class ArbFilteredTransactionsManagerTests
     {
         PrecompileTestAbiHelpers.GetAllErrorDescriptions(Solgen.ArbFilteredTransactionsManager.Abi)
             .Should().BeEmpty();
+    }
+
+    // -------------------------------------------------------------------------
+    // GasConsumptionPolicy shape
+    // -------------------------------------------------------------------------
+
+    [Test]
+    public void ShouldConsumeGas_ForFiltererCaller_ReturnsFreePolicy()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: true);
+
+        GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx);
+
+        policy.IsFree.Should().BeTrue("registered filterers must get free access");
+        policy.CheckCost.Should().Be(0, "no check cost should be charged to a filterer");
+    }
+
+    [Test]
+    public void ShouldConsumeGas_ForNonFiltererCaller_ReturnsCheckCostPolicy()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressB, authorizeFilterer: false);
+
+        GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx);
+
+        policy.IsFree.Should().BeFalse("non-filterers do not get free access");
+        policy.CheckCost.Should().Be(ArbosStorage.StorageReadCost,
+            "non-filterers pay only the cost of the filterer membership check, " +
+            "matching Nitro's FreeAccessPrecompile burner.GasLeft() return");
+    }
+
+    [Test]
+    public void ShouldConsumeGas_DefaultInterfaceImpl_ReturnsDefaultPolicy()
+    {
+        // Any precompile that does not override ShouldConsumeGas should return the
+        // no-op default so that normal gas accounting is unchanged.
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: false);
+
+        GasConsumptionPolicy policy = ((IArbitrumPrecompile)ArbInfoParser.Instance).ShouldConsumeGas(ctx);
+
+        policy.IsFree.Should().BeFalse("default policy must not grant free access");
+        policy.CheckCost.Should().Be(0, "default policy must not override gas on failure");
+    }
+
+    // -------------------------------------------------------------------------
+    // Filterer path: context.Free = true suppresses all Burn() calls
+    // -------------------------------------------------------------------------
+
+    [Test]
+    public void AddFilteredTransaction_WithFreeFlag_BurnsNoGas()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: true);
+
+        // Capture baseline after setup (ArbosState open may have already charged some gas).
+        ulong gasLeftBefore = ctx.GasLeft;
+        ulong multiGasBefore = ctx.BurnedMultiGas.Total;
+        ctx.Free = true;
+
+        ArbFilteredTransactionsManager.AddFilteredTransaction(ctx, SampleTxHash);
+
+        ctx.GasLeft.Should().Be(gasLeftBefore,
+            "setting Free=true (filterer path) must suppress all Burn() calls");
+        ctx.BurnedMultiGas.Total.Should().Be(multiGasBefore,
+            "no additional multigas should be recorded for a free call");
+    }
+
+    [Test]
+    public void DeleteFilteredTransaction_WithFreeFlag_BurnsNoGas()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: true, gasSupplied: 500_000);
+
+        ArbFilteredTransactionsManager.AddFilteredTransaction(ctx, SampleTxHash);
+        ctx.ResetGasLeft();
+
+        ulong gasLeftBefore = ctx.GasLeft;
+        ulong multiGasBefore = ctx.BurnedMultiGas.Total;
+        ctx.Free = true;
+
+        ArbFilteredTransactionsManager.DeleteFilteredTransaction(ctx, SampleTxHash);
+
+        ctx.GasLeft.Should().Be(gasLeftBefore,
+            "setting Free=true must suppress all Burn() calls for delete as well");
+        ctx.BurnedMultiGas.Total.Should().Be(multiGasBefore,
+            "no additional multigas should be recorded for a free call");
+    }
+
+    [Test]
+    public void IsTransactionFiltered_WithFreeFlag_BurnsNoGas()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: true);
+
+        ulong gasLeftBefore = ctx.GasLeft;
+        ulong multiGasBefore = ctx.BurnedMultiGas.Total;
+        ctx.Free = true;
+
+        ArbFilteredTransactionsManager.IsTransactionFiltered(ctx, SampleTxHash);
+
+        ctx.GasLeft.Should().Be(gasLeftBefore,
+            "Free=true must suppress gas charges for view methods too");
+        ctx.BurnedMultiGas.Total.Should().Be(multiGasBefore,
+            "no additional multigas should be recorded for a free call");
+    }
+
+    [Test]
+    public void AddFilteredTransaction_WithFreeFlag_StillMutatesState()
+    {
+        // Free only skips gas accounting — the actual state write must still happen.
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: true);
+
+        ctx.Free = true;
+        ArbFilteredTransactionsManager.AddFilteredTransaction(ctx, SampleTxHash);
+
+        // Turn Free off so the read charges gas normally (avoids conflating the two concerns).
+        ctx.Free = false;
+        ArbFilteredTransactionsManager.IsTransactionFiltered(ctx, SampleTxHash)
+            .Should().BeTrue("state mutation must happen even when Free=true");
+    }
+
+    [Test]
+    public void DeleteFilteredTransaction_WithFreeFlag_StillMutatesState()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressA, authorizeFilterer: true, gasSupplied: 500_000);
+
+        ArbFilteredTransactionsManager.AddFilteredTransaction(ctx, SampleTxHash);
+        ctx.Free = true;
+
+        ArbFilteredTransactionsManager.DeleteFilteredTransaction(ctx, SampleTxHash);
+
+        ctx.Free = false;
+        ArbFilteredTransactionsManager.IsTransactionFiltered(ctx, SampleTxHash)
+            .Should().BeFalse("state mutation must happen even when Free=true");
+    }
+
+    // -------------------------------------------------------------------------
+    // Non-filterer path: BurnOut still fires at the precompile level
+    // (the VM's CheckCost override restores gas externally after the exception)
+    // -------------------------------------------------------------------------
+
+    [Test]
+    public void AddFilteredTransaction_NonFiltererWithoutFreeFlag_BurnOutStillFires()
+    {
+        // The inner precompile's BurnOut fires as normal for non-filterers. The VM is
+        // responsible for overriding state.Gas to GasSupplied - CheckCost afterwards.
+        // This test confirms that the context-level behaviour is unchanged and the VM
+        // truly needs the external override to avoid charging full gas.
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressB, authorizeFilterer: false);
+
+        Action act = () => ArbFilteredTransactionsManager.AddFilteredTransaction(ctx, SampleTxHash);
+
+        ArbitrumPrecompileException exception = act.Should()
+            .Throw<ArbitrumPrecompileException>("BurnOut must still be thrown for non-filterers")
+            .Which;
+
+        exception.OutOfGas.Should().BeTrue();
+        ctx.GasLeft.Should().Be(0,
+            "BurnOut drains context.GasLeft to zero; the VM overrides state.Gas externally");
+    }
+
+    [Test]
+    public void DeleteFilteredTransaction_NonFiltererWithoutFreeFlag_BurnOutStillFires()
+    {
+        using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
+            filterer: TestItem.AddressB, authorizeFilterer: false);
+
+        Action act = () => ArbFilteredTransactionsManager.DeleteFilteredTransaction(ctx, SampleTxHash);
+
+        act.Should().Throw<ArbitrumPrecompileException>()
+            .Which.OutOfGas.Should().BeTrue();
+        ctx.GasLeft.Should().Be(0);
     }
 
     private static IDisposable CreateTestContext(
