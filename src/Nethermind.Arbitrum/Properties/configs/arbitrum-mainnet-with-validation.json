@@ -50,10 +50,12 @@
     ]
   },
   "Pruning": {
-    "Mode": "Memory",
+    "Mode": "Hybrid",
     "PruningBoundary": 192,
     "MaxUnpersistedBlockCount": 1000,
-    "TrackPastKeys": false
+    "TrackPastKeys": false,
+    "FullPruningTrigger": "StateDbSize",
+    "FullPruningMinimumDelayHours": 72
   },
   "Blocks": {
     "SecondsPerSlot": 2,

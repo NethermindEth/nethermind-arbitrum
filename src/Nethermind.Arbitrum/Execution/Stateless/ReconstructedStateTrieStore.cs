@@ -245,6 +245,8 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         long beforeLock = Stopwatch.GetTimestamp();
         lock (_lock)
         {
+            long afterLock = Stopwatch.GetTimestamp();
+            stats.LockWaitMs = Stopwatch.GetElapsedTime(beforeLock, afterLock).TotalMilliseconds;
             // Pass 1: write oldest-first into the batch until the projected footprint meets the target.
             // Use a local size since _memDbBytes is only decremented in pass 2; the per-node decrement
             // includes the metadata overhead so it matches CurrentFootprint()'s accounting.
@@ -256,6 +258,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
 
             long size = stats.TotalMemSizeBefore;
             byte[]? cursor = _oldest;
+            long flushCountVerif = 0;
 
             while (size > targetSize && cursor is not null)
             {
@@ -263,12 +266,14 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
                 batch.PutSpan(cursor, node.Rlp);
                 size -= NodeDataSize(cursor, node) + NodeMemoryOverhead;
                 cursor = node.FlushNext;
+                flushCountVerif++;
             }
 
             // Flush to disk BEFORE removing from memory.
             long beforeDispose = Stopwatch.GetTimestamp();
             batch.Dispose();
-            stats.FlushTimeMs = Stopwatch.GetElapsedTime(beforeDispose, Stopwatch.GetTimestamp()).TotalMilliseconds;
+            long afterDispose = Stopwatch.GetTimestamp();
+            stats.FlushTimeMs = Stopwatch.GetElapsedTime(beforeDispose, afterDispose).TotalMilliseconds;
 
             // Pass 2: writes are now durable on disk, clear out the flushed data from memory.
             while (_oldest is not null && !ReferenceEquals(_oldest, cursor))
@@ -285,10 +290,17 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             else
                 _dirties[_oldest].FlushPrev = null;
 
+            long after2ndPass = Stopwatch.GetTimestamp();
+
             stats.DirtiesCountAfter = _dirties.Count;
             stats.DirtiesSizeAfter = _memDbBytes;
             stats.TotalMemSizeAfter = CurrentTotalFootprint();
-            stats.TotalTimeMs = Stopwatch.GetElapsedTime(beforeLock, Stopwatch.GetTimestamp()).TotalMilliseconds;
+            long end = Stopwatch.GetTimestamp();
+
+            stats.FlushCountVerif = flushCountVerif;
+            stats.TotalTimeMs = Stopwatch.GetElapsedTime(beforeLock, end).TotalMilliseconds;
+            stats.Pass1Ms = Stopwatch.GetElapsedTime(afterLock, beforeDispose).TotalMilliseconds;
+            stats.RemovePass2Ms = Stopwatch.GetElapsedTime(afterDispose, after2ndPass).TotalMilliseconds;
         }
 
         if (_logger.IsInfo)
@@ -560,12 +572,23 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         /// <summary>Total time spent for capping</summary>
         public double TotalTimeMs;
 
+        /// <summary>Number of nodes flushed</summary>
+        public long FlushCountVerif;
+        /// <summary>Time spent acquiring the overlay lock.</summary>
+        public double LockWaitMs;
+        /// <summary>Time spent in the first pass.</summary>
+        public double Pass1Ms;
+        /// <summary>Time spent in the second pass removing flushed nodes from the overlay.</summary>
+        public double RemovePass2Ms;
+
         public override readonly string ToString() =>
             $"Capped reconstructed-state overlay to {(double)TotalMemSizeAfter / 1.MiB:F3}MB, " +
             $"evicted/flushed {DirtiesCountBefore - DirtiesCountAfter} nodes, " +
             $"flushed size {(double)(DirtiesSizeBefore - DirtiesSizeAfter) / 1.MiB:F3}MB, " +
             $"size freed from memory (incl metadata) {(double)(TotalMemSizeBefore - TotalMemSizeAfter) / 1.MiB:F3}MB, " +
             $"live in-mem {DirtiesCountAfter} nodes, " +
+            $"flush count verification {FlushCountVerif}, " +
+            $"lock time: {LockWaitMs:F1}ms, pass 1 (batching) time: {Pass1Ms:F1}ms, pass 2 (removing from overlay) time: {RemovePass2Ms:F1}ms, " +
             $"flush time {FlushTimeMs:F1}ms, total capping time {TotalTimeMs:F1}ms";
     }
 }

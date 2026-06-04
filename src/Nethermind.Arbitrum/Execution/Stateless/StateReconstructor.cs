@@ -47,7 +47,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// at which point MemDb is cleared and the gate is released.
     /// Carries the headers that were actually copied so they can be restored after MemDb is cleared.
     /// </summary>
-    private sealed record PruningGate(BlockHeader ValidHeader, TaskCompletionSource Tcs);
+    private sealed record PruningGate(BlockHeader ValidHeader, TaskCompletionSource Tcs, long CreationTimestamp);
     private volatile PruningGate? _pruningGate;
 
     /// <summary>
@@ -121,10 +121,13 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
         if (pruningConfig.Mode.IsFull() && dbProvider.StateDb is IFullPruningDb fullPruningDb)
         {
+            Console.WriteLine($"--- StateReconstructor: subscribing to full pruning events: mode {pruningConfig.Mode} ---");
             _fullPruningDb = fullPruningDb;
             fullPruningDb.PruningStarted += OnPruningStarted;
             fullPruningDb.PruningFinished += OnPruningFinished;
         }
+        else
+            Console.WriteLine($"--- StateReconstructor: no full pruning, mode: {pruningConfig.Mode} ---");
 
         RestoreValidHeader();
     }
@@ -291,7 +294,9 @@ public class StateReconstructor : IStateReconstructor, IDisposable
             // clearing MemDb — any advancement of _validHeader that occurs between now
             // and commit references MemDb nodes that we are about to discard.
             _pruningGate = new PruningGate(validHeader,
-                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously), Stopwatch.GetTimestamp());
+
+            Console.WriteLine($"--- CopyLastValidStateForFullPruning: gate set, validHeader={validHeader.Number}, pruningBaseBlock={pruningBaseBlock}");
         }
     }
 
@@ -305,11 +310,13 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
     private void OnPruningStarted(object? sender, PruningEventArgs args)
     {
+        Console.WriteLine($"--- OnPruningStarted: pruning started event received, sender={sender}, args={args}");
         _fullPruningCts.Cancel();
     }
 
     public void Dispose()
     {
+        Console.WriteLine($"--- Inside StateReconstructor.Dispose ---");
         if (_fullPruningDb is not null)
         {
             _fullPruningDb.PruningStarted -= OnPruningStarted;
@@ -462,7 +469,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
                     expectedParentHash = processedBlock.Hash!;
 
-                    MaybeCap();
+                    MaybeCap(blockNumber);
 
                     if (_logger.IsDebug && blockNumber % 100 == 0)
                         _logger.Debug($"State reconstruction progress: {blockNumber - startBlock + 1}/{endBlock - startBlock + 1} blocks");
@@ -481,6 +488,8 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
     private void OnPruningFinished(object? sender, PruningEventArgs args)
     {
+        Console.WriteLine($"--- OnPruningFinished: pruning finished event received, sender={sender} success={args.Success}, gate={_pruningGate is not null}");
+
         if (!args.Success)
         {
             // Full pruning failed: Commit() was never called, old DB still active, MemDb still valid.
@@ -510,6 +519,8 @@ public class StateReconstructor : IStateReconstructor, IDisposable
                     ResetFullPruningCts();
                     return;
                 }
+                long secondTime = Stopwatch.GetTimestamp();
+                Console.WriteLine($"--- OnPruningFinished: elapsed time since gate set: {Stopwatch.GetElapsedTime(gate.CreationTimestamp, secondTime).TotalMilliseconds:F1}ms");
 
                 if (_logger.IsInfo)
                     _logger.Info($"OnPruningFinished: full pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
@@ -521,9 +532,13 @@ public class StateReconstructor : IStateReconstructor, IDisposable
                 _validHeaderCandidate = null;
 
                 // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
+                long totalBytes = _trieStore.DirtySize;
                 _trieStore.ClearOverlay();
                 _preparedQueue.Clear();
 
+                long thirdTime = Stopwatch.GetTimestamp();
+                Console.WriteLine($"--- OnPruningFinished: time to clear memDb of size {totalBytes / 1.MiB:F1} MiB (time {Stopwatch.GetElapsedTime(secondTime, thirdTime).TotalMilliseconds:F1}ms");
+                Console.WriteLine($"--- OnPruningFinished: total time since gate set: {Stopwatch.GetElapsedTime(gate.CreationTimestamp, thirdTime).TotalMilliseconds:F1}ms");
 
                 // Reset token after clearing memDB so that any pending capping logic
                 // just cancels as memDB size is now 0 (under limit)
@@ -574,10 +589,14 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// <remarks>
     /// Executed under _reconstructionLock
     /// </remarks>
-    private void MaybeCap()
+    private void MaybeCap(long blockNumber)
     {
         if (_trieStore.DirtySize <= _maxMemDbSize)
+        {
+            if (blockNumber % 1000 == 0 && _logger.IsDebug)
+                _logger.Debug($"MaybeCap: MemDb size {(double)_trieStore.DirtySize / 1.MiB:F2}MB is under the limit of {(double)_maxMemDbSize / 1.MiB:F2}MB at block {blockNumber}, no capping needed");
             return;
+        }
 
         if (_fullPruningCts.IsCancellationRequested)
         {

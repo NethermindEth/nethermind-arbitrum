@@ -26,6 +26,7 @@ using Nethermind.Serialization.Rlp;
 using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Stylus;
 using Nethermind.History;
+using System.Diagnostics;
 
 namespace Nethermind.Arbitrum.Execution;
 
@@ -453,8 +454,12 @@ public sealed class ArbitrumExecutionEngine(
 
     public async Task<ResultWrapper<RecordResult>> RecordBlockCreation(RecordBlockCreationParameters parameters)
     {
+        var totalSw = Stopwatch.StartNew();
+
         await stateReconstructor.WaitForPruningGateAsync();
+        TimeSpan pruningGateElapsed = totalSw.Elapsed;
         long blockNumber = MessageIndexToBlockNumber(parameters.Index).Data;
+        Console.WriteLine($"--- RecordBlockCreation (index {parameters.Index} vs number {blockNumber}) ---");
         if (blockNumber == 0)
         {
             // Cannot generate witness for genesis block as the block itself does not contain any transaction
@@ -476,20 +481,31 @@ public sealed class ArbitrumExecutionEngine(
 
         // References temporarily parent trie
         stateReconstructor.EnsureStateAvailable(parent);
+        TimeSpan ensureStateElapsed = totalSw.Elapsed - pruningGateElapsed;
 
         string[] wasmTargets = parameters.WasmTargets;
         string localTarget = StylusTargets.GetLocalTargetName();
         if (!wasmTargets.Contains(localTarget))
             wasmTargets = wasmTargets.Append(localTarget).ToArray();
 
+        // Default values used by the finally block if we throw before each phase actually runs.
+        TimeSpan setupScopeElapsed = TimeSpan.Zero;
+        BuildBlockPhaseTimings buildTimings = default;
+        TimeSpan waitCanonicalElapsed = TimeSpan.Zero;
+        TimeSpan updateValidHeaderElapsed = TimeSpan.Zero;
         try
         {
+            long setupStart = Stopwatch.GetTimestamp();
             using IWitnessGeneratingBlockProcessingEnvScope scope = witnessGeneratingBlockProcessingEnvFactory.CreateScope(wasmTargets);
             IBlockBuildingWitnessCollector witnessCollector = ((IWitnessGeneratingPolyvalentEnv)scope.Env).CreateBlockBuildingWitnessCollector();
-            (Block builtBlock, ArbitrumWitness witness) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+            setupScopeElapsed = Stopwatch.GetElapsedTime(setupStart);
+
+            (Block builtBlock, ArbitrumWitness witness, BuildBlockPhaseTimings timings) = await witnessCollector.BuildBlockAndGetWitness(parent, payload);
+            buildTimings = timings;
 
             using (witness)
             {
+                long waitStart = Stopwatch.GetTimestamp();
                 if (builtBlock.Hash is null)
                     return ResultWrapper<RecordResult>.Fail($"Failed to build block {blockNumber} or block has no hash.");
 
@@ -513,10 +529,14 @@ public sealed class ArbitrumExecutionEngine(
                         canonicalHash = await blockAddedTcs.Task.WaitAsync(cts.Token);
                     }
 
+                    waitCanonicalElapsed = Stopwatch.GetElapsedTime(waitStart);
+
                     if (canonicalHash != builtBlock.Hash)
                         return ResultWrapper<RecordResult>.Fail($"Built block hash: {builtBlock.Hash} does not match canonical block header hash: {canonicalHash}");
 
+                    long updateValidHeaderStart = Stopwatch.GetTimestamp();
                     stateReconstructor.UpdateValidCandidateHeader(parent);
+                    updateValidHeaderElapsed = Stopwatch.GetElapsedTime(updateValidHeaderStart);
 
                     RecordResult result = new(parameters.Index, builtBlock.Hash!, witness);
                     return ResultWrapper<RecordResult>.Success(result);
@@ -533,15 +553,35 @@ public sealed class ArbitrumExecutionEngine(
         }
         finally
         {
-            // Removes temporary reference to parent trie
-            // Gets removed by any execution path and after call to UpdateValidCandidateHeader
+            // Removes temporary reference to parent trie.
+            // Runs on every execution path, including after UpdateValidCandidateHeader (which adds a separate pin).
+            long derefStart = Stopwatch.GetTimestamp();
             stateReconstructor.DereferenceRoot(parent.StateRoot!);
+            TimeSpan derefElapsed = Stopwatch.GetElapsedTime(derefStart);
+            if (_logger.IsInfo)
+                _logger.Info(
+                    $"[RecordBlockCreation] block {blockNumber} phases: " +
+                    $"pruningGate={pruningGateElapsed.TotalMilliseconds:F1}ms, " +
+                    $"ensureState={ensureStateElapsed.TotalMilliseconds:F1}ms, " +
+                    $"setupScope={setupScopeElapsed.TotalMilliseconds:F1}ms, " +
+                    $"buildBlock={buildTimings.BuildBlockElapsed.TotalMilliseconds:F1}ms, " +
+                    $"collectWitness={buildTimings.CollectWitnessElapsed.TotalMilliseconds:F1}ms, " +
+                    $"waitCanonical={waitCanonicalElapsed.TotalMilliseconds:F1}ms, " +
+                    $"updateValidHeader={updateValidHeaderElapsed.TotalMilliseconds:F1}ms, " +
+                    $"deref={derefElapsed.TotalMilliseconds:F1}ms, " +
+                    $"total={totalSw.Elapsed.TotalMilliseconds:F1}ms");
         }
     }
 
     public async Task<ResultWrapper<EmptyResponse>> PrepareForRecord(PrepareForRecordParameters parameters)
     {
+        long startTime = Stopwatch.GetTimestamp();
+
         await stateReconstructor.WaitForPruningGateAsync();
+        Console.WriteLine($"--- PrepareForRecord [{parameters.Start}-{parameters.End}]: past pruning gate ---");
+        long afterPruningGate = Stopwatch.GetTimestamp();
+        double pruningGateTime = Stopwatch.GetElapsedTime(startTime, afterPruningGate).TotalMilliseconds;
+
         if (parameters.End < parameters.Start)
             return ResultWrapper<EmptyResponse>.Fail($"Invalid range: start {parameters.Start} > end {parameters.End}");
 
@@ -579,18 +619,27 @@ public sealed class ArbitrumExecutionEngine(
 
         stateReconstructor.PreparedAddTrim(referencedHeaders);
 
+        long stopTime = Stopwatch.GetTimestamp();
+        double totalTime = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
+        _logger.Info($"[PrepareForRecord] Prepared {referencedHeaders.Count} blocks in range [{parameters.Start}, {parameters.End}] in total time {totalTime:F1}ms (to get pruning gate: {pruningGateTime:F1}ms)");
+
         return ResultWrapper<EmptyResponse>.Success(default);
     }
 
     private async Task<ResultWrapper<EmptyResponse>> MarkValid(MarkValidParameters parameters)
     {
+        long startTime = Stopwatch.GetTimestamp();
         await stateReconstructor.WaitForPruningGateAsync();
+        long afterPruningGate = Stopwatch.GetTimestamp();
+        double pruningGateTime = Stopwatch.GetElapsedTime(startTime, afterPruningGate).TotalMilliseconds;
 
         ResultWrapper<long> blockNumberResult = MessageIndexToBlockNumber(parameters.Pos);
         if (blockNumberResult.Result != Result.Success)
             return ResultWrapper<EmptyResponse>.Fail(blockNumberResult.Result.Error!, blockNumberResult.ErrorCode);
 
         long validBlockNumber = blockNumberResult.Data;
+
+        Console.WriteLine($"--- MarkValid, num: {validBlockNumber}, resultHash: {parameters.ResultHash}");
 
         // Verify the canonical block at validBlockNumber is canonical
         Hash256? canonicalHash = blockTree.FindHeader(validBlockNumber, BlockTreeLookupOptions.RequireCanonical)?.Hash;
@@ -613,6 +662,10 @@ public sealed class ArbitrumExecutionEngine(
         {
             _logger.Debug($"MarkValid: promoted candidate block {validHeader.Number} hash {validHeader.Hash} as valid (validated at block {validBlockNumber}, hash={parameters.ResultHash})");
         }
+        long stopTime = Stopwatch.GetTimestamp();
+
+        double totalTime = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
+        _logger.Info($"[MarkValid] Marked block {validBlockNumber} as valid in total time {totalTime:F1}ms (to get pruning gate: {pruningGateTime:F1}ms)");
 
         return ResultWrapper<EmptyResponse>.Success(default);
     }
