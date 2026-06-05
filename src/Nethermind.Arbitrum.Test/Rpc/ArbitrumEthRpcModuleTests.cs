@@ -106,7 +106,7 @@ public partial class ArbitrumEthRpcModuleTests
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(null)
-            .WithData(Array.Empty<byte>())
+            .WithData([])
             .WithGasLimit(Transaction.BaseTxGasCost)
             .TestObject;
 
@@ -127,7 +127,7 @@ public partial class ArbitrumEthRpcModuleTests
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(null)
-            .WithData(Array.Empty<byte>())
+            .WithData([])
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
@@ -213,7 +213,7 @@ public partial class ArbitrumEthRpcModuleTests
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
             .WithTo(null)
-            .WithData(Array.Empty<byte>())
+            .WithData([])
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
@@ -268,21 +268,25 @@ public partial class ArbitrumEthRpcModuleTests
     }
 
     [Test]
-    public async Task EthEstimateGas_WhenInvalidCallData_ReturnsExecutionError()
+    public async Task EthEstimateGas_DataToEmptyAccount_Succeeds()
     {
         await ProduceBlockWithBaseFee(1000.Wei);
 
         Transaction tx = Build.A.Transaction
             .WithSenderAddress(FullChainSimulationAccounts.AccountA.Address)
-            .WithTo(Address.Zero) // Sending to zero address with data should fail
-            .WithData(new byte[] { 0xff, 0xff, 0xff, 0xff })
+            .WithTo(Address.Zero)
+            .WithData([0xff, 0xff, 0xff, 0xff])
             .TestObject;
 
         TransactionForRpc txCall = TransactionForRpc.FromTransaction(tx);
 
         ResultWrapper<UInt256?> result = _chain.ArbitrumEthRpcModule.eth_estimateGas(txCall, BlockParameter.Latest);
 
-        result.Result.ResultType.Should().Be(ResultType.Failure);
+        // The builder's default GasLimit (21000) is below this tx's intrinsic gas (21064, from the 4 calldata
+        // bytes), but estimateGas ignores the gas hint and returns the true minimum (the ~21228 EIP-7623 floor):
+        // a zero-value call to a codeless account is a valid no-op. This asserted Failure before an upstream
+        // BlockchainBridge.EstimateGas fix stopped leaking the under-gassed probe's "intrinsic gas too low" error.
+        result.Result.ResultType.Should().Be(ResultType.Success);
     }
 
     [Test]

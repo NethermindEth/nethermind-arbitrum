@@ -49,7 +49,7 @@ public class TestStylusVm : IDisposable
             Address.Zero,
             Address.Zero,
             Address.Zero,
-            0, 0, 0,
+            0, 0,
             Array.Empty<byte>());
 
         _vmState = VmState<ArbitrumGasPolicy>.RentTopLevel(
