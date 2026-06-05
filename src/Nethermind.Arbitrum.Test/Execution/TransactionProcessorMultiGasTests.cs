@@ -367,4 +367,63 @@ public class TransactionProcessorMultiGasTests
         accumulated.Get(ResourceKind.SingleDim).Should().BeGreaterThan(0, "submit retryable gas must be attributed to SingleDim");
         accumulated.Total.Should().Be(accumulated.Get(ResourceKind.SingleDim), "SingleDim resource type should be the only gas for submit retryable transactions");
     }
+
+    [Test]
+    public void Execute_OogOnFirstEvmOpcode_DoesNotAccumulateFailedOpGas()
+    {
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>
+        {
+            builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+            {
+                SuggestGenesisOnStart = true,
+                FillWithTestDataOnStart = true
+            });
+        });
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable _ = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        // Contract with simple PUSH opcodes; the first opcode (PUSH1) costs 3 gas
+        byte[] runtimeCode = Prepare.EvmCode
+            .PushData(0x01)
+            .PushData(0x02)
+            .Op(Instruction.STOP)
+            .Done;
+
+        Address contractAddress = new("0x0000000000000000000000000000000000001100");
+        worldState.CreateAccount(contractAddress, 0);
+        worldState.InsertCode(contractAddress, runtimeCode, chain.SpecProvider.GenesisSpec);
+        worldState.Commit(chain.SpecProvider.GenesisSpec);
+
+        Address sender = TestItem.AddressA;
+
+        // Gas limit = exact intrinsic cost → 0 gas left for EVM; first PUSH1 (3 gas) will OOG
+        Transaction tx = Build.A.Transaction
+            .WithTo(contractAddress)
+            .WithValue(0)
+            .WithGasLimit(GasCostOf.Transaction)
+            .WithMaxFeePerGas(1_000_000_000)
+            .WithMaxPriorityFeePerGas(100_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok, "transaction is accepted at protocol level despite EVM OOG");
+
+        ArbitrumTransactionProcessor processor = (ArbitrumTransactionProcessor)chain.TxProcessor;
+        MultiGas gas = processor.TxExecContext.AccumulatedMultiGas;
+
+        // Only intrinsic computation must appear in the accumulator.
+        // The failed PUSH1 (3 gas) must NOT be counted because Consume() returns early
+        // when _ethereum.Value goes negative, preventing false inflation of MultiGas.
+        gas.Get(ResourceKind.Computation).Should().Be(GasCostOf.Transaction,
+            "failed opcode gas must not be added to MultiGas accumulator on OOG");
+    }
 }

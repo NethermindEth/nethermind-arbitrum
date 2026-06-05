@@ -125,6 +125,9 @@ public struct ArbitrumGasPolicy : IGasPolicy<ArbitrumGasPolicy>
     public static void Consume(ref ArbitrumGasPolicy gas, long cost)
     {
         EthereumGasPolicy.Consume(ref gas._ethereum, cost);
+        // Don't accumulate opcode gas if this charge made us OOG; avoids inflating MultiGas for a failed opcode.
+        if (gas._ethereum.Value < 0)
+            return;
         gas._accumulated.Increment(ResourceKind.Computation, (ulong)cost);
     }
 
