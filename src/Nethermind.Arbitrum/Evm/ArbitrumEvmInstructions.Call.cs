@@ -66,10 +66,7 @@ internal static partial class ArbitrumEvmInstructions
         }
 
         // Pop additional parameters: data offset, data length, output offset, and output length.
-        if (!stack.PopUInt256(out UInt256 dataOffset) ||
-            !stack.PopUInt256(out UInt256 dataLength) ||
-            !stack.PopUInt256(out UInt256 outputOffset) ||
-            !stack.PopUInt256(out UInt256 outputLength))
+        if (!stack.PopUInt256(out UInt256 dataOffset, out UInt256 dataLength, out UInt256 outputOffset, out UInt256 outputLength))
         {
             goto StackUnderflow;
         }
@@ -87,7 +84,6 @@ internal static partial class ArbitrumEvmInstructions
             : env.ExecutingAccount;
 
         IReleaseSpec spec = vm.Spec;
-
         IWorldState state = vm.WorldState;
 
         // Charge additional gas if the target account is new or considered empty.
