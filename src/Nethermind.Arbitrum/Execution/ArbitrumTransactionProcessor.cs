@@ -550,15 +550,24 @@ namespace Nethermind.Arbitrum.Execution
         }
 
         protected override bool ShouldExecuteEvm(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
-            int delegationRefunds, IntrinsicGas<ArbitrumGasPolicy> gas,
+            int delegationRefunds, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas,
             in StackAccessTracker accessedItems, ArbitrumGasPolicy gasAvailable, ExecutionEnvironment env, out TransactionSubstate substate,
             out GasConsumed gasConsumed, out int statusCode)
         {
+            if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash!) == true)
+            {
             gasConsumed = tx.GasLimit;
             statusCode = StatusCode.Failure;
             substate = new TransactionSubstate(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
-            //_transactionWasFiltered = true;
+                MultiGas usedMultiGas = default;
+                usedMultiGas.Increment(ResourceKind.Computation, (ulong)gasConsumed.SpentGas);
+                TxExecContext.AccumulatedMultiGas = usedMultiGas;
+                header.GasUsed += gasConsumed.EffectiveBlockGas;
             return false;
+        }
+
+            return base.ShouldExecuteEvm(tx, header, spec, tracer, opts, delegationRefunds, in intrinsicGas,
+                in accessedItems, gasAvailable, env, out substate, out gasConsumed, out statusCode);
         }
 
         private Address GetFilteredFundsRecipient()

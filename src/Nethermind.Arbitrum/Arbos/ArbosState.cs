@@ -46,6 +46,8 @@ public class ArbosState
         FilteredFundsRecipient = new ArbosStorageBackedAddress(BackingStorage, ArbosStateOffsets.FilteredFundsRecipientOffset);
         BrotliCompressionLevel = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.BrotliCompressionLevelOffset);
         CollectTipsStorage = new ArbosStorageBackedULong(BackingStorage, ArbosStateOffsets.CollectTipsOffset);
+        if (currentArbosVersion >= ArbosVersion.TransactionFiltering)
+            FilteredTransactions = new FilteredTransactionsState(backingStorage.WorldState, backingStorage.Burner);
     }
 
     public ArbosStorage BackingStorage { get; }
@@ -73,6 +75,7 @@ public class ArbosState
     public ArbosStorageBackedAddress FilteredFundsRecipient { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
     public ArbosStorageBackedULong CollectTipsStorage { get; }
+    public FilteredTransactionsState? FilteredTransactions { get; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
@@ -319,11 +322,6 @@ public class ArbosState
         {
             throw new InvalidOperationException("ArbOS uninitialized. Please initialize ArbOS before using it.");
         }
-
-        // Create FilteredTransactionsState storage if version >= TransactionFiltering (60)
-        if (arbosVersion >= ArbosVersion.TransactionFiltering)
-            _ = new FilteredTransactionsState(worldState, burner);
-
         return new ArbosState(backingStorage, arbosVersion, logger);
     }
 
