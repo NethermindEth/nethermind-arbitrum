@@ -88,11 +88,14 @@ public class ArbitrumChainSpecProviderTests
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
 
-        ArbitrumModule module = new(chainSpec, new BlocksConfig(), new ArbitrumConfig());
+        ConfigProvider configProvider = new();
+        IBlocksConfig blocksConfig = configProvider.GetConfig<IBlocksConfig>();
+        blocksConfig.PreWarmStateOnBlockProcessing = false;
+        ArbitrumModule module = new(chainSpec, blocksConfig, new ArbitrumConfig());
 
         ContainerBuilder containerBuilder = new();
         //explicitly state we won't use TestSpecProvider
-        containerBuilder.AddModule(new TestNethermindModule(new ConfigProvider(), chainSpec, false));
+        containerBuilder.AddModule(new TestNethermindModule(configProvider, chainSpec, false));
         containerBuilder.AddModule(module);
         IContainer rootContainer = containerBuilder.Build();
 
