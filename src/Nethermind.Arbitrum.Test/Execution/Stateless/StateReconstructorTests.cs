@@ -394,30 +394,29 @@ public class StateReconstructorTests
     }
 
     /// <summary>
-    /// Verifies that MaybeCap spills the oldest reconstructed state roots from the MemDb overlay to
+    /// Verifies that MaybeCap spills reconstructed state roots from the MemDb overlay to
     /// the main state DB when the configured size threshold is exceeded.
     ///
     /// Setup: non-genesis state root keys are physically deleted from the main state DB after the chain
     /// build so that HasRoot returns false for them. This simulates pruned state without a proxy wrapper.
     ///
     /// Flow:
-    /// 1. PrepareForRecord(1, 9) fills MemDb with reconstructed state roots for blocks 0–9.
-    ///    MaybeCap fires per block during reconstruction but the _preparedQueue is still empty at that
-    ///    point (PreparedAddTrim hasn't run yet), so it is a no-op each time.
-    ///    After the call _preparedQueue = [block0, block1, …, block9] and blocks 1–9 are in MemDb
-    ///    (block 0 / genesis was never deleted so DereferenceAndSpill short-circuits for it).
+    /// 1. PrepareForRecord(1, 9) reconstructs state roots for blocks 1–9 (0 is already available on disk).
+    ///    MaybeCap fires: threshold = 0 → targetSize = 0.SaturateSub(BytesToEvictFromMemDb) = 0, so DirtySize > targetSize
+    ///    It fires per block during reconstruction and the size threshold is exceeded,
+    ///    therefore state gets evicted and flushed to disk immediately for each block.
     ///
     /// 2. RecordBlockCreation for block 11 needs block 10 as its parent state, which is not in MemDb.
     ///    EnsureStateAvailable reconstructs block 10 via ReExecuteBlocks, which calls MaybeCap.
-    ///    MaybeCap fires: threshold = 0 → targetSize = 0.SaturateSub(BytesToEvictFromMemDb) = 0, so DirtySize > targetSize
-    ///    is always true. The entire _preparedQueue is drained in one pass:
-    ///      - block 0 → already on disk (genesis, not deleted) → DereferenceAndSpill short-circuits.
-    ///      - blocks 1–9 → DereferenceAndSpill: exclusive nodes evicted from MemDb and written to main DB.
+    ///    MaybeCap fires (threshold = 0 as described above). The whole memDb overlay gets flushed to disk.
     ///
     /// Assertions:
     /// - After key deletion: HasRoot returns false for all non-genesis blocks.
-    /// - After PrepareForRecord: blocks 1–9 are in the MemDb overlay (HasRoot true, mainStateDb[key] null).
-    /// - After RecordBlockCreation: blocks 1–9 are on disk (mainStateDb[key] non-null, HasRoot true via disk).
+    /// - After PrepareForRecord: blocks 1–9 already got flushed to disk.
+    /// - After RecordBlockCreation: needed block 10's state actually also ends up on disk as MaybeCap fires before any
+    ///    Dereference supposed to remove the temporary parent state pin. In practice, not the case because only a few hundreds
+    ///    of oldest reconstructed nodes get flushed, so, just constructed-temporary parent state would not get flushed and
+    ///    would end up getting dereferenced as expected (at the end of RecordBlockCreation).
     /// </summary>
     [Test]
     public async Task RecordBlockCreation_WhenMemDbExceedsThreshold_SpillsOldestRootsToDiskAndPreservesNewRoots()
@@ -429,28 +428,26 @@ public class StateReconstructorTests
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
 
-        // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
-        // After this call _preparedQueue = [block0, block1, …, block9].
+        // For every block reconstruction, all state in MemDb is flushed to disk as target size is 0 (maxMemDbSizeMb - BytesToEvictFromMemDb)
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 1, End: 9)).ShouldAsync().RequestSucceed();
 
-        // Blocks 1–9 are now in the MemDb overlay (not yet written back to main state DB).
-        trieStore.DirtySize.Should().BeGreaterThan(0,
-            "PrepareForRecord should have added reconstructed trie nodes to the MemDb overlay");
+        // Blocks 1–9 got reconstructed in the MemDb overlay and already written to disk (evicted from memDb)
+        trieStore.DirtySize.Should().Be(0,
+            "PrepareForRecord should have already flushed its reconstructed state");
 
         for (long blockNum = 1; blockNum <= 9; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
             trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                $"block {blockNum} state root should be in the MemDb overlay after PrepareForRecord");
-            // Not on "disk" yet
+                $"block {blockNum} state root should be accessible via MemDb overlay after PrepareForRecord");
+
             byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!);
-            mainStateDb[key].Should().BeNull(
-                $"block {blockNum} state root should be in the MemDb overlay only (not yet on disk)");
+            mainStateDb[key].Should().NotBeNull($"block {blockNum} state root should already be on disk");
         }
 
         // RecordBlockCreation(11) needs block 10 as parent state — not in MemDb, so EnsureStateAvailable
-        // reconstructs it via ReExecuteBlocks. MaybeCap fires during that reconstruction, finds the
-        // populated queue, and drains it: block0 short-circuited (genesis, on disk), blocks 1–9 spilled.
+        // reconstructs it via ReExecuteBlocks. MaybeCap fires during that reconstruction and flushes
+        // block 10's state to disk as well.
         DigestMessageParameters msg11 = GetDigestedMessage(11);
         ResultWrapper<RecordResult> recordResult = await chain.ArbitrumRpcModule.RecordBlockCreation(
             new RecordBlockCreationParameters(msg11.Index, msg11.Message, WasmTargets: []));
@@ -459,21 +456,23 @@ public class StateReconstructorTests
 
         trieStore.DirtySize.Should().Be(0, "MaybeCap should have spilled all prepared states to disk, so MemDb should be empty");
 
-        // Blocks 1–9 were spilled: evicted from the MemDb overlay and written to the main state DB.
-        // HasRoot now finds them via the base store (disk), so it returns true.
-        for (long blockNum = 1; blockNum <= 9; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!);
+        // Blocks 10 got spilled: evicted from the MemDb overlay and written to the main state DB
+        BlockHeader header10 = chain.BlockTree.FindHeader(10)!;
+        byte[] key10 = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header10.StateRoot!);
 
-            // DereferenceAndSpill writes the root node to the main state DB via a write batch.
-            mainStateDb[key].Should().NotBeNull(
-                $"block {blockNum} state root should be present in the main state DB after spill");
+        trieStore.HasRoot(header10.StateRoot!).Should().BeTrue(
+            $"block 10 state root should be accessible via disk after spill");
+        mainStateDb[key10].Should().NotBeNull(
+            $"block 10 state root should be present in the main state DB after spill");
 
-            // HasRoot finds the root on disk (written back by DereferenceAndSpill).
-            trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                $"block {blockNum} state root should be accessible via disk after spill");
-        }
+        // RecordBlockCreation being readonly should not have stored in memDb nor disk state for block 11
+        BlockHeader header11 = chain.BlockTree.FindHeader(11)!;
+        byte[] key11 = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header11.StateRoot!);
+
+        trieStore.HasRoot(header11.StateRoot!).Should().BeFalse(
+            $"block 11 state root should not be available via MemDb");
+        mainStateDb[key11].Should().BeNull(
+            $"block 11 state root should not be on disk");
     }
 
     [Test]
@@ -486,63 +485,43 @@ public class StateReconstructorTests
         ReconstructedStateTrieStore trieStore = chain.Container.Resolve<ReconstructedStateTrieStore>();
         IDb mainStateDb = chain.Container.Resolve<IDbProvider>().StateDb;
 
-        // Fill MemDb; _preparedQueue is empty during reconstruction so MaybeCap is a no-op.
-        // After this call _preparedQueue = [block0, block1, …, block9].
+        // For every block reconstruction, all state in MemDb is flushed to disk as target size is 0 (maxMemDbSizeMb - BytesToEvictFromMemDb)
+        // As a reminder: after this call _preparedQueue = [block0, block1, …, block9].
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 1, End: 9)).ShouldAsync().RequestSucceed();
 
-        // MemDb has state BEFORE the PrepareForRecord that will trigger actual spilling.
-        trieStore.DirtySize.Should().BeGreaterThan(0,
-            "first PrepareForRecord should have added reconstructed trie nodes to the MemDb overlay");
+        // As mentioned all MemDb reconstructed nodes got spilled to disk after each block's reconstruction, so MemDb should be empty at the end.
+        trieStore.DirtySize.Should().Be(0, "All added reconstructed trie nodes during 1st PrepareForRecord should have been spilled to disk by MaybeCap");
 
         for (long blockNum = 1; blockNum <= 9; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
             trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                $"block {blockNum} state root should be in the MemDb overlay after PrepareForRecord");
-            // Not on "disk" yet
+                $"block {blockNum} state root should have been flushed to disk, hence accessible via the MemDb overlay after PrepareForRecord");
             byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!);
-            mainStateDb[key].Should().BeNull(
-                $"block {blockNum} state root should be in the MemDb overlay only (not yet on disk)");
+            mainStateDb[key].Should().NotBeNull(
+                $"block {blockNum} state root should have been flushed to disk already");
         }
 
-        // MaybeCap fires 9 times (once per block 10–18 reconstruction).
-        // The populated _preparedQueue is drained: block0 is short-circuited (already on disk),
-        // then blocks 1–9 are spilled via DereferenceAndSpill.
+        // Once again for every block reconstruction, all state in MemDb is flushed to disk as target size is 0 (maxMemDbSizeMb - BytesToEvictFromMemDb)
         chain.ArbitrumRpcModule.PrepareForRecord(new PrepareForRecordParameters(Start: 11, End: 18)).ShouldAsync().RequestSucceed();
 
-        // MemDb still has state AFTER capping (blocks 10–18 are still present),
-        // as after block 10's reconstruction, _preparedQueue is empty again,
-        // so MaybeCap is a no-op for the subsequent blocks in the range.
-        trieStore.DirtySize.Should().BeGreaterThan(0,
-            "MemDb overlay should still hold state for blocks 10-18 after MaybeCap");
+        trieStore.DirtySize.Should().Be(0,
+            "MemDb overlay should have flushed reconstructed state for blocks 10-18 after MaybeCap");
 
-        // Blocks 1–9 were spilled: evicted from the MemDb overlay and written to the main state DB.
-        // HasRoot now finds them via the base store (disk), so it returns true.
-        for (long blockNum = 1; blockNum <= 9; blockNum++)
-        {
-            BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!);
-
-            // DereferenceAndSpill writes the root node to the main state DB via a write batch.
-            mainStateDb[key].Should().NotBeNull(
-                $"block {blockNum} state root should be present in the main state DB after spill");
-
-            // HasRoot finds the root on disk (written back by DereferenceAndSpill).
-            trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                $"block {blockNum} state root should be accessible via disk after spill");
-        }
-
-        // State roots prepared in the second PrepareForRecord are still in the MemDb overlay.
+        // Check newly reconstructed blocks got spilled: evicted from the MemDb overlay and written to the main state DB.
+        // HasRoot finds them via the base store (disk), so it returns true.
         for (long blockNum = 10; blockNum <= 18; blockNum++)
         {
             BlockHeader header = chain.BlockTree.FindHeader(blockNum)!;
-            trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
-                $"block {blockNum} state root should still be accessible in the MemDb overlay after MaybeCap");
 
-            // Not on "disk"
+            // Root can be found on disk through the trie store (written back by capping).
+            trieStore.HasRoot(header.StateRoot!).Should().BeTrue(
+                $"block {blockNum} state root should be accessible via disk after spill");
+
+            // Roots are on disk
             byte[] key = NodeStorage.GetHalfPathNodeStoragePath(null, TreePath.Empty, header.StateRoot!);
-            mainStateDb[key].Should().BeNull(
-                $"block {blockNum} state root should be in the MemDb overlay only (not yet on disk)");
+            mainStateDb[key].Should().NotBeNull(
+                $"block {blockNum} state root should be present in the main state DB after spill");
         }
     }
 

@@ -592,7 +592,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
         if (_logger.IsInfo)
             _logger.Info($"MemDb overlay (size: {(double)_trieStore.DirtySize / 1.MiB:F2}MB) " +
-                $"exceeded {(double)_maxMemDbSize / 1.MiB:F2}MB, capping to {(double)targetSize / 1.MiB:F2}MB " +
+                $"exceeded {(double)_maxMemDbSize / 1.MiB:F2}MB, capping to {targetSize / 1.MiB:F2}MB " +
                 $"by spilling oldest nodes to disk");
 
         // Page the oldest overlay nodes out to disk by node age, stopping the instant we are back under
