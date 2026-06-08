@@ -150,6 +150,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         IConfigProvider configProvider = new ConfigProvider(arbitrumConfig);
         configProvider.GetConfig<IBlocksConfig>().BuildBlocksOnMainState = true;
+        configProvider.GetConfig<IBlocksConfig>().PreWarmStateOnBlockProcessing = false;
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         configurer?.Invoke(builder);
