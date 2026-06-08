@@ -1425,10 +1425,6 @@ namespace Nethermind.Arbitrum.Execution
             if (_arbosState!.CurrentArbosVersion < ArbosVersion.MultiGasConstraintsVersion)
                 return;
 
-            GasModel gasModel = _arbosState.L2PricingState.GetGasModelToUse();
-            if (gasModel != GasModel.MultiGasConstraints)
-                return;
-
             // Calculate the actual cost based on per-resource base fees
             UInt256 multiDimensionalCost = _arbosState.L2PricingState.MultiDimensionalPriceForRefund(
                 TxExecContext.AccumulatedMultiGas);
