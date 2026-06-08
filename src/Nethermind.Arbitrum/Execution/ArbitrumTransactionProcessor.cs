@@ -23,6 +23,7 @@ using Nethermind.Evm.Tracing.State;
 using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
+using System.Collections.Frozen;
 using System.Numerics;
 
 namespace Nethermind.Arbitrum.Execution
@@ -38,6 +39,11 @@ namespace Nethermind.Arbitrum.Execution
     ) : TransactionProcessorBase<ArbitrumGasPolicy>(blobBaseFeeCalculator, specProvider, worldState, virtualMachine, codeInfoRepository, logManager)
     {
         private static readonly byte[] RetryableEscrowPrefix = "retryable escrow"u8.ToArray();
+        private readonly FrozenDictionary<Hash256, ulong> _revertedTxGasUsed = new Dictionary<Hash256, ulong>()
+            {
+                { new Hash256("0x58df300a7f04fe31d41d24672786cbe1c58b4f3d8329d0d74392d814dd9f7e40"), 45174 }
+            }
+            .ToFrozenDictionary();
 
         public ArbitrumTxExecutionContext TxExecContext => (VirtualMachine as ArbitrumVirtualMachine)!.ArbitrumTxExecutionContext;
 
@@ -567,22 +573,36 @@ namespace Nethermind.Arbitrum.Execution
             Address? preloadedDelegationAddress,
             out TransactionResult transactionResult)
         {
+            bool shouldSkip = false;
+            MultiGas usedMultiGas = default;
+            GasConsumed gasConsumed = tx.GasLimit;
+            transactionResult = TransactionResult.Ok;
+
+            if (_revertedTxGasUsed.TryGetValue(tx.Hash!, out ulong gasUsed))
+            {
+                long adjusted = (long)gasUsed - GasCostOf.Transaction;
+                ArbitrumGasPolicy.Consume(ref gasAvailable, adjusted);
+                usedMultiGas.Increment(ResourceKind.Computation, (ulong)adjusted);
+
+                gasConsumed = tx.GasLimit - ArbitrumGasPolicy.GetRemainingGas(gasAvailable);
+                shouldSkip = true;
+            }
             if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash!) == true)
             {
-                TransactionSubstate substate = new(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
-                GasConsumed gasConsumed = tx.GasLimit;
-                MultiGas usedMultiGas = default;
                 usedMultiGas.Increment(ResourceKind.Computation, (ulong)gasConsumed.SpentGas);
+                shouldSkip = true;
+            }
+
+            if (!shouldSkip)
+                return true;
+
+                TransactionSubstate substate = new(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
                 TxExecContext.AccumulatedMultiGas = usedMultiGas;
 
                 UpdateHeaderGasUsedAndPayFees(tx, header, spec, tracer, opts, substate, in gasConsumed, in premiumPerGas, in blobBaseFee, StatusCode.Failure);
                 Address executingAccount = tx.GetRecipient(tx.IsContractCreation ? WorldState.GetNonce(tx.SenderAddress!) : 0);
                 transactionResult = FinalizeTransaction(tx, spec, tracer, opts, restore, commit, deleteCallerAccount, in senderReservedGasPayment, executingAccount, in substate, gasConsumed, StatusCode.Failure);
             return false;
-        }
-
-            return base.ShouldExecuteEvm(tx, header, spec, tracer, opts, restore, commit, deleteCallerAccount, in intrinsicGas, gasAvailable, in opcodeGasPrice,
-                in premiumPerGas, in senderReservedGasPayment, in blobBaseFee, preloadedCodeInfo, preloadedDelegationAddress, out transactionResult);
         }
 
         private Address GetFilteredFundsRecipient()
