@@ -140,7 +140,7 @@ namespace Nethermind.Arbitrum.Execution
             Metrics.ResetTransactionTracking();
 
             ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!,
-                tx.To!, tx.To, 0, tx.Value,
+                tx.To!, tx.To, 0,
                 tx.Value, tx.Data);
             SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingBeforeEvm, executionEnv));
             _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false),
@@ -242,7 +242,7 @@ namespace Nethermind.Arbitrum.Execution
                 long totalToRefund = codeInsertRefund;
                 if (!substate.ShouldRevert)
                     totalToRefund += substate.Refund +
-                                     substate.DestroyList.Count * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
+                                     (substate.DestroyList?.Count ?? 0) * (spec.IsEip3529Enabled ? RefundOf.DestroyAfterEip3529 : RefundOf.DestroyBeforeEip3529);
                 refund = CalculateClaimableRefund(spentGas, totalToRefund, spec);
 
                 if (Logger.IsTrace)
@@ -472,7 +472,7 @@ namespace Nethermind.Arbitrum.Execution
                 if (tracer.IsTracingActions)
                     tracer.ReportAction(0, tx.Value, tx.SenderAddress!, tx.To!, tx.Data, ExecutionType.CALL);
 
-                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
                     tx.Value, tx.Data);
                 SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingDuringEvm, executionEnv));
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
@@ -528,7 +528,7 @@ namespace Nethermind.Arbitrum.Execution
                     tracer.ReportActionEnd((long)_arbosState!.BackingStorage.Burner.Burned, Array.Empty<byte>());
                 }
 
-                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0, tx.Value,
+                ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!, tx.To!, tx.To, 0,
                     tx.Value, tx.Data);
                 SetTracingInfo(new TracingInfo(tracer, TracingScenario.TracingAfterEvm, executionEnv));
                 _arbosState = ArbosState.OpenArbosState(WorldState, new SystemBurner(_tracingInfo, readOnly: false), _logger);
@@ -731,6 +731,13 @@ namespace Nethermind.Arbitrum.Execution
                 DecodedMaxFeePerGas = UInt256.Zero,
             };
             systemTx.Hash = systemTx.CalculateHash();
+
+            // Since "Fast Eth Transfer" (PR #11804), Nethermind no longer calls PayValue when the transfer
+            // value is zero, so it skips the sender balance touch that Nitro still performs — making our
+            // captured witness diverge from Nitro's. We reinstate that touch here. Overriding PayValue is
+            // not an option: the zero-value check sits at the call site, before PayValue is ever invoked.
+            _ = _worldState.GetBalance(Address.SystemUser);
+
             TransactionResult systemTxResult = Process(systemTx, NullTxTracer.Instance, ExecutionOptions.Commit);
             if (systemTxResult != TransactionResult.Ok)
                 throw new InvalidOperationException($"ProcessParentBlockHash system transaction execution failed. TxHash={systemTx.Hash}, PrevHash={prevHash}, Result={systemTxResult}");

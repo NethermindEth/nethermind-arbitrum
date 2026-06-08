@@ -16,6 +16,11 @@ public class ArbitrumCodeInfoRepository(ICodeInfoRepository codeInfoRepository, 
 {
     private readonly Dictionary<Address, CodeInfo> _arbitrumPrecompiles = InitializePrecompiledContracts();
 
+    // Forward overridability so the simple-transfer fast path is correctly disabled under state
+    // overrides (e.g. eth_call/eth_estimateGas), matching the wrapped repository. Without this the
+    // default (false) would wrongly let the fast path skip EVM execution under overrides.
+    public bool IsCodeOverridable => codeInfoRepository.IsCodeOverridable;
+
     private static Dictionary<Address, CodeInfo> InitializePrecompiledContracts()
     {
         return new Dictionary<Address, CodeInfo>

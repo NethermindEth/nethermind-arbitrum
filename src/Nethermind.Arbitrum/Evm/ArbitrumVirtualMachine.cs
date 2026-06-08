@@ -189,7 +189,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             caller: caller,
             codeSource: to,
             callDepth: env.CallDepth + 1,
-            transferValue: in transferValue,
             value: in callValue,
             inputData: in callData);
 
@@ -337,7 +336,6 @@ public sealed unsafe class ArbitrumVirtualMachine(
             caller: env.ExecutingAccount,
             codeSource: null,
             callDepth: env.CallDepth + 1,
-            transferValue: in value,
             value: in value,
             inputData: default);
 
