@@ -115,7 +115,7 @@ namespace Nethermind.Arbitrum.Execution
                 multiGas.Increment(resourceKind, (ulong)gasUsed);
                 TxExecContext.AccumulatedMultiGas = multiGas;
 
-                return FinalizeTransaction(preProcessResult.InnerResult, tx, tracer, snapshot,
+                return FinalizeArbTransaction(preProcessResult.InnerResult, tx, tracer, snapshot,
                     isPreProcessing: true, preProcessResult.Logs);
             }
 
@@ -131,7 +131,7 @@ namespace Nethermind.Arbitrum.Execution
                 PostProcessArbitrumTransaction(tx);
             }
 
-            return FinalizeTransaction(evmResult, tx, NullTxTracer.Instance, snapshot, false);
+            return FinalizeArbTransaction(evmResult, tx, NullTxTracer.Instance, snapshot, false);
         }
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
@@ -363,7 +363,7 @@ namespace Nethermind.Arbitrum.Execution
         protected override GasConsumed RefundOnContractCollision(Transaction tx, IReleaseSpec spec, ExecutionOptions opts, in ArbitrumGasPolicy gas, in UInt256 gasPrice, in ArbitrumGasPolicy intrinsicGasStandard, long floorGas)
             => RefundOnFail(tx, spec, opts, in gas, in gasPrice, in intrinsicGasStandard, floorGas);
 
-        private TransactionResult FinalizeTransaction(TransactionResult result, Transaction tx,
+        private TransactionResult FinalizeArbTransaction(TransactionResult result, Transaction tx,
             ITxTracer tracer, Snapshot snapshot, bool isPreProcessing, IReadOnlyList<LogEntry>? additionalLogs = null)
         {
             bool restore = _currentOpts.HasFlag(ExecutionOptions.Restore);
@@ -549,25 +549,40 @@ namespace Nethermind.Arbitrum.Execution
             return new FilteredTransactionsState(WorldState, new ZeroGasBurner()).IsFilteredFree(tx.Hash);
         }
 
-        protected override bool ShouldExecuteEvm(Transaction tx, BlockHeader header, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
-            int delegationRefunds, in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas,
-            in StackAccessTracker accessedItems, ArbitrumGasPolicy gasAvailable, ExecutionEnvironment env, out TransactionSubstate substate,
-            out GasConsumed gasConsumed, out int statusCode)
+        protected override bool ShouldExecuteEvm(Transaction tx,
+            BlockHeader header,
+            IReleaseSpec spec,
+            ITxTracer tracer,
+            ExecutionOptions opts,
+            bool restore,
+            bool commit,
+            bool deleteCallerAccount,
+            in IntrinsicGas<ArbitrumGasPolicy> intrinsicGas,
+            ArbitrumGasPolicy gasAvailable,
+            in UInt256 opcodeGasPrice,
+            in UInt256 premiumPerGas,
+            in UInt256 senderReservedGasPayment,
+            in UInt256 blobBaseFee,
+            CodeInfo? preloadedCodeInfo,
+            Address? preloadedDelegationAddress,
+            out TransactionResult transactionResult)
         {
             if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash!) == true)
             {
-            gasConsumed = tx.GasLimit;
-            statusCode = StatusCode.Failure;
-            substate = new TransactionSubstate(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
+                TransactionSubstate substate = new(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
+                GasConsumed gasConsumed = tx.GasLimit;
                 MultiGas usedMultiGas = default;
                 usedMultiGas.Increment(ResourceKind.Computation, (ulong)gasConsumed.SpentGas);
                 TxExecContext.AccumulatedMultiGas = usedMultiGas;
-                header.GasUsed += gasConsumed.EffectiveBlockGas;
+
+                UpdateHeaderGasUsedAndPayFees(tx, header, spec, tracer, opts, substate, in gasConsumed, in premiumPerGas, in blobBaseFee, StatusCode.Failure);
+                Address executingAccount = tx.GetRecipient(tx.IsContractCreation ? WorldState.GetNonce(tx.SenderAddress!) : 0);
+                transactionResult = FinalizeTransaction(tx, spec, tracer, opts, restore, commit, deleteCallerAccount, in senderReservedGasPayment, executingAccount, in substate, gasConsumed, StatusCode.Failure);
             return false;
         }
 
-            return base.ShouldExecuteEvm(tx, header, spec, tracer, opts, delegationRefunds, in intrinsicGas,
-                in accessedItems, gasAvailable, env, out substate, out gasConsumed, out statusCode);
+            return base.ShouldExecuteEvm(tx, header, spec, tracer, opts, restore, commit, deleteCallerAccount, in intrinsicGas, gasAvailable, in opcodeGasPrice,
+                in premiumPerGas, in senderReservedGasPayment, in blobBaseFee, preloadedCodeInfo, preloadedDelegationAddress, out transactionResult);
         }
 
         private Address GetFilteredFundsRecipient()
