@@ -150,6 +150,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         IConfigProvider configProvider = new ConfigProvider(arbitrumConfig);
         configProvider.GetConfig<IBlocksConfig>().BuildBlocksOnMainState = true;
+        configProvider.GetConfig<IBlocksConfig>().PreWarmStateOnBlockProcessing = false;
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         configurer?.Invoke(builder);
@@ -159,8 +160,8 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         InitializeArbitrumPluginSteps(Container);
 
-        BlockProducer = InitBlockProducer();
-        BlockProducerRunner = InitBlockProducerRunner(BlockProducer);
+        BlockProducer = Container.Resolve<IBlockProducerFactory>().InitBlockProducer();
+        BlockProducerRunner = Container.Resolve<IBlockProducerRunnerFactory>().InitBlockProducerRunner(BlockProducer);
 
         BlockchainProcessor chainProcessor = new(
             BlockTree,
@@ -353,29 +354,6 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
             .Execute(CancellationToken.None)
             .GetAwaiter()
             .GetResult();
-    }
-
-    private IBlockProducer InitBlockProducer()
-    {
-        IBlockProducerEnvFactory blockProducerEnvFactory = Container.Resolve<IBlockProducerEnvFactory>();
-        IBlockProducerEnv producerEnv = blockProducerEnvFactory.CreatePersistent();
-
-        return new ArbitrumBlockProducer(
-            producerEnv.TxSource,
-            producerEnv.ChainProcessor,
-            producerEnv.BlockTree,
-            producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasPolicyLimitCalculator(),
-            NullSealEngine.Instance,
-            Timestamper,
-            SpecProvider,
-            LogManager,
-            Container.Resolve<IBlocksConfig>());
-    }
-
-    private IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)
-    {
-        return new StandardBlockProducerRunner(BlockProductionTrigger, BlockTree, blockProducer);
     }
 
     private void InitTxTypesAndRlpDecoders()
