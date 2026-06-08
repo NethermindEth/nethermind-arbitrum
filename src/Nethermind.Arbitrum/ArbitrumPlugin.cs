@@ -46,7 +46,6 @@ using Nethermind.HealthChecks;
 using Nethermind.Init;
 using Nethermind.Init.Modules;
 using Nethermind.State.Repositories;
-using Nethermind.Init.Steps;
 using Nethermind.JsonRpc;
 using Nethermind.JsonRpc.Modules;
 using Nethermind.JsonRpc.Modules.Eth;
@@ -59,7 +58,6 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.Arbitrum.Tracing;
 using Nethermind.Blockchain.Tracing.GethStyle.Custom.Native;
 using Nethermind.Blockchain.FullPruning;
-using Nethermind.Trie.Pruning;
 using Nethermind.Core.Crypto;
 using Nethermind.History;
 
@@ -190,36 +188,6 @@ public class ArbitrumPlugin(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         return Task.CompletedTask;
     }
 
-    public IBlockProducer InitBlockProducer()
-    {
-        StepDependencyException.ThrowIfNull(_api);
-        StepDependencyException.ThrowIfNull(_api.WorldStateManager);
-        StepDependencyException.ThrowIfNull(_api.BlockTree);
-        StepDependencyException.ThrowIfNull(_api.SpecProvider);
-        StepDependencyException.ThrowIfNull(_api.TransactionComparerProvider);
-
-        IBlockProducerEnv producerEnv = _api.BlockProducerEnvFactory.CreatePersistent();
-
-        return new ArbitrumBlockProducer(
-            producerEnv.TxSource,
-            producerEnv.ChainProcessor,
-            producerEnv.BlockTree,
-            producerEnv.ReadOnlyStateProvider,
-            new ArbitrumGasPolicyLimitCalculator(),
-            NullSealEngine.Instance,
-            new ManualTimestamper(),
-            _api.SpecProvider,
-            _api.LogManager,
-            _api.Config<IBlocksConfig>());
-    }
-
-    public IBlockProducerRunner InitBlockProducerRunner(IBlockProducer blockProducer)
-    {
-        StepDependencyException.ThrowIfNull(_api.BlockTree);
-
-        return new StandardBlockProducerRunner(_api.ManualBlockProductionTrigger, _api.BlockTree, blockProducer);
-    }
-
     public void InitTxTypesAndRlpDecoders(INethermindApi api)
     {
         // Register Arbitrum-specific RLP decoders (receipts with MultiGas support)
@@ -303,6 +271,9 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
                 new ArbitrumBlockProductionTransactionPicker(specProvider))
 
             .AddSingleton<IBlockProducerTxSourceFactory, ArbitrumBlockProducerTxSourceFactory>()
+            .AddSingleton<ArbitrumBlockProducerFactory>()
+            .Bind<IBlockProducerFactory, ArbitrumBlockProducerFactory>()
+            .Bind<IBlockProducerRunnerFactory, ArbitrumBlockProducerFactory>()
             .AddDecorator<ICodeInfoRepository, ArbitrumCodeInfoRepository>()
             .AddScoped<IArbosVersionProvider>(ctx =>
             {
