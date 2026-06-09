@@ -572,7 +572,7 @@ public class StateReconstructorTests
         {
             cfg.ValidationEnabled = true;
             cfg.ValidatorMaxStateRootsInMem = maxStateRootsInMem ?? cfg.ValidatorMaxStateRootsInMem;
-            cfg.ValidatorReconstructedStateMemDBMaxSizeMb = maxMemDbSizeMb ?? cfg.ValidatorReconstructedStateMemDBMaxSizeMb;
+            cfg.ValidatorReconstructedStateMemOverlayMaxSizeMb = maxMemDbSizeMb ?? cfg.ValidatorReconstructedStateMemOverlayMaxSizeMb;
         };
 
         builder.WithArbitrumConfig(configure);

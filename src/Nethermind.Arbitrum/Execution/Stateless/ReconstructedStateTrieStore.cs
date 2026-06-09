@@ -69,13 +69,13 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// <summary>Tail of the flush list (newest node), or null when the overlay is empty.</summary>
     private byte[]? _newest;
 
-    /// <summary>Protects <see cref="_dirties"/>, the flush-list cursors, and <see cref="_memDbBytes"/>.</summary>
+    /// <summary>Protects <see cref="_dirties"/>, the flush-list cursors, and <see cref="_dirtiesBytes"/>.</summary>
     private readonly Lock _lock = new();
 
     /// <summary>Tracked "useful data" size of the overlay: the key and blob bytes of every entry
     /// (mirrors Nitro's <c>dirtiesSize</c>). The fixed per-node metadata overhead is added on read via
     /// <see cref="CurrentTotalFootprint"/>, not accumulated here. Mutated under <see cref="_lock"/>.</summary>
-    private long _memDbBytes;
+    private long _dirtiesBytes;
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
 
@@ -117,7 +117,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             _dirties.Clear();
             _oldest = null;
             _newest = null;
-            _memDbBytes = 0;
+            _dirtiesBytes = 0;
         }
     }
 
@@ -213,7 +213,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
                 // Last reference: free this node and dereference its children.
                 SpliceFromFlushList(node);
                 _dirties.Remove(key);
-                _memDbBytes -= NodeDataSize(key, node);
+                _dirtiesBytes -= NodeDataSize(key, node);
 
                 TupleStackSink sink = new(stack);
                 PushChildren(node.Rlp, item.address, item.path, ref sink);
@@ -251,7 +251,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             IWriteBatch batch = mainStateDb.StartWriteBatch();
 
             stats.DirtiesCountBefore = _dirties.Count;
-            stats.DirtiesSizeBefore = _memDbBytes;
+            stats.DirtiesSizeBefore = _dirtiesBytes;
             stats.TotalMemSizeBefore = CurrentTotalFootprint();
 
             long size = stats.TotalMemSizeBefore;
@@ -276,7 +276,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
                 byte[] key = _oldest;
                 Node node = _dirties[key];
                 _dirties.Remove(key);
-                _memDbBytes -= NodeDataSize(key, node);
+                _dirtiesBytes -= NodeDataSize(key, node);
                 _oldest = node.FlushNext;
             }
 
@@ -286,7 +286,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
                 _dirties[_oldest].FlushPrev = null;
 
             stats.DirtiesCountAfter = _dirties.Count;
-            stats.DirtiesSizeAfter = _memDbBytes;
+            stats.DirtiesSizeAfter = _dirtiesBytes;
             stats.TotalMemSizeAfter = CurrentTotalFootprint();
             stats.TotalTimeMs = Stopwatch.GetElapsedTime(beforeLock, Stopwatch.GetTimestamp()).TotalMilliseconds;
         }
@@ -332,7 +332,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// per-node metadata overhead (one <see cref="NodeMemoryOverhead"/> per entry), mirroring Nitro adding
     /// <c>len(dirties)*cachedNodeSize</c> on top of <c>dirtiesSize</c>. Must be called under <see cref="_lock"/>.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private long CurrentTotalFootprint() => _memDbBytes + (long)_dirties.Count * NodeMemoryOverhead;
+    private long CurrentTotalFootprint() => _dirtiesBytes + (long)_dirties.Count * NodeMemoryOverhead;
 
     /// <summary>
     /// Called by <see cref="TrackingCommitter"/> for each node committed to the overlay. Inserts the
@@ -386,7 +386,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             _dirties[_newest].FlushNext = key;
         _newest = key;
         _dirties[key] = node;
-        _memDbBytes += NodeDataSize(key, node);
+        _dirtiesBytes += NodeDataSize(key, node);
     }
 
     /// <summary>Removes a node from the flush list, fixing up neighbour links and the head/tail cursors.</summary>
