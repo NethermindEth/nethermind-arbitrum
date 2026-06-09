@@ -25,9 +25,6 @@ public static class ArbFilteredTransactionsManager
     private static readonly AbiEventDescription FilteredTransactionDeletedEvent =
         Solgen.ArbFilteredTransactionsManager.Events.FilteredTransactionDeleted.ToAbiEventDescription();
 
-    /// <summary>
-    /// Adds a transaction hash to the filtered set. Only callable by transaction filterers.
-    /// </summary>
     public static void AddFilteredTransaction(ArbitrumPrecompileExecutionContext context, Hash256 txHash)
     {
         if (!HasAccess(context))
@@ -37,9 +34,6 @@ public static class ArbFilteredTransactionsManager
         EmitFilteredTransactionAddedEvent(context, txHash);
     }
 
-    /// <summary>
-    /// Removes a transaction hash from the filtered set. Only callable by transaction filterers.
-    /// </summary>
     public static void DeleteFilteredTransaction(ArbitrumPrecompileExecutionContext context, Hash256 txHash)
     {
         if (!HasAccess(context))
@@ -49,9 +43,6 @@ public static class ArbFilteredTransactionsManager
         EmitFilteredTransactionDeletedEvent(context, txHash);
     }
 
-    /// <summary>
-    /// Returns true if the given transaction hash is in the filtered set.
-    /// </summary>
     public static bool IsTransactionFiltered(ArbitrumPrecompileExecutionContext context, Hash256 txHash)
     {
         return new FilteredTransactionsState(context.WorldState, context).IsFiltered(txHash);

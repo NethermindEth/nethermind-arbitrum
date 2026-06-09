@@ -76,7 +76,6 @@ namespace Nethermind.Arbitrum.Execution
         private BlockHeader? _currentHeader;
         private ExecutionOptions _currentOpts;
         private readonly IWorldState _worldState = worldState;
-        //private bool _transactionWasFiltered;
 
         protected override TransactionResult BuyGas(Transaction tx, IReleaseSpec spec, ITxTracer tracer, ExecutionOptions opts,
             in UInt256 effectiveGasPrice, out UInt256 premiumPerGas, out UInt256 senderReservedGasPayment,
@@ -142,7 +141,6 @@ namespace Nethermind.Arbitrum.Execution
 
         private void InitializeTransactionState(Transaction tx, IArbitrumTxTracer tracer)
         {
-            //_transactionWasFiltered = false;
             Metrics.ResetTransactionTracking();
 
             ExecutionEnvironment executionEnv = ExecutionEnvironment.Rent(CodeInfo.Empty, tx.SenderAddress!,
@@ -493,7 +491,7 @@ namespace Nethermind.Arbitrum.Execution
                             return new ArbitrumTransactionProcessorResult(false,
                                 TransactionResult.MalformedTransaction);
 
-                        bool isFiltered = IsFilteredTransaction(depositTx);
+                        bool isFiltered = _arbosState?.FilteredTransactions?.IsFilteredFree(depositTx.Hash!) == true;
                         Address recipientAddress = depositTx.To;
 
                         // Redirect deposit to FilteredFundsRecipient (defaults to networkFeeAccount).
@@ -541,20 +539,6 @@ namespace Nethermind.Arbitrum.Execution
             }
         }
 
-        internal bool IsFilteredTransaction(Transaction tx)
-        {
-            if (tx.Hash is null)
-                return false;
-            if (_arbosState!.CurrentArbosVersion < ArbosVersion.TransactionFiltering)
-                return false;
-
-            ulong enabledTime = _arbosState.TransactionFilteringEnabledTime.Get();
-            if (enabledTime == 0 || _currentHeader!.Timestamp < enabledTime)
-                return false;
-
-            return new FilteredTransactionsState(WorldState, new ZeroGasBurner()).IsFilteredFree(tx.Hash);
-        }
-
         protected override bool ShouldExecuteEvm(Transaction tx,
             BlockHeader header,
             IReleaseSpec spec,
@@ -577,8 +561,11 @@ namespace Nethermind.Arbitrum.Execution
             MultiGas usedMultiGas = default;
             GasConsumed gasConsumed = tx.GasLimit;
             transactionResult = TransactionResult.Ok;
+            if (tx.Hash is null)
+                return true;
 
-            if (_revertedTxGasUsed.TryGetValue(tx.Hash!, out ulong gasUsed))
+            //skip processing for filtered transactions
+            if (_revertedTxGasUsed.TryGetValue(tx.Hash, out ulong gasUsed))
             {
                 long adjusted = (long)gasUsed - GasCostOf.Transaction;
                 ArbitrumGasPolicy.Consume(ref gasAvailable, adjusted);
@@ -587,7 +574,7 @@ namespace Nethermind.Arbitrum.Execution
                 gasConsumed = tx.GasLimit - ArbitrumGasPolicy.GetRemainingGas(gasAvailable);
                 shouldSkip = true;
             }
-            if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash!) == true)
+            if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash) == true)
             {
                 usedMultiGas.Increment(ResourceKind.Computation, (ulong)gasConsumed.SpentGas);
                 shouldSkip = true;
@@ -596,19 +583,14 @@ namespace Nethermind.Arbitrum.Execution
             if (!shouldSkip)
                 return true;
 
-                TransactionSubstate substate = new(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
-                TxExecContext.AccumulatedMultiGas = usedMultiGas;
+            TransactionSubstate substate = new(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
+            TxExecContext.AccumulatedMultiGas = usedMultiGas;
 
-                UpdateHeaderGasUsedAndPayFees(tx, header, spec, tracer, opts, substate, in gasConsumed, in premiumPerGas, in blobBaseFee, StatusCode.Failure);
-                Address executingAccount = tx.GetRecipient(tx.IsContractCreation ? WorldState.GetNonce(tx.SenderAddress!) : 0);
-                transactionResult = FinalizeTransaction(tx, spec, tracer, opts, restore, commit, deleteCallerAccount, in senderReservedGasPayment, executingAccount, in substate, gasConsumed, StatusCode.Failure);
+            UpdateHeaderGasUsedAndPayFees(tx, header, spec, tracer, opts, substate, in gasConsumed, in premiumPerGas, in blobBaseFee, StatusCode.Failure);
+            Address executingAccount = tx.GetRecipient(tx.IsContractCreation ? WorldState.GetNonce(tx.SenderAddress!) : 0);
+            transactionResult = FinalizeTransaction(tx, spec, tracer, opts, restore, commit, deleteCallerAccount, in senderReservedGasPayment, executingAccount,
+                in substate, gasConsumed, StatusCode.Failure);
             return false;
-        }
-
-        private Address GetFilteredFundsRecipient()
-        {
-            Address recipient = _arbosState!.FilteredFundsRecipient.Get();
-            return recipient == Address.Zero ? _arbosState.NetworkFeeAccount.Get() : recipient;
         }
 
         private ArbitrumTransactionProcessorResult ProcessArbitrumInternalTransaction(
@@ -784,7 +766,7 @@ namespace Nethermind.Arbitrum.Execution
         {
             List<LogEntry> eventLogs = new(2);
 
-            bool isFiltered = IsFilteredTransaction(tx);
+            bool isFiltered = _arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash!) == true;
             if (isFiltered)
             {
                 Address filteredFundsRecipient = GetFilteredFundsRecipient();
@@ -1668,6 +1650,11 @@ namespace Nethermind.Arbitrum.Execution
             _arbosState!.L2PricingState.GrowBacklog(computeGas, usedMultiGas);
         }
 
+        private Address GetFilteredFundsRecipient()
+        {
+            Address recipient = _arbosState!.FilteredFundsRecipient.Get();
+            return recipient == Address.Zero ? _arbosState.NetworkFeeAccount.Get() : recipient;
+        }
         private TransactionResult FilteredTransactionResult(Hash256? txHash) =>
             TransactionResult.EvmException(EvmExceptionType.Revert, $"transaction {txHash?.ToShortString()} in onchain filter");
     }

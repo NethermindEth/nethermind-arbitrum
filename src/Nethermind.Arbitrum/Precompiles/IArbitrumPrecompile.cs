@@ -18,20 +18,16 @@ namespace Nethermind.Arbitrum.Precompiles
     public readonly struct GasConsumptionPolicy
     {
         /// <summary>
-        /// When true the caller pays nothing: context.Free is set before execution so all
-        /// Burn() calls are no-ops, and GasSupplied is returned afterwards.
+        /// When true the caller pays nothing - context.Free is set before execution
         /// </summary>
         public bool IsFree { get; init; }
 
         /// <summary>
         /// For callers that are not free: the gas cost of the membership check itself.
-        /// After the inner call completes (or BurnOut fires), the VM overrides the gas
-        /// return to GasSupplied - CheckCost instead of charging the full BurnOut amount.
         /// Zero means normal gas accounting applies.
         /// </summary>
         public ulong CheckCost { get; init; }
 
-        /// <summary>Default: normal gas accounting, no override.</summary>
         public static readonly GasConsumptionPolicy Default = default;
     }
 

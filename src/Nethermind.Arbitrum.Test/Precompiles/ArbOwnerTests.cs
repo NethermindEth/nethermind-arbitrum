@@ -1257,6 +1257,7 @@ public class ArbOwnerTests
     public void AddTransactionFilterer_WithValidAddress_AddsToFiltererSet()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.TransactionFilteringEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp - 100);
 
         ArbOwner.AddTransactionFilterer(context, ExampleOwnerA);
 
@@ -1267,6 +1268,8 @@ public class ArbOwnerTests
     public void AddTransactionFilterer_WhenCalled_EmitsTransactionFiltererAddedEvent()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.TransactionFilteringEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp - 100);
+
         LogEntry expectedLog = EventsEncoder.BuildLogEntryFromEvent(ArbOwner.TransactionFiltererAddedEvent, ArbOwner.Address, ExampleOwnerA);
 
         ArbOwner.AddTransactionFilterer(context, ExampleOwnerA);
