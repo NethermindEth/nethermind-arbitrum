@@ -252,8 +252,8 @@ public class ArbitrumCodeInfoRepositoryTests
     public void GetCachedCodeInfo_ForRegisteredParser_ReturnsRoutablePrecompile(Type parserType)
     {
         using IDisposable scope = BeginWorldStateScope(out IWorldState state);
-        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.FortyOne);
-        ArbitrumCodeInfoRepository repository = CreateRepository(state, ArbosVersion.FortyOne);
+        ArbitrumReleaseSpec spec = CreateSpec(ArbosVersion.Sixty);
+        ArbitrumCodeInfoRepository repository = CreateRepository(state, ArbosVersion.Sixty);
 
         CodeInfo result = repository.GetCachedCodeInfo(GetParserAddress(parserType), false, spec, out _);
 
@@ -263,7 +263,7 @@ public class ArbitrumCodeInfoRepositoryTests
         precompile.GetType().Should().Be(parserType, $"Address {GetParserAddress(parserType)} must dispatch to {parserType.Name}");
 
         PrecompileTestContextBuilder context = new PrecompileTestContextBuilder(state, 1_000_000)
-            .WithArbosVersion(ArbosVersion.FortyOne);
+            .WithArbosVersion(ArbosVersion.Sixty);
         Action dispatch = () =>
         {
             ReadOnlySpan<byte> calldata = new byte[4];
@@ -280,7 +280,7 @@ public class ArbitrumCodeInfoRepositoryTests
         // Guards the parameterised exhaustiveness test against vacuous passes: if the
         // reflection scan ever returns empty, TestCaseSource produces zero test cases silently.
         GetAllArbitrumPrecompileParsers().Should()
-            .HaveCountGreaterThanOrEqualTo(17, "Reflection must discover every IArbitrumPrecompile<T> implementation in the assembly");
+            .HaveCountGreaterThanOrEqualTo(18, "Reflection must discover every IArbitrumPrecompile<T> implementation in the assembly");
     }
 
     private static IDisposable BeginWorldStateScope(out IWorldState state)

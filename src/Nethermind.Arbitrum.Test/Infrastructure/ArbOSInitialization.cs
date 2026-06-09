@@ -23,9 +23,20 @@ public static class ArbOSInitialization
         return new ArbitrumSpecHelper(parameters, new DisabledArbOsVersionOverride());
     }
 
+    public static Block Create(IWorldState worldState, ulong initialArbOsVersion, ISpecProvider? specProvider = null)
+    {
+        ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create(initialArbOsVersion: initialArbOsVersion);
+        return Create(worldState, chainSpec, specProvider);
+    }
+
     public static Block Create(IWorldState worldState, ISpecProvider? specProvider = null)
     {
         ChainSpec chainSpec = FullChainSimulationChainSpecProvider.Create();
+        return Create(worldState, chainSpec, specProvider);
+    }
+
+    private static Block Create(IWorldState worldState, ChainSpec chainSpec, ISpecProvider? specProvider = null)
+    {
         ArbitrumChainSpecEngineParameters parameters = chainSpec.EngineChainSpecParametersProvider
             .GetChainSpecParameters<ArbitrumChainSpecEngineParameters>();
         IArbitrumSpecHelper specHelper = new ArbitrumSpecHelper(parameters, new DisabledArbOsVersionOverride());

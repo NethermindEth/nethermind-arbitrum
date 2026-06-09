@@ -228,6 +228,18 @@ public class ArbOwnerTests
     }
 
     [Test]
+    public void MethodIds_NewFilteringMethods_MatchExpectedSelectors()
+    {
+        PrecompileTestAbiHelpers.GetMethodId("addTransactionFilterer(address)").Should().Be(Solgen.ArbOwner.Methods.AddTransactionFilterer);
+        PrecompileTestAbiHelpers.GetMethodId("removeTransactionFilterer(address)").Should().Be(Solgen.ArbOwner.Methods.RemoveTransactionFilterer);
+        PrecompileTestAbiHelpers.GetMethodId("isTransactionFilterer(address)").Should().Be(Solgen.ArbOwner.Methods.IsTransactionFilterer);
+        PrecompileTestAbiHelpers.GetMethodId("getAllTransactionFilterers()").Should().Be(Solgen.ArbOwner.Methods.GetAllTransactionFilterers);
+        PrecompileTestAbiHelpers.GetMethodId("getFilteredFundsRecipient()").Should().Be(Solgen.ArbOwner.Methods.GetFilteredFundsRecipient);
+        PrecompileTestAbiHelpers.GetMethodId("setFilteredFundsRecipient(address)").Should().Be(Solgen.ArbOwner.Methods.SetFilteredFundsRecipient);
+        PrecompileTestAbiHelpers.GetMethodId("setTransactionFilteringFrom(uint64)").Should().Be(Solgen.ArbOwner.Methods.SetTransactionFilteringFrom);
+    }
+
+    [Test]
     public void EventTopics_AllEvents_MatchExpectedHashes()
     {
         ArbOwner.OwnerActsEvent.GetHash().Should().Be(ExpectedOwnerActsTopic);
@@ -1239,5 +1251,130 @@ public class ArbOwnerTests
         ArbOwner.AddChainOwner(context, ExampleOwnerA);
 
         context.EventLogs.Should().ContainEquivalentOf(expectedLog);
+    }
+
+    [Test]
+    public void AddTransactionFilterer_WithValidAddress_AddsToFiltererSet()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.AddTransactionFilterer(context, ExampleOwnerA);
+
+        ArbOwner.IsTransactionFilterer(context, ExampleOwnerA).Should().BeTrue();
+    }
+
+    [Test]
+    public void AddTransactionFilterer_WhenCalled_EmitsTransactionFiltererAddedEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        LogEntry expectedLog = EventsEncoder.BuildLogEntryFromEvent(ArbOwner.TransactionFiltererAddedEvent, ArbOwner.Address, ExampleOwnerA);
+
+        ArbOwner.AddTransactionFilterer(context, ExampleOwnerA);
+
+        context.EventLogs.Should().ContainEquivalentOf(expectedLog);
+    }
+
+    [Test]
+    public void RemoveTransactionFilterer_WithKnownFilterer_RemovesFromSet()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.TransactionFilterers.Add(ExampleOwnerA);
+
+        ArbOwner.RemoveTransactionFilterer(context, ExampleOwnerA);
+
+        ArbOwner.IsTransactionFilterer(context, ExampleOwnerA).Should().BeFalse();
+    }
+
+    [Test]
+    public void RemoveTransactionFilterer_WithUnknownFilterer_Throws()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        Action act = () => ArbOwner.RemoveTransactionFilterer(context, ExampleOwnerA);
+
+        act.Should().Throw<ArbitrumPrecompileException>().WithMessage("*non-filterer*");
+    }
+
+    [Test]
+    public void RemoveTransactionFilterer_WhenCalled_EmitsTransactionFiltererRemovedEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.TransactionFilterers.Add(ExampleOwnerA);
+        LogEntry expectedLog = EventsEncoder.BuildLogEntryFromEvent(ArbOwner.TransactionFiltererRemovedEvent, ArbOwner.Address, ExampleOwnerA);
+
+        ArbOwner.RemoveTransactionFilterer(context, ExampleOwnerA);
+
+        context.EventLogs.Should().ContainEquivalentOf(expectedLog);
+    }
+
+    [Test]
+    public void IsTransactionFilterer_ForKnownFilterer_ReturnsTrue()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.TransactionFilterers.Add(ExampleOwnerA);
+
+        ArbOwner.IsTransactionFilterer(context, ExampleOwnerA).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransactionFilterer_ForUnknownFilterer_ReturnsFalse()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.IsTransactionFilterer(context, ExampleOwnerA).Should().BeFalse();
+    }
+
+    [Test]
+    public void GetAllTransactionFilterers_WithFilterers_ReturnsAll()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        context.ArbosState.TransactionFilterers.Add(ExampleOwnerA);
+        context.ArbosState.TransactionFilterers.Add(ExampleOwnerB);
+
+        Address[] filterers = ArbOwner.GetAllTransactionFilterers(context);
+
+        filterers.Should().BeEquivalentTo([ExampleOwnerA, ExampleOwnerB]);
+    }
+
+    [Test]
+    public void GetFilteredFundsRecipient_WhenNotSet_ReturnsZeroAddress()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        Address recipient = ArbOwner.GetFilteredFundsRecipient(context);
+
+        recipient.Should().Be(Address.Zero);
+    }
+
+    [Test]
+    public void SetFilteredFundsRecipient_WithValidAddress_PersistsRecipient()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+
+        ArbOwner.SetFilteredFundsRecipient(context, ExampleOwnerA);
+
+        ArbOwner.GetFilteredFundsRecipient(context).Should().Be(ExampleOwnerA);
+    }
+
+    [Test]
+    public void SetFilteredFundsRecipient_WhenCalled_EmitsFilteredFundsRecipientSetEvent()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        LogEntry expectedLog = EventsEncoder.BuildLogEntryFromEvent(ArbOwner.FilteredFundsRecipientSetEvent, ArbOwner.Address, ExampleOwnerA);
+
+        ArbOwner.SetFilteredFundsRecipient(context, ExampleOwnerA);
+
+        context.EventLogs.Should().ContainEquivalentOf(expectedLog);
+    }
+
+    [Test]
+    public void SetTransactionFilteringFrom_WithTimestamp_SetsEnabledTime()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
+        ulong timestamp = 1_800_000_000UL;
+
+        ArbOwner.SetTransactionFilteringFrom(context, timestamp);
+
+        context.ArbosState.TransactionFilteringEnabledTime.Get().Should().Be(timestamp);
     }
 }
