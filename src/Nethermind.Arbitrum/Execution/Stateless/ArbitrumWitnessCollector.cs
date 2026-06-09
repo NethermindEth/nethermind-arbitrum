@@ -50,7 +50,7 @@ public class ArbitrumWitnessCollector(
         // Block production allocates producedBlock.AccountChanges (a pooled ArrayPoolList) in
         // BlockProcessor.SetAccountChanges. In normal processing, TxPool disposes it once the block becomes
         // canonical, but this witness-only block never reaches TxPool, so dispose it here.
-        // Note: For now, only 1 caller of this method and it doesn't need that field.
+        // Note: For now, only 1 caller of this BuildBlockAndGetWitness method and it doesn't need that field.
         producedBlock.DisposeAccountChanges();
 
         Witness witness = worldState.GetWitness(parentHeader);

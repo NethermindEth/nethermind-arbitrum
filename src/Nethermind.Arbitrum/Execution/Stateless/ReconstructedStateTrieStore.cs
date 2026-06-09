@@ -25,7 +25,7 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 /// <remarks>
 /// <para>
 /// This is a port of go-ethereum/Nitro's <c>triedb/hashdb</c> dirty-node cache. Each node lives in
-/// <see cref="_dirties"/> together with its reference count (<see cref="Node.Parents"/>) and its
+/// <see cref="_dirties"/> together with its reference count (<see cref="Node.ParentsRefCount"/>) and its
 /// position in a doubly-linked <em>flush list</em> ordered by insertion (commit) time.
 /// The blob itself is stored in the <see cref="Node"/> too, so there is a single map — reads are
 /// served through a thin <see cref="OverlayKeyValueStore"/> adapter wrapped by <see cref="NodeStorage"/>.
@@ -172,7 +172,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         {
             if (_dirties.TryGetValue(key, out Node? node))
             {
-                node.Parents++;
+                node.ParentsRefCount++;
                 return true;
             }
         }
@@ -203,10 +203,10 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
                     // On disk (or already evicted by Cap) — nothing to free, and its subtree is gone too.
                     continue;
 
-                if (node.Parents > 1)
+                if (node.ParentsRefCount > 1)
                 {
                     // Still referenced by another root; stop descending — the subtree stays alive.
-                    node.Parents--;
+                    node.ParentsRefCount--;
                     continue;
                 }
 
@@ -368,7 +368,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             foreach (byte[] childKey in childKeys)
             {
                 if (_dirties.TryGetValue(childKey, out Node? child))
-                    child.Parents++;
+                    child.ParentsRefCount++;
                 // else: child is disk-resident (not in the overlay) — no tracking needed.
             }
         }
@@ -379,7 +379,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// <paramref name="key"/> not already present.</summary>
     private void AddNodeLockHeld(byte[] key, byte[] rlp)
     {
-        Node node = new() { Rlp = rlp, Parents = 0, FlushPrev = _newest, FlushNext = null };
+        Node node = new() { Rlp = rlp, ParentsRefCount = 0, FlushPrev = _newest, FlushNext = null };
         if (_newest is null)
             _oldest = key;
         else
@@ -480,7 +480,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         public required byte[] Rlp;
         /// <summary>Number of live overlay parents referencing this node, plus one per external
         /// <see cref="TryReference"/> on a state root.</summary>
-        public int Parents;
+        public int ParentsRefCount;
         /// <summary>Previous (older) node in the flush list; null at the head.</summary>
         public byte[]? FlushPrev;
         /// <summary>Next (newer) node in the flush list; null at the tail.</summary>
