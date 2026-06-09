@@ -38,9 +38,9 @@ namespace Nethermind.Arbitrum.Execution.Stateless;
 /// node written to disk is redundant in memory; this bounds both the eviction batch and total write
 /// volume — a shared subtree sits once in the flush list and is written at most once.</item>
 /// <item><see cref="Dereference"/> frees memory by reference counting: it descends from a state root,
-/// decrements <see cref="Node.Parents"/>, and removes nodes whose count reaches zero, cascading into
-/// children. Children are decoded on demand from the node RLP (no separate children table) including
-/// for cross-tree children (state tree account leaf referencing storage tree root node).</item>
+/// decrements <see cref="Node.ParentsRefCount"/>, and removes nodes whose count reaches zero, cascading into
+/// children. Children are decoded on demand from the node RLP including for cross-tree children
+/// (state tree account leaf referencing storage tree root node).</item>
 /// </list>
 /// </para>
 /// <para>
@@ -55,13 +55,9 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     private readonly ILogger _logger;
 
     /// <summary>
-    /// One entry per dirty (not-yet-persisted) reconstructed trie node, keyed by its half-path
-    /// storage key. The single source of truth for the overlay: blob, reference count, and flush-list
-    /// links all live on the <see cref="Node"/>. Protected by <see cref="_lock"/>.
+    /// One entry per dirty (not-yet-persisted) reconstructed trie node, keyed by its half-path storage key
     /// </summary>
     private readonly Dictionary<byte[], Node> _dirties = new(Bytes.EqualityComparer);
-
-    /// <summary>Span-keyed view of <see cref="_dirties"/> for allocation-free reads from the adapter.</summary>
     private readonly Dictionary<byte[], Node>.AlternateLookup<ReadOnlySpan<byte>> _dirtiesSpan;
 
     /// <summary>Head of the flush list (oldest node), or null when the overlay is empty.</summary>
@@ -73,8 +69,8 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     private readonly Lock _lock = new();
 
     /// <summary>Tracked "useful data" size of the overlay: the key and blob bytes of every entry
-    /// (mirrors Nitro's <c>dirtiesSize</c>). The fixed per-node metadata overhead is added on read via
-    /// <see cref="CurrentTotalFootprint"/>, not accumulated here. Mutated under <see cref="_lock"/>.</summary>
+    /// The fixed per-node metadata overhead is added on read via <see cref="CurrentTotalFootprint"/>
+    /// not accumulated here</summary>
     private long _dirtiesBytes;
 
     private static readonly AccountDecoder _accountDecoder = AccountDecoder.Instance;
@@ -82,8 +78,8 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// <summary>Fixed per-node metadata overhead: the <see cref="Node"/> object (~48B, including the two
     /// flush-list reference fields), the two array headers for the key and blob (~24B each), and the
     /// dictionary slot (~32B). The flush pointers are 8-byte references to other entries' keys, whose
-    /// bytes are accounted on those entries, so only the references are counted here. Approximate (tune
-    /// if needed); mirrors Nitro's <c>cachedNodeSize</c>.</summary>
+    /// bytes are accounted on those entries, so only the references are counted here.
+    /// Mirrors Nitro's <c>cachedNodeSize</c>.</summary>
     private const int NodeMemoryOverhead = 128;
 
     public long DirtySize
@@ -186,8 +182,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// </summary>
     /// <remarks>
     /// Descends from the root accumulating the trie path, so child keys are recomputed from the parent
-    /// RLP — including the cross-trie edge from an account leaf to its storage-trie root, handled by
-    /// <see cref="PushChildren{TSink}"/>.
+    /// RLP — including the cross-trie edge from an account leaf to its storage-trie root.
     /// </remarks>
     public void Dereference(Hash256 stateRoot)
     {
@@ -229,14 +224,8 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// disk, and by commit order its subtree is too).
     /// </summary>
     /// <remarks>
-    /// <para>Two passes, mirroring go-ethereum/Nitro's <c>hashdb.Database.Cap</c>: pass one writes the
-    /// oldest nodes into a batch and flushes it to disk; pass two removes those nodes from the overlay
-    /// only <em>after</em> the disk write is durable, so an external observer never sees a node missing
-    /// from both memory and disk. Pass one tracks a local <c>size</c> (not <see cref="_memDbBytes"/>,
-    /// which is only decremented in pass two) to decide when the budget is met.</para>
-    /// <para>Because it stops as soon as the budget is met, a single pass typically evicts only the small
-    /// overshoot, so the batch stays small and total write volume is bounded — each node is in the flush
-    /// list once and written at most once.</para>
+    /// <para>A single pass typically evicts only the small overshoot, so the batch stays small and total
+    /// write volume is bounded — each node is in the flush list once and written to disk at most once.</para>
     /// </remarks>
     public void Cap(double targetSize, IKeyValueStoreWithBatching mainStateDb)
     {
@@ -246,8 +235,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         lock (_lock)
         {
             // Pass 1: write oldest-first into the batch until the projected footprint meets the target.
-            // Use a local size since _memDbBytes is only decremented in pass 2; the per-node decrement
-            // includes the metadata overhead so it matches CurrentFootprint()'s accounting.
+            // Per-node decrement includes the metadata overhead so it matches CurrentFootprint()'s accounting.
             IWriteBatch batch = mainStateDb.StartWriteBatch();
 
             stats.DirtiesCountBefore = _dirties.Count;
@@ -266,6 +254,7 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
             }
 
             // Flush to disk BEFORE removing from memory.
+            // An external observer never sees a node missing from both memory and disk.
             long beforeDispose = Stopwatch.GetTimestamp();
             batch.Dispose();
             stats.FlushTimeMs = Stopwatch.GetElapsedTime(beforeDispose, Stopwatch.GetTimestamp()).TotalMilliseconds;
@@ -323,35 +312,29 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
         }
     }
 
-    /// <summary>Tracked "useful data" size of one entry — its key and blob bytes (Nitro's <c>dirtiesSize</c>
-    /// term). Accumulated in <see cref="_memDbBytes"/> on insert/remove.</summary>
+    /// <summary>Tracked "useful data" size of one entry </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static long NodeDataSize(byte[] key, Node node) => key.Length + node.Rlp.Length;
 
     /// <summary>Approximate real in-memory footprint of the overlay: tracked key+blob bytes plus the fixed
-    /// per-node metadata overhead (one <see cref="NodeMemoryOverhead"/> per entry), mirroring Nitro adding
-    /// <c>len(dirties)*cachedNodeSize</c> on top of <c>dirtiesSize</c>. Must be called under <see cref="_lock"/>.</summary>
+    /// per-node metadata overhead, mirroring Nitro adding cachedNodeSize on top of dirtiesSize </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private long CurrentTotalFootprint() => _dirtiesBytes + (long)_dirties.Count * NodeMemoryOverhead;
 
     /// <summary>
     /// Called by <see cref="TrackingCommitter"/> for each node committed to the overlay. Inserts the
-    /// node (blob, zero reference count, appended to the flush-list tail) and increments the reference
-    /// count of each overlay-resident child. Since Patricia tries commit bottom-up (children before
-    /// parents — and a parent's commit awaits its children even under concurrent commit), children are
-    /// already present when their parent is processed here, as are cross-trie storage roots (storage
-    /// trees commit before the state tree). Idempotent: this is the sole insertion path, so presence in
-    /// <see cref="_dirties"/> means the node — and its child links — were established by a prior commit
-    /// (same hash ⇒ same children), so we skip to avoid double-counting.
+    /// node and increments the reference count of each overlay-resident child.
+    /// Since Patricia tries commit bottom-up (children before parents — and a parent's commit awaits its
+    /// children even under concurrent commit), children are already present when their parent is processed,
+    /// as are cross-trie storage roots (storage trees commit before the state tree).
     /// </summary>
     private void InsertCommittedNode(byte[] nodeKey, CappedArray<byte> fullRlp, Hash256? address, TreePath path)
     {
         lock (_lock)
         {
             // Idempotent guard: a commit only writes its dirty nodes, so these are almost always new
-            // and this should rarely hit. It guards the genuine re-commit cases — a reorg replaying an
-            // already-reconstructed block, an overlapping prepare range, or a value reverting to a prior
-            // hash still in the overlay — where the same (address, path, hash) ⇒ same content ⇒ same
+            // and this should rarely hit. It guards the genuine re-commit cases (reorg, overlapping prepare
+            // range, revert to a prior hash) where the same (address, path, hash) -> same content -> same
             // children, so skipping avoids double-counting.
             if (_dirties.ContainsKey(nodeKey))
                 return;
@@ -476,7 +459,6 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     /// <summary>One reconstructed dirty trie node: its blob, reference count, and flush-list links.</summary>
     private sealed class Node
     {
-        /// <summary>The encoded node blob.</summary>
         public required byte[] Rlp;
         /// <summary>Number of live overlay parents referencing this node, plus one per external
         /// <see cref="TryReference"/> on a state root.</summary>
@@ -541,23 +523,16 @@ public class ReconstructedStateTrieStore : ITrieStore, IReadOnlyTrieStore
     }
 
     /// <summary>Accumulated diagnostics for one <see cref="Cap"/> pass.</summary>
+    /// <remarks> DirtiesSize* exclude metadata and TotalMemSize* include metadata </remarks>
     private struct CapStats
     {
-        /// <summary>Dirties count before capping</summary>
         public long DirtiesCountBefore;
-        /// <summary>Dirties count after capping</summary>
         public long DirtiesCountAfter;
-        /// <summary>Dirties size before capping (excl metadata)</summary>
         public long DirtiesSizeBefore;
-        /// <summary>Dirties size after capping (excl metadata)</summary>
         public long DirtiesSizeAfter;
-        /// <summary>Dirties size before capping (incl metadata)</summary>
         public long TotalMemSizeBefore;
-        /// <summary>Dirties size after capping (incl metadata)</summary>
         public long TotalMemSizeAfter;
-        /// <summary>Time spent in <see cref="IWriteBatch.Dispose"/> (the disk flush)</summary>
         public double FlushTimeMs;
-        /// <summary>Total time spent for capping</summary>
         public double TotalTimeMs;
 
         public override readonly string ToString() =>
