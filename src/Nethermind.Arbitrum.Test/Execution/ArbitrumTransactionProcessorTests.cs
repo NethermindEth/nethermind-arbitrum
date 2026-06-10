@@ -3,7 +3,6 @@
 
 using Autofac;
 using FluentAssertions;
-using MathNet.Numerics.Distributions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
@@ -40,7 +39,6 @@ using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
 using Nethermind.State;
-using System.Text;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
