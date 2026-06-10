@@ -480,11 +480,11 @@ public static class ArbOwner
     public static void AddTransactionFilterer(ArbitrumPrecompileExecutionContext context, Address filterer)
     {
         if (context.ArbosState.CurrentArbosVersion < ArbosVersion.TransactionFiltering)
-            return;
+            throw ArbitrumPrecompileException.CreateFailureException("transaction filtering feature is not enabled yet");
 
         ulong enabledTime = context.ArbosState.TransactionFilteringEnabledTime.Get();
         if (enabledTime == 0 || context.BlockExecutionContext.Header.Timestamp < enabledTime)
-            return;
+            throw ArbitrumPrecompileException.CreateFailureException("transaction filtering feature is not enabled yet");
 
         context.ArbosState.TransactionFilterers.Add(filterer);
         EmitTransactionFiltererAddedEvent(context, filterer);
