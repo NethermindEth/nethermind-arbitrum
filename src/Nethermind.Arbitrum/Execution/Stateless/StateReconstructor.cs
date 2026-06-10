@@ -434,11 +434,9 @@ public class StateReconstructor : IStateReconstructor, IDisposable
                     (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
 
                     // ProcessOne may allocate block.AccountChanges (a pooled ArrayPoolList) when running on the
-                    // main processing thread. In normal processing TxPool disposes it once the block becomes
-                    // canonical (BlockAddedToMain / new-head events). Re-executed blocks here are transient and
-                    // never reach TxPool, so dispose it ourselves to return the pooled array. The input and the
-                    // processed block share the same list (BlockProcessor copies the reference onto the suggested
-                    // block), so dispose exactly one.
+                    // main processing thread. The input and the processed block share the same list (BlockProcessor
+                    // copies the reference onto the suggested block), so dispose exactly one.
+                    // See what happens for regular block production: https://github.com/NethermindEth/nethermind-arbitrum/issues/950
                     block.DisposeAccountChanges();
 
                     if (processedBlock.Hash != expectedBlockHash)
