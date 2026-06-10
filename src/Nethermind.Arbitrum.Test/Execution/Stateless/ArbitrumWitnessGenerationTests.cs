@@ -28,17 +28,31 @@ namespace Nethermind.Arbitrum.Test.Execution;
 
 public class ArbitrumWitnessGenerationTests
 {
+    // Shared, lazily-built chains keyed by recording file path, reused read-only across every
+    // recording-driven test case in this fixture (the StatelessExecution, CaptureAsms and
+    // CapturesExactWitness sources). Recording 5's 47-block chain, for example, used to be rebuilt
+    // ~140 times; now it is built once and shared. Disposed once after the whole fixture runs. Tests
+    // here execute sequentially (no [Parallelizable]), but the lock keeps GetOrBuild safe regardless.
+    private static readonly Dictionary<string, (ArbitrumRpcTestBlockchain Chain, FullChainSimulationRecordingFile Recording)> SharedRecordingChains = new();
+    private static readonly Lock SharedRecordingChainsLock = new();
+
+    [OneTimeTearDown]
+    public void DisposeSharedRecordingChains()
+    {
+        lock (SharedRecordingChainsLock)
+        {
+            foreach ((ArbitrumRpcTestBlockchain chain, _) in SharedRecordingChains.Values)
+                chain.Dispose();
+
+            SharedRecordingChains.Clear();
+        }
+    }
+
     [TestCaseSource(nameof(ExecutionWitnessWithoutStylusSource))]
     public async Task RecordBlockCreation_WitnessWithoutUserWasms_StatelessExecutionIsSuccessful(ulong messageIndex)
     {
-        FullChainSimulationRecordingFile recording = new("./Recordings/1__arbos32_basefee92.jsonl");
+        (ArbitrumRpcTestBlockchain chain, FullChainSimulationRecordingFile recording) = GetReadOnlySharedRecordingChain("./Recordings/1__arbos32_basefee92.jsonl");
         DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
-
-        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(recording)
-            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
-            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
-            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: []));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
@@ -71,14 +85,8 @@ public class ArbitrumWitnessGenerationTests
     [TestCaseSource(nameof(ExecutionWitnessWithStylusSource))]
     public async Task RecordBlockCreation_WitnessWithUserWasms_StatelessExecutionIsSuccessful(ulong messageIndex, Address[] _)
     {
-        FullChainSimulationRecordingFile recording = new("./Recordings/5__stylus.jsonl");
+        (ArbitrumRpcTestBlockchain chain, FullChainSimulationRecordingFile recording) = GetReadOnlySharedRecordingChain("./Recordings/5__stylus.jsonl");
         DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
-
-        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(recording)
-            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
-            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
-            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
@@ -111,14 +119,8 @@ public class ArbitrumWitnessGenerationTests
     [TestCaseSource(nameof(ExecutionWitnessWithStylusSource))]
     public async Task RecordBlockCreation_WitnessWithUserWasms_CaptureAsms(ulong messageIndex, Address[] executedStylusContracts)
     {
-        FullChainSimulationRecordingFile recording = new("./Recordings/5__stylus.jsonl");
+        (ArbitrumRpcTestBlockchain chain, FullChainSimulationRecordingFile recording) = GetReadOnlySharedRecordingChain("./Recordings/5__stylus.jsonl");
         DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
-
-        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(recording)
-            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
-            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
-            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         string[] wasmTargets = chain.StylusTargetConfig.GetWasmTargets().ToArray();
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: wasmTargets));
@@ -1510,14 +1512,13 @@ public class ArbitrumWitnessGenerationTests
     [TestCaseSource(nameof(ExecutionWitnessForRecording14))]
     public async Task RecordBlockCreation_InPassedRecording_CapturesExactWitness(string recordingFile, ulong messageIndex, RecordResult expectedRecordResult)
     {
-        FullChainSimulationRecordingFile recording = new(recordingFile);
+        // The chain is built (full recording replayed) once per recording file and reused across all
+        // of that recording's block test cases. RecordBlockCreation and BuildBlockWitness only read
+        // the canonical chain (they execute in their own processing-env scopes), so sharing is safe.
+        // Without this, each of the ~480 cases rebuilt its whole chain from genesis — O(B²) block
+        // productions (incl. Stylus activation) per recording. See DisposeSharedRecordingChains.
+        (ArbitrumRpcTestBlockchain chain, FullChainSimulationRecordingFile recording) = GetReadOnlySharedRecordingChain(recordingFile);
         DigestMessageParameters digestMessage = recording.GetDigestMessages().First(m => m.Index == messageIndex);
-
-        using ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
-            .WithRecording(recording)
-            .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
-            // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
-            .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
 
         ResultWrapper<RecordResult> recordResultWrapper = await chain.ArbitrumRpcModule.RecordBlockCreation(new RecordBlockCreationParameters(digestMessage.Index, digestMessage.Message, WasmTargets: ["wavm"]));
         RecordResult recordResult = ThrowOnFailure(recordResultWrapper, digestMessage.Index);
@@ -1531,6 +1532,37 @@ public class ArbitrumWitnessGenerationTests
         // To generate the expected witness files, use following lines instead
         // if (expectedRecordResult is null)
         //     ExpectedWitnessRecording.WriteBootstrapEntry(recordingFile, recordResult.Pos, recordResult.BlockHash, witness, recordResult.UserWasms);
+    }
+
+    /// <summary>
+    /// Returns the chain for <paramref name="recordingFile"/>, building it once (full recording
+    /// replayed) and caching it for reuse across all of that recording's test cases.
+    /// <para>
+    /// The returned instance is SHARED and must be treated as READ-ONLY: do not digest messages,
+    /// append blocks, or otherwise mutate its canonical state — doing so would leak into every other
+    /// test case for the same recording. Witness generation (RecordBlockCreation / BuildBlockWitness)
+    /// and stateless processing are safe because they run in their own processing-env scopes.
+    /// </para>
+    /// </summary>
+    private static (ArbitrumRpcTestBlockchain Chain, FullChainSimulationRecordingFile Recording) GetReadOnlySharedRecordingChain(string recordingFile)
+    {
+        lock (SharedRecordingChainsLock)
+        {
+            if (SharedRecordingChains.TryGetValue(recordingFile, out (ArbitrumRpcTestBlockchain, FullChainSimulationRecordingFile) entry))
+                return entry;
+
+            FullChainSimulationRecordingFile recording = new(recordingFile);
+            ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+                .WithRecording(recording)
+                .WithArbitrumConfig(cfg => cfg.ValidationEnabled = true)
+                // Flush trie nodes to underlying nodeStorage to make state roots accessible for ReconstructedStateTrieStore during witness generation
+                .Build(chain => chain.WorldStateManager.FlushCache(CancellationToken.None));
+
+            entry = (chain, recording);
+            SharedRecordingChains[recordingFile] = entry;
+
+            return entry;
+        }
     }
 
     private static IEnumerable<TestCaseData> ExecutionWitnessWithoutStylusSource()
@@ -1594,7 +1626,12 @@ public class ArbitrumWitnessGenerationTests
     private static void AssertWitnessMatchesRecordResult(ArbitrumWitness witness, RecordResult recordResult)
     {
         RecordResult fromWitness = new(recordResult.Pos, recordResult.BlockHash, witness);
-        fromWitness.Should().BeEquivalentTo(recordResult);
+
+        fromWitness.Pos.Should().Be(recordResult.Pos);
+        fromWitness.BlockHash.Should().Be(recordResult.BlockHash);
+
+        AssertPreimagesEqual(fromWitness.Preimages, recordResult.Preimages);
+        AssertUserWasmsEqual(fromWitness.UserWasms, recordResult.UserWasms);
     }
 
     private static T ThrowOnFailure<T>(ResultWrapper<T> result, ulong msgIndex)
@@ -1710,12 +1747,61 @@ public class ArbitrumWitnessGenerationTests
     /// </summary>
     private static void AssertRecordResultEquivalent(RecordResult actual, RecordResult expected)
     {
-        actual.Should().BeEquivalentTo(expected,
-            options => options.ComparingByMembers<RecordResult>()
-                .Excluding(r => r.UserWasms));
+        actual.Pos.Should().Be(expected.Pos);
+        actual.BlockHash.Should().Be(expected.BlockHash);
+        AssertPreimagesEqual(actual.Preimages, expected.Preimages);
 
         // Expected results in JSONL already have all UserWasms filtered to keep only the wavm target,
         // so apply the same filter to actual.UserWasms before comparison.
-        ExpectedWitnessRecording.KeepWavmOnly(actual.UserWasms).Should().BeEquivalentTo(expected.UserWasms);
+        Dictionary<Hash256, Dictionary<string, byte[]>> actualWavmOnly = ExpectedWitnessRecording.KeepWavmOnly(actual.UserWasms);
+        AssertUserWasmsEqual(
+            actualWavmOnly.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyDictionary<string, byte[]>)kvp.Value),
+            expected.UserWasms);
+    }
+
+    // Direct structural comparison of the witness payloads. Replaces FluentAssertions' BeEquivalentTo,
+    // whose reflection-based deep graph walk over these large dictionaries of byte[] dominated the
+    // runtime of the recording-driven tests (~half of RecordBlockCreation_InPassedRecording_CapturesExactWitness:
+    // measured 40s -> 21s when the asserts were disabled).
+    private static void AssertPreimagesEqual(IReadOnlyDictionary<Hash256, byte[]?> actual, IReadOnlyDictionary<Hash256, byte[]?> expected)
+    {
+        if (actual.Count != expected.Count)
+            Assert.Fail($"Preimage count mismatch: actual {actual.Count}, expected {expected.Count}");
+
+        foreach ((Hash256 hash, byte[]? expectedBytes) in expected)
+        {
+            if (!actual.TryGetValue(hash, out byte[]? actualBytes))
+                Assert.Fail($"Preimage {hash} missing from actual");
+
+            if (!((ReadOnlySpan<byte>)actualBytes).SequenceEqual(expectedBytes))
+                Assert.Fail($"Preimage {hash} bytes differ from expected");
+        }
+    }
+
+    private static void AssertUserWasmsEqual(IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> actual, IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> expected)
+    {
+        if (actual.Count != expected.Count)
+            Assert.Fail($"UserWasms module count mismatch: actual {actual.Count}, expected {expected.Count}");
+
+        foreach ((Hash256 moduleHash, IReadOnlyDictionary<string, byte[]> expectedTargets) in expected)
+        {
+            if (!actual.TryGetValue(moduleHash, out IReadOnlyDictionary<string, byte[]>? actualTargets))
+            {
+                Assert.Fail($"UserWasms module {moduleHash} missing from actual");
+                return; // unreachable; satisfies nullable flow analysis
+            }
+
+            if (actualTargets.Count != expectedTargets.Count)
+                Assert.Fail($"UserWasms target count mismatch for module {moduleHash}: actual {actualTargets.Count}, expected {expectedTargets.Count}");
+
+            foreach ((string target, byte[] expectedAsm) in expectedTargets)
+            {
+                if (!actualTargets.TryGetValue(target, out byte[]? actualAsm))
+                    Assert.Fail($"UserWasms module {moduleHash} missing target '{target}'");
+
+                if (!((ReadOnlySpan<byte>)actualAsm).SequenceEqual(expectedAsm))
+                    Assert.Fail($"UserWasms asm bytes differ for module {moduleHash}, target '{target}'");
+            }
+        }
     }
 }
