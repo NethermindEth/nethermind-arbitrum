@@ -364,7 +364,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         {
             builder
                 // Always needed: witness factory for debug_executionWitness endpoint
-                .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new MemDb(), ctx.Resolve<MainPruningTrieStoreFactory>().PruningTrieStore.AsReadOnly()))
+                .AddSingleton<ReconstructedStateTrieStore, MainPruningTrieStoreFactory, ILogManager>((trieStoreFactory, logManager)
+                    => new ReconstructedStateTrieStore(trieStoreFactory.PruningTrieStore.AsReadOnly(), logManager))
                 .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
                 .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
                 .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();

@@ -47,6 +47,12 @@ public class ArbitrumWitnessCollector(
         if (producedBlock?.Hash is null)
             throw new NullReferenceException($"Failed to build block with parent header number: {parentHeader.Number} and hash: {parentHeader.Hash}");
 
+        // Block production allocates producedBlock.AccountChanges (a pooled ArrayPoolList) in
+        // BlockProcessor.SetAccountChanges. See what happens for regular block production:
+        // https://github.com/NethermindEth/nethermind-arbitrum/issues/950
+        // Note: For now, only 1 caller of this BuildBlockAndGetWitness method and it doesn't need that field.
+        producedBlock.DisposeAccountChanges();
+
         Witness witness = worldState.GetWitness(parentHeader);
         ArbitrumWitness arbitrumWitness = new(witness, wasmsRecorder.UserWasms);
 

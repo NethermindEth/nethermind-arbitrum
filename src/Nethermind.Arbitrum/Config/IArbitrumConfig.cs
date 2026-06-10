@@ -27,11 +27,11 @@ public interface IArbitrumConfig : IConfig
     [ConfigItem(Description = "Experimental: Expose multi-dimensional gas in transaction receipts", DefaultValue = "false")]
     bool ExposeMultiGas { get; set; }
 
-    [ConfigItem(Description = "Maximum number of state roots to keep pinned in the MemDb overlay simultaneously", DefaultValue = "1000")]
+    [ConfigItem(Description = "Maximum number of state roots to keep pinned in the memory overlay simultaneously", DefaultValue = "1000")]
     int ValidatorMaxStateRootsInMem { get; set; }
 
-    [ConfigItem(Description = "Maximum size in MB of the reconstructed state MemDb overlay before oldest roots are spilled to disk", DefaultValue = "1024")]
-    int ValidatorReconstructedStateMemDBMaxSizeMb { get; set; }
+    [ConfigItem(Description = "Maximum size in MB of the reconstructed state memory overlay before oldest roots are spilled to disk", DefaultValue = "1024")]
+    int ValidatorReconstructedStateMemOverlayMaxSizeMb { get; set; }
 
     [ConfigItem(Description = "Whether validation is enabled", DefaultValue = "false")]
     bool ValidationEnabled { get; set; }
