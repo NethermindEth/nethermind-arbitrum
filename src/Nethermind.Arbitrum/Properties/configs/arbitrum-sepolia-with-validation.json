@@ -71,7 +71,7 @@
     "RebuildLocalWasm": "auto",
     "ValidationEnabled": true,
     "ValidatorMaxStateRootsInMem": 1000,
-    "ValidatorReconstructedStateMemDBMaxSizeMb": 1024
+    "ValidatorReconstructedStateMemOverlayMaxSizeMb": 1024
   },
   "VerifyBlockHash": {
     "Enabled": false,

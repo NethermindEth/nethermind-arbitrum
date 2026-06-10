@@ -44,28 +44,28 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// <summary>
     /// Set by <see cref="CopyLastValidStateForFullPruning"/> after validator states are copied to the pruning DB.
     /// Blocks <see cref="WaitForPruningGateAsync"/> callers until <see cref="OnPruningFinished"/> fires,
-    /// at which point MemDb is cleared and the gate is released.
-    /// Carries the headers that were actually copied so they can be restored after MemDb is cleared.
+    /// at which point memory is cleared and the gate is released.
+    /// Carries the headers that were actually copied so they can be restored after memory is cleared.
     /// </summary>
     private sealed record PruningGate(BlockHeader ValidHeader, TaskCompletionSource Tcs);
     private volatile PruningGate? _pruningGate;
 
     /// <summary>
-    /// Maximum number of state roots to keep pinned in the MemDb overlay simultaneously.
+    /// Maximum number of state roots to keep pinned in the memory overlay simultaneously.
     /// When exceeded, the oldest entries are evicted (their nodes dereferenced and potentially deleted).
     /// </summary>
     private readonly int _maxStateRootsInMem;
 
     /// <summary>
-    /// Max reconstructed state memDB size before spilling to disk.
+    /// Max reconstructed state memory overlay size before spilling to disk.
     /// Capping is triggered by calls to <see cref="MaybeCap"/> during reconstruction progress.
     /// </summary>
-    private readonly long _maxMemDbSize;
+    private readonly long _maxMemSize;
 
     /// <summary>
-    /// Constant to use when capping memDb to keep memDb's size at _maxMemDbSize - BytesToEvictFromMemDb
+    /// Constant to use when capping memory overlay to keep its size at _maxMemSize - BytesToEvictFromMem
     /// </summary>
-    const long BytesToEvictFromMemDb = 100 * 1024; // 100 KiB
+    const long BytesToEvictFromMem = 100 * 1024; // 100 KiB
 
     /// <summary>FIFO queue of pinned headers; oldest entries are evicted when the queue exceeds <see cref="_maxStateRootsInMem"/>.</summary>
     private readonly Queue<BlockHeader> _preparedQueue = new();
@@ -73,7 +73,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     private readonly Lock _validHeaderLock = new();
 
     /// <summary>
-    /// The oldest eligible candidate header whose MemDb nodes are pinned with an extra reference.
+    /// The oldest eligible candidate header whose memory overlay nodes are pinned with an extra reference.
     /// Promoted to <see cref="_validHeader"/> by <see cref="TryPromoteValidCandidate"/>.
     /// </summary>
     private BlockHeader? _validHeaderCandidate;
@@ -107,15 +107,15 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         _logger = logManager.GetClassLogger<StateReconstructor>();
         _genesisBlockNumber = (long)specHelper.GenesisBlockNum;
         _maxStateRootsInMem = arbitrumConfig.ValidatorMaxStateRootsInMem;
-        _maxMemDbSize = (long)_arbitrumConfig.ValidatorReconstructedStateMemDBMaxSizeMb * 1024 * 1024;
+        _maxMemSize = (long)_arbitrumConfig.ValidatorReconstructedStateMemOverlayMaxSizeMb * 1024 * 1024;
 
-        if (_maxMemDbSize < BytesToEvictFromMemDb && _logger.IsWarn)
-            _logger.Warn($"ValidatorReconstructedStateMemDBMaxSizeMb ({_arbitrumConfig.ValidatorReconstructedStateMemDBMaxSizeMb} MB) " +
-                $"is below the eviction headroom ({BytesToEvictFromMemDb / 1024} KiB); " +
-                "Capping the memDb is in aggressive mode as it will empty it on every trigger instead of giving it some breathing room to grow between caps.");
+        if (_maxMemSize < BytesToEvictFromMem && _logger.IsWarn)
+            _logger.Warn($"ValidatorReconstructedStateMemOverlayMaxSizeMb ({_arbitrumConfig.ValidatorReconstructedStateMemOverlayMaxSizeMb} MB) " +
+                $"is below the eviction headroom ({BytesToEvictFromMem / 1024} KiB); " +
+                "Capping the memory overlay is in aggressive mode as it will empty it on every trigger instead of giving it some breathing room to grow between caps.");
 
         Debug.Assert(trieStore.Scheme == INodeStorage.KeyScheme.HalfPath,
-            "MemDb overlay uses HalfPath encoding; main state DB must use the same scheme");
+            "Memory overlay uses HalfPath encoding; main state DB must use the same scheme");
 
         _fullPruningCts = new CancellationTokenSource();
 
@@ -132,7 +132,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// <summary>
     /// Ensures the state for the given parent header is available in the ReconstructedStateTrieStore.
     /// If unavailable, walks backward to find the nearest available state and re-executes blocks forward.
-    /// After this call, the state root is pinned in the prepared queue (if MemDb-resident) and
+    /// After this call, the state root is pinned in the prepared queue (if Memory overlay-resident) and
     /// will be kept alive until evicted by later calls.
     /// </summary>
     public void EnsureStateAvailable(BlockHeader targetParent)
@@ -166,7 +166,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     }
 
     /// <summary>
-    /// Updates the valid candidate header, keeping the oldest eligible one pinned in the MemDb overlay.
+    /// Updates the valid candidate header, keeping the oldest eligible one pinned in the memory overlay.
     /// Should be called for each header prepared in <see cref="PrepareForRecord"/>.
     /// </summary>
     public void UpdateValidCandidateHeader(BlockHeader header)
@@ -200,7 +200,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
     /// <summary>
     /// Attempts to promote the current candidate to the confirmed valid header.
-    /// Releases the candidate's MemDb pin regardless of the outcome when the candidate is non-canonical.
+    /// Releases the candidate's memory overlay pin regardless of the outcome when the candidate is non-canonical.
     /// Returns the promoted header on success, <see langword="null"/> otherwise.
     /// Mirrors Nitro's <c>MarkValid</c> candidate promotion logic.
     /// </summary>
@@ -228,7 +228,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
                 return null;
             }
 
-            // Release the old valid header's MemDb pin before replacing it.
+            // Release the old valid header's memory overlay pin before replacing it.
             // The candidate's reference is transferred to _validHeader
             if (_validHeader is not null)
                 _trieStore.Dereference(_validHeader.StateRoot!);
@@ -288,8 +288,8 @@ public class StateReconstructor : IStateReconstructor, IDisposable
             // Set the pruning gate. Validator methods will block on this gate until
             // OnPruningFinished fires (i.e. pruning.Commit() + context disposal complete).
             // We save the header that was actually copied so OnPruningFinished can restore it after
-            // clearing MemDb — any advancement of _validHeader that occurs between now
-            // and commit references MemDb nodes that we are about to discard.
+            // clearing Memory overlay — any advancement of _validHeader that occurs between now
+            // and commit references Memory overlay nodes that we are about to discard.
             _pruningGate = new PruningGate(validHeader,
                 new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
         }
@@ -299,7 +299,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     /// Returns a <see cref="Task"/> that completes once the pruning gate is released by
     /// <see cref="OnPruningFinished"/>. Returns a completed task when no pruning is in progress.
     /// Callers (PrepareForRecord / RecordBlockCreation) must await this before touching any
-    /// MemDb state so they don't observe a partially-committed or already-cleared overlay.
+    /// Memory overlay state so they don't observe a partially-committed or already-cleared overlay.
     /// </summary>
     public Task WaitForPruningGateAsync() => _pruningGate?.Tcs.Task ?? Task.CompletedTask;
 
@@ -382,7 +382,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
 
         while (true)
         {
-            // Check whether state trie exists, and pin it if it lives in the MemDb overlay
+            // Check whether state trie exists, and pin it if it lives in the memory overlay
             if (_trieStore.TryReference(current.StateRoot!))
                 return current;
 
@@ -433,6 +433,12 @@ public class StateReconstructor : IStateReconstructor, IDisposable
                     IReleaseSpec spec = specProvider.GetSpec(block.Header);
                     (Block processedBlock, _) = blockProcessor.ProcessOne(block, ProcessingOptions.ForceProcessing, NullBlockTracer.Instance, spec);
 
+                    // ProcessOne may allocate block.AccountChanges (a pooled ArrayPoolList) when running on the
+                    // main processing thread. The input and the processed block share the same list (BlockProcessor
+                    // copies the reference onto the suggested block), so dispose exactly one.
+                    // See what happens for regular block production: https://github.com/NethermindEth/nethermind-arbitrum/issues/950
+                    block.DisposeAccountChanges();
+
                     if (processedBlock.Hash != expectedBlockHash)
                         throw new InvalidOperationException(
                             $"Block hash mismatch after re-execution of block {blockNumber}: expected {expectedBlockHash}, got {processedBlock.Hash}");
@@ -475,10 +481,10 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     {
         if (!args.Success)
         {
-            // Full pruning failed: Commit() was never called, old DB still active, MemDb still valid.
+            // Full pruning failed: Commit() was never called, old DB still active, memory overlay still valid.
             // Just release the gate without touching anything.
             if (_logger.IsWarn)
-                _logger.Warn("OnPruningFinished: full pruning failed — keeping MemDb overlay intact.");
+                _logger.Warn("OnPruningFinished: full pruning failed — keeping memory overlay intact.");
             ResetFullPruningCts();
             PruningGate? gate = _pruningGate;
             _pruningGate = null;
@@ -498,27 +504,27 @@ public class StateReconstructor : IStateReconstructor, IDisposable
                 if (gate is null)
                 {
                     if (_logger.IsInfo)
-                        _logger.Info("OnPruningFinished: full pruning succeeded but no validator-specific valid state got copied — skipping MemDb cleanup.");
+                        _logger.Info("OnPruningFinished: full pruning succeeded but no validator-specific valid state got copied — skipping memory overlay cleanup.");
                     ResetFullPruningCts();
                     return;
                 }
 
                 if (_logger.IsInfo)
-                    _logger.Info($"OnPruningFinished: full pruning succeeded — clearing MemDb overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
+                    _logger.Info($"OnPruningFinished: full pruning succeeded — clearing memory overlay and restoring validator headers: validHeader={gate.ValidHeader.Number}");
 
                 // Restore _validHeader to the value confirmed written to the new DB.
-                // Any (slight) advancement of this header between gate creation and now referenced MemDb nodes
+                // Any (slight) advancement of this header between gate creation and now referenced memory overlay nodes
                 // are about to get deleted; rolling back ensures they point to available (on-disk) state.
                 _validHeader = gate.ValidHeader;
                 _validHeaderCandidate = null;
 
-                // Wipe the entire MemDb overlay — all surviving validator state is now on disk.
+                // Wipe the entire memory overlay — all surviving validator state is now on disk.
                 _trieStore.ClearOverlay();
                 _preparedQueue.Clear();
 
 
-                // Reset token after clearing memDB so that any pending capping logic
-                // just cancels as memDB size is now 0 (under limit)
+                // Reset token after clearing memory overlay so that any pending capping logic
+                // just cancels as memory overlay size is now 0 (under limit)
                 ResetFullPruningCts();
                 // Null the gate first: new callers arriving after this point return Task.CompletedTask
                 // directly without waiting. Then unblock existing waiters with SetResult.
@@ -561,67 +567,37 @@ public class StateReconstructor : IStateReconstructor, IDisposable
     }
 
     /// <summary>
-    /// Cap memDb containing reconstructed state to stay at a max size defined in configuration
+    /// Cap memory overlay containing reconstructed state to stay at a max size defined in configuration
     /// </summary>
     /// <remarks>
     /// Executed under _reconstructionLock
     /// </remarks>
     private void MaybeCap()
     {
-        if (_trieStore.DirtySize <= _maxMemDbSize)
+        if (_trieStore.DirtySize <= _maxMemSize)
             return;
 
         if (_fullPruningCts.IsCancellationRequested)
         {
             if (_logger.IsInfo)
-                _logger.Info($"MemDb overlay (size {_trieStore.DirtySize / 1.MiB:F1}MB) " +
-                $"exceeded max size {_maxMemDbSize / 1.MiB:F1}MB but full pruning is in progress, " +
+                _logger.Info($"Memory overlay (size {(double)_trieStore.DirtySize / 1.MiB:F2}MB) " +
+                $"exceeded max size {(double)_maxMemSize / 1.MiB:F2}MB but full pruning is in progress, " +
                 $"skipping capping to avoid redundant disk writes");
             return;
         }
 
-        long startTime = Stopwatch.GetTimestamp();
-
-        double targetSize = _maxMemDbSize.SaturateSub(BytesToEvictFromMemDb);
+        double targetSize = _maxMemSize.SaturateSub(BytesToEvictFromMem);
 
         if (_logger.IsInfo)
-            _logger.Info($"MemDb overlay (size: {_trieStore.DirtySize / 1.MiB:F3}MB) " +
-                $"exceeded {_maxMemDbSize / 1.MiB:F2}MB, capping to {targetSize / 1.MiB:F2}MB " +
-                $"by spilling oldest state roots to disk");
+            _logger.Info($"Memory overlay (size: {(double)_trieStore.DirtySize / 1.MiB:F2}MB) " +
+                $"exceeded {(double)_maxMemSize / 1.MiB:F2}MB, capping to {targetSize / 1.MiB:F2}MB " +
+                $"by spilling oldest nodes to disk");
 
-        long totalCount = _preparedQueue.Count;
-        long count = 0;
-        double totalBytesFlushed = _trieStore.DirtySize;
-
-        // Disposing the batch flushes it to disk.
-        // MaybeCap is done under the reconstruction lock, so, the small window where
-        // nodes got evicted from memDB but not yet on disk should not cause any issue.
-        // Other potential validator-related operations (not under _reconstructionLock) are
-        // safe to occur concurrently as they would just be no-op or not access evicted nodes.
-        using (IWriteBatch rawBatch = _mainStateDb.StartWriteBatch())
-        {
-            while (_trieStore.DirtySize > targetSize)
-            {
-                if (_fullPruningCts.IsCancellationRequested)
-                {
-                    if (_logger.IsInfo)
-                        _logger.Info($"Full pruning started while capping was in progress, aborting capping to avoid redundant disk writes");
-                    break;
-                }
-
-                if (!_preparedQueue.TryDequeue(out BlockHeader? header))
-                    break;
-
-                _trieStore.DereferenceAndSpill(header.StateRoot!, rawBatch, _mainStateDb);
-                count++;
-            }
-        }
-
-        long stopTime = Stopwatch.GetTimestamp();
-        totalBytesFlushed -= _trieStore.DirtySize;
-        double elapsed = Stopwatch.GetElapsedTime(startTime, stopTime).TotalMilliseconds;
-        if (_logger.IsInfo)
-            _logger.Info($"Finished capping MemDb overlay: flushed {totalBytesFlushed / 1.MiB:F3}MB by spilling {count} of {totalCount} state roots to disk, new size {_trieStore.DirtySize / 1.MiB:F3}MB, elapsed time: {elapsed:F1}ms");
+        // Page the oldest overlay nodes out to disk by node age, stopping the instant we are back under
+        // targetSize. Cap owns the write batch (two-pass, durable-before-remove) and logs its own summary.
+        // It evicts only the small overshoot and never re-serialises shared subtrees, so the batch and
+        // write volume stay bounded.
+        _trieStore.Cap(targetSize, _mainStateDb);
     }
 
     private void RecoverTxSenders(Block block)

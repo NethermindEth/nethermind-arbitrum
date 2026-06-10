@@ -57,6 +57,7 @@ using Nethermind.Trie.Pruning;
 using Nethermind.Blockchain.Blocks;
 using Nethermind.Core.Crypto;
 using Nethermind.History;
+using Nethermind.Init;
 
 namespace Nethermind.Arbitrum;
 
@@ -360,7 +361,8 @@ public class ArbitrumModule(ChainSpec chainSpec, IBlocksConfig blocksConfig, IAr
         {
             builder
                 // Always needed: witness factory for debug_executionWitness endpoint
-                .AddSingleton<ReconstructedStateTrieStore>(ctx => new ReconstructedStateTrieStore(new MemDb(), ctx.Resolve<IReadOnlyTrieStore>()))
+                .AddSingleton<ReconstructedStateTrieStore, MainPruningTrieStoreFactory, ILogManager>((trieStoreFactory, logManager)
+                    => new ReconstructedStateTrieStore(trieStoreFactory.PruningTrieStore.AsReadOnly(), logManager))
                 .AddSingleton<IArbitrumWitnessGeneratingBlockProcessingEnvFactory, ArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
                 .Bind<IWitnessGeneratingBlockProcessingEnvFactory, IArbitrumWitnessGeneratingBlockProcessingEnvFactory>()
                 .AddSingleton<ArbitrumStatelessBlockProcessingEnvFactory>();
