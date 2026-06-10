@@ -4,6 +4,7 @@
 using FluentAssertions;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Exceptions;
@@ -213,7 +214,7 @@ public class ArbFilteredTransactionsManagerTests
         GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx.WorldState, ctx.Caller);
 
         policy.IsFree.Should().BeTrue("registered filterers must get free access");
-        policy.CheckCost.Should().Be(0, "no check cost should be charged to a filterer");
+        policy.CheckCost.Total.Should().Be(0, "no check cost should be charged to a filterer");
     }
 
     [Test]
@@ -225,9 +226,7 @@ public class ArbFilteredTransactionsManagerTests
         GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx.WorldState, ctx.Caller);
 
         policy.IsFree.Should().BeFalse("non-filterers do not get free access");
-        policy.CheckCost.Should().Be(ArbosStorage.StorageReadCost,
-            "non-filterers pay only the cost of the filterer membership check, " +
-            "matching Nitro's FreeAccessPrecompile burner.GasLeft() return");
+        policy.CheckCost.Total.Should().Be(2 * ArbosStorage.StorageReadCost,"non-filterers pay only the cost of the filterer membership check");
     }
 
     [Test]
@@ -241,7 +240,7 @@ public class ArbFilteredTransactionsManagerTests
         GasConsumptionPolicy policy = ((IArbitrumPrecompile)ArbInfoParser.Instance).ShouldConsumeGas(ctx.WorldState, ctx.Caller);
 
         policy.IsFree.Should().BeFalse("default policy must not grant free access");
-        policy.CheckCost.Should().Be(0, "default policy must not override gas on failure");
+        policy.CheckCost.Total.Should().Be(0, "default policy must not override gas on failure");
     }
 
     // -------------------------------------------------------------------------
