@@ -596,9 +596,7 @@ public class StateReconstructor : IStateReconstructor, IDisposable
         // Page the oldest overlay nodes out to disk by node age, stopping the instant we are back under
         // targetSize. Cap owns the write batch (two-pass, durable-before-remove) and logs its own summary.
         // It evicts only the small overshoot and never re-serialises shared subtrees, so the batch and
-        // write volume stay bounded. MaybeCap runs under the reconstruction lock, so the brief window
-        // where nodes are on disk but not yet removed from the overlay is safe: concurrent validator
-        // operations are read-only / no-op.
+        // write volume stay bounded.
         _trieStore.Cap(targetSize, _mainStateDb);
     }
 
