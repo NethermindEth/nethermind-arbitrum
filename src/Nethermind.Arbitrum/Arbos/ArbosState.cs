@@ -75,7 +75,7 @@ public class ArbosState
     public ArbosStorageBackedAddress FilteredFundsRecipient { get; }
     public ArbosStorageBackedULong BrotliCompressionLevel { get; }
     public ArbosStorageBackedULong CollectTipsStorage { get; }
-    public FilteredTransactionsState? FilteredTransactions { get; }
+    public FilteredTransactionsState? FilteredTransactions { get; internal set; }
 
     public void UpgradeArbosVersion(ulong targetVersion, bool isFirstTime, IWorldState worldState, IReleaseSpec genesisSpec)
     {
@@ -240,7 +240,8 @@ public class ArbosState
                         StylusParams stylusParamsV60 = Programs.GetParams();
                         stylusParamsV60.UpgradeToArbosVersion(nextArbosVersion);
                         stylusParamsV60.Save();
-                        // Initialize TransactionFilterers storage
+
+                        FilteredTransactions = new FilteredTransactionsState(BackingStorage.WorldState, BackingStorage.Burner);
                         AddressSet.Initialize(BackingStorage.OpenSubStorage(ArbosSubspaceIDs.TransactionFiltererSubspace));
                         // filteredFundsRecipient defaults to zero address (falls back to networkFeeAccount)
                         // No explicit initialization needed - uninitialized storage reads as zero

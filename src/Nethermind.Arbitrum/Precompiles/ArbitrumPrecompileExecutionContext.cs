@@ -88,7 +88,7 @@ public record ArbitrumPrecompileExecutionContext(
 
     private ulong _gasLeft = GasSupplied;
     private MultiGas _burnedMultiGas;
-
+    public GasConsumptionPolicy GasConsumptionPolicy { get; init; }
     public void Burn(ResourceKind kind, ulong amount)
     {
         if (Free)

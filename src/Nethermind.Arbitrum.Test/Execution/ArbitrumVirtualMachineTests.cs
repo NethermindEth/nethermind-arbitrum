@@ -871,6 +871,171 @@ public class ArbitrumVirtualMachineTests
     }
 
     [Test]
+    public void CallingCheckCostPrecompile_NotEnoughGasForCheckCosts_ResultsInOutOfGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 60)
+            .WithContainerConfigurer(builder =>
+                builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+                {
+                    SuggestGenesisOnStart = true,
+                    FillWithTestDataOnStart = true
+                }))
+            .Build();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        byte[] addFilteredTransactionMethodId = Keccak.Compute("addFilteredTransaction(bytes32)").Bytes[..4].ToArray();
+        byte[] callData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbFilteredTransactionsManagerParser.PrecompileFunctionDescription[BinaryPrimitives.ReadUInt32BigEndian(addFilteredTransactionMethodId)].AbiFunctionDescription.GetCallInfo().Signature,
+            [Keccak.OfAnEmptyString]
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 564;
+        long gasLimit = intrinsicGas + (long)ArbosStorage.StorageReadCost; //not enough for IsMember check
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbFilteredTransactionsManagerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.OutOfGas);
+
+        tracer.ReturnValue.Should().BeEmpty();
+    }
+
+    [Test]
+    public void CallingCheckCostPrecompile_OutOfGasDuringMethodCall_BurnsOnlyCheckCost()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 60)
+            .WithContainerConfigurer(builder =>
+                builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+                {
+                    SuggestGenesisOnStart = true,
+                    FillWithTestDataOnStart = true
+                }))
+            .Build();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        Address sender = TestItem.AddressA;
+
+        byte[] addFilteredTransactionMethodId = Keccak.Compute("addFilteredTransaction(bytes32)").Bytes[..4].ToArray();
+        byte[] callData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbFilteredTransactionsManagerParser.PrecompileFunctionDescription[BinaryPrimitives.ReadUInt32BigEndian(addFilteredTransactionMethodId)].AbiFunctionDescription.GetCallInfo().Signature,
+            [Keccak.OfAnEmptyString]
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 564;
+        long extraGas = 6789;
+        long gasLimit = intrinsicGas + 2*(long)ArbosStorage.StorageReadCost + extraGas;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbFilteredTransactionsManagerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        tx.SpentGas.Should().Be(gasLimit - extraGas);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert);
+
+        tracer.ReturnValue.Should().BeEmpty();
+    }
+
+    [Test]
+    public void CallingCheckCostPrecompile_SuccessfulFreeCheck_BurnsNoGas()
+    {
+        ArbitrumRpcTestBlockchain chain = new ArbitrumTestBlockchainBuilder()
+            .WithGenesisBlock(initialBaseFee: 92, arbosVersion: 60)
+            .WithContainerConfigurer(builder =>
+                builder.AddScoped(new ArbitrumTestBlockchainBase.Configuration
+                {
+                    SuggestGenesisOnStart = true,
+                    FillWithTestDataOnStart = true
+                }))
+            .Build();
+
+        ulong baseFeePerGas = 1_000;
+        chain.BlockTree.Head!.Header.BaseFeePerGas = baseFeePerGas;
+
+        BlockExecutionContext blCtx = new(chain.BlockTree.Head!.Header, chain.SpecProvider.GenesisSpec);
+        chain.TxProcessor.SetBlockExecutionContext(in blCtx);
+
+        IWorldState worldState = chain.MainWorldState;
+        using IDisposable worldStateDisposer = worldState.BeginScope(chain.BlockTree.Head!.Header);
+
+        ArbosState arbosState = ArbosState.OpenArbosState(worldState, new ZeroGasBurner(), NullLogger.Instance);
+        arbosState.TransactionFilterers.Add(TestItem.AddressA);
+
+        Address sender = TestItem.AddressA;
+
+        byte[] addFilteredTransactionMethodId = Keccak.Compute("addFilteredTransaction(bytes32)").Bytes[..4].ToArray();
+        byte[] callData = AbiEncoder.Instance.Encode(
+            AbiEncodingStyle.IncludeSignature,
+            ArbFilteredTransactionsManagerParser.PrecompileFunctionDescription[BinaryPrimitives.ReadUInt32BigEndian(addFilteredTransactionMethodId)].AbiFunctionDescription.GetCallInfo().Signature,
+            [Keccak.OfAnEmptyString]
+        );
+
+        long intrinsicGas = GasCostOf.Transaction + 564;
+        long gasLimit = intrinsicGas + 2 * (long)ArbosStorage.StorageReadCost + (long)ArbosStorage.StorageWriteCost;
+
+        Transaction tx = Build.A.Transaction
+            .WithTo(ArbosAddresses.ArbFilteredTransactionsManagerAddress)
+            .WithValue(0)
+            .WithData(callData)
+            .WithGasLimit(gasLimit)
+            .WithGasPrice(1_000_000_000)
+            .WithNonce(worldState.GetNonce(sender))
+            .WithSenderAddress(sender)
+            .SignedAndResolved(TestItem.PrivateKeyA)
+            .TestObject;
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = chain.TxProcessor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        tx.SpentGas.Should().Be(intrinsicGas);
+    }
+
+    [Test]
     public void CallingOwnerPrecompile_CallerIsNotAnOwner_FailsAndConsumesAllGas()
     {
         ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(builder =>

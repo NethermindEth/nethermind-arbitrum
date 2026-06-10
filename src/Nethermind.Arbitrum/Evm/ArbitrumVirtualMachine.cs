@@ -527,6 +527,12 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Geth EVM has depth started from 1, Nethermind has depth starting from 0
         Address? grandCaller = state.Env.CallDepth > 0 ? StateStack.ElementAt(state.Env.CallDepth - 1).From : null;
 
+        // Determine gas policy before execution. For most precompiles this is the default
+        // (normal charging). ArbFilteredTransactionsManager overrides this to implement
+        // Nitro's FreeAccessPrecompile wrapper: filterers pay nothing, non-filterers pay
+        // only the cost of the membership check.
+        GasConsumptionPolicy gasPolicy = precompile.ShouldConsumeGas(WorldState, state.Env.Caller);
+
         ArbitrumPrecompileExecutionContext context = new(
             state.Env.Caller, state.Env.Value, GasSupplied: (ulong)ArbitrumGasPolicy.GetRemainingGas(state.Gas), WorldState, WasmStore,
             BlockExecutionContext, ChainId.ToByteArray().ToULongFromBigEndianByteArrayWithoutLeadingZeros(),
@@ -546,15 +552,8 @@ public sealed unsafe class ArbitrumVirtualMachine(
             ExecutingAccount = state.Env.ExecutingAccount,
             SpecHelper = specHelper,
             AccessTracker = state.AccessTracker,
+            GasConsumptionPolicy = gasPolicy
         };
-
-        // Determine gas policy before execution. For most precompiles this is the default
-        // (normal charging). ArbFilteredTransactionsManager overrides this to implement
-        // Nitro's FreeAccessPrecompile wrapper: filterers pay nothing, non-filterers pay
-        // only the cost of the membership check.
-        GasConsumptionPolicy gasPolicy = precompile.ShouldConsumeGas(context);
-        if (gasPolicy.IsFree)
-            context.Free = true;
 
         CallResult result = precompile.IsDebug
             ? DebugPrecompileCall(state, context, precompile)
@@ -565,26 +564,24 @@ public sealed unsafe class ArbitrumVirtualMachine(
         // Apply gas policy overrides after the call.
         if (gasPolicy.IsFree)
         {
-            // Filterer: return all supplied gas. context.BurnedMultiGas is 0 since Free=true
-            // made every Burn() a no-op, so AddToAccumulated below would add nothing anyway.
-            ReturnSomeGas(state, context.GasSupplied);
+            // Filterer: return all supplied gas.
+            state.Gas = ArbitrumGasPolicy.FromLongPreservingAllocated((long)context.GasSupplied, state.Gas);
         }
-        else if (gasPolicy.CheckCost > 0)
+        else if (gasPolicy.CheckCost.Total > 0)
         {
-            // Non-filterer: the inner precompile called BurnOut (unauthorized), but the wrapper
-            // only charges for the membership check — discarding the BurnOut gas consumption,
-            // matching Nitro's `return output, burner.GasLeft(), burner.gasUsed, err`.
-            ulong gasToReturn = gasPolicy.CheckCost < context.GasSupplied
-                ? context.GasSupplied - gasPolicy.CheckCost
-                : 0;
-            ReturnSomeGas(state, gasToReturn);
+            if ((long)gasPolicy.CheckCost.Total > ArbitrumGasPolicy.GetRemainingGas(state.Gas))
+                return new(default, result.PrecompileSuccess, result.ShouldRevert, EvmExceptionType.OutOfGas);
+
+            //regardless of gas burned in the context we charge only for the check cost
+            //this means any OoG from precompile call (like AddFilteredTransaction for nom-filterers) will be ignored
+            ArbitrumGasPolicy.AddToAccumulated(ref state.Gas, gasPolicy.CheckCost);
+            state.Gas = ArbitrumGasPolicy.FromLongPreservingAllocated((long)(context.GasSupplied - gasPolicy.CheckCost.Total), state.Gas);
         }
 
         // Add precompile's MultiGas to child's gas policy so it flows through Refund correctly.
         // Skip for owner precompiles (they don't charge multigas) and for precompiles with a
-        // custom gas policy (IsFree: BurnedMultiGas is 0; CheckCost>0: BurnedMultiGas reflects
-        // the discarded BurnOut amount, not the actual charge).
-        bool hasCustomGasPolicy = gasPolicy.IsFree || gasPolicy.CheckCost > 0;
+        // custom gas policy
+        bool hasCustomGasPolicy = gasPolicy.IsFree || !gasPolicy.CheckCost.IsZero();
         if (!precompile.IsOwner && !hasCustomGasPolicy)
             ArbitrumGasPolicy.AddToAccumulated(ref state.Gas, context.BurnedMultiGas);
 
@@ -807,7 +804,11 @@ public sealed unsafe class ArbitrumVirtualMachine(
             _ => DefaultExceptionHandling(context, exception)
         };
 
-        ReturnSomeGas(state, gasToReturn);
+        //skip burning all gas for checked gas policy precompiles
+        if (context.GasConsumptionPolicy.CheckCost.IsZero() || !ranOutOfGas)
+        {
+            ReturnSomeGas(state, gasToReturn);
+        }
 
         if (shouldRevert && Logger.IsTrace)
             Logger.Trace($"Precompile reverted with exception: {exception.GetType()} and message {exception.Message}, refunding gas: {ArbitrumGasPolicy.GetRemainingGas(state.Gas)}");

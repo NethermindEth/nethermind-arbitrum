@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Collections.Frozen;
 using Nethermind.Arbitrum.Arbos;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
+using Nethermind.Evm.State;
+using System.Collections.Frozen;
 
 namespace Nethermind.Arbitrum.Precompiles
 {
@@ -26,7 +28,7 @@ namespace Nethermind.Arbitrum.Precompiles
         /// For callers that are not free: the gas cost of the membership check itself.
         /// Zero means normal gas accounting applies.
         /// </summary>
-        public ulong CheckCost { get; init; }
+        public MultiGas CheckCost { get; init; }
 
         public static readonly GasConsumptionPolicy Default = default;
     }
@@ -55,7 +57,7 @@ namespace Nethermind.Arbitrum.Precompiles
         /// ArbFilteredTransactionsManager for transaction filterers) override this to return an
         /// appropriate policy, matching Nitro's FreeAccessPrecompile wrapper semantics.
         /// </summary>
-        GasConsumptionPolicy ShouldConsumeGas(ArbitrumPrecompileExecutionContext context)
+        GasConsumptionPolicy ShouldConsumeGas(IWorldState worldState, Address caller)
             => GasConsumptionPolicy.Default;
 
         /// <summary>

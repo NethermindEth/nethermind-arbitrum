@@ -210,7 +210,7 @@ public class ArbFilteredTransactionsManagerTests
         using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
             filterer: TestItem.AddressA, authorizeFilterer: true);
 
-        GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx);
+        GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx.WorldState, ctx.Caller);
 
         policy.IsFree.Should().BeTrue("registered filterers must get free access");
         policy.CheckCost.Should().Be(0, "no check cost should be charged to a filterer");
@@ -222,7 +222,7 @@ public class ArbFilteredTransactionsManagerTests
         using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
             filterer: TestItem.AddressB, authorizeFilterer: false);
 
-        GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx);
+        GasConsumptionPolicy policy = ArbFilteredTransactionsManagerParser.Instance.ShouldConsumeGas(ctx.WorldState, ctx.Caller);
 
         policy.IsFree.Should().BeFalse("non-filterers do not get free access");
         policy.CheckCost.Should().Be(ArbosStorage.StorageReadCost,
@@ -238,7 +238,7 @@ public class ArbFilteredTransactionsManagerTests
         using IDisposable scope = CreateTestContext(out PrecompileTestContextBuilder ctx,
             filterer: TestItem.AddressA, authorizeFilterer: false);
 
-        GasConsumptionPolicy policy = ((IArbitrumPrecompile)ArbInfoParser.Instance).ShouldConsumeGas(ctx);
+        GasConsumptionPolicy policy = ((IArbitrumPrecompile)ArbInfoParser.Instance).ShouldConsumeGas(ctx.WorldState, ctx.Caller);
 
         policy.IsFree.Should().BeFalse("default policy must not grant free access");
         policy.CheckCost.Should().Be(0, "default policy must not override gas on failure");

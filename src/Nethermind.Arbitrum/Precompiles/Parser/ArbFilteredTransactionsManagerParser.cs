@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 // SPDX-FileCopyrightText: https://github.com/NethermindEth/nethermind-arbitrum/blob/main/LICENSE.md
 
-using System.Collections.Frozen;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
-using Nethermind.Arbitrum.Arbos.Storage;
+using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
+using Nethermind.Evm.State;
+using Nethermind.Logging;
+using Nethermind.State;
+using System.Collections.Frozen;
 
 namespace Nethermind.Arbitrum.Precompiles.Parser;
 
@@ -21,12 +24,16 @@ public class ArbFilteredTransactionsManagerParser : IArbitrumPrecompile<ArbFilte
     /// Implements Nitro's FreeAccessPrecompile wrapper semantics: transaction filterers pay
     /// nothing; non-filterers pay only the cost of the filterer membership check.
     /// </summary>
-    public GasConsumptionPolicy ShouldConsumeGas(ArbitrumPrecompileExecutionContext context)
+    public GasConsumptionPolicy ShouldConsumeGas(IWorldState worldState, Address caller)
     {
-        bool isFilterer = context.FreeArbosState.TransactionFilterers.IsMember(context.Caller);
+        IBurner checkBurner = new SystemBurner();
+        ArbosState checkState = ArbosState.OpenArbosState(worldState, checkBurner, NullLogger.Instance);
+
+        bool isFilterer = checkState.TransactionFilterers.IsMember(caller);
+        
         return isFilterer
-            ? new GasConsumptionPolicy { IsFree = true, CheckCost = 0 }
-            : new GasConsumptionPolicy { IsFree = false, CheckCost = ArbosStorage.StorageReadCost };
+            ? new GasConsumptionPolicy { IsFree = true, CheckCost = new MultiGas() }
+            : new GasConsumptionPolicy { IsFree = false, CheckCost = checkBurner.BurnedMultiGas };
     }
 
     public static IReadOnlyDictionary<uint, ArbitrumFunctionDescription> PrecompileFunctionDescription { get; }
