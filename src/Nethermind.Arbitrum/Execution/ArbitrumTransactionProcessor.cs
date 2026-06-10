@@ -769,6 +769,9 @@ namespace Nethermind.Arbitrum.Execution
             bool isFiltered = _arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash!) == true;
             if (isFiltered)
             {
+                // As commented in nitro:
+                // For symmetry with other filtered tx paths, deletion from the onchain filter
+                // is handled by the external tx authority service rather than here.
                 Address filteredFundsRecipient = GetFilteredFundsRecipient();
                 tx.FeeRefundAddr = filteredFundsRecipient;
                 tx.Beneficiary = filteredFundsRecipient;
