@@ -68,6 +68,7 @@
   },
   "Blocks": {
     "SecondsPerSlot": 2,
+    "PreWarmStateOnBlockProcessing": false,
     "BuildBlocksOnMainState": true
   },
   "Merge": {
