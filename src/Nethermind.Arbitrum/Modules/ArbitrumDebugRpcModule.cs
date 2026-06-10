@@ -125,8 +125,6 @@ public class ArbitrumDebugRpcModule(
             failures.Add("MetadataDb");
         if (!ClearDatabase(_dbProvider.BadBlocksDb, "BadBlocksDb"))
             failures.Add("BadBlocksDb");
-        if (!ClearDatabase(_dbProvider.BloomDb, "BloomDb"))
-            failures.Add("BloomDb");
 
         // Clear column databases (ReceiptsDb, BlobTransactionsDb)
         if (!ClearColumnsDatabase(_dbProvider.ReceiptsDb, "ReceiptsDb"))

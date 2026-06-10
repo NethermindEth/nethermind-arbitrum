@@ -65,7 +65,6 @@ public class ArbitrumDebugRpcModuleTests
         IDb blockNumbersDb = CreateMockDb();
         IDb metadataDb = CreateMockDb();
         IDb badBlocksDb = CreateMockDb();
-        IDb bloomDb = CreateMockDb();
         IColumnsDb<ReceiptsColumns> receiptsDb = CreateMockColumnsDb<ReceiptsColumns>();
         IColumnsDb<BlobTxsColumns> blobTransactionsDb = CreateMockColumnsDb<BlobTxsColumns>();
 
@@ -78,7 +77,6 @@ public class ArbitrumDebugRpcModuleTests
         dbProvider.BlockNumbersDb.Returns(blockNumbersDb);
         dbProvider.MetadataDb.Returns(metadataDb);
         dbProvider.BadBlocksDb.Returns(badBlocksDb);
-        dbProvider.BloomDb.Returns(bloomDb);
         dbProvider.ReceiptsDb.Returns(receiptsDb);
         dbProvider.BlobTransactionsDb.Returns(blobTransactionsDb);
 
@@ -208,7 +206,6 @@ public class ArbitrumDebugRpcModuleTests
         _dbProvider.BlockNumbersDb.Received(1).Clear();
         _dbProvider.MetadataDb.Received(1).Clear();
         _dbProvider.BadBlocksDb.Received(1).Clear();
-        _dbProvider.BloomDb.Received(1).Clear();
     }
 
     [Test]

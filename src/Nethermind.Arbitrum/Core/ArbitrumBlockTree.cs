@@ -8,7 +8,6 @@ using Nethermind.Blockchain.Headers;
 using Nethermind.Blockchain.Synchronization;
 using Nethermind.Core.Specs;
 using Nethermind.Db;
-using Nethermind.Db.Blooms;
 using Nethermind.Logging;
 using Nethermind.State.Repositories;
 using IBlockAccessListStore = Nethermind.Blockchain.BlockAccessLists.IBlockAccessListStore;
@@ -36,7 +35,6 @@ public class ArbitrumBlockTree(
     IBlockAccessListStore blockAccessListStore,
     IChainLevelInfoRepository chainLevelInfoRepository,
     ISpecProvider specProvider,
-    IBloomStorage bloomStorage,
     ISyncConfig syncConfig,
     ILogManager logManager,
     ArbitrumChainSpecEngineParameters chainSpecParams)
@@ -48,7 +46,6 @@ public class ArbitrumBlockTree(
         blockAccessListStore,
         chainLevelInfoRepository,
         specProvider,
-        bloomStorage,
         syncConfig,
         logManager,
         (long)chainSpecParams.GenesisBlockNum!);
