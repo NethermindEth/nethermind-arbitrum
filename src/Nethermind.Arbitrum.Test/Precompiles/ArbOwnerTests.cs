@@ -362,7 +362,7 @@ public class ArbOwnerTests
     public void SetNativeTokenManagementFrom_AtLeastSevenDaysInFuture_UpdatesEnabledTime()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
-        ulong enableTime = context.BlockExecutionContext.Header.Timestamp + ArbOwner.NativeTokenEnableDelay + 1;
+        ulong enableTime = context.BlockExecutionContext.Header.Timestamp + ArbOwner.FeatureEnableDelay + 1;
 
         ArbOwner.SetNativeTokenManagementFrom(context, enableTime);
 
@@ -373,7 +373,7 @@ public class ArbOwnerTests
     public void SetNativeTokenManagementFrom_LessThanSevenDays_Throws()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
-        ulong tooSoon = context.BlockExecutionContext.Header.Timestamp + ArbOwner.NativeTokenEnableDelay - 1;
+        ulong tooSoon = context.BlockExecutionContext.Header.Timestamp + ArbOwner.FeatureEnableDelay - 1;
 
         Action act = () => ArbOwner.SetNativeTokenManagementFrom(context, tooSoon);
 
@@ -385,7 +385,7 @@ public class ArbOwnerTests
     public void SetNativeTokenManagementFrom_Zero_DisablesFeature()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
-        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp + ArbOwner.NativeTokenEnableDelay + 100);
+        context.ArbosState.NativeTokenEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp + ArbOwner.FeatureEnableDelay + 100);
 
         ArbOwner.SetNativeTokenManagementFrom(context, 0);
 
@@ -1265,6 +1265,18 @@ public class ArbOwnerTests
     }
 
     [Test]
+    public void AddTransactionFilterer_BeforeEnabledTime_Throws()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        context.ArbosState.TransactionFilteringEnabledTime.Set(context.BlockExecutionContext.Header.Timestamp + 1);
+
+        Action act = () => ArbOwner.AddTransactionFilterer(context, ExampleOwnerA);
+
+        act.Should().Throw<ArbitrumPrecompileException>()
+            .WithMessage("*not enabled*");
+    }
+
+    [Test]
     public void AddTransactionFilterer_WhenCalled_EmitsTransactionFiltererAddedEvent()
     {
         using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context, arbosVersion: ArbosVersion.Sixty);
@@ -1379,5 +1391,17 @@ public class ArbOwnerTests
         ArbOwner.SetTransactionFilteringFrom(context, timestamp);
 
         context.ArbosState.TransactionFilteringEnabledTime.Get().Should().Be(timestamp);
+    }
+
+    [Test]
+    public void SetTransactionFilteringFrom_LessThanSevenDays_Throws()
+    {
+        using IDisposable scope = PrecompileTestContextBuilder.CreateAtBlock(out PrecompileTestContextBuilder context);
+        ulong tooSoon = context.BlockExecutionContext.Header.Timestamp + ArbOwner.FeatureEnableDelay - 1;
+
+        Action act = () => ArbOwner.SetTransactionFilteringFrom(context, tooSoon);
+
+        act.Should().Throw<ArbitrumPrecompileException>()
+            .WithMessage("*at least 7 days in the future*");
     }
 }

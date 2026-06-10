@@ -25,7 +25,7 @@ public static class ArbOwner
 {
     public static Address Address => ArbosAddresses.ArbOwnerAddress;
 
-    public const ulong NativeTokenEnableDelay = 7 * 24 * 60 * 60; // 1 week in seconds
+    public const ulong FeatureEnableDelay = 7 * 24 * 60 * 60; // 1 week in seconds
 
     public static readonly AbiEventDescription OwnerActsEvent = Solgen.ArbOwner.Events.OwnerActs.ToAbiEventDescription();
     public static readonly AbiEventDescription ChainOwnerAddedEvent = Solgen.ArbOwner.Events.ChainOwnerAdded.ToAbiEventDescription();
@@ -72,30 +72,7 @@ public static class ArbOwner
     // If the feature is currently disabled, then the time must be at least 7 days in the future.
     public static void SetNativeTokenManagementFrom(ArbitrumPrecompileExecutionContext context, ulong timestamp)
     {
-        if (timestamp == 0)
-        {
-            context.ArbosState.NativeTokenEnabledTime.Set(timestamp);
-            return;
-        }
-
-        ulong currentEnabledTime = context.ArbosState.NativeTokenEnabledTime.Get();
-
-        ulong now = context.BlockExecutionContext.Header.Timestamp;
-        ulong sevenDaysFromNow = now + NativeTokenEnableDelay;
-
-        // If the feature is disabled, then the time must be at least 7 days in the future.
-        // If the feature is already scheduled to be enabled in more than 7 days,
-        // then the new time must be at least 7 days in the future.
-        if ((currentEnabledTime == 0 && timestamp < sevenDaysFromNow) ||
-            (currentEnabledTime > sevenDaysFromNow && timestamp < sevenDaysFromNow))
-            throw ArbitrumPrecompileException.CreateFailureException("native token feature must be enabled at least 7 days in the future");
-
-        // If the feature is scheduled to be enabled earlier than the minimum delay,
-        // then the new time to enable it must be only further in the future.
-        if (currentEnabledTime > now && currentEnabledTime <= sevenDaysFromNow && timestamp < currentEnabledTime)
-            throw ArbitrumPrecompileException.CreateFailureException("native token feature cannot be updated to a time earlier than the current time at which it is scheduled to be enabled");
-
-        context.ArbosState.NativeTokenEnabledTime.Set(timestamp);
+        SetFeatureEnabledFromTime(context.ArbosState.NativeTokenEnabledTime, context, timestamp);
     }
 
     // AddNativeTokenOwner adds account as a native token owner
@@ -528,7 +505,7 @@ public static class ArbOwner
     // Setting to 0 disables filtering.
     public static void SetTransactionFilteringFrom(ArbitrumPrecompileExecutionContext context, ulong timestamp)
     {
-        context.ArbosState.TransactionFilteringEnabledTime.Set(timestamp);
+        SetFeatureEnabledFromTime(context.ArbosState.TransactionFilteringEnabledTime, context, timestamp);
     }
 
     private static void EmitTransactionFiltererAddedEvent(ArbitrumPrecompileExecutionContext context, Address filterer)
@@ -689,5 +666,33 @@ public static class ArbOwner
                         $"calculated exponent {exp} exceeds maximum allowed {L2PricingState.MaxPricingExponentBips}");
             }
         }
+    }
+
+    private static void SetFeatureEnabledFromTime(ArbosStorageBackedULong featureStorage, ArbitrumPrecompileExecutionContext context, ulong timestamp)
+    {
+        if (timestamp == 0)
+        {
+            featureStorage.Set(timestamp);
+            return;
+        }
+
+        ulong currentEnabledTime = featureStorage.Get();
+
+        ulong now = context.BlockExecutionContext.Header.Timestamp;
+        ulong sevenDaysFromNow = now + FeatureEnableDelay;
+
+        // If the feature is disabled, then the time must be at least 7 days in the future.
+        // If the feature is already scheduled to be enabled in more than 7 days,
+        // then the new time must be at least 7 days in the future.
+        if ((currentEnabledTime == 0 && timestamp < sevenDaysFromNow) ||
+            (currentEnabledTime > sevenDaysFromNow && timestamp < sevenDaysFromNow))
+            throw ArbitrumPrecompileException.CreateFailureException("feature must be enabled at least 7 days in the future");
+
+        // If the feature is scheduled to be enabled earlier than the minimum delay,
+        // then the new time to enable it must be only further in the future.
+        if (currentEnabledTime > now && currentEnabledTime <= sevenDaysFromNow && timestamp < currentEnabledTime)
+            throw ArbitrumPrecompileException.CreateFailureException("feature cannot be updated to a time earlier than the current scheduled enable time");
+
+        featureStorage.Set(timestamp);
     }
 }

@@ -311,7 +311,7 @@ public class ArbOwnerParserTests
         genesisBlock.Header.Timestamp = now;
         context.WithArbosState().WithBlockExecutionContext(genesisBlock.Header);
 
-        ulong sevenDaysFromNow = now + ArbOwner.NativeTokenEnableDelay;
+        ulong sevenDaysFromNow = now + ArbOwner.FeatureEnableDelay;
         context.ArbosState.NativeTokenEnabledTime.Set(sevenDaysFromNow + 1); // greater than 7 days from now
 
         bool exists = ArbOwnerParser.PrecompileImplementation.TryGetValue(SetNativeTokenManagementFromId, out PrecompileHandler? implementation);
@@ -382,7 +382,7 @@ public class ArbOwnerParserTests
         exists.Should().BeTrue();
         AbiFunctionDescription function = ArbOwnerParser.PrecompileFunctionDescription[SetNativeTokenManagementFromId].AbiFunctionDescription;
 
-        UInt256 newEnableTime = now + ArbOwner.NativeTokenEnableDelay; // >= 7 days from now
+        UInt256 newEnableTime = now + ArbOwner.FeatureEnableDelay; // >= 7 days from now
         byte[] calldata = AbiEncoder.Instance.Encode(
             AbiEncodingStyle.None,
             function.GetCallInfo().Signature,
