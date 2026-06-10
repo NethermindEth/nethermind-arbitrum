@@ -59,6 +59,11 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
     protected TestBlockchainUtil TestUtil = null!;
     protected long TestTimout = DefaultTimeout;
 
+    /// <summary>
+    /// Opt-in for the production-default prewarming configuration; off by default so the existing suite is unaffected.
+    /// </summary>
+    protected bool PreWarmStateOnBlockProcessing { get; init; }
+
     public IContainer Container { get; private set; } = null!;
     public CancellationToken CancellationToken => Cts.Token;
     public ILogManager LogManager { get; protected set; } = NullLogManager.Instance;
@@ -150,7 +155,7 @@ public abstract class ArbitrumTestBlockchainBase(ChainSpec chainSpec, ArbitrumCo
 
         IConfigProvider configProvider = new ConfigProvider(arbitrumConfig);
         configProvider.GetConfig<IBlocksConfig>().BuildBlocksOnMainState = true;
-        configProvider.GetConfig<IBlocksConfig>().PreWarmStateOnBlockProcessing = false;
+        configProvider.GetConfig<IBlocksConfig>().PreWarmStateOnBlockProcessing = PreWarmStateOnBlockProcessing;
 
         ContainerBuilder builder = ConfigureContainer(new ContainerBuilder(), configProvider);
         configurer?.Invoke(builder);

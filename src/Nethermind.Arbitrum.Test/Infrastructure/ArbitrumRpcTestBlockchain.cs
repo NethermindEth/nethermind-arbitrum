@@ -79,11 +79,15 @@ public class ArbitrumRpcTestBlockchain : ArbitrumTestBlockchainBase
     }
 
     public static ArbitrumRpcTestBlockchain CreateDefault(Action<ContainerBuilder>? configurer = null, ChainSpec? chainSpec = null,
-        Action<ArbitrumConfig>? configureArbitrum = null)
+        Action<ArbitrumConfig>? configureArbitrum = null, bool preWarmStateOnBlockProcessing = false)
     {
         ArbitrumConfig config = new() { BlockProcessingTimeout = 10_000 };
         configureArbitrum?.Invoke(config);
-        return CreateInternal(new ArbitrumRpcTestBlockchain(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config), configurer);
+        ArbitrumRpcTestBlockchain chain = new(chainSpec ?? FullChainSimulationChainSpecProvider.Create(), config)
+        {
+            PreWarmStateOnBlockProcessing = preWarmStateOnBlockProcessing,
+        };
+        return CreateInternal(chain, configurer);
     }
 
     public async Task<ResultWrapper<MessageResult>> Digest(TestEthDeposit deposit)

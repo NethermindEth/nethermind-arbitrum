@@ -17,6 +17,17 @@ public class ArbitrumTestBlockchainBuilder
     private ChainSpec _chainSpec = FullChainSimulationChainSpecProvider.Create();
     private Action<ArbitrumConfig>? _configureArbitrum;
     private Action<ContainerBuilder>? _configurer;
+    private bool _preWarmStateOnBlockProcessing;
+
+    /// <summary>
+    /// Enables PreWarmStateOnBlockProcessing — the production default that the test infrastructure
+    /// otherwise keeps off — so the prewarmer cache lifecycle is exercised.
+    /// </summary>
+    public ArbitrumTestBlockchainBuilder WithPrewarming()
+    {
+        _preWarmStateOnBlockProcessing = true;
+        return this;
+    }
 
     public ArbitrumTestBlockchainBuilder WithChainSpec(ChainSpec chainSpec)
     {
@@ -84,7 +95,8 @@ public class ArbitrumTestBlockchainBuilder
 
     public ArbitrumRpcTestBlockchain Build(Action<ArbitrumRpcTestBlockchain>? afterBuild = null)
     {
-        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(configurer: _configurer, chainSpec: _chainSpec, configureArbitrum: _configureArbitrum);
+        ArbitrumRpcTestBlockchain chain = ArbitrumRpcTestBlockchain.CreateDefault(configurer: _configurer, chainSpec: _chainSpec,
+            configureArbitrum: _configureArbitrum, preWarmStateOnBlockProcessing: _preWarmStateOnBlockProcessing);
 
         foreach (Action<ArbitrumRpcTestBlockchain> configuration in _configurations)
             configuration(chain);

@@ -53,11 +53,26 @@ public class ArbitrumGenesisStateInitializer(
         ArbitrumChainSpecEngineParameters canonicalParams = initMessage.GetCanonicalArbitrumParameters(specHelper);
         ulong finalArbosVersion = canonicalParams.InitialArbOSVersion ?? specHelper.InitialArbOSVersion;
 
-        InitializeArbosState(initMessage, worldState, specProvider);
-        Preallocate(worldState, specProvider);
+        try
+        {
+            InitializeArbosState(initMessage, worldState, specProvider);
+            Preallocate(worldState, specProvider);
 
-        worldState.Commit(specProvider.GenesisSpec, true);
-        worldState.CommitTree(0);
+            worldState.Commit(specProvider.GenesisSpec, true);
+            worldState.CommitTree(0);
+        }
+        finally
+        {
+            // With prewarming enabled, the "already initialized?" guard in InitializeArbosState reads ArbOS slots
+            // from the empty pre-genesis state through the prewarmer-decorated world state, backfilling
+            // PreBlockCaches with account=null/version=0. Genesis is then processed in this same world-state scope,
+            // and BranchProcessor clears the caches only after ArbitrumDynamicSpecProvider.GetSpec has already
+            // re-read the stale entries — so relying on the per-block clear is not enough; the caches must be
+            // cleared here, right after the genesis state is committed (and on init failure, so the poisoned
+            // entries cannot outlive the discarded scope).
+            if (worldState.ScopeProvider is IPreBlockCaches { Caches: { } preBlockCaches })
+                preBlockCaches.ClearCaches();
+        }
 
         Block genesis = chainSpec.Genesis;
         genesis.Header.StateRoot = worldState.StateRoot;
