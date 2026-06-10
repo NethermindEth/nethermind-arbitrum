@@ -3,7 +3,6 @@
 
 using Autofac;
 using FluentAssertions;
-using MathNet.Numerics.Distributions;
 using Nethermind.Abi;
 using Nethermind.Arbitrum.Arbos;
 using Nethermind.Arbitrum.Arbos.Compression;
