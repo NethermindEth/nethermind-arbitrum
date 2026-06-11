@@ -260,6 +260,9 @@ namespace Nethermind.Arbitrum.Execution
                 if (Logger.IsTrace)
                     Logger.Trace("Refunding delegations only: " + refund);
                 spentGas -= refund;
+            } else if (substate.IsError && substate.SubstateError?.Contains("onchain filter") == true)
+            {
+                spentGas -= ArbitrumGasPolicy.GetRemainingGas(unspentGas);
             }
 
             // Capture accumulated MultiGas with refund applied.
@@ -558,8 +561,6 @@ namespace Nethermind.Arbitrum.Execution
             out TransactionResult transactionResult)
         {
             bool shouldSkip = false;
-            MultiGas usedMultiGas = default;
-            GasConsumed gasConsumed = tx.GasLimit;
             transactionResult = TransactionResult.Ok;
             if (tx.Hash is null)
                 return true;
@@ -569,14 +570,12 @@ namespace Nethermind.Arbitrum.Execution
             {
                 long adjusted = (long)gasUsed - GasCostOf.Transaction;
                 ArbitrumGasPolicy.Consume(ref gasAvailable, adjusted);
-                usedMultiGas.Increment(ResourceKind.Computation, (ulong)adjusted);
-
-                gasConsumed = tx.GasLimit - ArbitrumGasPolicy.GetRemainingGas(gasAvailable);
                 shouldSkip = true;
             }
-            if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash) == true)
+            else if (_arbosState?.FilteredTransactions?.IsFilteredFree(tx.Hash) == true)
             {
-                usedMultiGas.Increment(ResourceKind.Computation, (ulong)gasConsumed.SpentGas);
+                //consume everything - this is Computation for multi-gas
+                ArbitrumGasPolicy.Consume(ref gasAvailable, ArbitrumGasPolicy.GetRemainingGas(gasAvailable));
                 shouldSkip = true;
             }
 
@@ -584,7 +583,7 @@ namespace Nethermind.Arbitrum.Execution
                 return true;
 
             TransactionSubstate substate = new(EvmExceptionType.Revert, false, $"transaction {tx.Hash?.ToShortString()} in onchain filter");
-            TxExecContext.AccumulatedMultiGas = usedMultiGas;
+            GasConsumed gasConsumed = Refund(tx, header, spec, opts, substate, in gasAvailable, in opcodeGasPrice, 0, intrinsicGas.FloorGas, intrinsicGas.Standard, 0);
 
             UpdateHeaderGasUsedAndPayFees(tx, header, spec, tracer, opts, substate, in gasConsumed, in premiumPerGas, in blobBaseFee, StatusCode.Failure);
             Address executingAccount = tx.GetRecipient(tx.IsContractCreation ? WorldState.GetNonce(tx.SenderAddress!) : 0);

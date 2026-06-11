@@ -15,7 +15,6 @@ using Nethermind.Arbitrum.Execution;
 using Nethermind.Arbitrum.Execution.Transactions;
 using Nethermind.Arbitrum.Math;
 using Nethermind.Arbitrum.Precompiles;
-using Nethermind.Arbitrum.Precompiles.Abi;
 using Nethermind.Arbitrum.Precompiles.Parser;
 using Nethermind.Arbitrum.Test.Infrastructure;
 using Nethermind.Arbitrum.Test.Precompiles;
@@ -38,7 +37,6 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Int256;
 using Nethermind.Logging;
 using Nethermind.Serialization.Rlp;
-using Nethermind.State;
 
 namespace Nethermind.Arbitrum.Test.Execution;
 
@@ -4188,6 +4186,128 @@ public class ArbitrumTransactionProcessorTests
     }
 
     [Test]
+    public void Execute_WithFilteredTx_AndComputeHoldGas_RefundsComputeHoldGas()
+    {
+        // Tests that ComputeHoldGas set in GasChargingHook is correctly refunded even when a
+        // transaction is filtered (EVM does not execute). ComputeHoldGas arises when gasLeft after
+        // poster-gas deduction exceeds the per-tx gas limit (PerTxGasLimitStorage, used for ArbOS v60+).
+        ulong baseFeePerGas = 1_000;
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create(baseFeePerGas: baseFeePerGas);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(ctx.WorldState, burner, LimboLogs.Instance.GetClassLogger<ArbosState>());
+
+        // Setting PerTxGasLimitStorage = 0 forces max (the cap on compute gas) to
+        // SaturateSub(0, intrinsicGas) = 0, so all gasLeft after poster cost becomes ComputeHoldGas.
+        arbosState.L2PricingState.PerTxGasLimitStorage.Set(0);
+
+        Address sender = TestItem.AddressA;
+        long intrinsicGas = GasCostOf.Transaction;
+        long gasLimit = 100_000;
+
+        ctx.WorldState.CreateAccount(sender, 1.Ether);
+
+        Transaction tx = ctx.BuildFilteredTransferTx(arbosState, sender, premiumGas: 0, baseFeePerGas, gasLimit, valueToTransfer: 0);
+
+        // Compute the exact poster gas that GasChargingHook will charge for this tx.
+        // Coinbase in FilteredTxTestContext is not BatchPosterAddress, so CollectTips = false
+        // and actualGasPrice = baseFee. PosterDataCost returns the L1 data cost.
+        (UInt256 posterCost, _) = arbosState.L1PricingState.PosterDataCost(
+            tx,
+            ctx.GenesisHeader.Beneficiary!,
+            arbosState.BrotliCompressionLevel.Get(),
+            isTransactionProcessing: true
+        );
+        long posterGas = (long)(posterCost / baseFeePerGas).ToULongSafe();
+
+        // ComputeHoldGas = gasLeft_after_poster - max = (gasLimit - intrinsicGas - posterGas) - 0
+        long computeHoldGas = gasLimit - intrinsicGas - posterGas;
+        computeHoldGas.Should().BeGreaterThan(0, "test requires a non-zero ComputeHoldGas to be meaningful");
+
+        UInt256 senderInitialBalance = ctx.WorldState.GetBalance(sender);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = ctx.Processor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert,
+            "filtered transactions are marked as reverted");
+
+        // The refund of ComputeHoldGas means the sender pays only for intrinsicGas + posterGas,
+        // not the full gasLimit.
+        long expectedGasSpent = gasLimit - computeHoldGas;
+        tracer.GasSpent.Should().Be(expectedGasSpent);
+
+        UInt256 senderFinalBalance = ctx.WorldState.GetBalance(sender);
+        senderFinalBalance.Should().Be(senderInitialBalance - (ulong)expectedGasSpent * baseFeePerGas);
+    }
+
+    [Test]
+    public void Execute_WithFilteredTx_AndCalldata_AccumulatesL2CalldataMultiGas()
+    {
+        // Verifies that L2Calldata multigas is accumulated for filtered transactions that carry
+        // call data, matching the per-resource breakdown computed by CalculateIntrinsicGas.
+        ulong baseFeePerGas = 1_000;
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create(baseFeePerGas: baseFeePerGas);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(ctx.WorldState, burner, LimboLogs.Instance.GetClassLogger<ArbosState>());
+
+        Address sender = TestItem.AddressA;
+        ctx.WorldState.CreateAccount(sender, 1.Ether);
+
+        // 4 non-zero data bytes → L2Calldata = 4 × TxDataNonZeroEip2028 (16) = 64
+        byte[] calldata = [0x01, 0x02, 0x03, 0x04];
+        ulong expectedL2CalldataGas = 4 * (ulong)GasCostOf.TxDataNonZeroEip2028;
+        // Set gasLimit = intrinsicGas so ComputeHoldGas = 0 and spentGas = gasLimit
+        long gasLimit = GasCostOf.Transaction + (long)expectedL2CalldataGas;
+
+        Transaction tx = ctx.BuildFilteredTransferTx(arbosState, sender, premiumGas: 0, baseFeePerGas, gasLimit, valueToTransfer: 0, data: calldata);
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = ctx.Processor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert, "filtered transactions are marked as reverted");
+        tracer.GasSpent.Should().Be(gasLimit, "no ComputeHoldGas when gasLimit equals intrinsicGas");
+
+        MultiGas accumulatedMultiGas = ctx.Processor.TxExecContext.AccumulatedMultiGas;
+        accumulatedMultiGas.Get(ResourceKind.L2Calldata).Should().Be(expectedL2CalldataGas,
+            "filtered tx with calldata must burn L2Calldata multigas for each data byte");
+        accumulatedMultiGas.Get(ResourceKind.Computation).Should().Be((ulong)GasCostOf.Transaction,
+            "filtered tx must burn Computation multigas for the base transaction cost");
+    }
+
+    [Test]
+    public void Execute_WithFilteredTx_AndHardcodedTx_ConsumesOnlyAdjustedGas()
+    {
+        ulong baseFeePerGas = 1_000;
+        using FilteredTxTestContext ctx = FilteredTxTestContext.Create(baseFeePerGas: baseFeePerGas);
+
+        SystemBurner burner = new(readOnly: false);
+        ArbosState arbosState = ArbosState.OpenArbosState(ctx.WorldState, burner, LimboLogs.Instance.GetClassLogger<ArbosState>());
+
+        Address sender = TestItem.AddressA;
+        ctx.WorldState.CreateAccount(sender, 1.Ether);
+
+        long excess = 5000;
+        long gasLimit = 45174 + excess; //hardcoded gas + some more to test
+
+        Transaction tx = ctx.BuildFilteredTransferTx(arbosState, sender, premiumGas: 0, baseFeePerGas, gasLimit, valueToTransfer: 0);
+        tx.Hash = new Hash256("0x58df300a7f04fe31d41d24672786cbe1c58b4f3d8329d0d74392d814dd9f7e40"); //the hardcoded tx
+
+        TestAllTracerWithOutput tracer = new();
+        TransactionResult result = ctx.Processor.Execute(tx, tracer);
+
+        result.Should().Be(TransactionResult.Ok);
+        result.EvmExceptionType.Should().Be(EvmExceptionType.Revert, "filtered transactions are marked as reverted");
+        //doesn't burn all gas limit like standard filtered tx, but only the hardcoded amount
+        tracer.GasSpent.Should().Be(gasLimit - excess);
+        MultiGas accumulatedMultiGas = ctx.Processor.TxExecContext.AccumulatedMultiGas;
+        accumulatedMultiGas.Get(ResourceKind.Computation).Should().Be((ulong)(gasLimit - excess));
+    }
+
+    [Test]
     public void Execute_WithFilteredTxBelowArbOs60_ExecutesNormally()
     {
         ulong baseFeePerGas = 1_000;
@@ -4361,7 +4481,7 @@ public class ArbitrumTransactionProcessorTests
             return new FilteredTxTestContext(worldState, scope, processor, genesis.Header, activeBlockTimestamp);
         }
 
-        public Transaction BuildFilteredTransferTx(ArbosState arbosState, Address senderAddress, ulong premiumGas, ulong baseFeePerGas, long gasLimit, ulong valueToTransfer = 1)
+        public Transaction BuildFilteredTransferTx(ArbosState arbosState, Address senderAddress, ulong premiumGas, ulong baseFeePerGas, long gasLimit, ulong valueToTransfer = 1, byte[]? data = null)
         {
             // Create a simple transfer tx
             Transaction transferTx = Build.A.Transaction
@@ -4370,6 +4490,7 @@ public class ArbitrumTransactionProcessorTests
                 .WithGasLimit(gasLimit)
                 .WithGasPrice(baseFeePerGas + premiumGas)
                 .WithNonce(0)
+                .WithData(data)
                 .WithSenderAddress(senderAddress)
                 .SignedAndResolved(TestItem.PrivateKeyA)
                 .TestObject;
