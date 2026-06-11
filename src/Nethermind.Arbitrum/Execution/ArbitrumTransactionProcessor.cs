@@ -932,7 +932,6 @@ namespace Nethermind.Arbitrum.Execution
             availableRefund += withheldGasFunds;
             availableRefund += withheldSubmissionFee;
 
-
             if (isFiltered)
                 return new(false, FilteredTransactionResult(tx.Hash!), eventLogs);
 
@@ -1657,6 +1656,7 @@ namespace Nethermind.Arbitrum.Execution
             Address recipient = _arbosState!.FilteredFundsRecipient.Get();
             return recipient == Address.Zero ? _arbosState.NetworkFeeAccount.Get() : recipient;
         }
+
         private TransactionResult FilteredTransactionResult(Hash256? txHash) =>
             TransactionResult.EvmException(EvmExceptionType.Revert, $"transaction {txHash?.ToShortString()} in onchain filter");
     }
