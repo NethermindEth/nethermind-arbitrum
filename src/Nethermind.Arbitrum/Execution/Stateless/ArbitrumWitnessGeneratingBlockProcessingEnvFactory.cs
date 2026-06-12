@@ -15,6 +15,7 @@ using Nethermind.Db;
 using Nethermind.Evm.State;
 using Nethermind.Logging;
 using Nethermind.State;
+using Nethermind.Trie.Pruning;
 using static Nethermind.Arbitrum.Execution.ArbitrumBlockProcessor;
 using Nethermind.Arbitrum.Evm;
 using Nethermind.Arbitrum.Precompiles;
@@ -47,8 +48,13 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
     {
         IReadOnlyDbProvider readOnlyDbProvider = new ReadOnlyDbProvider(dbProvider, true);
         WitnessCapturingTrieStore trieStore = new(reconstructedStateTrieStore);
-        IStateReader stateReader = new StateReader(trieStore, readOnlyDbProvider.CodeDb, logManager);
-        WorldState worldState = new(new TrieStoreScopeProvider(trieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
+        // Execution and state-root recomputation must reach the capturing store through the
+        // synchronized wrapper: BulkSet's parallel workers would otherwise corrupt its
+        // single-writer collector. The concrete capturing store is still handed to
+        // WitnessGeneratingWorldState below, which only drains it single-threaded in GetWitness.
+        ITrieStore synchronizedTrieStore = new SynchronizedTrieStore(trieStore);
+        IStateReader stateReader = new StateReader(synchronizedTrieStore, readOnlyDbProvider.CodeDb, logManager);
+        WorldState worldState = new(new TrieStoreScopeProvider(synchronizedTrieStore, readOnlyDbProvider.CodeDb, logManager), logManager);
 
         IBlocksConfig blocksConfig = rootLifetimeScope.Resolve<IBlocksConfig>();
 
@@ -123,5 +129,14 @@ public class ArbitrumWitnessGeneratingBlockProcessingEnvFactory(
         });
 
         return new ExecutionRecordingScope(envLifetimeScope);
+    }
+
+    // Unlike the upstream factory, which pools and resets env entries across rents, this factory
+    // builds a fresh env per scope — disposing the lifetime scope releases everything.
+    private sealed class ExecutionRecordingScope(ILifetimeScope envLifetimeScope) : IWitnessGeneratingBlockProcessingEnvScope
+    {
+        public IWitnessGeneratingBlockProcessingEnv Env { get; } = envLifetimeScope.Resolve<IWitnessGeneratingBlockProcessingEnv>();
+
+        public void Dispose() => envLifetimeScope.Dispose();
     }
 }
