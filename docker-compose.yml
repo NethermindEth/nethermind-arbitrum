@@ -1,7 +1,7 @@
 
 services:
   nethermind-arbitrum:
-    image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.2.0}
+    image: ${NETHERMIND_IMAGE:-nethermind/nethermind-arbitrum:0.2.1}
     container_name: nethermind-arbitrum
     restart: 'no'
     stop_grace_period: 5m
