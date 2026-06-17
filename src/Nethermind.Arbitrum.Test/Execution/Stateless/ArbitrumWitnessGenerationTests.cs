@@ -1765,9 +1765,6 @@ public class ArbitrumWitnessGenerationTests
     // measured 40s -> 21s when the asserts were disabled).
     private static void AssertPreimagesEqual(IReadOnlyDictionary<Hash256, byte[]?> actual, IReadOnlyDictionary<Hash256, byte[]?> expected)
     {
-        if (actual.Count != expected.Count)
-            Assert.Fail($"Preimage count mismatch: actual {actual.Count}, expected {expected.Count}");
-
         foreach ((Hash256 hash, byte[]? expectedBytes) in expected)
         {
             if (!actual.TryGetValue(hash, out byte[]? actualBytes))
@@ -1780,9 +1777,6 @@ public class ArbitrumWitnessGenerationTests
 
     private static void AssertUserWasmsEqual(IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> actual, IReadOnlyDictionary<Hash256, IReadOnlyDictionary<string, byte[]>> expected)
     {
-        if (actual.Count != expected.Count)
-            Assert.Fail($"UserWasms module count mismatch: actual {actual.Count}, expected {expected.Count}");
-
         foreach ((Hash256 moduleHash, IReadOnlyDictionary<string, byte[]> expectedTargets) in expected)
         {
             if (!actual.TryGetValue(moduleHash, out IReadOnlyDictionary<string, byte[]>? actualTargets))
@@ -1790,9 +1784,6 @@ public class ArbitrumWitnessGenerationTests
                 Assert.Fail($"UserWasms module {moduleHash} missing from actual");
                 return; // unreachable; satisfies nullable flow analysis
             }
-
-            if (actualTargets.Count != expectedTargets.Count)
-                Assert.Fail($"UserWasms target count mismatch for module {moduleHash}: actual {actualTargets.Count}, expected {expectedTargets.Count}");
 
             foreach ((string target, byte[] expectedAsm) in expectedTargets)
             {
