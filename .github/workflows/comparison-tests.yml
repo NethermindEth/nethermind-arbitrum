@@ -64,12 +64,12 @@ jobs:
 
     steps:
       - name: Checkout Nethermind-Arbitrum
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Checkout Nitro
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.NITRO_REPO }}
           ref: ${{ inputs.nitro_branch || 'system-tests' }}

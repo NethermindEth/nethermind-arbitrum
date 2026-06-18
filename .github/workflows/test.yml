@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: true
 
@@ -67,7 +67,7 @@ jobs:
     if: needs.test.result == 'failure' && startsWith(github.head_ref, 'auto/nethermind-update')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Post failure comment on PR
         env:
