@@ -9,8 +9,11 @@ output_path=/nethermind/output
 
 echo "Building Nethermind Arbitrum"
 
-# Restore dependencies
-dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --locked-mode
+# Restore dependencies. Pass PublishReadyToRun so the SDK fetches R2R platform
+# packs (crossgen2, runtime packs) for every RID listed in Nethermind.Runner's
+# <RuntimeIdentifiers>. Staying in --locked-mode preserves reproducibility —
+# platform packs are determined by the pinned SDK image, not the lock file.
+dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --locked-mode -p:PublishReadyToRun=true
 
 for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   echo "  Publishing for $rid"
@@ -23,11 +26,12 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
     -p:PublishSingleFile=true \
     -p:SourceRevisionId=$1
 
-  # Restore Arbitrum plugin dependencies for the specific RID
-  dotnet restore src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
-    -r $rid
-
-  # Build Arbitrum plugin (not self-contained, will use runner's runtime)
+  # Build Arbitrum plugin (not self-contained, will use runner's runtime).
+  # The upfront --locked-mode restore already populated assets for every RID
+  # listed in Nethermind.Arbitrum's <RuntimeIdentifiers>; a per-RID restore
+  # here would traverse the Nethermind.Runner project reference and rewrite
+  # Runner's project.assets.json with only the current RID, breaking
+  # subsequent loop iterations.
   dotnet publish src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
     -c $build_config -r $rid -o $output_path/$rid/arbitrum-tmp --no-restore --sc false \
     -p:SourceRevisionId=$1
@@ -37,17 +41,20 @@ for rid in "linux-arm64" "linux-x64" "osx-arm64" "win-x64"; do
   cp $output_path/$rid/arbitrum-tmp/Nethermind.Arbitrum.* $output_path/$rid/plugins/
 
   # Copy Stylus native libraries from NuGet package output.
-  mkdir -p $output_path/$rid/runtimes
-  if [ -d "$output_path/$rid/arbitrum-tmp/runtimes" ]; then
-    cp -r $output_path/$rid/arbitrum-tmp/runtimes/. $output_path/$rid/runtimes/
-    if ! find "$output_path/$rid/runtimes" -name "*stylus*" -print -quit | grep -q .; then
-      echo "ERROR: No Stylus native libraries were copied for $rid"
-      exit 1
-    fi
-  else
+  # `dotnet publish -r <rid>` flattens the matching RID's native assets
+  # (runtimes/<rid>/native/libstylus.*) into the publish root, so the files
+  # are picked up there and placed back into the runtimes/<rid>/native layout
+  # the .NET host adds to the native library search path at startup.
+  native_dir=$output_path/$rid/runtimes/$rid/native
+  mkdir -p "$native_dir"
+  shopt -s nullglob
+  stylus_libs=("$output_path/$rid/arbitrum-tmp"/*stylus*)
+  shopt -u nullglob
+  if [ ${#stylus_libs[@]} -eq 0 ]; then
     echo "ERROR: Stylus native libraries not found for $rid"
     exit 1
   fi
+  cp "${stylus_libs[@]}" "$native_dir/"
 
   # Copy Arbitrum configs and chainspecs
   mkdir -p $output_path/$rid/configs $output_path/$rid/chainspec
