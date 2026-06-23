@@ -40,7 +40,7 @@ jobs:
   notify-submodule-failure:
     name: Notify Submodule Update Failure
     needs: format
-    if: needs.format.result == 'failure' && startsWith(github.head_ref, 'auto/nethermind-update')
+    if: needs.format.result == 'failure' && github.head_ref == 'auto/nethermind-submodule-update'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

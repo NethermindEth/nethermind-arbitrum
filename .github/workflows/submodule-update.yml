@@ -1,66 +1,28 @@
-name: Nethermind Submodule Update
+name: Submodule Auto-Update
 
 on:
   schedule:
-    - cron: '0 5 * * *'  # Daily at 5 AM UTC (before comparison tests)
-  workflow_dispatch:      # Manual trigger for testing
-
-permissions: {}
+    - cron: '0 6 * * *' # Daily at 06:00 UTC
+  workflow_dispatch:
 
 concurrency:
   group: submodule-update
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+env:
+  BRANCH_NAME: auto/nethermind-submodule-update
+  SUBMODULE_PATH: src/Nethermind
+  UPSTREAM_BRANCH: master
+
+permissions: {}
 
 jobs:
-  check-for-updates:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      has-updates: ${{ steps.check.outputs.has-updates }}
-      current-sha: ${{ steps.check.outputs.current-sha }}
-      latest-sha: ${{ steps.check.outputs.latest-sha }}
-      commit-count: ${{ steps.check.outputs.commit-count }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-          fetch-depth: 0
-
-      - name: Check for submodule updates
-        id: check
-        run: |
-          cd src/Nethermind
-          CURRENT_SHA=$(git rev-parse HEAD)
-          git fetch origin master
-          LATEST_SHA=$(git rev-parse origin/master)
-
-          echo "Current SHA: $CURRENT_SHA"
-          echo "Latest SHA: $LATEST_SHA"
-
-          if [ "$CURRENT_SHA" != "$LATEST_SHA" ]; then
-            COMMIT_COUNT=$(git rev-list --count "$CURRENT_SHA".."$LATEST_SHA")
-            echo "Found $COMMIT_COUNT new commits"
-            echo "has-updates=true" >> "$GITHUB_OUTPUT"
-            echo "current-sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
-            echo "latest-sha=$LATEST_SHA" >> "$GITHUB_OUTPUT"
-            echo "commit-count=$COMMIT_COUNT" >> "$GITHUB_OUTPUT"
-          else
-            echo "Submodule is up to date"
-            echo "has-updates=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  create-update-pr:
-    needs: check-for-updates
-    if: needs.check-for-updates.outputs.has-updates == 'true'
+  update-submodule:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    env:
-      CURRENT_SHA: ${{ needs.check-for-updates.outputs.current-sha }}
-      LATEST_SHA: ${{ needs.check-for-updates.outputs.latest-sha }}
-      COMMIT_COUNT: ${{ needs.check-for-updates.outputs.commit-count }}
+      issues: write
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -69,106 +31,372 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
-          submodules: true
           fetch-depth: 0
+          submodules: true
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Check pause state
+        id: pause-check
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          PAUSED=$(gh label list --json name --jq '.[] | select(.name == "submodule-update-paused") | .name')
+          if [[ -n "$PAUSED" ]]; then
+            echo "::notice::Submodule updates are paused. Skipping."
+            echo "paused=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "paused=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure Git
+        if: steps.pause-check.outputs.paused != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Update submodule and create branch
-        id: update
+      # -- Check for submodule updates --
+      - name: Check for submodule updates
+        if: steps.pause-check.outputs.paused != 'true'
+        id: check
+        run: |
+          cd "$SUBMODULE_PATH"
+          CURRENT_SHA=$(git rev-parse HEAD)
+
+          # Fetch with timeout for resilience
+          timeout 60 git fetch origin "$UPSTREAM_BRANCH" || {
+            echo "::error::Failed to fetch submodule upstream (timeout or network error)"
+            exit 1
+          }
+
+          LATEST_SHA=$(git rev-parse "origin/$UPSTREAM_BRANCH")
+
+          echo "current_sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "latest_sha=$LATEST_SHA" >> "$GITHUB_OUTPUT"
+
+          if [[ "$CURRENT_SHA" == "$LATEST_SHA" ]]; then
+            echo "::notice::Submodule is up to date"
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          else
+            COMMIT_COUNT=$(git rev-list --count "$CURRENT_SHA..$LATEST_SHA")
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+            echo "commit_count=$COMMIT_COUNT" >> "$GITHUB_OUTPUT"
+            echo "::notice::Found $COMMIT_COUNT new submodule commits"
+          fi
+
+      # -- Find existing PR and branch state --
+      - name: Check existing PR and branch
+        if: steps.check.outputs.has_updates == 'true'
+        id: pr-state
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          BRANCH_NAME="auto/nethermind-update-$(date +%Y%m%d)"
-          SHORT_SHA="${LATEST_SHA:0:7}"
+          # Retry wrapper for gh CLI
+          gh_retry() {
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              echo "::warning::gh command failed (attempt $attempt/3), retrying..."
+              sleep $((attempt * 2))
+            done
+            return 1
+          }
 
-          echo "Branch name: $BRANCH_NAME"
-          echo "Short SHA: $SHORT_SHA"
+          # Find open PR for our branch
+          PR_NUMBER=$(gh_retry gh pr list \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty') || true
 
-          # Check if branch already exists
+          # Check if branch exists on remote
+          BRANCH_EXISTS="false"
           if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-            echo "Branch $BRANCH_NAME already exists, skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
+            BRANCH_EXISTS="true"
           fi
 
-          # Check if PR already exists for today
-          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number' 2>/dev/null || echo "")
-          if [ -n "$EXISTING_PR" ]; then
-            echo "PR #$EXISTING_PR already exists for branch $BRANCH_NAME, skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
+          echo "branch_exists=$BRANCH_EXISTS" >> "$GITHUB_OUTPUT"
 
-          git checkout -b "$BRANCH_NAME"
-          cd src/Nethermind
-          git checkout "$LATEST_SHA"
-          cd ../..
-          git add src/Nethermind
-          git commit -m "chore(deps): update Nethermind submodule to $SHORT_SHA"
-          git push origin "$BRANCH_NAME"
-
-          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
-          echo "short-sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-
-      - name: Generate changelog
-        if: steps.update.outputs.skip != 'true'
-        id: changelog
-        run: |
-          cd src/Nethermind
-          git fetch origin master
-
-          # Generate changelog (last 20 commits) - sanitize for safety
-          # Using %h (short hash) and %s (subject) which are relatively safe
-          git log --oneline \
-            "$CURRENT_SHA".."$LATEST_SHA" \
-            --pretty=format:"- %h %s" | head -20 > /tmp/changelog.txt
-
-          # Check if there are more commits
-          if [ "$COMMIT_COUNT" -gt 20 ]; then
-            echo "" >> /tmp/changelog.txt
-            echo "_...and $((COMMIT_COUNT - 20)) more commits_" >> /tmp/changelog.txt
-          fi
-
-      - name: Create Pull Request
-        if: steps.update.outputs.skip != 'true'
+      # -- Developer lock check --
+      - name: Check for developer commits
+        if: steps.check.outputs.has_updates == 'true' && steps.pr-state.outputs.branch_exists == 'true'
+        id: dev-check
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          SHORT_SHA: ${{ steps.update.outputs.short-sha }}
         run: |
-          # Build PR body in a file to handle special characters safely
-          PR_BODY_FILE=/tmp/pr_body.md
+          git fetch origin "$BRANCH_NAME"
+          LAST_AUTHOR=$(git log -1 --format='%ae' "origin/$BRANCH_NAME")
+
+          if [[ "$LAST_AUTHOR" != *"github-actions[bot]"* && "$LAST_AUTHOR" != *"noreply.github.com"* ]]; then
+            echo "::warning::Developer commits detected on $BRANCH_NAME (last author: $LAST_AUTHOR). Skipping update."
+            echo "has_dev_commits=true" >> "$GITHUB_OUTPUT"
+
+            if [[ -n "${{ steps.pr-state.outputs.pr_number }}" ]]; then
+              printf '%s\n\n%s\n' \
+                "**Auto-update skipped** -- developer commits detected on this branch." \
+                "The workflow will resume automatic updates after this PR is merged or after the developer commits are incorporated." \
+                > /tmp/dev_lock_comment.md
+              gh pr comment "${{ steps.pr-state.outputs.pr_number }}" \
+                --body-file /tmp/dev_lock_comment.md || true
+            fi
+          else
+            echo "has_dev_commits=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # -- Prepare branch --
+      - name: Prepare branch
+        if: |
+          steps.check.outputs.has_updates == 'true' &&
+          (steps.dev-check.outputs.has_dev_commits != 'true')
+        id: prepare
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if [[ "${{ steps.pr-state.outputs.branch_exists }}" == "true" ]]; then
+            git checkout "$BRANCH_NAME"
+
+            # Merge main to keep branch current (NEVER force-push)
+            if ! git merge origin/main --no-edit; then
+              echo "::error::Merge conflict with main. Manual resolution required."
+              git merge --abort
+
+              if [[ -n "${{ steps.pr-state.outputs.pr_number }}" ]]; then
+                printf '%s\n\n%s\n' \
+                  "**Merge conflict detected** -- unable to merge main into this branch automatically." \
+                  "Please resolve the conflict manually, or close this PR so the workflow creates a fresh one." \
+                  > /tmp/conflict_comment.md
+                gh pr comment "${{ steps.pr-state.outputs.pr_number }}" \
+                  --body-file /tmp/conflict_comment.md || true
+              fi
+              exit 1
+            fi
+          else
+            git checkout -b "$BRANCH_NAME"
+          fi
+
+          echo "branch_ready=true" >> "$GITHUB_OUTPUT"
+
+      # -- Update submodule --
+      - name: Update submodule
+        if: steps.prepare.outputs.branch_ready == 'true'
+        id: update
+        run: |
+          cd "$SUBMODULE_PATH"
+          git checkout "${{ steps.check.outputs.latest_sha }}"
+          cd "$GITHUB_WORKSPACE"
+
+          # Check if there's actually a diff (may be no-op after merge brought it in)
+          if git diff --quiet "$SUBMODULE_PATH"; then
+            echo "::notice::Submodule already at target SHA after merge. No commit needed."
+            echo "needs_commit=false" >> "$GITHUB_OUTPUT"
+          else
+            SHORT_SHA="${{ steps.check.outputs.latest_sha }}"
+            SHORT_SHA="${SHORT_SHA:0:8}"
+            git add "$SUBMODULE_PATH"
+            git commit -m "chore(deps): update nethermind submodule to ${SHORT_SHA}"
+            echo "needs_commit=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # -- Push with retry --
+      - name: Push changes
+        if: steps.update.outputs.needs_commit == 'true'
+        id: push
+        run: |
+          push_success=false
+          for attempt in 1 2 3; do
+            if git push origin "$BRANCH_NAME"; then
+              push_success=true
+              break
+            fi
+            echo "::warning::Push attempt $attempt/3 failed. Pulling and retrying..."
+            git pull origin "$BRANCH_NAME" --rebase || {
+              echo "::error::Rebase failed during push retry"
+              exit 1
+            }
+            sleep $((attempt * 2))
+          done
+
+          if [[ "$push_success" != "true" ]]; then
+            echo "::error::Push failed after 3 attempts"
+            exit 1
+          fi
+
+          echo "push_success=true" >> "$GITHUB_OUTPUT"
+
+      # -- Generate changelog (file-based, sanitized) --
+      - name: Generate changelog
+        if: steps.push.outputs.push_success == 'true' || steps.update.outputs.needs_commit == 'false'
+        run: |
+          cd "$SUBMODULE_PATH"
+
+          CURRENT="${{ steps.check.outputs.current_sha }}"
+          LATEST="${{ steps.check.outputs.latest_sha }}"
+          COUNT="${{ steps.check.outputs.commit_count }}"
+
+          # Write to file, sanitize shell metacharacters
+          git log --pretty=format:"- %h %s" "$CURRENT..$LATEST" \
+            | head -30 \
+            | sed 's/[$`\\]//g' \
+            > /tmp/changelog_short.txt
+
+          if [[ "$COUNT" -gt 30 ]]; then
+            {
+              echo ""
+              echo "<details><summary>... and $((COUNT - 30)) more commits</summary>"
+              echo ""
+              git log --pretty=format:"- %h %s" "$CURRENT..$LATEST" \
+                | tail -n +31 \
+                | sed 's/[$`\\]//g'
+              echo ""
+              echo "</details>"
+            } > /tmp/changelog_rest.txt
+          else
+            : > /tmp/changelog_rest.txt
+          fi
+
+      # -- Build PR body (file-based, no interpolation) --
+      - name: Build PR body
+        if: steps.push.outputs.push_success == 'true' || steps.update.outputs.needs_commit == 'false'
+        run: |
+          COUNT="${{ steps.check.outputs.commit_count }}"
+          CURRENT="${{ steps.check.outputs.current_sha }}"
+          LATEST="${{ steps.check.outputs.latest_sha }}"
+
+          # Merge recommendation
+          if [[ "$COUNT" -lt 20 ]]; then
+            SIGNAL="🟢 **Ready to merge** — small update, low risk"
+          elif [[ "$COUNT" -lt 50 ]]; then
+            SIGNAL="🟡 **Review recommended** — medium-sized update"
+          else
+            SIGNAL="🔴 **Careful review required** — large update ($COUNT commits)"
+          fi
+
+          # Build PR body to file
+          {
+            echo "## Automatic Nethermind Submodule Update"
+            echo ""
+            echo "### Merge Recommendation"
+            echo "${SIGNAL}"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Upstream | \`NethermindEth/nethermind@master\` |"
+            echo "| From | \`${CURRENT:0:12}\` |"
+            echo "| To | \`${LATEST:0:12}\` |"
+            echo "| Commits | ${COUNT} |"
+            echo ""
+            echo "### Changelog"
+          } > /tmp/pr_body.md
+
+          # Append changelog from sanitized file (not interpolated)
+          cat /tmp/changelog_short.txt >> /tmp/pr_body.md
+          cat /tmp/changelog_rest.txt >> /tmp/pr_body.md
 
           {
-            echo "## Automated Submodule Update"
-            echo
-            echo "This PR updates the Nethermind submodule from \`$CURRENT_SHA\` to \`$LATEST_SHA\`."
-            echo
-            echo "### Changes ($COMMIT_COUNT commits)"
-            echo
-            cat /tmp/changelog.txt
-            echo
-            echo "[View full diff on GitHub](https://github.com/NethermindEth/nethermind/compare/${CURRENT_SHA}...${LATEST_SHA})"
-            echo
-            echo "### CI Checks"
-            echo "- [ ] Build"
-            echo "- [ ] Unit Tests"
-            echo "- [ ] Format Check"
-            echo "- [ ] Comparison Tests (manual trigger recommended)"
-            echo
+            echo ""
+            echo "[View full diff on GitHub](https://github.com/NethermindEth/nethermind/compare/${CURRENT}...${LATEST})"
+            echo ""
+            echo "### Before Merging"
+            echo "- Verify CI checks pass (build, tests, format)"
+            echo "- Consider running comparison tests manually for large updates"
+            echo ""
             echo "---"
-            echo "*This PR was automatically created by the submodule update workflow.*"
-          } > "$PR_BODY_FILE"
+            echo "<sub>This PR is automatically maintained daily. Developer commits on this branch will pause automation.</sub>"
+          } >> /tmp/pr_body.md
 
-          gh pr create \
-            --title "chore(deps): Update Nethermind submodule ($COMMIT_COUNT commits)" \
-            --body-file "$PR_BODY_FILE" \
-            --label "dependencies" \
-            --label "automated"
+      # -- Create or update PR --
+      - name: Create or update PR
+        if: steps.push.outputs.push_success == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          COUNT="${{ steps.check.outputs.commit_count }}"
+          PR_TITLE="chore(deps): nethermind submodule update (+${COUNT} commits)"
+          PR_NUMBER="${{ steps.pr-state.outputs.pr_number }}"
+
+          if [[ -n "$PR_NUMBER" ]]; then
+            gh pr edit "$PR_NUMBER" \
+              --title "$PR_TITLE" \
+              --body-file /tmp/pr_body.md
+            echo "::notice::Updated PR #$PR_NUMBER"
+          else
+            gh pr create \
+              --title "$PR_TITLE" \
+              --body-file /tmp/pr_body.md \
+              --head "$BRANCH_NAME" \
+              --base main \
+              --label "dependencies" \
+              --label "automated"
+            echo "::notice::Created new submodule update PR"
+          fi
+
+      # -- Staleness check --
+      - name: Check staleness
+        if: steps.pr-state.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          PR_NUMBER="${{ steps.pr-state.outputs.pr_number }}"
+          COUNT="${{ steps.check.outputs.commit_count }}"
+
+          PR_CREATED=$(gh pr view "$PR_NUMBER" --json createdAt --jq '.createdAt')
+          NOW=$(date +%s)
+          CREATED=$(date -d "$PR_CREATED" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$PR_CREATED" +%s)
+          AGE_DAYS=$(( (NOW - CREATED) / 86400 ))
+
+          if [[ "$COUNT" -gt 100 ]] || [[ "$AGE_DAYS" -gt 30 ]]; then
+            printf '**Staleness warning** -- this PR has %s commits and is %s days old.\n\n' "$COUNT" "$AGE_DAYS" > /tmp/staleness_comment.md
+            printf 'Large accumulated diffs are harder to review and riskier to merge. Please consider:\n' >> /tmp/staleness_comment.md
+            printf '1. Merging now if CI is green\n' >> /tmp/staleness_comment.md
+            printf '2. Closing and letting the workflow create a fresh PR\n' >> /tmp/staleness_comment.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/staleness_comment.md || true
+          fi
+
+      # -- Summary --
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Submodule Update Summary"
+            echo ""
+            echo "| Step | Result |"
+            echo "|------|--------|"
+            echo "| Paused | ${{ steps.pause-check.outputs.paused || 'N/A' }} |"
+            echo "| Has Updates | ${{ steps.check.outputs.has_updates || 'N/A' }} |"
+            echo "| Commit Count | ${{ steps.check.outputs.commit_count || '0' }} |"
+            echo "| Dev Commits | ${{ steps.dev-check.outputs.has_dev_commits || 'N/A' }} |"
+            echo "| Branch Ready | ${{ steps.prepare.outputs.branch_ready || 'N/A' }} |"
+            echo "| Needs Commit | ${{ steps.update.outputs.needs_commit || 'N/A' }} |"
+            echo "| Push Success | ${{ steps.push.outputs.push_success || 'N/A' }} |"
+            echo "| PR Number | ${{ steps.pr-state.outputs.pr_number || 'new' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  notify-failure:
+    needs: update-submodule
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if a recent issue already exists (avoid spam)
+          EXISTING=$(gh issue list \
+            --label "automation-failure" \
+            --state open \
+            --json number \
+            --jq 'length')
+
+          if [[ "$EXISTING" -eq 0 ]]; then
+            ISSUE_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            printf 'The automatic submodule update workflow failed.\n\nPlease investigate the [workflow run](%s).\n' "$ISSUE_URL" \
+              > /tmp/issue_body.md
+            gh issue create \
+              --title "Submodule auto-update failed" \
+              --body-file /tmp/issue_body.md \
+              --label "automation-failure"
+          fi

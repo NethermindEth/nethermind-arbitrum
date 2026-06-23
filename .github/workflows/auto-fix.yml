@@ -1,0 +1,533 @@
+name: Auto-Fix Submodule Compatibility
+
+on:
+  workflow_run:
+    workflows: [Build, Test, "Format Check"]
+    types: [completed]
+    branches: [auto/nethermind-submodule-update]
+
+concurrency:
+  group: auto-fix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  BRANCH_NAME: auto/nethermind-submodule-update
+  MAX_ATTEMPTS: 2
+
+jobs:
+  # -- Gate: Only run on failure for our branch --
+  should-fix:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      failure_type: ${{ steps.check.outputs.failure_type }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
+      attempt_count: ${{ steps.check.outputs.attempt_count }}
+    permissions:
+      pull-requests: read
+      actions: read
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check if we should attempt fix
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          # Determine failure type from triggering workflow name
+          WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
+          case "$WORKFLOW_NAME" in
+            "Format Check") FAILURE_TYPE="format" ;;
+            "Build")        FAILURE_TYPE="build" ;;
+            "Test")         FAILURE_TYPE="test" ;;
+            *)              FAILURE_TYPE="unknown" ;;
+          esac
+          echo "failure_type=$FAILURE_TYPE" >> "$GITHUB_OUTPUT"
+
+          # Find the PR
+          PR_NUMBER=$(gh pr list \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty') || true
+          echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
+
+          if [[ -z "$PR_NUMBER" ]]; then
+            echo "No open PR found, skipping"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Count previous auto-fix attempts via PR comments
+          ATTEMPTS=$(gh api \
+            "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq '[.[] | select(.body | startswith("[AUTO-FIX-ATTEMPT]"))] | length')
+          echo "attempt_count=$ATTEMPTS" >> "$GITHUB_OUTPUT"
+
+          if [[ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]]; then
+            echo "::warning::Max auto-fix attempts ($MAX_ATTEMPTS) reached"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # -- Tier 1: Format Fix (deterministic, no AI) --
+  fix-format:
+    needs: should-fix
+    if: needs.should-fix.outputs.should_run == 'true' && needs.should-fix.outputs.failure_type == 'format'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BRANCH_NAME }}
+          submodules: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Auto-format
+        run: |
+          dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+          dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj
+
+      - name: Commit and push if changed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ needs.should-fix.outputs.pr_number }}
+        run: |
+          if git diff --quiet; then
+            echo "::notice::No format changes needed"
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "style: auto-format after submodule update"
+
+          if git push origin "$BRANCH_NAME"; then
+            # Record attempt
+            gh pr comment "$PR_NUMBER" \
+              --body "[AUTO-FIX-ATTEMPT] Tier 1 (format): Applied \`dotnet format\` automatically."
+          fi
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Auto-Fix: Format (Tier 1)"
+            echo "- Type: Deterministic (\`dotnet format\`)"
+            echo "- AI involved: No"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # -- Tier 2: Build Fix (AI + validation gate) --
+  fix-build:
+    needs: should-fix
+    if: needs.should-fix.outputs.should_run == 'true' && needs.should-fix.outputs.failure_type == 'build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BRANCH_NAME }}
+          submodules: true
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # First: try format fix (often resolves build issues too)
+      - name: Apply format fix first
+        run: |
+          dotnet format src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj || true
+          dotnet format src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj || true
+
+      # Capture build errors for Claude
+      - name: Attempt build and capture errors
+        id: build-errors
+        run: |
+          dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj \
+            --configuration Release 2>&1 | tee /tmp/build-output.txt || true
+
+          # Extract only error lines with codes (sanitize)
+          grep -E '^.*error [A-Z]{2}[0-9]+:' /tmp/build-output.txt \
+            | sed 's/[$`\\"\x27]//g' \
+            | head -50 \
+            > /tmp/build-errors-sanitized.txt
+
+          echo "has_errors=$([[ -s /tmp/build-errors-sanitized.txt ]] && echo true || echo false)" \
+            >> "$GITHUB_OUTPUT"
+
+      # Scope enforcement: make submodule read-only
+      - name: Enforce scope restrictions
+        if: steps.build-errors.outputs.has_errors == 'true'
+        run: |
+          chmod -R a-w src/Nethermind/
+          chmod -R u+w src/Nethermind.Arbitrum/
+          chmod -R u+w src/Nethermind.Arbitrum.Test/
+
+      - name: Claude Code build fix
+        if: steps.build-errors.outputs.has_errors == 'true'
+        timeout-minutes: 15
+        uses: anthropics/claude-code-action@beta
+        with:
+          prompt: |
+            The Nethermind submodule (src/Nethermind) was updated to a newer version and
+            the build of src/Nethermind.Arbitrum broke. Fix the build errors.
+
+            RULES:
+            - ONLY modify files in src/Nethermind.Arbitrum/ directory
+            - NEVER modify files in src/Nethermind/ (read-only upstream submodule)
+            - Common fixes: update interface implementations, add missing imports,
+              fix renamed types, update constructor parameters
+            - After fixing, verify with: dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj
+
+            Build errors (sanitized):
+            $(cat /tmp/build-errors-sanitized.txt)
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      # Scope verification: reject changes outside allowed directories
+      - name: Verify scope compliance
+        if: steps.build-errors.outputs.has_errors == 'true'
+        run: |
+          UNAUTHORIZED=$(git diff --name-only | grep -v '^src/Nethermind\.Arbitrum' || true)
+          if [[ -n "$UNAUTHORIZED" ]]; then
+            echo "::error::Claude modified files outside allowed scope: $UNAUTHORIZED"
+            git checkout -- .
+            exit 1
+          fi
+
+      # Validation gate: build + test must pass before push
+      - name: Validation gate (build)
+        id: validate-build
+        run: |
+          # Restore permissions for build
+          chmod -R u+w src/Nethermind/ 2>/dev/null || true
+
+          if dotnet build src/Nethermind.Arbitrum/Nethermind.Arbitrum.csproj --configuration Release; then
+            echo "build_passes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_passes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validation gate (test)
+        if: steps.validate-build.outputs.build_passes == 'true'
+        id: validate-test
+        run: |
+          if dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj --configuration Release --no-build 2>&1; then
+            echo "tests_pass=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests_pass=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push validated fix
+        if: steps.validate-build.outputs.build_passes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ needs.should-fix.outputs.pr_number }}
+          TESTS_PASS: ${{ steps.validate-test.outputs.tests_pass }}
+        run: |
+          if git diff --quiet; then
+            echo "::notice::No changes to commit"
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "$(cat <<'EOF'
+          fix(auto): resolve build errors from submodule update
+
+          Generated-By: Claude Code Auto-Fix (Tier 2)
+          EOF
+          )"
+
+          if git push origin "$BRANCH_NAME"; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 | wc -l | tr -d ' ')
+
+            if [[ "$TESTS_PASS" == "true" ]]; then
+              TEST_STATUS="Pass"
+            else
+              TEST_STATUS="Not validated"
+            fi
+
+            cat > /tmp/fix_comment.md << COMMENT
+          [AUTO-FIX-ATTEMPT] **Tier 2 (build fix)**
+
+          **Tool**: Claude Code
+          **Files changed**: ${CHANGED_FILES}
+          **Build**: Pass
+          **Tests**: ${TEST_STATUS}
+
+          > Review AI changes before merging. Look for scope compliance and semantic correctness.
+          COMMENT
+            sed -i 's/^          //' /tmp/fix_comment.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/fix_comment.md
+          else
+            echo "::error::Push failed"
+            exit 1
+          fi
+
+      - name: Report failure
+        if: failure() || steps.validate-build.outputs.build_passes == 'false'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ needs.should-fix.outputs.pr_number }}
+        run: |
+          cat > /tmp/fail_comment.md << 'COMMENT'
+          [AUTO-FIX-ATTEMPT] **Tier 2 (build fix) — FAILED**
+
+          Claude Code was unable to fix the build errors automatically.
+          Manual intervention required.
+
+          **Suggested next steps**:
+          1. Check the workflow run for details
+          2. Review build errors in the CI logs
+          3. Push a manual fix to this branch
+          COMMENT
+          sed -i 's/^          //' /tmp/fail_comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/fail_comment.md
+
+      # Upload audit artifacts
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-build-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            /tmp/build-errors-sanitized.txt
+            /tmp/build-output.txt
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Auto-Fix: Build (Tier 2)"
+            echo "- Tool: Claude Code"
+            echo "- Build errors found: ${{ steps.build-errors.outputs.has_errors }}"
+            echo "- Build passes after fix: ${{ steps.validate-build.outputs.build_passes || 'N/A' }}"
+            echo "- Tests pass after fix: ${{ steps.validate-test.outputs.tests_pass || 'N/A' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # -- Tier 3: Test Fix (AI + human approval required) --
+  fix-test:
+    needs: should-fix
+    if: needs.should-fix.outputs.should_run == 'true' && needs.should-fix.outputs.failure_type == 'test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.BRANCH_NAME }}
+          submodules: true
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Capture test failures
+      - name: Capture test failures
+        id: test-errors
+        run: |
+          dotnet test src/Nethermind.Arbitrum.Test/Nethermind.Arbitrum.Test.csproj \
+            --configuration Release \
+            --logger "trx;LogFileName=test-results.trx" \
+            2>&1 | tee /tmp/test-output.txt || true
+
+          # Extract failure summaries (sanitized)
+          grep -E '(Failed|Error)' /tmp/test-output.txt \
+            | sed 's/[$`\\"\x27]//g' \
+            | head -30 \
+            > /tmp/test-errors-sanitized.txt
+
+          echo "has_failures=true" >> "$GITHUB_OUTPUT"
+
+      # Scope enforcement
+      - name: Enforce scope restrictions
+        run: |
+          chmod -R a-w src/Nethermind/
+          chmod -R u+w src/Nethermind.Arbitrum/
+          chmod -R u+w src/Nethermind.Arbitrum.Test/
+
+      - name: Claude Code test fix
+        timeout-minutes: 15
+        uses: anthropics/claude-code-action@beta
+        with:
+          prompt: |
+            The Nethermind submodule (src/Nethermind) was updated and tests in
+            src/Nethermind.Arbitrum.Test broke. Analyze and fix the test failures.
+
+            RULES:
+            - ONLY modify files in src/Nethermind.Arbitrum.Test/ directory
+            - NEVER modify src/Nethermind/ (read-only upstream submodule)
+            - NEVER modify src/Nethermind.Arbitrum/ production code to make tests pass
+            - NEVER comment out, delete, or skip failing tests
+            - Fix test setup, mocks, and assertions to match new upstream behavior
+            - After fixing, verify with: dotnet test src/Nethermind.Arbitrum.Test/
+
+            Test failures (sanitized):
+            $(cat /tmp/test-errors-sanitized.txt)
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      # Scope + test-integrity verification
+      - name: Verify scope and test integrity
+        id: verify
+        run: |
+          # Check scope
+          UNAUTHORIZED=$(git diff --name-only | grep -v '^src/Nethermind\.Arbitrum' || true)
+          if [[ -n "$UNAUTHORIZED" ]]; then
+            echo "::error::Modified files outside scope: $UNAUTHORIZED"
+            git checkout -- .
+            exit 1
+          fi
+
+          # Flag if production code was modified (Tier 3 = test-only)
+          PROD_CHANGES=$(git diff --name-only | grep '^src/Nethermind\.Arbitrum/' | grep -v 'Test/' || true)
+          if [[ -n "$PROD_CHANGES" ]]; then
+            echo "::warning::Production code modified in test fix tier — flagging for review"
+            echo "prod_modified=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prod_modified=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Flag if tests were deleted or skipped
+          TESTS_REMOVED=$(git diff --stat | grep 'deletion' || true)
+          echo "tests_removed=$([[ -n "$TESTS_REMOVED" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      # Commit but DO NOT auto-merge — request human review
+      - name: Commit fix (human review required)
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ needs.should-fix.outputs.pr_number }}
+          PROD_MODIFIED: ${{ steps.verify.outputs.prod_modified }}
+          TESTS_REMOVED: ${{ steps.verify.outputs.tests_removed }}
+        run: |
+          if git diff --quiet; then
+            echo "::notice::No test changes to commit"
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "$(cat <<'EOF'
+          fix(auto): update tests for submodule compatibility
+
+          Generated-By: Claude Code Auto-Fix (Tier 3 — requires human review)
+          EOF
+          )"
+
+          git push origin "$BRANCH_NAME"
+
+          # Build review flags
+          FLAGS=""
+          [[ "$PROD_MODIFIED" == "true" ]] && FLAGS="${FLAGS}
+          - Production code was modified — verify this is intentional"
+          [[ "$TESTS_REMOVED" == "true" ]] && FLAGS="${FLAGS}
+          - Test deletions detected — verify tests were not removed to hide failures"
+
+          CHANGED_FILES=$(git diff --name-only HEAD~1)
+
+          cat > /tmp/review_comment.md << COMMENT
+          [AUTO-FIX-ATTEMPT] **Tier 3 (test fix) — HUMAN REVIEW REQUIRED**
+
+          **Tool**: Claude Code
+          **Files changed**:
+          \`\`\`
+          ${CHANGED_FILES}
+          \`\`\`
+
+          **Review flags**:
+          $([[ -n "$FLAGS" ]] && echo "$FLAGS" || echo "None — changes look clean")
+
+          **Required actions**:
+          1. Review the diff for correctness
+          2. Verify tests match upstream behavioral changes (not just making them pass)
+          3. Approve or request changes
+
+          > This is an AI-generated test fix. DO NOT merge without human review.
+          COMMENT
+          sed -i 's/^          //' /tmp/review_comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review_comment.md
+
+          # Add label for visibility
+          gh pr edit "$PR_NUMBER" --add-label "ai-fix-needs-review"
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autofix-test-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            /tmp/test-errors-sanitized.txt
+            /tmp/test-output.txt
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Auto-Fix: Test (Tier 3)"
+            echo "- Tool: Claude Code"
+            echo "- Human review: REQUIRED"
+            echo "- Production code modified: ${{ steps.verify.outputs.prod_modified }}"
+            echo "- Tests removed: ${{ steps.verify.outputs.tests_removed }}"
+          } >> "$GITHUB_STEP_SUMMARY"
