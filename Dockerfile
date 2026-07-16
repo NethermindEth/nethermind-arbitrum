@@ -42,7 +42,7 @@ COPY src/Nethermind.Arbitrum/Properties/chainspec /app/chainspec
 # Create data directory
 RUN mkdir -p /app/data
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.8-noble
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10-noble
 
 # Fix CVE-2025-68973 - Update gpgv package
 RUN apt-get update && \
